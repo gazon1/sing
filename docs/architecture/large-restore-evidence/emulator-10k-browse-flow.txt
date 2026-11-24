@@ -2,7 +2,7 @@ Running on capture_9x16
  > Flow large-restore-browse-imported-data
   > On Flow Complete
 WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
-WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:/home/max/.maestro/lib/protobuf-java-3.21.9.jar)
+WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:~/.maestro/lib/protobuf-java-3.21.9.jar)
 WARNING: Please consider reporting this to the maintainers of class com.google.protobuf.UnsafeUtil$MemoryAccessor
 WARNING: sun.misc.Unsafe::arrayBaseOffset will be removed in a future release
 Run ../../Maestro/helpers/launch-clean.yaml...
@@ -50,8 +50,8 @@ Press back... COMPLETED
 Run flow when id: nav_tab_inbox is not visible...
 Run flow when id: nav_tab_inbox is not visible... SKIPPED
 Assert that id: nav_tab_inbox is visible... COMPLETED
-2026-11-24T05:06:46.063054390Z Thread-5 ERROR Unable to write to stream /home/max/.maestro/tests/2026-11-24_080447/maestro.log for appender File
-org.apache.logging.log4j.core.appender.AppenderLoggingException: Error writing to stream /home/max/.maestro/tests/2026-11-24_080447/maestro.log
+2026-11-24T05:06:46.063054390Z Thread-5 ERROR Unable to write to stream ~/.maestro/tests/2026-11-24_080447/maestro.log for appender File
+org.apache.logging.log4j.core.appender.AppenderLoggingException: Error writing to stream ~/.maestro/tests/2026-11-24_080447/maestro.log
 	at org.apache.logging.log4j.core.appender.OutputStreamManager.writeToDestination(OutputStreamManager.java:265)
 	at org.apache.logging.log4j.core.appender.FileManager.writeToDestination(FileManager.java:335)
 	at org.apache.logging.log4j.core.appender.OutputStreamManager.flushBuffer(OutputStreamManager.java:296)
@@ -90,7 +90,7 @@ Caused by: java.io.IOException: Stream Closed
 	... 30 more
 
 2026-11-24T05:06:46.065277626Z Thread-5 ERROR An exception occurred processing Appender File
-org.apache.logging.log4j.core.appender.AppenderLoggingException: Error writing to stream /home/max/.maestro/tests/2026-11-24_080447/maestro.log
+org.apache.logging.log4j.core.appender.AppenderLoggingException: Error writing to stream ~/.maestro/tests/2026-11-24_080447/maestro.log
 	at org.apache.logging.log4j.core.appender.OutputStreamManager.writeToDestination(OutputStreamManager.java:265)
 	at org.apache.logging.log4j.core.appender.FileManager.writeToDestination(FileManager.java:335)
 	at org.apache.logging.log4j.core.appender.OutputStreamManager.flushBuffer(OutputStreamManager.java:296)

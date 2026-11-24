@@ -140,6 +140,11 @@ PROFILE_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 #: of that file carry the key and the profile's id as plain strings.
 ACTIVE_PROFILE_KEY = b"active_profile_id"
 
+#: The file the app keeps the active profile in, as the app's own storage
+#: names it. The file is read on the device, by the shell that sends the
+#: reset link — that is what makes the check and the request one operation.
+PROFILE_STATE_FILE = "files/profile_state.preferences_pb"
+
 #: The shape of a profile id that the app generates: the random UUID its
 #: `nextId()` returns (`Uuid.random().toString()`). The default profile is the
 #: one id that is not of this shape — it is the word "default".
@@ -313,6 +318,29 @@ def adb_bytes(*args: str, serial: str = "", timeout: float = 900) -> tuple[int, 
     except (OSError, subprocess.SubprocessError) as exc:
         return 1, str(exc).encode()
     return cp.returncode, cp.stdout
+
+
+def device_fingerprint(serial: str) -> str:
+    """A short, stable name for the device — without the serial itself.
+
+    The report of a run is read by people who were not there, and a serial
+    number is a hardware identifier: it names one person's phone, and it is
+    of no use to anyone who wants to repeat the measurement. The fingerprint
+    says which device the run was on — two runs on the same device share it —
+    and says nothing that names the device.
+    """
+    return hashlib.sha256(serial.encode("utf-8")).hexdigest()[:12]
+
+
+def mask_device_output(text: str, serial: str) -> str:
+    """Hide what the device said about the person who runs the procedure.
+
+    The output of a flow is kept with the report, and it says which device it
+    ran on and where the files of the person who ran it are. Neither belongs
+    in an artifact that other people read: the device is named by its
+    fingerprint, and the home directory by `~`.
+    """
+    return text.replace(serial, device_fingerprint(serial)).replace(str(Path.home()), "~")
 
 
 def device_facts(serial: str) -> dict:
@@ -702,6 +730,52 @@ def warm_up_app(serial: str, timeout: float = 240) -> None:
     )
 
 
+def reset_the_profile_of_the_run(serial: str, profile_id: str) -> None:
+    """Ask the app to wipe its content — but only while it is in our profile.
+
+    The check and the request are **one command on the device**: the shell
+    reads the file the app keeps its active profile in, and sends the link
+    only when the file names the profile of the run. When it names another
+    one, the shell says so and sends nothing.
+
+    Two commands would leave a gap between the check and the request, and the
+    gap is where a person who switches profiles on the phone while the run
+    waits would lose their rows: the link asks for the reset of the profile
+    the app is in, and the app is in whichever profile was active when it
+    handled the link. A link that names the profile *and* asks for the reset
+    would be the better request — the app switches to the profile it names
+    and wipes that one — but it does not come back on the device: the app
+    switches, and the wipe never starts (see [reset_content]).
+
+    The file is read by the shell that sends the link, not by the run a moment
+    earlier: the refusal is the device's own, and it is made at the moment the
+    request goes out.
+    """
+    command = (
+        f"id=$(run-as {APP_ID} cat {PROFILE_STATE_FILE} | "
+        f"grep -aoE '[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-"
+        f"[0-9a-f]{{4}}-[0-9a-f]{{12}}' | head -1); "
+        f'if [ "$id" = "{profile_id}" ]; then '
+        "am start -a android.intent.action.VIEW -d 'todo-debug://seed?reset=content'; "
+        'else echo "REFUSED $id"; exit 3; fi'
+    )
+    code, out = adb("shell", command, serial=serial, timeout=120)
+    if code == 0:
+        return
+    refused = ""
+    for line in out.splitlines():
+        if line.startswith("REFUSED"):
+            refused = line[len("REFUSED") :].strip()
+    if refused or "REFUSED" in out:
+        where = f"the profile {refused}" if refused else "a profile of another name"
+        raise RunError(
+            f"the app works in {where}, not in the profile of the run ({profile_id}), "
+            "so the reset would wipe a profile that is not the run's own: the run "
+            "refuses it"
+        )
+    raise RunError(f"the device did not take the reset request:\n{out.strip()}")
+
+
 def reset_content(
     serial: str,
     out_dir: Path | None = None,
@@ -713,9 +787,11 @@ def reset_content(
 
     The link asks the app to reset the content of the profile it is working
     in, and the run has made sure that profile is its own: the run switched
-    the app into the profile `verify-large-restore` and read the active
-    profile back before the wipe. The link names no profile — see the note at
-    the link — and the run checks the active profile itself before it asks.
+    the app into the profile `verify-large-restore` and the request itself
+    checks that the app is still in it (see
+    [reset_the_profile_of_the_run]) — the check and the request are one
+    command on the device, so there is no gap between them in which a person
+    could switch profiles and lose their rows.
 
     The import overwrites the profile's rows, but the counts afterwards are
     only the dataset's counts if there was nothing else in the profile to
@@ -743,31 +819,25 @@ def reset_content(
     counts: dict[str, int] = {}
     for _ in range(attempts):
         warm_up_app(serial)
-        # The link asks for the reset of the profile the app is working in, and
-        # it names no profile: a link that names one *and* asks for a reset
-        # does not come back. Measured on the device (emulator-5554, build
-        # 0.1.0+gd214f05a1851): the app switches to the named profile — the
-        # active-profile file says so — and the wipe never starts, so the
-        # end-of-wipe marker never comes and the run waits for a wipe that is
-        # not happening. The link that asks only for the reset wipes the
-        # active profile and logs the marker in a second.
-        #
-        # That makes the check below load-bearing: the reset wipes whatever
-        # profile the app is in, so the run has to know that this is the
-        # profile of the run before it asks. The profile it works in was
-        # switched to and read back before the wipe, and the rows of the
-        # profile the device was left in are compared afterwards.
-        current = current_profile_id(serial)
-        if current != profile_id:
-            raise RunError(
-                f"the app works in the profile {current}, not in the profile of the "
-                f"run ({profile_id}), so the reset would wipe a profile that is not "
-                "the run's own: the run refuses it"
-            )
         # The log is cleared first: the marker of an earlier wipe would be
         # read as this one's.
         adb("logcat", "-c", serial=serial)
-        send_debug_link(serial, "reset=content")
+        # The request names no profile: a link that names one *and* asks for
+        # a reset does not come back on the device (measured on the emulator,
+        # build 0.1.0+gd214f05a1851): the app switches to the named profile
+        # — the active-profile file says so — and the wipe never starts, so
+        # the end-of-wipe marker never comes and the run waits for a wipe
+        # that is not happening. The link that asks only for the reset wipes
+        # the active profile and logs the marker in a second.
+        #
+        # That is what makes the check inside the request load-bearing: the
+        # reset wipes whatever profile the app is in, so the request has to
+        # know that this is the profile of the run before it goes out. The
+        # shell that sends the link reads the active profile and sends it
+        # only when the two are the same, so the check and the request are
+        # one operation on the device rather than two, with a gap between
+        # them in which the profile could change under the run's feet.
+        reset_the_profile_of_the_run(serial, profile_id)
         elapsed = wait_for_reset_marker(serial)
         if out_dir is None:
             return {}, elapsed
@@ -1000,9 +1070,14 @@ def run_flow(
                 )
             except (OSError, subprocess.SubprocessError) as exc:
                 raise RunError(f"the flow {flow} could not be started: {exc}") from exc
+        # The output of the flow is kept with the report, and it says which
+        # device it ran on and where the files of the person who ran it are:
+        # the device is named by its fingerprint, and the home directory by `~`.
+        output = mask_device_output(log.read_text(encoding="utf-8", errors="replace"), serial)
+        log.write_text(output, encoding="utf-8")
         if cp.returncode == 0:
             return True
-        if DRIVER_FAILED not in log.read_text(encoding="utf-8", errors="replace"):
+        if DRIVER_FAILED not in output:
             return False
         print(f"the driver of {flow} did not come up; running it again")
     return False
@@ -1248,7 +1323,7 @@ def _restore_and_watch_once(
         "flowOverlappedWithWatch": flow_overlapped,
         "errorDialog": error_at is not None,
         "errorDialogText": error_text,
-        "log": str(log),
+        "log": Path(log).name,
     }
 
 
@@ -1762,7 +1837,12 @@ def untouched_profile_problems(
     digests say whether anything did.
 
     The counts that could not be read are not a difference: a table that
-    could not be read says nothing about what is in it.
+    could not be read says nothing about what is in it. It is also not a
+    proof that the rows survived: the run cannot say that the rows of the
+    profile the device was left in are the same when it could not read them.
+    A table that could not be read is therefore a problem of its own — the
+    run reports that it could not show what it had to show, instead of
+    passing a comparison it did not make.
 
     A device that was already in the profile under test has no other profile
     to compare, and the comparison is skipped (`same_profile`).
@@ -1775,10 +1855,12 @@ def untouched_profile_problems(
     before_digests = row_digests(before_db, scope)
     after_digests = row_digests(after_db, scope)
     changed = []
+    unreadable = []
     for key in COUNT_TABLES:
         before_count = before.get(key, -1)
         after_count = after.get(key, -1)
         if before_count < 0 or after_count < 0:
+            unreadable.append(key)
             continue
         if before_count != after_count:
             changed.append(f"{key} {before_count} -> {after_count}")
@@ -1786,16 +1868,24 @@ def untouched_profile_problems(
         before_digest = before_digests.get(key)
         after_digest = after_digests.get(key)
         if before_digest is None or after_digest is None:
+            unreadable.append(key)
             continue
         if before_digest != after_digest:
             changed.append(f"{key} {before_count} (the same rows are not the same)")
-    if not changed:
-        return [], rows
-    detail = ", ".join(changed)
-    return [
-        "the rows of the profile the device was left in changed while the run was "
-        f"going: {detail}"
-    ], rows
+    problems = []
+    if unreadable:
+        problems.append(
+            "the rows of the profile the device was left in could not be read for "
+            f"the tables {', '.join(unreadable)}, so the run cannot show that they "
+            "survived the run"
+        )
+    if changed:
+        detail = ", ".join(changed)
+        problems.append(
+            "the rows of the profile the device was left in changed while the run was "
+            f"going: {detail}"
+        )
+    return problems, rows
 
 
 def relationship_problems(db_path: Path, scope: str | None = None) -> list[str]:
@@ -2142,7 +2232,7 @@ def write_report(out_dir: Path, report: dict) -> None:
         )
     if device:
         lines.append(
-            f"* device: `{device.get('serial')}` — {device.get('model')}, "
+            f"* device: `{device.get('fingerprint')}` — {device.get('model')}, "
             f"Android {device.get('androidRelease')} (SDK {device.get('sdk')})"
         )
     if apk:
@@ -2926,7 +3016,7 @@ def main(argv: list[str] | None = None) -> int:
         except capture.CaptureError as exc:
             raise RunError(str(exc)) from exc
         print(f"device: {serial}")
-        report["device"] = {"serial": serial, **device_facts(serial)}
+        report["device"] = {"fingerprint": device_fingerprint(serial), **device_facts(serial)}
 
         # One run per device. The lock is the repository's own, and the
         # certified suite takes the same file: two runs on one device kill
@@ -2972,7 +3062,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         print(f"build: {package} {version}")
         report["apk"] = {
-            "path": str(apk),
+            "path": apk.name,
             "package": package,
             "version": version,
             "variant": apk_variant(built_here, debuggable),
@@ -2998,8 +3088,8 @@ def main(argv: list[str] | None = None) -> int:
         report["dataset"] = {
             "profile": args.profile,
             "seed": args.seed,
-            "archive": str(archive),
-            "sidecar": str(sidecar),
+            "archive": archive.name,
+            "sidecar": sidecar.name,
             "archiveBytes": archive.stat().st_size,
             "decompressedBytes": decompressed,
             "counts": counts,
@@ -3253,7 +3343,7 @@ def main(argv: list[str] | None = None) -> int:
             # The picker added this relation to the profile — the only write
             # the run makes, and it happens after the counts were compared.
             "pickerAddedRelation": candidate_title,
-            "log": str(browse_log),
+            "log": Path(browse_log).name,
         }
         report["phases"].append("ui paths opened" if browse_ok else "ui paths failed")
 

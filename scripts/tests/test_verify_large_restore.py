@@ -366,6 +366,38 @@ class ProfileScopeTest(unittest.TestCase):
             self.assertEqual(len(problems), 1)
             self.assertIn("tasks", problems[0])
 
+    def test_a_table_that_could_not_be_read_is_a_problem(self):
+        """A table that could not be read says nothing about what is in it —
+        and it is not a proof that its rows survived either. The run reports
+        that it could not show what it had to show, instead of passing a
+        comparison it did not make.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            before = _database(
+                tmp,
+                ["INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Home', 'u1')"],
+            )
+            after_dir = tmp / "after"
+            after_dir.mkdir()
+            after = _database(
+                after_dir,
+                ["INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Home', 'u1')"],
+            )
+            # The notes table cannot be read in the copy of the database.
+            with unittest.mock.patch.object(
+                driver,
+                "count_rows",
+                lambda db, scope=None: {"tasks": 1, "notes": -1},
+            ):
+                with unittest.mock.patch.object(
+                    driver, "row_digests", lambda db, scope=None: {"tasks": "d"}
+                ):
+                    problems, _ = driver.untouched_profile_problems(before, after, "u1")
+            self.assertEqual(len(problems), 1)
+            self.assertIn("could not be read", problems[0])
+            self.assertIn("notes", problems[0])
+
     def test_a_device_that_was_already_in_the_profile_under_test_is_not_compared(self):
         """There is no other profile to compare, so there is nothing to say."""
         with tempfile.TemporaryDirectory() as raw:
@@ -1204,49 +1236,92 @@ class WipeWaitingTest(unittest.TestCase):
         with unittest.mock.patch.object(driver, "adb", fake_adb):
             with unittest.mock.patch.object(driver, "warm_up_app", lambda serial: None):
                 with unittest.mock.patch.object(
-                    driver, "current_profile_id", lambda serial: TEST_PROFILE_ID
+                    driver, "count_rows", lambda db, scope=None: {"tasks": 0}
                 ):
-                    with unittest.mock.patch.object(
-                        driver, "count_rows", lambda db, scope=None: {"tasks": 0}
-                    ):
-                        with unittest.mock.patch.object(driver, "pull_database", fake_pull):
-                            counts, elapsed = driver.reset_content(
-                                "device", Path("/tmp/wipe-test"), profile_id=TEST_PROFILE_ID
-                            )
+                    with unittest.mock.patch.object(driver, "pull_database", fake_pull):
+                        counts, elapsed = driver.reset_content(
+                            "device", Path("/tmp/wipe-test"), profile_id=TEST_PROFILE_ID
+                        )
 
         self.assertEqual(counts, {"tasks": 0})
         self.assertEqual(seen[0][:2], ("logcat", "-c"))
         # The link names no profile: a link that names one and asks for a reset
         # does not come back on the device — the app switches and the wipe
         # never starts. The link asks for the reset of the profile the app is
-        # working in, and the run has checked that this is its own profile.
-        self.assertIn(
-            "todo-debug://seed?reset=content",
-            " ".join(seen[1]),
-        )
-        self.assertNotIn("profile=", " ".join(seen[1]))
+        # working in, and the request checks that this is the profile of the
+        # run before it goes out.
+        request = " ".join(seen[1])
+        self.assertIn("todo-debug://seed?reset=content", request)
+        self.assertNotIn("profile=", request)
+
+    def test_the_request_and_the_check_are_one_command(self):
+        """The check and the request are one command on the device.
+
+        Two commands would leave a gap between the check and the request, and
+        the gap is where a person who switches profiles on the phone while
+        the run waits would lose their rows: the link asks for the reset of
+        the profile the app is in, and the app is in whichever profile was
+        active when it handled the link. So the shell that sends the link
+        reads the active profile itself, and sends nothing when the file
+        names another profile.
+        """
+        seen = []
+
+        def fake_adb(*args, serial="", timeout=0):
+            seen.append(args)
+            return 0, "Starting: Intent"
+
+        with unittest.mock.patch.object(driver, "adb", fake_adb):
+            driver.reset_the_profile_of_the_run("device", TEST_PROFILE_ID)
+
+        self.assertEqual(len(seen), 1)
+        request = " ".join(seen[0])
+        # The profile the app is in is read on the device, by the shell that
+        # sends the link.
+        self.assertIn(driver.PROFILE_STATE_FILE, request)
+        self.assertIn(TEST_PROFILE_ID, request)
+        self.assertIn("todo-debug://seed?reset=content", request)
+        # The comparison is made before the request, in the same command.
+        self.assertLess(request.index(TEST_PROFILE_ID), request.index("reset=content"))
 
     def test_a_wipe_of_a_profile_that_is_not_the_run_own_is_refused(self):
-        """The reset wipes the profile the app is working in, so the run has to
-        know that this is its own profile before it asks.
+        """The reset wipes the profile the app is working in, so the request
+        has to know that this is its own profile before it goes out.
+
+        The refusal is the device's own: the shell that sends the link reads
+        the active profile and sends nothing when the file names another one.
         """
 
         def fake_adb(*args, serial="", timeout=0):
             if args[:2] == ("logcat", "-d"):
                 return 0, f"I/DebugSeedActivity: {driver.RESET_MARKER} 25 tables"
-            return 0, "Starting: Intent"
+            # The device refused: the profile it is in is not the one of the run.
+            return 3, "REFUSED 1c2f10db-6479-4574-98a1-44431a68a584"
 
         with unittest.mock.patch.object(driver, "adb", fake_adb):
             with unittest.mock.patch.object(driver, "warm_up_app", lambda serial: None):
-                with unittest.mock.patch.object(
-                    driver, "current_profile_id", lambda serial: "default"
-                ):
-                    with self.assertRaises(driver.RunError) as caught:
-                        driver.reset_content(
-                            "device", Path("/tmp/wipe-test"), profile_id=TEST_PROFILE_ID
-                        )
+                with self.assertRaises(driver.RunError) as caught:
+                    driver.reset_content(
+                        "device", Path("/tmp/wipe-test"), profile_id=TEST_PROFILE_ID
+                    )
 
         self.assertIn("refuses it", str(caught.exception))
+        # The profile it found is named in the refusal.
+        self.assertIn("1c2f10db-6479-4574-98a1-44431a68a584", str(caught.exception))
+
+    def test_a_request_the_device_did_not_take_is_refused(self):
+        """A device that is not there is not a refusal of the profile: the
+        request itself failed, and the run has to say so.
+        """
+
+        def fake_adb(*args, serial="", timeout=0):
+            return 1, "error: device offline"
+
+        with unittest.mock.patch.object(driver, "adb", fake_adb):
+            with self.assertRaises(driver.RunError) as caught:
+                driver.reset_the_profile_of_the_run("device", TEST_PROFILE_ID)
+
+        self.assertIn("did not take the reset request", str(caught.exception))
 
     def test_a_wipe_that_cannot_be_confirmed_is_refused(self):
         """A table that could not be read is an unknown table, not an empty
@@ -2064,6 +2139,27 @@ class DisposableProfileTest(unittest.TestCase):
             report = json.loads((out / "report.json").read_text(encoding="utf-8"))
             self.assertTrue(report["profileLeftBehind"]["restored"])
             self.assertEqual(report["profileLeftBehind"]["profile"], "Personal")
+
+    def test_the_report_does_not_name_the_device_or_the_host(self):
+        """The report of a run is read by people who were not there.
+
+        A serial number is a hardware identifier: it names one person's
+        phone. An absolute path names the checkout of the person who ran it.
+        Neither says anything that a measurement needs, so the report carries
+        a fingerprint of the device — the same one for two runs on the same
+        device — and the names of the files.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            self._run(tmp, out)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertNotIn("serial", report["device"])
+            self.assertTrue(report["device"]["fingerprint"])
+            self.assertEqual(report["apk"]["path"], "the.apk")
+            self.assertNotIn("/", report["dataset"]["archive"])
+            self.assertNotIn("/", report["dataset"]["sidecar"])
 
     def test_the_rows_of_the_profile_the_device_was_left_in_are_counted(self):
         """The counts before and after the run are the proof that the run

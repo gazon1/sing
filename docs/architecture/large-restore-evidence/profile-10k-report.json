@@ -11,14 +11,14 @@
     "ui paths opened"
   ],
   "device": {
-    "serial": "0O65321F32204DD5",
+    "fingerprint": "b30ca01042ad",
     "model": "RMX3938",
     "androidRelease": "15",
     "sdk": "35",
     "abi": "arm64-v8a"
   },
   "apk": {
-    "path": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/androidApp/build/outputs/apk/debug/androidApp-debug.apk",
+    "path": "androidApp-debug.apk",
     "package": "com.singularity.todo",
     "version": "0.1.0+g329e13079e2d",
     "variant": "debug",
@@ -27,8 +27,8 @@
   "dataset": {
     "profile": "10k",
     "seed": 4242,
-    "archive": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r23/synthetic-10k.zip",
-    "sidecar": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r23/synthetic-10k.manifest.json",
+    "archive": "synthetic-10k.zip",
+    "sidecar": "synthetic-10k.manifest.json",
     "archiveBytes": 2160720,
     "decompressedBytes": 13907055,
     "counts": {
@@ -106,7 +106,7 @@
         "flowOverlappedWithWatch": false,
         "errorDialog": true,
         "errorDialogText": "        Ошибка backup archive entry exceeds remaining byte budget  OK ",
-        "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r23/over-budget-flow.log"
+        "log": "over-budget-flow.log"
       },
       "counts": {
         "tasks": 0,
@@ -146,7 +146,7 @@
     "flowOverlappedWithWatch": false,
     "errorDialog": false,
     "errorDialogText": "",
-    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r23/restore-flow.log",
+    "log": "restore-flow.log",
     "memory": "TOTAL PSS:   302056            TOTAL RSS:   303196       TOTAL SWAP PSS:    78153"
   },
   "database": {
@@ -174,7 +174,7 @@
     "openedTask": "Task 1",
     "searchedTask": "Task 9997",
     "pickerAddedRelation": "Task 10000",
-    "log": "/home/max/orca/workspaces/singularity_cllone_kmp/test-android-verify-restoring-large-synthetic-da/build/restore-realme-10k-r23/browse-flow.log"
+    "log": "browse-flow.log"
   },
   "verdict": {
     "problems": []
