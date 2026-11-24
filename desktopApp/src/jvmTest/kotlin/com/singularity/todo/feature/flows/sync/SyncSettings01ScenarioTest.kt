@@ -22,7 +22,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import org.koin.dsl.module
 import kotlin.test.Test
-import kotlin.test.assertTrue
 
 /**
  * Covers `SYNC-SETTINGS-01` — see
@@ -99,7 +98,10 @@ class SyncSettings01ScenarioTest {
                 timeoutMillis = 10_000,
             ) {
                 kotlinx.coroutines.runBlocking {
-                    stateRepository.get(scope).scheduledInterval.inWholeMinutes.toInt() == expectedMinutes
+                    stateRepository
+                        .get(scope)
+                        .scheduledInterval.inWholeMinutes
+                        .toInt() == expectedMinutes
                 }
             }
         }
@@ -123,8 +125,7 @@ class SyncSettings01ScenarioTest {
         assertTagDisplayed(TestTags.Sync.INTERVAL_ROW)
     }
 
-    private fun DesktopComposeUiTest.intervalValue(): String? =
-        textsOfTag(TestTags.Sync.INTERVAL_ROW).lastOrNull()
+    private fun DesktopComposeUiTest.intervalValue(): String? = textsOfTag(TestTags.Sync.INTERVAL_ROW).lastOrNull()
 
     private fun minutesOf(label: String): Int =
         when {
