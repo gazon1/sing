@@ -1,0 +1,52 @@
+Running on b30ca01042ad
+ > Flow large-restore-browse-imported-data
+  > On Flow Complete
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:~/.maestro/lib/protobuf-java-3.21.9.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.protobuf.UnsafeUtil$MemoryAccessor
+WARNING: sun.misc.Unsafe::arrayBaseOffset will be removed in a future release
+Run ../../Maestro/helpers/launch-clean.yaml...
+  Launch app "com.singularity.todo"... COMPLETED
+  Assert that id: nav_tab_today is visible... COMPLETED
+  Run skip-spotlight.yaml...
+    Run flow when id: onboarding_spotlight_card is visible...
+    Run flow when id: onboarding_spotlight_card is visible... SKIPPED
+    Assert that id: onboarding_spotlight_card is not visible... COMPLETED
+  Run skip-spotlight.yaml... COMPLETED
+  Disable airplane mode... COMPLETED
+Run ../../Maestro/helpers/launch-clean.yaml... COMPLETED
+Assert that id: nav_tab_today is visible... COMPLETED
+Tap on id: nav_tab_inbox... COMPLETED
+Assert that id: ${TASK_ID} is visible... COMPLETED
+Tap on id: ${TASK_ID}... COMPLETED
+Assert that id: task_editor_title_input is visible... COMPLETED
+Assert that "${TASK_TITLE}" is visible... COMPLETED
+Press back... COMPLETED
+Assert that id: nav_tab_inbox is visible... COMPLETED
+Tap on id: nav_menu_button... COMPLETED
+Assert that id: menu_quick_search is visible... COMPLETED
+Tap on id: menu_quick_search... COMPLETED
+Assert that id: search_input is visible... COMPLETED
+Tap on id: search_input... COMPLETED
+Input text ${RELATED_TITLE}... COMPLETED
+Assert that id: ${RELATED_ID} is visible... COMPLETED
+Tap on id: ${RELATED_ID}... COMPLETED
+Assert that id: task_editor_title_input is visible... COMPLETED
+Assert that "${RELATED_TITLE}" is visible... COMPLETED
+Scrolling DOWN until id: task_detail_related_tasks_section is visible with speed 40, visibility percentage 100%, timeout 60000 ms, with centering disabled... COMPLETED
+Tap on id: task_detail_related_tasks_section... COMPLETED
+Scrolling DOWN until id: task_detail_add_related_task is visible with speed 40, visibility percentage 100%, timeout 60000 ms, with centering disabled... COMPLETED
+Tap on id: task_detail_add_related_task... COMPLETED
+Assert that id: related_task_picker_search is visible... COMPLETED
+Tap on id: related_task_picker_search... COMPLETED
+Input text ${PICKER_CANDIDATE_TITLE}... COMPLETED
+Assert that id: related_task_candidate_${PICKER_CANDIDATE_SLUG} is visible... COMPLETED
+Tap on id: related_task_candidate_${PICKER_CANDIDATE_SLUG}... COMPLETED
+Tap on id: related_task_picker_add... COMPLETED
+Assert that id: related_task_picker_add is not visible... COMPLETED
+Scrolling DOWN until id: related_task_item_${PICKER_CANDIDATE_SLUG} is visible with speed 40, visibility percentage 100%, timeout 30000 ms, with centering disabled... COMPLETED
+Press back... COMPLETED
+Press back... COMPLETED
+Run flow when id: nav_tab_inbox is not visible...
+Run flow when id: nav_tab_inbox is not visible... SKIPPED
+Assert that id: nav_tab_inbox is visible... COMPLETED

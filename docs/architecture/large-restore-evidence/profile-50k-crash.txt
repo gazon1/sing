@@ -1,0 +1,25 @@
+# logcat of the device during the 50k run (realme RMX3938, build 0.1.0+g329e13079e2d,
+# profile verify-large-restore-50k-s4444, seed 4444), filtered to the crash: the app
+# dies with an OutOfMemoryError while the task detail of the restored dataset is
+# opened. The heap growth limit in the message — 201326592 bytes — is the device's
+# dalvik.vm.heapgrowthlimit=192m.
+#
+# The app's own allocation failure — the first exhausted allocation, in the app's
+# code (TaskDao_Impl.observeTagCrossRefs), with the GC lines around it — is in
+# profile-50k-crash-older-build.txt; it was captured on an earlier build of the same
+# app on the same device.
+
+--------- beginning of crash
+11-24 09:18:14.413 15819 15857 E AndroidRuntime: FATAL EXCEPTION: kotlinx.coroutines.DefaultExecutor
+11-24 09:18:14.413 15819 15857 E AndroidRuntime: Process: com.singularity.todo, PID: 15819
+11-24 09:18:14.413 15819 15857 E AndroidRuntime: java.lang.OutOfMemoryError: Failed to allocate a 32 byte allocation with 17104 free bytes and 16KB until OOM, target footprint 201326592, growth limit 201326592; giving up on allocation because <1% of heap free after GC.
+11-24 09:18:14.413 15819 15857 E AndroidRuntime: 	at kotlinx.coroutines.CancellableContinuationImpl.resumedState(CancellableContinuationImpl.kt:489)
+11-24 09:18:14.413 15819 15857 E AndroidRuntime: 	at kotlinx.coroutines.CancellableContinuationImpl.resumeImpl$kotlinx_coroutines_core(CancellableContinuationImpl.kt:501)
+11-24 09:18:14.413 15819 15857 E AndroidRuntime: 	at kotlinx.coroutines.CancellableContinuationImpl.resumeImpl$kotlinx_coroutines_core$default(CancellableContinuationImpl.kt:493)
+11-24 09:18:14.413 15819 15857 E AndroidRuntime: 	at kotlinx.coroutines.CancellableContinuationImpl.resumeUndispatched(CancellableContinuationImpl.kt:596)
+11-24 09:18:14.413 15819 15857 E AndroidRuntime: 	at kotlinx.coroutines.EventLoopImplBase$DelayedResumeTask.run(EventLoop.common.kt:490)
+11-24 09:18:14.413 15819 15857 E AndroidRuntime: 	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:256)
+11-24 09:18:14.413 15819 15857 E AndroidRuntime: 	at kotlinx.coroutines.DefaultExecutor.run(DefaultExecutor.kt:105)
+11-24 09:18:14.413 15819 15857 E AndroidRuntime: 	at java.lang.Thread.run(Thread.java:1012)
+11-24 09:18:15.602  1036  1383 W ActivityTaskManager:   Force finishing activity com.singularity.todo/.MainActivity
+11-24 09:18:15.839  1036  1383 D ActivityManager: Process com.singularity.todo (pid 15819) has died: fg  TOP
