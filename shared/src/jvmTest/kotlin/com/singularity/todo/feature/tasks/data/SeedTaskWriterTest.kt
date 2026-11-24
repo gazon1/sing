@@ -4,12 +4,15 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.TaskDependencyCrossRef
+import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.seed.SeedTaskWriter
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeAuthRepository
@@ -135,22 +138,42 @@ class SeedTaskWriterTest {
             )
 
             assertEquals(
-                setOf("t1"),
+                listOf(TaskTagCrossRef(taskId = "t1", tagId = "tag-1")),
+                db.taskDao().listAllTagsForUser(user.value),
+                "the seeded row must carry exactly the tag it asked for, on the right row",
+            )
+            assertEquals(
+                listOf(
+                    TaskDependencyCrossRef(
+                        taskId = "t2",
+                        dependsOnTaskId = "dep-1",
+                        verb = DependencyVerb.FOLLOWS_UP.name,
+                    ),
+                ),
+                db.taskDao().listAllDependenciesForUser(user.value),
+                "the edge must point at the named task, with the verb the writer meant",
+            )
+        }
+
+    @Test
+    fun `a tag the row already had is added to, not replaced`() =
+        runTest {
+            // Pins the contract the port documents: this is an insert, the way `create`
+            // is, and `setTags` is the operation that reconciles a whole set. A future
+            // change that turned this into replacement semantics would silently drop a
+            // relationship the caller never mentioned — which is exactly what `create`
+            // does not do, so the two paths would disagree about the same table.
+            seeds.writeFixtures(listOf(task("t1").copy(tags = listOf(TagId("tag-a")))))
+            seeds.writeFixtures(listOf(task("t1").copy(tags = listOf(TagId("tag-b")))))
+
+            assertEquals(
+                setOf("tag-a", "tag-b"),
                 db
                     .taskDao()
                     .listAllTagsForUser(user.value)
-                    .map { it.taskId }
+                    .map { it.tagId }
                     .toSet(),
-                "the tag of a seeded row must be in the cross-ref table",
-            )
-            assertEquals(
-                setOf("t2"),
-                db
-                    .taskDao()
-                    .listAllDependenciesForUser(user.value)
-                    .map { it.taskId }
-                    .toSet(),
-                "the follow-up edge of a seeded row must be in the cross-ref table",
+                "the second write adds its tag; it does not remove the one already there",
             )
         }
 
@@ -190,17 +213,32 @@ class SeedTaskWriterTest {
     fun `a failure halfway leaves nothing behind`() =
         runTest {
             val seeded = (1..5).map { task("t$it") }
-            // The second row names a profile this device is not on: the guard refuses it,
-            // and the batch has already written the first row by then.
-            val foreign = listOf(seeded[0], task("t2").copy(userId = UserId("intruder"))) + seeded.drop(2)
+            // The first row carries both cross-refs, so the rollback of the relationship
+            // writes is part of what this test proves: a tag or an edge that escaped the
+            // transaction would survive with no row to point from.
+            val withRelations =
+                listOf(
+                    seeded[0].copy(tags = listOf(TagId("tag-1")), followsUp = setOf(TaskId("dep-1"))),
+                    task("t2").copy(userId = UserId("intruder")),
+                ) + seeded.drop(2)
 
             assertFailsWith<Throwable> {
-                seeds.writeFixtures(foreign)
+                // The second row names a profile this device is not on: the guard refuses
+                // it, and the batch has already written the first row by then.
+                seeds.writeFixtures(withRelations)
             }
 
             assertTrue(
                 db.taskDao().listAllForUser(user.value).isEmpty(),
                 "a batch that failed must roll every row of it back, not keep the ones it wrote",
+            )
+            assertTrue(
+                db.taskDao().listAllTagsForUser(user.value).isEmpty(),
+                "a rolled-back row must not leave its tag behind",
+            )
+            assertTrue(
+                db.taskDao().listAllDependenciesForUser(user.value).isEmpty(),
+                "a rolled-back row must not leave its follow-up edge behind",
             )
         }
 }

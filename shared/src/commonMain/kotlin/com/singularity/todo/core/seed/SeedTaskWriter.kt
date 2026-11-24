@@ -38,6 +38,16 @@ interface SeedTaskWriter {
      * fixture's titles are distinct by construction, and the per-title read that
      * [SeedWriter.writeTask] does is the O(n²) this exists to avoid.
      *
+     * ## The tags and edges are added, not replaced
+     *
+     * The cross-references of [tasks] are **inserted**, the way a `create` inserts them:
+     * a tag or a follow-up edge the row already had in the database stays. This is
+     * deliberate rather than an omission, and it is the same contract `create` has — the
+     * reconciliation lives in `TaskRepository.setTags` and `setDependencies`, which are
+     * the operations that know what the whole set should be. A row the caller means to
+     * *replace* is therefore not this method: it is `writeTask`, which reads the existing
+     * row first. The bulk path is for rows the runner wipes the profile for.
+     *
      * @return the rows as written, in the order they were given.
      * @throws IllegalStateException when a task belongs to another profile.
      */
