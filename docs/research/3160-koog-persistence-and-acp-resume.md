@@ -428,7 +428,10 @@ persisting a rendered UI tree — a second format, a second table, and a schema 
 | A *separately* running agent, reachable over a socket | **Yes** | No | **Yes** — if the agent advertises `sessionCapabilities.resume` | **Yes** — if the agent advertises `loadSession` |
 
 The rule the table states: **transcript restoration and execution resumption are different
-features.** The transcript is the application's own data and survives anything. Resuming an
+features.** The transcript is the application's own data, and it survives the process and
+agent-session events in the table — provided the Room database itself remains intact. Nothing here
+promises durability against a deleted or corrupted database, cleared application data, or an
+uninstall. Resuming an
 *execution* is a property of *someone else's* live process: `session/resume` reconnects to a
 session that process still holds, so it needs a reachable agent that kept that session — the last
 table row is the case where the agent is reachable (a separately running agent over a socket).
