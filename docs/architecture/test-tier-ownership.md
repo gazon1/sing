@@ -156,7 +156,7 @@ Audit-only inventory for issue [#3105](https://github.com/gazon1/sing/issues/310
 | `agenda/09-upcoming-timeline.yaml` | 84 s | `desktopApp/src/jvmTest/.../feature/flows/agenda/UpcomingTimelineScenarioTest.kt` |
 | `agenda/04-saved-view-results.yaml` | 68 s | retired 2026-11-23 (#3121) — `desktopApp/src/jvmTest/.../OpenSavedViewShowsMatchingTasksFlowTest.kt` now owns `AGENDA-04` on desktop |
 | `archive/02-bulk-archive-confirm.yaml` | 81 s | `desktopApp/src/jvmTest/.../feature/flows/archive/ArchiveBulkActionFlowTest.kt` — reads the write, not the observation; the flow itself is a `split`, because its device residue (long-press sheet, overflow resource ids, the result dialog's modal window) has no owner today |
-| `sync/01-change-sync-interval.yaml` | 80 s | `desktopApp/src/jvmTest/.../feature/flows/sync/SyncSettings01ScenarioTest.kt` |
+| `sync/01-change-sync-interval.yaml` | 80 s | `desktopApp/src/jvmTest/.../feature/flows/sync/SyncSettings01ScenarioTest.kt` (value change + immediate apply + restart/reload survival; Maestro keeps Android narrow-sheet UI residue) |
 | `profile/01-create-profile.yaml` | 61 s | retired 2026-11-23 (#3122); `desktopApp/src/jvmTest/.../feature/flows/profile/ProfileFlowTest.kt` (`PROFILE-01`) owns the behavior |
 | `menu/06-tree-live.yaml` | 64 s | `desktopApp/src/jvmTest/.../feature/flows/menu/ProjectsMenuLiveScenarioTest.kt` — holds the **creation** half only; the rename half has no owner yet |
 | `system/menu-sheet.yaml` | 18 s | `androidApp/src/androidTest/.../MenuSheetBoundsTest.kt` — the derived tag set, asserted by resource id |
