@@ -320,9 +320,12 @@ Counts сверяются **в пределах профиля**, а не все
 Что сделано: у стража закрытия теперь точечное чтение
 `TaskRepository.openBlockersOf(taskId)` (открытые блокирующие предпосылки одной задачи),
 `withExtras` читает таблицу зависимостей **один** раз, а для строк, названных по id,
-появился `withScopedExtras` (`observeTagCrossRefsForTasks` /
-`observeDependencyCrossRefsForTasks`). Профильный путь **не** переведён на `IN (:ids)`:
-50 000 связанных переменных — это не запрос, который выполнит SQLite.
+появился `withScopedExtras` (`observeTagCrossRefsOfSubtasks` /
+`observeDependencyCrossRefsOfSubtasks` и пара `OfSeries`). Он называет **селектор**, а не
+список id: `IN (:taskIds)` связывает по переменной на строку, а SQLite отказывает за своим
+пределом (`too many SQL variables`, на этом хосте — около 32k), и число подзадач у родителя
+ничем не ограничено. Подзапрос по `parent_task_id` связывает один параметр при любом числе
+детей; профильный путь при этом остаётся широким, как и был.
 
 Решение и его границы — `docs/decisions/2026-11-24-a-detail-screen-reads-the-relations-of-its-own-rows.md`.
 Paging 3 **не** добавлялся: измеренное узкое место — не инкрементальная загрузка списка, а

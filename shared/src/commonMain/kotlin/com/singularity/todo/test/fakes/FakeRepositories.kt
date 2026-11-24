@@ -724,18 +724,27 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
     override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> =
         depsByUser.map { it[userId] ?: emptyList() }
 
-    override fun observeTagCrossRefsForTasks(
-        taskIds: List<String>,
+    // Stubbed like the selector read they pair with: this dao's `watchSubtasksForUser`
+    // and `observeSeriesForUser` are `not implemented`, so nothing here reaches them.
+    override fun observeTagCrossRefsOfSubtasks(
+        parentId: String,
         userId: String,
-    ): Flow<List<TaskTagCrossRef>> = _tags.map { refs -> refs.filter { it.taskId in taskIds } }
+    ): Flow<List<TaskTagCrossRef>> = error("not implemented")
 
-    override fun observeDependencyCrossRefsForTasks(
-        taskIds: List<String>,
+    override fun observeDependencyCrossRefsOfSubtasks(
+        parentId: String,
         userId: String,
-    ): Flow<List<TaskDependencyCrossRef>> =
-        depsByUser.map { byUser ->
-            (byUser[userId] ?: emptyList()).filter { it.taskId in taskIds }
-        }
+    ): Flow<List<TaskDependencyCrossRef>> = error("not implemented")
+
+    override fun observeTagCrossRefsOfSeries(
+        seriesId: String,
+        userId: String,
+    ): Flow<List<TaskTagCrossRef>> = error("not implemented")
+
+    override fun observeDependencyCrossRefsOfSeries(
+        seriesId: String,
+        userId: String,
+    ): Flow<List<TaskDependencyCrossRef>> = error("not implemented")
 
     override suspend fun blockingTasksForUser(
         taskId: String,

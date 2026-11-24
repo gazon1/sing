@@ -236,9 +236,15 @@ class TaskRepositoryImpl(
 
     override fun observeSubtasks(parentId: TaskId): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
-            // Scoped: the subtasks of one task are a handful, and the profile-wide
-            // read materialised every tag edge of the profile to enrich them.
-            taskDao.withScopedExtras(uid, taskDao.watchSubtasksForUser(parentId.value, uid.value))
+            // Selector-scoped: the edges of this parent's subtasks, read through the
+            // same parent as the rows. The profile-wide read materialised every tag
+            // edge of the profile to enrich them, and an id list would have bound one
+            // parameter per subtask with nothing capping how many a parent may have.
+            withScopedExtras(
+                source = taskDao.watchSubtasksForUser(parentId.value, uid.value),
+                tagsFlow = taskDao.observeTagCrossRefsOfSubtasks(parentId.value, uid.value),
+                dependenciesFlow = taskDao.observeDependencyCrossRefsOfSubtasks(parentId.value, uid.value),
+            )
         }
 
     override suspend fun reorderSubtasks(
@@ -618,9 +624,13 @@ class TaskRepositoryImpl(
 
     override fun observeSeries(seriesId: TaskSeriesId): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
-            // A series is a handful of rows behind a task detail screen, so the
-            // cross-refs are read for those rows rather than for the profile.
-            taskDao.withScopedExtras(uid, taskDao.observeSeriesForUser(seriesId.value, uid.value))
+            // The same selector-scoped shape: the series answers for its own rows and
+            // its own edges, not for the profile's.
+            withScopedExtras(
+                source = taskDao.observeSeriesForUser(seriesId.value, uid.value),
+                tagsFlow = taskDao.observeTagCrossRefsOfSeries(seriesId.value, uid.value),
+                dependenciesFlow = taskDao.observeDependencyCrossRefsOfSeries(seriesId.value, uid.value),
+            )
         }
 
     override suspend fun legacyRecurringTasks(): List<Task> {

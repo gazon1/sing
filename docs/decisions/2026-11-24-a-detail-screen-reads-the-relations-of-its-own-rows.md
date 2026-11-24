@@ -60,10 +60,11 @@ rows the query returns.
   `allTasks` parameter and ask the repository instead.
 - `withExtras` (profile-wide) reads the dependency table **once** and projects both the
   blocking and the follow-up map from those rows.
-- `withScopedExtras` is the read for rows named by id — `observeSubtasks`,
-  `observeSeries` — backed by `observeTagCrossRefsForTasks` /
-  `observeDependencyCrossRefsForTasks`. The profile-wide path deliberately does **not**
-  use `IN (:ids)`: 50,000 bound variables is not a query SQLite will run.
+- `withScopedExtras` is the read for the rows behind one **selector** — `observeSubtasks`,
+  `observeSeries` — and it takes that selector's cross-reference flows rather than
+  deriving them from the rows. The DAO side is
+  `observeTagCrossRefsOfSubtasks` / `observeDependencyCrossRefsOfSubtasks` and their
+  `OfSeries` pair, each an `IN (SELECT ... WHERE parent_task_id = :parentId)` subquery.
 
 ## Rationale
 
@@ -79,10 +80,20 @@ selector, ordering and invalidation semantics of the list to solve a problem the
 does not have on this device — and the issue forbids adopting it without a measured
 bottleneck that justifies it.
 
-The `IN (:ids)` boundary is the one shape worth naming: the same enrichment runs at two
-scales, and a single function that picks its query by list size would be a heuristic
-that silently changes behaviour at some row count. Two named functions say which
-question is being asked.
+The `IN (:ids)` boundary is the one shape worth naming, and the first version of this
+change got it wrong in the other direction. Deriving the ids from the subtask rows and
+binding them as `IN (:taskIds)` looks like the narrow read and is not survivable: SQLite
+binds one host parameter per id and refuses the statement past its ceiling
+(`too many SQL variables`, measured at ~32k here), and **nothing bounds a parent's number
+of subtasks** — `watchSubtasksForUser` has no `LIMIT` and no domain rule caps it. So the
+narrowed read could fail on a large parent in the very place it was introduced to make
+large profiles safe. The review caught this; the shape that holds is the subquery, where
+the parent id is one bound parameter whatever the number of children.
+`SelectorScopedCrossRefQueryTest` keeps the id-list form from coming back.
+
+Two named functions still say which question is being asked — profile-wide, or behind one
+selector — rather than one function that picks its query by list size, which would be a
+heuristic that silently changes behaviour at some row count.
 
 ## Consequences
 
@@ -101,6 +112,10 @@ question is being asked.
   subscribing to `source` twice — once to derive the ids, once to pair the extras — which
   ran the query twice in the path the read exists to make cheap and let the two
   subscriptions disagree for an emission.
+- The scoped read names its selector instead of binding its rows' ids, for the SQLite
+  host-parameter reason above. The first shape passed its own tests, including a
+  cross-profile one, and still had this defect: it depended on a cardinality the
+  repository never enforces.
 - The blocker read is guarded like the write before it: a failure reports as "Save failed"
   instead of escaping to the scope, because it is the first call on that path that can fail
   on its own. The project's `runCatchingCancellable` is used, not `runCatching`, so a
@@ -118,5 +133,5 @@ question is being asked.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskExtras.kt` —
   `withExtras` and `withScopedExtras`.
 - `core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt` —
-  `blockingTasksForUser`, `observeTagCrossRefsForTasks`,
-  `observeDependencyCrossRefsForTasks`.
+  `blockingTasksForUser`, `observeTagCrossRefsOfSubtasks`,
+  `observeDependencyCrossRefsOfSubtasks`, and their `OfSeries` pair.

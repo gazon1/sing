@@ -3,18 +3,16 @@ package com.singularity.todo.feature.tasks
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
+import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /**
@@ -72,51 +70,49 @@ internal fun TaskDao.withExtras(
     }.let { extrasFlow -> combine(source, extrasFlow) { rows, extras -> rows.enrichedWith(extras) } }
 
 /**
- * The same enrichment, for a set of rows that is small by construction — the
- * subtasks of one task, the members of one series.
+ * The same enrichment, for the rows behind one **selector** — the subtasks of one
+ * parent, the members of one series.
  *
- * [withExtras] asks the profile-wide question, which is right when the rows are
- * the whole profile and wrong when they are five: on a 50k profile the detail
- * screen's subtask list materialised ~75k tag edges to read the few that its own
- * rows carry. This reads the edges of the rows given, and nothing else.
+ * [withExtras] asks the profile-wide question, which is right when the rows are the
+ * whole profile and wrong when they are five: on a 50k profile the detail screen's
+ * subtask list materialised ~75k tag edges to read the few that its own rows carry.
+ * This reads the edges of the rows [source] emits, and nothing else.
  *
- * **The rows must stay small.** The ids travel as bound `IN (:taskIds)` variables,
- * and SQLite caps how many a statement may bind. Both callers are bounded by
- * construction — the subtasks of one parent, and a series, which
- * `RecurringSeriesWindow.MAX_FUTURE` caps at ten occurrences — so the limit is not
- * reachable today. A caller that named thousands of rows would have to batch them
- * or read the profile-wide path instead.
+ * ## Why the cross-references are passed in, not derived from the rows
  *
- * @param uid the owner of the tasks.
- * @param source the rows to enrich — small enough to name in a query.
+ * The obvious shape derives the ids from [source] and asks `IN (:taskIds)`. That
+ * shape has a ceiling: SQLite binds one host parameter per id and refuses the
+ * statement past its limit (`too many SQL variables`), and **nothing bounds the
+ * number of subtasks a parent may have** — `watchSubtasksForUser` has no `LIMIT`
+ * and no domain rule caps it. A parent with enough children would have failed in
+ * the read that was introduced to keep large profiles safe.
+ *
+ * So each caller names its selector instead: the query a subtask read already runs
+ * is the subquery the cross-reference read joins on. The parent id is one bound
+ * parameter whatever the number of children.
+ *
+ * Both cross-reference flows must select the same rows [source] does; the caller
+ * builds them from the same selector for that reason.
+ *
+ * @param source the rows to enrich — the caller's own read of the selector.
+ * @param tagsFlow the tag edges of that selector.
+ * @param dependenciesFlow the dependency edges of that selector, of every verb.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
-internal fun TaskDao.withScopedExtras(
-    uid: UserId,
+internal fun withScopedExtras(
     source: Flow<List<TaskEntity>>,
+    tagsFlow: Flow<List<TaskTagCrossRef>>,
+    dependenciesFlow: Flow<List<TaskDependencyCrossRef>>,
 ): Flow<List<Task>> =
-    // One collection of `source` drives both the ids and the rows they end in. The
-    // earlier shape derived the ids from one subscription and paired the extras with
-    // a second one, so the two could disagree for an emission and the source query
-    // ran twice — in the very path this read exists to make cheap.
-    source.flatMapLatest { rows ->
-        val ids = rows.map { it.id }
-        if (ids.isEmpty()) {
-            flowOf(emptyList())
-        } else {
-            combine(
-                observeTagCrossRefsForTasks(ids, uid.value),
-                observeDependencyCrossRefsForTasks(ids, uid.value),
-            ) { tagRows, depRows ->
-                rows.enrichedWith(
-                    TaskExtras(
-                        tagsByTask = tagRows.groupBy { it.taskId }.mapValues { (_, rows) -> rows.map { it.tagId } },
-                        depsByTask = depRows.groupByVerb(DependencyVerb.BLOCKS) { it.dependsOnTaskId },
-                        followUpsByTask = depRows.groupByVerb(DependencyVerb.FOLLOWS_UP) { it.dependsOnTaskId },
-                    ),
-                )
-            }
-        }
+    // One subscription in total: `source` is not collected a second time to pair the
+    // result back together, so the extras cannot describe a previous list of rows.
+    combine(source, tagsFlow, dependenciesFlow) { rows, tagRows, depRows ->
+        rows.enrichedWith(
+            TaskExtras(
+                tagsByTask = tagRows.groupBy { it.taskId }.mapValues { (_, refs) -> refs.map { it.tagId } },
+                depsByTask = depRows.groupByVerb(DependencyVerb.BLOCKS) { it.dependsOnTaskId },
+                followUpsByTask = depRows.groupByVerb(DependencyVerb.FOLLOWS_UP) { it.dependsOnTaskId },
+            ),
+        )
     }
 
 /** The rows as tasks, carrying the tags and edges [extras] holds for each. */
@@ -153,9 +149,9 @@ private fun List<TaskDependencyCrossRef>.groupByVerb(
 
 /** The cross-references of a set of tasks, indexed by the task they belong to. */
 private data class TaskExtras(
-    val tagsByTask: Map<String, List<String>> = emptyMap(),
-    val depsByTask: Map<String, Set<String>> = emptyMap(),
-    val followUpsByTask: Map<String, Set<String>> = emptyMap(),
+    val tagsByTask: Map<String, List<String>>,
+    val depsByTask: Map<String, Set<String>>,
+    val followUpsByTask: Map<String, Set<String>>,
 )
 
 /**
