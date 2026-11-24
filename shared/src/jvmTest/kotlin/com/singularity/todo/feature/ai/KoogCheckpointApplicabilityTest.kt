@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.ai
 
 import com.singularity.todo.core.ai.ToolCallLoop
+import com.singularity.todo.core.llm.TextGenPort
+import com.singularity.todo.feature.ai.chat.ChatTurn
 import org.junit.jupiter.api.Tag
 import java.io.File
 import java.util.jar.JarFile
@@ -23,7 +25,7 @@ import kotlin.test.assertTrue
  * executable:
  *
  * - the checkpoint API is defined in terms of a Koog `AIAgent`, so it can only restore a graph;
- * - the chat loop holds no Koog agent at all;
+ * - the chat holds no Koog agent at all — neither in the loop, nor in the port it turns through;
  * - the memory feature ships exactly one history provider, and it is in-memory.
  *
  * If somebody rewires the chat onto a Koog agent graph, or adds a durable provider to the memory
@@ -57,6 +59,32 @@ class KoogCheckpointApplicabilityTest {
             emptyList<String>(),
             agentTypes,
             "the built-in chat is a hand-written loop; wiring it to a Koog agent would change the decision",
+        )
+    }
+
+    /**
+     * The loop is one layer down, so the boundary above it is pinned too.
+     *
+     * The chat does not talk to `ToolCallLoop` directly: it talks to a project-owned port
+     * (`TextGenPort`) through a turn (`ChatTurn`). That port is exactly where a Koog agent would
+     * have to be plugged in — a rewire would either change the port's signatures or change what
+     * the turn holds — so the tripwire sits on both. Without this, the loop check alone would
+     * keep passing after the chat had already been moved onto a Koog agent.
+     */
+    @Test
+    fun `the chat turns through a project-owned port`() {
+        val koogTypes =
+            (
+                ChatTurn::class.java.declaredFields.map { it.type.name } +
+                    TextGenPort::class.java.methods.flatMap { method ->
+                        method.parameterTypes.map { it.name } + method.returnType.name
+                    }
+            ).filter { it.startsWith(koogAgentPackage) }
+
+        assertEquals(
+            emptyList<String>(),
+            koogTypes,
+            "the chat turns through a project-owned port; plugging a Koog agent into it would change the decision",
         )
     }
 

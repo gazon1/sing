@@ -3,7 +3,9 @@
 package com.singularity.todo.feature.ai.acp
 
 import com.agentclientprotocol.client.Client
+import com.agentclientprotocol.model.AcpMethod
 import com.agentclientprotocol.model.AgentCapabilities
+import com.agentclientprotocol.model.ResumeSessionRequest
 import com.agentclientprotocol.model.SessionCapabilities
 import com.agentclientprotocol.model.SessionResumeCapabilities
 import kotlinx.serialization.json.Json
@@ -42,6 +44,55 @@ class AcpResumeCapabilityTest {
         assertTrue(
             resumeCalls.isNotEmpty(),
             "the pinned client must expose resumeSession — the note's claim depends on it",
+        )
+    }
+
+    /**
+     * The note claims the resume call travels as protocol **v1**, not only as the draft v2.
+     *
+     * The wire name alone cannot tell the two apart — both `AcpMethod.AgentMethods.V1.SessionResume`
+     * and `…V2.SessionResume` are named `session/resume`, and they differ only in their request and
+     * response types. The request type is what tells them apart, and the pinned SDK splits it by
+     * package: v1 sends `com.agentclientprotocol.model.ResumeSessionRequest`, v2 sends the *same
+     * simple name* out of `com.agentclientprotocol.model.v2`.
+     *
+     * So the test pins three facts that together say "the resume call travels as v1": the v1 method
+     * object is bound to the v1 request type, the v2 method object is bound to a *different* type
+     * (without that, the first assertion would be vacuous), and the client builds the v1 type.
+     * A bump that re-points `resumeSession` at v2 fails on the last assertion instead of quietly
+     * invalidating the note.
+     */
+    @Test
+    fun `the resume call travels as protocol v1`() {
+        assertEquals(
+            "session/resume",
+            AcpMethod.AgentMethods.V1.SessionResume.methodName.name,
+            "the pinned SDK names the v1 resume method session/resume",
+        )
+
+        assertEquals(
+            "com.agentclientprotocol.model.ResumeSessionRequest",
+            AcpMethod.AgentMethods.V1.SessionResume.requestSerializer.descriptor.serialName,
+            "the v1 resume method object must be bound to the v1 request type",
+        )
+        assertEquals(
+            "com.agentclientprotocol.model.v2.ResumeSessionRequest",
+            AcpMethod.AgentMethods.V2.SessionResume.requestSerializer.descriptor.serialName,
+            "the v2 resume method object must stay a different type — " +
+                "otherwise the v1 assertion above proves nothing",
+        )
+
+        val resumeRequestTypes =
+            Client::class.java.declaredMethods
+                .map { it.returnType }
+                .filter { it.simpleName == "ResumeSessionRequest" }
+                .distinct()
+
+        assertEquals(
+            listOf(ResumeSessionRequest::class.java),
+            resumeRequestTypes,
+            "the client must build the v1 resume request — a bump that re-points resumeSession " +
+                "at v2 breaks the note's claim",
         )
     }
 

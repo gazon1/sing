@@ -86,8 +86,13 @@ reason to reject it. The reason is what the feature can checkpoint:
 - Checkpointing is an **agent-pipeline feature**. `Persistence.Feature` implements
   `AIAgentGraphFeature` / `AIAgentPlannerFeature` and installs itself by casting the running
   strategy: `val strategy = ctx.strategy as AIAgentGraphStrategy<*, *>`
-  (`agents-features-snapshot: Persistence.kt:130`). The built-in chat's strategy is a
-  `FunctionalAIAgent`, so this cast is the wall, not a detail.
+  (`agents-features-snapshot: Persistence.kt:130`). The cast only holds inside a Koog *graph*
+  run. The built-in chat never enters a Koog agent at all — `KoogAgentService.streamChat`
+  drives the app-owned `ToolCallLoop` — so there is no strategy to cast and nothing for the
+  feature to install into. Even the one place the app does run a Koog agent,
+  `KoogAgentService.generate()` → `createAgent(...)` → `agent.run(prompt)`, builds a
+  `FunctionalAIAgent` (`AIAgent.builder().build()` → `FunctionalAIAgent`), whose strategy is
+  functional rather than `AIAgentGraphStrategy`.
 - Restoring is an **agent-graph operation**: `runFromCheckpoint(agent: AIAgent<Input, Output>, input,
   checkpoint, …)` (`Persistence.kt:267`) writes the checkpoint into an `AIAgentRunSession`'s
   *graph* context (`Persistence.kt:290-299`). There is no `AIAgent` and no graph session in the
@@ -110,8 +115,9 @@ So the two candidate readings of "Koog persistence" both fail for the chat:
 
 **Verdict: do not adopt.** The tripwire is `KoogCheckpointApplicabilityTest`
 (`shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/KoogCheckpointApplicabilityTest.kt`): it
-pins the two facts the decision rests on — the checkpoint API is defined in terms of a Koog
-`AIAgent`, and the chat loop holds no Koog agent at all.
+pins the facts the decision rests on — the checkpoint API is defined in terms of a Koog `AIAgent`,
+and the chat holds no Koog agent at all: neither in the loop, nor in the project-owned port it turns
+through (`TextGenPort`, `ChatTurn`).
 
 ## 2. ACP resume: the SDK can do it; the profiles and the lifecycle do not yet justify it
 
@@ -138,7 +144,10 @@ So the client side is not the blocker: **no SDK bump is needed to issue `session
 
 The claim is pinned by `AcpResumeCapabilityTest`
 (`shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/AcpResumeCapabilityTest.kt`): it
-asserts that the pinned client exposes the resume call, that resume is a *marker* capability
+asserts that the pinned client exposes the resume call, that the call travels as **v1** (the v1 and
+the v2 resume method share the wire name `session/resume` and are told apart by their request type
+— `com.agentclientprotocol.model.ResumeSessionRequest` against
+`com.agentclientprotocol.model.v2.ResumeSessionRequest`), that resume is a *marker* capability
 (`sessionCapabilities.resume` is present or absent — no payload to interpret), and that the marker
 travels as exactly `{"resume":{}}`. A dependency bump that changes any of those fails the test
 instead of quietly invalidating this note.
@@ -218,9 +227,15 @@ Three caveats that a reader of the table above must not miss:
    installed bridge, not of this repository — the table is true as of the versions checked, and the
    capability must be read at runtime, not assumed.
 2. **Capability is not the same as usefulness.** `session/resume` resumes a session the *agent* still
-   holds. This application owns the agent's process tree and kills it when the conversation ends
-   (`AcpClient.close()`/`terminate()`, `AcpClient.kt:485-601`). A session whose process is gone
-   cannot be resumed by anybody, including the SDK.
+   holds — a live session inside the agent's own process. This application never connects to an agent
+   that is already running: every profile is *launched* as a child process
+   (`SubprocessAcpAgentLauncher`, `AcpAgentLauncher.kt:78-104`) and the protocol travels over that
+   child's standard input and output (`Subprocess.spawnDuplex`, `core/process/Subprocess.kt:295-309`).
+   A restarted app therefore launches a *new* child, which holds no session with the old id; and an
+   agent orphaned by a killed app cannot be reached either, even if it survives the kill — the pipes
+   died with the app that held them, and a new process cannot re-attach to a child it did not spawn.
+   An orderly close ends the tree outright as well (`AcpClient.close()`/`terminate()` →
+   `ProcessTree`, `AcpClient.kt:485-601`).
 3. **The pinned SDK cannot open these sessions at all** (see above): `auth.status` is a boolean in
    SDK 0.34.0 and an object in the bridges. Whatever the resume design ends up being, it starts
    after that mismatch is resolved.
@@ -232,7 +247,9 @@ but because everything a resume needs is missing and none of it is cheap:
 
 1. the app never reads capabilities, so it cannot know whether resume is on the table;
 2. the app never persists a session id, so it has nothing to resume;
-3. the app kills the agent's process on close, so the session it would resume is gone with it;
+3. the app launches the agent itself, as a child process it speaks to over pipes, so no session
+   outlives the app: a restart spawns a new agent with no session to resume, and an orphaned agent
+   cannot be re-attached to;
 4. and, as the live probe shows, the pinned SDK 0.34.0 cannot decode the bridges' `initialize`
    response at all (`$.status`), so there is no working session to resume in the first place.
 
@@ -283,16 +300,18 @@ persisting a rendered UI tree — a second format, a second table, and a schema 
 
 | Situation | Transcript (text) | A live model/agent execution | An ACP session |
 |---|---|---|---|
-| Process death, app restarted | **Yes** — if the transcript is in Room | No — the model call is over; the next message starts a new call | No — the agent's process was killed with the app |
+| Process death, app restarted | **Yes** — if the transcript is in Room | No — the model call is over; the next message starts a new call | No — the app launches the agent itself; a restart spawns a new agent, which holds no session |
 | Turn cancelled by the reader | **Yes** — the partial answer is a row | No | No — `session/cancel` stops the turn; the session survives only while the process does |
-| App killed, agent killed | **Yes** | No | No — the id is meaningless without the agent that minted it |
+| App killed, agent orphaned | **Yes** | No | No — the pipes died with the app, so the orphan cannot be reached |
 | Agent process died, app alive | **Yes** | No | No — `AgentUnavailable` (`AcpClient.kt:399`), and the id is dead |
-| App restarted, agent daemon still alive | **Yes** | No | **Only here** — `session/load` or `session/resume`, if the agent advertises it |
+| A *separately* running agent, reachable over a socket | **Yes** | No | **Only here** — `session/load` or `session/resume`, if the agent advertises it — but the current launcher spawns its own child over pipes, so this shape does not exist today |
 
 The rule the table states: **transcript restoration and execution resumption are different
 features.** The transcript is the application's own data and survives anything. Resuming an
-execution is a property of *someone else's* process, and this application does not keep that
-process alive — it kills it by design (`ProcessTree`, `AcpClient.kt:485-601`).
+execution is a property of *someone else's* process — and this application does not run anyone
+else's long-lived process: it launches the agent itself and speaks to it over pipes, so the session
+lives and dies with the app (`Subprocess.spawnDuplex`, `core/process/Subprocess.kt:295-309`;
+`ProcessTree`, `AcpClient.kt:485-601`).
 
 A second rule follows from the current chat shape: **restoring a transcript does not restore the
 model's memory of it.** Today the model is re-told the last six turns as 200-character prose
@@ -334,8 +353,8 @@ chat.**
 3. *Then* the question the transcript raises: should the model see the real turns instead of the
    200-character prose block?
 4. *Then, separately*: the ACP capability read (`sessionCapabilities?.resume`) — two lines, no
-   persistence — and, only if a profile turns out to keep its process alive across restarts, the
-   session-id store and the resume call.
+   persistence — and, only if a profile turns out to be an agent the app can reach *across* restarts
+   (a separately-running daemon, not the child it spawns), the session-id store and the resume call.
 
 ## How to reproduce the findings
 
