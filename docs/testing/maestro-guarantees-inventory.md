@@ -82,13 +82,9 @@ The runner retries a flow on a **device-level failure** (`maestro._runner`, `--m
 
 The catalogue held 135 flows at the audit (2026-11-22); it holds **130** today — five flows were retired after the audit: `profile/01-create-profile.yaml` ([#3122](https://github.com/gazon1/sing/issues/3122)), `agenda/04-saved-view-results.yaml` ([#3121](https://github.com/gazon1/sing/issues/3121)), `agenda/09-upcoming-timeline.yaml` ([#3120](https://github.com/gazon1/sing/issues/3120)), `system/menu-sheet.yaml` ([#3123](https://github.com/gazon1/sing/issues/3123)) and `calendar_sync/02-system-calendar-unavailable.yaml` (gazon1/sing#3115) — so the `full` suite is 122 automated flows now. The shard count comes from `config/docs/e2e-shards.txt` (`full 4`, `smoke 4`).
 
-**The shard file's own comment is stale.** `config/docs/e2e-shards.txt` still explains the
-smoke suite as "the same 27 flows between them in shares of 7, 7, 7 and 6". The runner's
-selection today gives **29** flows in shares of **8 / 7 / 7 / 7** — the comment predates the
-flows that carry the `smoke` tag. The file's *configuration* is right (both suites are still
-split four ways), and its own rule — "only the count belongs here" — is what this audit
-followed; the stale part is the prose around it. Correcting that comment is a separate
-documentation-only change and is **not** done here: this audit changes no configuration file.
+`config/docs/e2e-shards.txt` documents the smoke suite as 29 tag-selected flows distributed
+8 / 7 / 7 / 7 across four shards, matching the runner's current `select_suite_flows` smoke
+selection. The configuration remains unchanged: both full and smoke suites still use four shards.
 
 **Reading the Shard column.** Each inventory row carries the shard the flow actually runs in:
 `S1`–`S4` is a shard of the `smoke` suite, `F1`–`F4` a shard of the `full` suite, `S2/F4` a flow that
