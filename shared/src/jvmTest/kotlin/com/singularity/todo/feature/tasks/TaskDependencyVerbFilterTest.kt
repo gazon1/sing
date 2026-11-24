@@ -199,6 +199,26 @@ class TaskDependencyVerbFilterTest {
         }
 
     @Test
+    fun `the list read carries both projections of the same edge table`() =
+        runTest {
+            // The blocking set and the follow-up set are built from one read of
+            // `task_dependencies`. Splitting that read into two passes is how the
+            // two projections drift apart — a task would carry one edge in the
+            // blocked list and a different one in the followed-up list, from the
+            // same rows.
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Both ways"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
+
+            val listed = repo.observeByFilter(TaskFilter.All).first().single { it.id == TaskId("t1") }
+
+            assertEquals(setOf(TaskId("dep")), listed.blockedBy, "the blocking projection")
+            assertEquals(setOf(TaskId("dep")), listed.followsUp, "the follow-up projection")
+        }
+
+    @Test
     fun `the typed read still sees every edge`() =
         runTest {
             val repo = repository()

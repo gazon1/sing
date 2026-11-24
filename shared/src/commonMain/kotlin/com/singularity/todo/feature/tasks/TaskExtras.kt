@@ -62,11 +62,7 @@ internal fun TaskDao.withExtras(
         // table once per projection read the whole graph twice per emission.
         observeDependencyCrossRefs(uid.value),
     ) { tagRows, depRows ->
-        TaskExtras(
-            tagsByTask = tagRows.groupBy { it.taskId }.mapValues { (_, rows) -> rows.map { it.tagId } },
-            depsByTask = depRows.groupByVerb(DependencyVerb.BLOCKS) { it.dependsOnTaskId },
-            followUpsByTask = depRows.groupByVerb(DependencyVerb.FOLLOWS_UP) { it.dependsOnTaskId },
-        )
+        taskExtras(tagRows, depRows)
     }.let { extrasFlow -> combine(source, extrasFlow) { rows, extras -> rows.enrichedWith(extras) } }
 
 /**
@@ -106,13 +102,7 @@ internal fun withScopedExtras(
     // One subscription in total: `source` is not collected a second time to pair the
     // result back together, so the extras cannot describe a previous list of rows.
     combine(source, tagsFlow, dependenciesFlow) { rows, tagRows, depRows ->
-        rows.enrichedWith(
-            TaskExtras(
-                tagsByTask = tagRows.groupBy { it.taskId }.mapValues { (_, refs) -> refs.map { it.tagId } },
-                depsByTask = depRows.groupByVerb(DependencyVerb.BLOCKS) { it.dependsOnTaskId },
-                followUpsByTask = depRows.groupByVerb(DependencyVerb.FOLLOWS_UP) { it.dependsOnTaskId },
-            ),
-        )
+        rows.enrichedWith(taskExtras(tagRows, depRows))
     }
 
 /** The rows as tasks, carrying the tags and edges [extras] holds for each. */
@@ -134,18 +124,58 @@ private fun List<TaskEntity>.enrichedWith(extras: TaskExtras): List<Task> =
     }
 
 /**
- * One projection of the dependency edges, by the verb that gives it its meaning.
+ * Both projections of the dependency edges, indexed by the task that holds the
+ * edge: the **blocking** graph and the ordering graph's **follow-up** half.
  *
- * The blocking graph and the ordering graph's follow-up half are the same table
- * asked two different questions; both are indexed by the task that holds the edge.
+ * One walk of the list, because the two answers are two questions about the same
+ * rows. They used to be two `filter` + `groupBy` passes, which read the list
+ * twice per emission to build two maps from it.
+ *
+ * A verb that is neither `BLOCKS` nor `FOLLOWS_UP` belongs to neither projection
+ * and is dropped here, exactly as the two filters dropped it. The typed read
+ * still sees every verb.
  */
-private fun List<TaskDependencyCrossRef>.groupByVerb(
-    verb: DependencyVerb,
-    target: (TaskDependencyCrossRef) -> String,
-): Map<String, Set<String>> =
-    filter { it.verb == verb.name }
-        .groupBy { it.taskId }
-        .mapValues { (_, rows) -> rows.map(target).toSet() }
+private fun List<TaskDependencyCrossRef>.splitByVerb(): Pair<Map<String, Set<String>>, Map<String, Set<String>>> {
+    val blocking = mutableMapOf<String, MutableSet<String>>()
+    val followUps = mutableMapOf<String, MutableSet<String>>()
+    for (row in this) {
+        val into =
+            when (row.verb) {
+                DependencyVerb.BLOCKS.name -> blocking
+
+                DependencyVerb.FOLLOWS_UP.name -> followUps
+
+                // Another verb is neither projection: the two maps answer the
+                // blocking and the follow-up question, and nothing else.
+                else -> continue
+            }
+        into.getOrPut(row.taskId, ::mutableSetOf) += row.dependsOnTaskId
+    }
+    return blocking to followUps
+}
+
+/**
+ * The tags and both dependency projections of one read, built in one pass.
+ *
+ * [withExtras] and [withScopedExtras] ask the same question of the same rows, so
+ * they build the answer here. Two hand-written copies of the grouping were how
+ * the profile-wide read and the scoped read drifted apart in the first place.
+ *
+ * The dependency rows are walked **once**: the two projections used to be two
+ * `filter` + `groupBy` passes over the same list, which on a 50k profile meant
+ * materialising the blocking map and the follow-up map from two full scans.
+ */
+private fun taskExtras(
+    tagRows: List<TaskTagCrossRef>,
+    depRows: List<TaskDependencyCrossRef>,
+): TaskExtras {
+    val (depsByTask, followUpsByTask) = depRows.splitByVerb()
+    return TaskExtras(
+        tagsByTask = tagRows.groupBy { it.taskId }.mapValues { (_, rows) -> rows.map { it.tagId } },
+        depsByTask = depsByTask,
+        followUpsByTask = followUpsByTask,
+    )
+}
 
 /** The cross-references of a set of tasks, indexed by the task they belong to. */
 private data class TaskExtras(
@@ -239,16 +269,11 @@ internal suspend fun TaskDao.freshTasks(
         listAllTagsForUser(uid.value)
             .groupBy { it.taskId }
             .mapValues { (_, refs) -> refs.map { TagId.fromString(it.tagId) } }
-    val depsByTask =
-        listAllDependenciesForUser(uid.value)
-            .filter { it.verb == DependencyVerb.BLOCKS.name }
-            .groupBy { it.taskId }
-            .mapValues { (_, refs) -> refs.map { TaskId.fromString(it.dependsOnTaskId) }.toSet() }
-    val followUpsByTask =
-        listAllDependenciesForUser(uid.value)
-            .filter { it.verb == DependencyVerb.FOLLOWS_UP.name }
-            .groupBy { it.taskId }
-            .mapValues { (_, refs) -> refs.map { TaskId.fromString(it.dependsOnTaskId) }.toSet() }
+    // One read of the dependency table for both projections: the blocking set and
+    // the follow-up set are two questions about the same rows.
+    val (blockingIdsByTask, followUpIdsByTask) = listAllDependenciesForUser(uid.value).splitByVerb()
+    val depsByTask = blockingIdsByTask.mapValues { (_, ids) -> ids.map { TaskId.fromString(it) }.toSet() }
+    val followUpsByTask = followUpIdsByTask.mapValues { (_, ids) -> ids.map { TaskId.fromString(it) }.toSet() }
     return rows.map { row ->
         row.toTask(
             tags = tagsByTask[row.id].orEmpty(),
