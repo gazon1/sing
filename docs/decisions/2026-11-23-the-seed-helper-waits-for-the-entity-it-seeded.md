@@ -459,12 +459,12 @@ profile therefore behaves exactly as it did before.
   element the app never renders on the tab it is left on.
 - Changing the helper invalidates the fingerprint of every flow that runs it:
   the qualification fingerprint covers the files a flow runs transitively. The
-  gate reports 68 findings on this tree — 53 with a stale baseline, 14 with no
-  admission and one exception that was issued for a fingerprint the flow has
-  left behind. 67 of the 68 run the seed helper — 39 of them through it
-  directly and 28 through `helpers/seed-task.yaml` — and the 68th,
-  `tasks/13-create-full-task`, this entry changed itself. The gate was green
-  before this entry: at the fork point of this branch (`d1af01223f`) it
+  gate reported 68 findings on this tree before the sweep — 53 with a stale
+  baseline, 14 with no admission and one exception that was issued for a
+  fingerprint the flow has left behind. 67 of the 68 run the seed helper — 39
+  of them through it directly and 28 through `helpers/seed-task.yaml` — and the
+  68th, `tasks/13-create-full-task`, this entry changed itself. The gate was
+  green before this entry: at the fork point of this branch (`d1af01223f`) it
   admitted every flow in a blocking scope (127 flows in scope: 114 baselined,
   13 qualified, 0 excepted), so the whole 68 is this entry's debt and not a
   debt it inherited. The merge-base with main is not green, and for a reason
@@ -475,9 +475,12 @@ profile therefore behaves exactly as it did before.
   gate is green again (121 flows in scope: 103 baselined, 16 qualified, 2
   excepted). The flows are not broken — their assertions and their navigation
   are unchanged — but the evidence that admitted them was three passing runs
-  against the old helper. The sweep that requalifies them is tracked in issue
-  #3140; it is not this entry's work, and the ADR does not excuse it with
-  exceptions.
+  against the old helper. The sweep that requalifies them ran on 2026-11-25
+  and is tracked in issue #3140; the thirteen flows that still fail are
+  admitted by evidence-backed exceptions that name the issue owning each
+  cause, and the rest of the debt is tracked in issue #3191. This entry does
+  not excuse the debt with silence: every exception names its cause and its
+  owner.
 - `smoke/07-seed-helper-contract` is the runtime half of the contract: the
   optional input, the named entity, and the seed that writes no entity.
 - A flow that seeds an entity the agenda does not show still waits for it
@@ -663,9 +666,43 @@ the timing that sized it:
   that a successful seed never shows), and the wait that follows the chunk
   (0.4 s). Sixteen chunks of that came to 216 s of the runner's 300 s budget,
   so the flow was cut to three hundred rows in twelve chunks.
-- `menu/06-tree-live` — **green** (exit 0) with the wait for the renamed
-  project and the first seed asserted by its name ("Roadmap") rather than by
-  the row's id.
+- `menu/06-tree-live` — the flow as it stands now: the row is scrolled into
+  view by its id before the wait for the renamed project runs, and the wait is
+  for the new name. The earlier run of this flow waited for the name *before*
+  the row was scrolled into view, so a row below the fold never came into
+  sight and the wait timed out — the helper does not scroll, so the flow's own
+  navigation comes first.
+
+Android emulators (`emulator-5562`, `emulator-5566`, `emulator-5568`, API 36),
+2026-11-25 — the requalification of the flows this entry's change to the
+helper invalidated, against the APK built from `38f87de9b9`:
+
+- Thirty-five flows, three attempts each, the same documented environment per
+  flow. **Twenty-two passed all three attempts** and are admitted by their
+  qualification records: `lifecycle/01-kill-restart-persist`,
+  `menu/01-projects-roots`, `menu/04-all-projects`, `menu/06-tree-live`,
+  `notes/03-internal-link-navigation`, `profile/02-isolation`,
+  `pomodoro/03-pause-resume`, `search/02-cyrillic`, `search/08-word-prefix`,
+  `search/13-suggestion-dismissal`, `smoke/06-session-anonymous`,
+  `smoke/07-seed-helper-contract`, `system/search-finds-task`,
+  `system/seed-unknown-key`, `tasks/02-set-due-date`,
+  `tasks/03-due-date-cancel`, `tasks/05-archive-via-menu`,
+  `tasks/08-date-buckets`, `tasks/16-return-to-source-tab`,
+  `tasks/18-time-tracking-start-stop`, `tasks/20-planning-deadline`,
+  `tasks/subtasks/TASK-SUB-01`.
+- **Thirteen did not**, and each failed on the same message in all three
+  attempts. None of the thirteen was changed by this entry; what changed is
+  the fingerprint their baseline entry was written against. Seven of the causes
+  are already owned and recorded in `config/docs/maestro-debt.yaml` (#818 for
+  the four attachment flows, #837 for `lifecycle/03-rotate-in-editor`, #2723
+  for `tasks/06-delete-undo`, #872 for `tasks/09-rename-empty`); six are causes
+  of their own (`pomodoro/04-skip-to-break`, `search/05-filter-pinned`,
+  `search/12-no-results-recovery`, `tasks/13-create-full-task`,
+  `tasks/21-planning-reminder`, `tasks/logbook/TASK-LOG-01`), tracked by issue
+  #3191. Each of the thirteen is admitted by an evidence-backed exception that
+  names the issue that owns its cause.
+- The gate is green on this tree: 122 flows in a blocking scope, 51 baselined,
+  58 qualified, 13 excepted.
 
 ## Links
 
@@ -695,6 +732,8 @@ the timing that sized it:
   not changed by this entry.
 - Issue #3140 — the qualification sweep that follows from this entry's change
   to the helper.
+- Issue #3191 — the thirteen flows the sweep did not qualify, and the causes
+  that own them.
 - `Maestro/flows/tasks/08-date-buckets.yaml` — a flow that names the entity it
   wants waited for.
 - `Maestro/flows/agenda/07-large-overdue.yaml` — a flow that waits for the
