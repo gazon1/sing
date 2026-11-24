@@ -4,8 +4,8 @@
   "commit": "merge origin/main into the nav/02-menu-parity retirement (#3119)",
   "corpus": {
     "specs": 141,
-    "claimed_cells": 162,
-    "carriers": 92
+    "claimed_cells": 161,
+    "carriers": 91
   },
   "floors": [
     {

@@ -121,7 +121,7 @@ Steps:
 
 #### `AGENDA-09` — Upcoming groups future tasks under date headers and leaves Today out
 
-**confirmed** · P1 · `#AGENDA`
+**deprecated** · P1 · `#AGENDA`
 
 **Given:** Open tasks exist with due dates tomorrow, three days out and six days out. A task due today and a task with no due date exist as controls.
 
@@ -144,8 +144,9 @@ Steps:
 1. Open the Upcoming tab.
 2. Read the section headers from top to bottom.
 3. Read the rows inside the first and the last section that carries a task.
+4. Switch the grouping from days to weeks and back.
 
-**Expected:** The headers name their dates and appear earliest first. There is no header for a day between them that carries no task. Each task sits under its own date and in no other section; today's and the undated tasks are absent.
+**Expected:** The headers name their dates and appear earliest first. There is no header for a day between them that carries no task. Each task sits under its own date and in no other section; today's and the undated tasks are absent. Each task is listed once. The day/week control switches the feed to week headers and back without losing a task.
 
 #### `AGENDA-STATE-01` — A saved view shows only the tasks in a chosen workflow state
 
