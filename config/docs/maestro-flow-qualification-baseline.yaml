@@ -18,7 +18,7 @@ flows:
   Maestro/flows/agenda/09-upcoming-timeline.yaml: sha256:cada6599a4d9caa21925b3aee2983095712cf0af5218ce7bf3e693bf391eb47f
   Maestro/flows/agenda/10-overflow-menu.yaml: sha256:bea9c5c656c3cde85b867c3b2e3e82cb49885d7740a1efb4d8afd881cc32725c
   Maestro/flows/archive/01-restore.yaml: sha256:d3dee1db47bb754d5582021a82f3d9aff8c8132fc95c7c0d5d6399ca8f7df3ee
-  Maestro/flows/archive/02-bulk-archive-confirm.yaml: sha256:ee7c8e181097ac7568ff6588529336176974f76c017d0538826bbaa39fc77be7
+  Maestro/flows/archive/02-bulk-archive-confirm.yaml: sha256:983bf1e7423f7eef32a6db0773af2779f313d0ffa9c339dca8a5343451a3f010
   Maestro/flows/attachments/01-add-url.yaml: sha256:89d30a7725a7d78780b19077445a8e71a9e20cb84f9081c7adc29b390a2244c3
   Maestro/flows/attachments/02-delete.yaml: sha256:3f8484ebbdf88877a281b84ced70f6f879d12f3e6aac5f2468f3231327bb999a
   Maestro/flows/attachments/03-empty-url-rejected.yaml: sha256:d0f61aaa950aacc87c19adae655aa6e2de543f7c28e6fe66e83d2990b055e9d6
@@ -101,7 +101,6 @@ flows:
   Maestro/flows/smoke/06-session-anonymous.yaml: sha256:d301ef2c68e0053bfd809fc6dc1377f57d26af2e3cf5c5c3a6a563430be4faac
   Maestro/flows/sync/01-change-sync-interval.yaml: sha256:31428d64491fcab5ed7f06cd3bf42e6b9a79b8583247307c34e501a7a6b44c58
   Maestro/flows/sync/01-offline-create-survives-reconnect.yaml: sha256:d8e820d0f422e2cc148446de35c8d10f03e5e79bc3e367a43b6de2a51d5862a8
-  Maestro/flows/system/menu-sheet.yaml: sha256:b178b76a9c7a6267657f10fafce54705b69cb72c49a9c8902f08339abe171ea1
   Maestro/flows/system/search-finds-task.yaml: sha256:983b6231103ef6c94a46cd55c8a6b1bcc669488fc4756e8ad293837295f3d665
   Maestro/flows/system/seed-unknown-key.yaml: sha256:01e024697f1dd6192f2a72a405081bc29e9ffc605a3718fb2796ac3d6036e0ca
   Maestro/flows/system/shell-search-button.yaml: sha256:61bd8555115943f05003061f6e4c56b5ddaafdcc37536853359d935a00dd83af

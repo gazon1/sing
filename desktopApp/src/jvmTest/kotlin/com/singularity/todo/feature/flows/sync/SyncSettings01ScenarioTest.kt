@@ -5,6 +5,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.sync.SyncScope
 import com.singularity.todo.core.sync.SyncScopeProvider
+import com.singularity.todo.core.sync.SyncStateRepository
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import com.singularity.todo.test.fakes.FakeSyncRepository
@@ -65,7 +66,7 @@ class SyncSettings01ScenarioTest {
 
         lateinit var selectedInterval: String
 
-        runDesktopAppTest(overrides = overrides) {
+        runDesktopAppTest(overrides = overrides) { koin ->
             openSyncSettings()
             // Auto-sync is on by default for a fresh scope; changing the interval while
             // it is enabled must re-arm scheduled sync immediately (the "applied" proof).
@@ -85,6 +86,20 @@ class SyncSettings01ScenarioTest {
             ) {
                 sync.scheduledIntervals.drop(scheduledBeforeChange).any {
                     it.inWholeMinutes.toInt() == expectedMinutes
+                }
+            }
+
+            // The ViewModel persists the interval asynchronously, while re-arming is
+            // synchronous. Wait for the DB write before leaving this mount so the reload
+            // boundary below proves persistence, not a scheduler-only race.
+            val stateRepository = koin.get<SyncStateRepository>()
+            val scope = SyncScope("user-1", "profile-1")
+            waitUntil(
+                conditionDescription = "interval $expectedMinutes min persisted before restart boundary",
+                timeoutMillis = 10_000,
+            ) {
+                kotlinx.coroutines.runBlocking {
+                    stateRepository.get(scope).scheduledInterval.inWholeMinutes.toInt() == expectedMinutes
                 }
             }
         }
