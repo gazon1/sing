@@ -102,27 +102,42 @@ class LaunchCleanSpotlightContractTest(unittest.TestCase):
             if isinstance(nested, list):
                 guarded_commands.extend(nested)
 
-        spotlight_waits = [
-            command for command in guarded_commands
+        spotlight_wait_indices = [
+            index for index, command in enumerate(guarded_commands)
             if isinstance(command, dict)
             and isinstance(command.get("extendedWaitUntil"), dict)
             and command["extendedWaitUntil"].get("visible", {}).get("id") == "onboarding_spotlight_card"
         ]
         self.assertTrue(
-            spotlight_waits,
+            spotlight_wait_indices,
             "race mitigation must wait briefly for onboarding_spotlight_card to appear",
         )
         self.assertTrue(
-            any(wait["extendedWaitUntil"].get("timeout") == 5000 for wait in spotlight_waits),
+            any(
+                guarded_commands[index]["extendedWaitUntil"].get("timeout") == 5000
+                for index in spotlight_wait_indices
+            ),
             "spotlight race wait should be bounded to 5000ms",
         )
         self.assertTrue(
-            any(wait["extendedWaitUntil"].get("optional") is True for wait in spotlight_waits),
+            any(
+                guarded_commands[index]["extendedWaitUntil"].get("optional") is True
+                for index in spotlight_wait_indices
+            ),
             "spotlight race wait must be optional so absence does not fail launch-clean",
         )
+
+        dismissal_indices = [
+            index for index, command in enumerate(guarded_commands)
+            if _is_run_flow(command, "skip-spotlight.yaml")
+        ]
         self.assertTrue(
-            any(_is_run_flow(command, "skip-spotlight.yaml") for command in guarded_commands),
+            dismissal_indices,
             "race mitigation must dismiss spotlight after the optional appearance wait",
+        )
+        self.assertTrue(
+            min(spotlight_wait_indices) < min(dismissal_indices),
+            "spotlight appearance wait must occur before skip-spotlight dismissal in guarded race mitigation",
         )
 
     def test_nav_readiness_wait_keeps_shell_timeout(self):
