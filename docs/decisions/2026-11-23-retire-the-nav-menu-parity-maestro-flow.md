@@ -225,6 +225,11 @@ the frozen set without a file behind it is therefore a record, not an
 admission. So the flow stays in the frozen set and keeps its baseline
 fingerprint, and the pinned digests were refreshed.
 
+The second minor was in the owner: the real-drawer test deduplicated the
+project rows it read, so a row drawn twice was folded away instead of
+failing. The deduplication is gone; a row that appears twice now fails the
+test by name.
+
 Two further minors asked for the foreign repairs to move to their own pull
 request: the qualification exception for `archive/02-bulk-archive-confirm.yaml`
 and the harness-convention fix in `OpenSavedViewShowsMatchingTasksFlowTest`.

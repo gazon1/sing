@@ -204,18 +204,29 @@ class MenuParityFlowTest {
      * by the ids the test expects, so that a row nobody expected is a row the
      * assertion sees.
      *
+     * A row that is drawn twice is a bug, not a duplicate to fold away: the
+     * two rows are separate nodes with the same tag, and a deduplicating read
+     * would hide the second one. So the duplicates are counted and the test
+     * says which row they are.
+     *
      * The order is the order the rows are drawn in, taken from where they sit
      * on the screen: the drawer draws them in one column, so the row above is
      * the row that comes first. The bounds are the *unclipped* ones, because a
      * row below the fold has a position even when the fold hides it.
      */
-    private fun DesktopComposeUiTest.projectRowsInTheDrawer(): List<String> =
-        onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag))
-            .fetchSemanticsNodes()
-            .mapNotNull { node -> node.config.getOrNull(SemanticsProperties.TestTag) }
-            .filter { tag -> tag.startsWith(PROJECT_ROW_TAG) }
-            .distinct()
-            .sortedBy { tag -> unclippedBoundsOfTag(tag).top }
+    private fun DesktopComposeUiTest.projectRowsInTheDrawer(): List<String> {
+        val tags =
+            onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag))
+                .fetchSemanticsNodes()
+                .mapNotNull { node -> node.config.getOrNull(SemanticsProperties.TestTag) }
+                .filter { tag -> tag.startsWith(PROJECT_ROW_TAG) }
+        assertEquals(
+            tags.distinct().size,
+            tags.size,
+            "the drawer draws a project row more than once: $tags",
+        )
+        return tags.sortedBy { tag -> unclippedBoundsOfTag(tag).top }
+    }
 
     /**
      * The project rows one drawing shows, in the order it draws them: the
