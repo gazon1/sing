@@ -7,7 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -297,9 +296,9 @@ class HlcFactoryPersistenceTest {
      * So the write belongs to the batch that queued the patches, and it happens
      * before that batch returns — whether or not another batch is still open.
      *
-     * The first batch is held open on its own thread: the block of [HlcFactory.batched]
-     * is not a suspending one, so a latch is what keeps it open while the second
-     * batch runs and finishes.
+     * The first batch is held open on a thread of its own: the block of
+     * [HlcFactory.batched] is not a suspending one, so a latch is what keeps it
+     * open while the second batch runs and finishes.
      */
     @Test
     fun `a batch that finishes while another batch is open still writes its clock`() =
@@ -320,16 +319,13 @@ class HlcFactoryPersistenceTest {
             val firstBatchIsOpen = CountDownLatch(1)
             val releaseFirstBatch = CountDownLatch(1)
             val firstBatch =
-                Thread {
-                    runBlocking {
-                        factory.batched {
-                            factory.tick()
-                            firstBatchIsOpen.countDown()
-                            releaseFirstBatch.await()
-                        }
+                scope.launch(Dispatchers.Default) {
+                    factory.batched {
+                        factory.tick()
+                        firstBatchIsOpen.countDown()
+                        releaseFirstBatch.await()
                     }
                 }
-            firstBatch.start()
             firstBatchIsOpen.await()
 
             // The second batch mints a clock and finishes while the first is open.
@@ -344,7 +340,7 @@ class HlcFactoryPersistenceTest {
             )
 
             releaseFirstBatch.countDown()
-            firstBatch.join(30_000)
+            firstBatch.join()
             scope.close()
         }
 
