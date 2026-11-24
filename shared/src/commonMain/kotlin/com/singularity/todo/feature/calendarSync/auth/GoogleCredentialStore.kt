@@ -90,7 +90,7 @@ internal fun googleCredentialKey(userId: String): String = "google_calendar:$use
  *
  * Built on [SecureStorage] — the narrow three-method slice — rather than
  * [com.singularity.todo.core.security.SecureStoragePort], so a test can supply a map
- * without implementing a keyring. The wider port adds `isHardwareBacked()`, which is worth
+ * without implementing a keyring. The wider port adds `usesPlatformKeyStore()`, which is worth
  * surfacing in settings at some point but is not needed to store a token correctly.
  */
 class SecureStorageGoogleCredentialStore(

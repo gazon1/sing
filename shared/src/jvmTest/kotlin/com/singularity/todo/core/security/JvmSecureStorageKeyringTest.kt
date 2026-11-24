@@ -6,7 +6,9 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * The keyring and the fallback file are one store, not two.
@@ -239,4 +241,52 @@ class JvmSecureStorageKeyringTest {
 
             assertNull(storage.read("never-written"))
         }
+
+    /**
+     * The store says which store holds the secret.
+     *
+     * The flag used to answer "hardware-backed" while the value behind it was
+     * "a keyring is there", and the answer was gated on the host's name as well:
+     * a macOS or a Windows host with a keyring answered `false` and looked like
+     * the fallback. The answer now follows the backend alone — the operating
+     * system's name is not consulted at all — so the assertion below holds on
+     * any host.
+     */
+    @Test
+    fun `the platform key store is reported when a keyring is available`() {
+        val storage =
+            object : JvmSecureStorage() {
+                override val fallbackFile: Path = this@JvmSecureStorageKeyringTest.secureBin
+
+                override fun secretToolAvailable() = true
+            }
+
+        assertTrue(
+            storage.usesPlatformKeyStore(),
+            "a host with a keyring keeps its secrets in the platform's own store",
+        )
+    }
+
+    /**
+     * Without a keyring the secrets go to the derived file, and the flag says so.
+     *
+     * This is the answer the decision record
+     * `2026-10-27-jvm-secure-storage-fallback-is-not-a-secret-store` depends on:
+     * the fallback is obfuscation rather than protection, and the flag is the only
+     * signal a caller gets that it is in use.
+     */
+    @Test
+    fun `the fallback is reported when no keyring is available`() {
+        val storage =
+            object : JvmSecureStorage() {
+                override val fallbackFile: Path = this@JvmSecureStorageKeyringTest.secureBin
+
+                override fun secretToolAvailable() = false
+            }
+
+        assertFalse(
+            storage.usesPlatformKeyStore(),
+            "the derived-file fallback is not the platform's own store",
+        )
+    }
 }

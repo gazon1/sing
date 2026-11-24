@@ -5,6 +5,12 @@ status: accepted
 tags: [sync, architecture, core, scheduling, remote-config, persistence]
 ---
 
+> **Superseded in part (2026-11-04):** the "hardware-backed" claim this record makes
+> about `SecureStoragePort` no longer holds — the port reports which store holds the
+> secret, and on a desktop host without a credential store that store is the derived-file
+> fallback. The other half of the bullet — the credentials never touch Room — still holds.
+> See [2026-11-04-the-secure-storage-flag-names-the-store-not-the-hardware.md](2026-11-04-the-secure-storage-flag-names-the-store-not-the-hardware.md).
+
 ## Context
 
 Tier 1 introduced `SyncScheduler` as a `NoOpSyncScheduler` stub and `InMemorySyncPrefs`. This ADR replaces both with production implementations and adds the `RemoteConfig` entity for Supabase connection settings.
