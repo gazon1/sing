@@ -64,7 +64,13 @@ rows the query returns.
   `observeSeries` — and it takes that selector's cross-reference flows rather than
   deriving them from the rows. The DAO side is
   `observeTagCrossRefsOfSubtasks` / `observeDependencyCrossRefsOfSubtasks` and their
-  `OfSeries` pair, each an `IN (SELECT ... WHERE parent_task_id = :parentId)` subquery.
+  `OfSeries` pair. Both are `IN (SELECT ...)` subqueries, and each names its own
+  selector: the subtask pair selects `WHERE parent_task_id = :parentId AND user_id =
+  :userId AND archived_at IS NULL`, the series pair `WHERE series_id = :seriesId AND
+  user_id = :userId`. The subtask predicate matches `watchSubtasksForUser` and the
+  series one matches `observeSeriesForUser` — including the archive filter the subtask
+  read has and the series read does not — so each enrichment selects exactly the rows
+  its source flow shows.
 
 ## Rationale
 
@@ -120,6 +126,12 @@ heuristic that silently changes behaviour at some row count.
   instead of escaping to the scope, because it is the first call on that path that can fail
   on its own. The project's `runCatchingCancellable` is used, not `runCatching`, so a
   cancellation stays a cancellation.
+- The documentation is held to what the change proves. The review found two passages that
+  claimed more than the evidence: the selector paragraph described the series queries by
+  the subtask predicate, and the results doc read the interrupted device run as "the win
+  landed" when the detail screen never rendered. Both are corrected; the device claim is
+  now that the detail path stopped being the first place the heap was exhausted, not that
+  the detail opens.
 - The fake DAO scopes **both** rows, as the SQL does. It checked only the prerequisite, so
   it answered for a task another profile owns — invisible to the contract tests, which
   read through the repository, and hidden from the desktop Compose tests that mount the
