@@ -75,10 +75,13 @@ tags:
 # tag is on the header row, so the tap opens the section the flow needs.
 - tapOn:
     id: subtasks_section
-- extendedWaitUntil:
-    visible:
+# Expanding renders the add-row below the header; when the section sits near
+# the bottom of the screen that row is offscreen until scrolled into view.
+- scrollUntilVisible:
+    element:
       id: subtask_add_input
-    timeout: 5000
+    direction: DOWN
+    timeout: 8000
 
 - tapOn:
     id: subtask_add_input

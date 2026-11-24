@@ -26,12 +26,13 @@ tags:
 - tapOn:
     id: task_item_renameme
 
-# Clear the title field: longPress selects all text; eraseText with no arg erases it.
+# Clear the title field: longPress selects all text; eraseText clears it.
+# eraseText: 50 makes the clear robust if the selection lands partially.
 - tapOn:
     id: task_editor_title_input
 - longPressOn:
     id: task_editor_title_input
-- eraseText
+- eraseText: 50
 
 # The editor stays open with an empty title field.
 - extendedWaitUntil:

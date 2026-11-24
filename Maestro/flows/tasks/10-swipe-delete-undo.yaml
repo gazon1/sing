@@ -24,7 +24,7 @@ tags:
 # pixel on one particular screen.
 - swipe:
     direction: LEFT
-    duration: 500
+    duration: 200
     from:
       id: task_item_buy_milk
 # The undo offer arrives in a snackbar. Its action is addressed by id, never by

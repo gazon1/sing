@@ -91,10 +91,13 @@ tags:
 # tag is on the header row, so the tap opens the section the flow needs.
 - tapOn:
     id: task_checklist_section
-- extendedWaitUntil:
-    visible:
+# Expanding renders the add-row below the header; when the section sits near
+# the bottom of the screen that row is offscreen until scrolled into view.
+- scrollUntilVisible:
+    element:
       id: checklist_inline_add_input
-    timeout: 5000
+    direction: DOWN
+    timeout: 8000
 
 # ── Add an item inline ───────────────────────────────────────────
 # The add-row of the section. Nothing opens: the item is typed where it is
