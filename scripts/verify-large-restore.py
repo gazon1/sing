@@ -34,8 +34,8 @@ WHAT IT DELIBERATELY DOES NOT DO
     It does not wipe the profile the device's owner uses. The run works in a
     profile of its own — `verify-large-restore` — which it creates, wipes and
     restores into, and it puts the app back into the profile it found when it
-    is done. The rows of the profile the device was left in are counted before
-    and after the run, and a difference is a finding.
+    is done. The rows of the profile the device was left in are compared
+    before and after the run, and a difference is a finding.
 
 WHY THE DEVICE POLICY LIVES IN `store-capture.py`
 
@@ -1572,6 +1572,55 @@ def count_query(table: str, scope: str | None) -> tuple[str, list]:
     )
 
 
+def rows_query(table: str, scope: str | None) -> tuple[str, list]:
+    """The query that reads every row of one table, for one scope."""
+    if scope is None:
+        return f"SELECT * FROM {table}", []
+    if table in SCOPED_TABLES:
+        return f"SELECT * FROM {table} WHERE user_id = ?", [scope]
+    return (
+        f"SELECT c.* FROM {table} c JOIN tasks t ON c.task_id = t.id "
+        "WHERE t.user_id = ?",
+        [scope],
+    )
+
+
+def row_digests(db_path: Path, scope: str | None = None) -> dict[str, str | None]:
+    """A fingerprint of the rows of each table, for one scope.
+
+    A count says how many rows a table holds; a digest says which rows. Two
+    profiles that hold the same number of rows can hold different rows — one
+    row replaced by another, a row whose content changed — and a run that
+    wrote into a profile it had no business touching looks to a count exactly
+    like a run that touched nothing. The digest is the comparison that
+    notices.
+
+    A table that cannot be read has no digest: `None` says "nothing is known
+    about this table", not "this table holds nothing".
+    """
+    try:
+        connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return {key: None for key in COUNT_TABLES}
+    try:
+        digests: dict[str, str | None] = {}
+        for key, table in COUNT_TABLES.items():
+            query, params = rows_query(table, scope)
+            try:
+                rows = connection.execute(query, params).fetchall()
+            except sqlite3.Error:
+                digests[key] = None
+                continue
+            digest = hashlib.sha256()
+            for row in sorted(repr(row) for row in rows):
+                digest.update(row.encode("utf-8", "replace"))
+                digest.update(b"\n")
+            digests[key] = digest.hexdigest()
+        return digests
+    finally:
+        connection.close()
+
+
 def compare_counts(expected: dict, actual: dict) -> list[str]:
     """The differences between the manifest's counts and the database's.
 
@@ -1599,6 +1648,11 @@ def untouched_profile_problems(
     difference is a row the run wrote or removed in a profile it had no
     business touching — the one thing the run must not do to a phone.
 
+    The rows themselves are compared, not only how many there are: a row that
+    was replaced by another row, or whose content changed, leaves the count
+    the same and the profile damaged. The counts say what changed, the
+    digests say whether anything did.
+
     The counts that could not be read are not a difference: a table that
     could not be read says nothing about what is in it.
 
@@ -1610,12 +1664,26 @@ def untouched_profile_problems(
     rows = {"before": before, "after": after}
     if same_profile:
         return [], rows
-    if any(value < 0 for value in before.values()) or any(value < 0 for value in after.values()):
+    before_digests = row_digests(before_db, scope)
+    after_digests = row_digests(after_db, scope)
+    changed = []
+    for key in COUNT_TABLES:
+        before_count = before.get(key, -1)
+        after_count = after.get(key, -1)
+        if before_count < 0 or after_count < 0:
+            continue
+        if before_count != after_count:
+            changed.append(f"{key} {before_count} -> {after_count}")
+            continue
+        before_digest = before_digests.get(key)
+        after_digest = after_digests.get(key)
+        if before_digest is None or after_digest is None:
+            continue
+        if before_digest != after_digest:
+            changed.append(f"{key} {before_count} (the same rows are not the same)")
+    if not changed:
         return [], rows
-    if before == after:
-        return [], rows
-    changed = sorted(key for key in before if before[key] != after.get(key))
-    detail = ", ".join(f"{key} {before[key]} -> {after.get(key)}" for key in changed)
+    detail = ", ".join(changed)
     return [
         "the rows of the profile the device was left in changed while the run was "
         f"going: {detail}"

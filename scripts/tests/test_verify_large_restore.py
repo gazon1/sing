@@ -327,6 +327,45 @@ class ProfileScopeTest(unittest.TestCase):
             self.assertEqual(len(problems), 1)
             self.assertIn("tasks 1 -> 2", problems[0])
 
+    def test_a_row_that_was_replaced_by_another_row_is_a_problem(self):
+        """The same number of rows is not the same rows: a row that was
+        replaced by another one leaves the count untouched and the profile
+        damaged.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            before = _database(
+                tmp,
+                ["INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Home', 'u1')"],
+            )
+            after_dir = tmp / "after"
+            after_dir.mkdir()
+            after = _database(
+                after_dir,
+                ["INSERT INTO tasks (id, title, user_id) VALUES ('t2', 'Other', 'u1')"],
+            )
+            problems, _ = driver.untouched_profile_problems(before, after, "u1")
+            self.assertEqual(len(problems), 1)
+            self.assertIn("tasks", problems[0])
+
+    def test_a_row_whose_content_changed_is_a_problem(self):
+        """A row that was rewritten in place leaves the count untouched too."""
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            before = _database(
+                tmp,
+                ["INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Home', 'u1')"],
+            )
+            after_dir = tmp / "after"
+            after_dir.mkdir()
+            after = _database(
+                after_dir,
+                ["INSERT INTO tasks (id, title, user_id) VALUES ('t1', 'Changed', 'u1')"],
+            )
+            problems, _ = driver.untouched_profile_problems(before, after, "u1")
+            self.assertEqual(len(problems), 1)
+            self.assertIn("tasks", problems[0])
+
     def test_a_device_that_was_already_in_the_profile_under_test_is_not_compared(self):
         """There is no other profile to compare, so there is nothing to say."""
         with tempfile.TemporaryDirectory() as raw:
