@@ -1,21 +1,23 @@
 # Device-only residue of the menu project-tree liveness flow.
 #
-# Behavior (project creation and rename reflected in the menu while the menu is
-# open) is owned by
+# This flow carries **no** `scenario:` tag, and deliberately so: the behaviour it
+# exercises is not the scenario. The liveness claim (a project created or
+# renamed elsewhere shows up in the menu) is owned by
 # desktopApp/src/jvmTest/.../feature/flows/menu/ProjectsMenuLiveScenarioTest.kt
-# (MENU-03 desktop carrier).
+# (the MENU-03 carrier on the desktop tier).
 #
-# This flow keeps only the Android modal-sheet residue: a change made elsewhere
+# What is left here is the Android modal-sheet residue: a change made elsewhere
 # closes the sheet, and reopening it must expose current project rows by their
-# stable resource ids. No creation/rename behavior is asserted beyond the
-# resource-id presence after reopen.
+# stable resource ids. No creation/rename behaviour is asserted beyond the
+# resource-id presence after reopen, so the flow no longer claims MENU-03 --
+# a tag it does not earn would print a covered cell the flow never verified.
+# The android cell of MENU-03 is therefore an honest hole.
 #
 # The seeded ids address rows by stable ids rather than copy.
 appId: com.singularity.todo
 name: menu-tree-live
 tags:
   - menu
-  - scenario:MENU-03
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 - runFlow:
