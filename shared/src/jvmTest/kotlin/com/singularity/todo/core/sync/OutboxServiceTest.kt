@@ -53,7 +53,7 @@ class OutboxServiceTest {
     ): OutboxService =
         OutboxService(
             outboxDao = outbox,
-            patchBuilder = fakeSyncPatchBuilder(shadow),
+            patchBuilder = productionPatchBuilder(shadow),
             scopeProvider = scopeProvider,
             engineState =
                 SyncEngineState(

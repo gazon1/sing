@@ -22,7 +22,7 @@ import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.core.sync.SyncScope
 import com.singularity.todo.core.sync.SyncableEntity
-import com.singularity.todo.core.sync.fakeSyncPatchBuilder
+import com.singularity.todo.core.sync.productionPatchBuilder
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -525,7 +525,7 @@ class ProfileContentWipeTest {
         val outboxService =
             OutboxService(
                 outboxDao = outboxDao,
-                patchBuilder = fakeSyncPatchBuilder(db.syncShadowDao()),
+                patchBuilder = productionPatchBuilder(db.syncShadowDao()),
                 scopeProvider = FakeSyncScopeProvider(SyncScope(ownerId = ownerId, profileId = profileId)),
                 engineState =
                     SyncEngineState(

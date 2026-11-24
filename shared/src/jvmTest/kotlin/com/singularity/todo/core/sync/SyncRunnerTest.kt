@@ -246,7 +246,7 @@ class SyncRunnerTest {
         val outboxService =
             OutboxService(
                 outboxDao = outboxDao,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 scopeProvider = scopeProvider,
                 engineState = engineState,
                 monoNow = { MutableClock().now().toEpochMilliseconds() },
@@ -260,7 +260,7 @@ class SyncRunnerTest {
                 stateRepository = state,
                 scopeProvider = scopeProvider,
                 shadowDao = shadow,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 outboxService = outboxService,
                 _outboxDao = outboxDao,
                 _deadLetterDao = FakeSyncDeadLetterDao(),

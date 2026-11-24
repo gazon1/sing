@@ -6,6 +6,7 @@ import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationDao
 import com.singularity.todo.core.database.ProjectReminderDao
 import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.SavedSearchDao
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventDao
@@ -46,6 +47,14 @@ data class ProfileWipeDeps(
     val calendarSyncTaskMapDao: CalendarSyncTaskMapDao,
     val googleEventShadowDao: GoogleEventShadowDao,
     val attachmentStorage: AttachmentStorage,
+    /**
+     * The transaction the whole reset runs in.
+     *
+     * The repositories below write through a unit of work of their own, and a nested
+     * write joins the outer transaction rather than opening its own — so one
+     * transaction here makes the reset atomic across all of them.
+     */
+    val unitOfWork: UnitOfWork,
 )
 
 /**
@@ -72,6 +81,19 @@ data class ProfileWipeDeps(
  * proposal and `attachment_annotations` to an attachment, and both are deleted
  * explicitly rather than left to a cascade — a cascade is invisible in the call
  * list, and the inventory is supposed to describe what the reset does.
+ *
+ * ## Why the whole reset is one transaction
+ *
+ * The reset touches many tables, and every repository below writes through a unit of
+ * work of its own. Without an outer transaction each of them commits on its own, so
+ * a failure in the middle of the reset leaves the profile half deleted: the tags are
+ * gone, the tasks are not, and nothing records which half ran. A retry then starts
+ * from a state nobody described.
+ *
+ * One transaction around the whole reset makes it all or nothing. The repositories'
+ * own writes join it rather than opening a transaction of their own — that is what
+ * [UnitOfWork] promises, and `UnitOfWorkIsAtomicTest` asserts it against a real
+ * database.
  */
 class ProfileContentResetter(
     private val deps: ProfileWipeDeps,
@@ -81,32 +103,45 @@ class ProfileContentResetter(
     override suspend fun resetContent(): ContentResetResult {
         val uid = currentUser.scopedUserId.value.value
 
-        // The rows that hang off a parent first.
-        deps.proposalItemDao.deleteAllForUser(uid)
-        deps.annotationDao.deleteAllForUser(uid)
+        // The attachment files are deleted after the transaction commits, not inside
+        // it: a file is not a row, so a rollback cannot bring it back. Deleting it
+        // first would leave the attachment rows pointing at files that are already
+        // gone — a broken attachment in a profile that is still there. A file that
+        // outlives its row is the lesser evil: it is invisible, and the profile it
+        // belonged to no longer exists.
+        val attachmentFiles =
+            deps.unitOfWork.write {
+                // The rows that hang off a parent first.
+                deps.proposalItemDao.deleteAllForUser(uid)
+                deps.annotationDao.deleteAllForUser(uid)
 
-        // The rows that stand on their own.
-        deps.proposalDao.deleteAllForUser(uid)
-        // Delete attachment files from disk before the rows disappear.
-        deps.attachmentDao.listAllForUser(uid).forEach { row ->
-            row.localPath?.takeIf { it.isNotBlank() }?.let { deps.attachmentStorage.deleteFile(it) }
-        }
-        deps.attachmentDao.deleteAllForUser(uid)
-        deps.savedSearchDao.deleteAllForUser(uid)
-        deps.timeEntryDao.deleteAllForUser(uid)
-        deps.reminderDao.deleteAllForUser(uid)
-        deps.projectReminderDao.deleteAllForUser(uid)
-        deps.calendarImportEventDao.deleteAllForUser(uid)
-        deps.calendarSyncTaskMapDao.clearAll(uid)
-        deps.googleEventShadowDao.deleteAllForUser(uid)
+                // The rows that stand on their own.
+                deps.proposalDao.deleteAllForUser(uid)
+                val attachmentFiles =
+                    deps.attachmentDao.listAllForUser(uid).mapNotNull { row ->
+                        row.localPath?.takeIf { it.isNotBlank() }
+                    }
+                deps.attachmentDao.deleteAllForUser(uid)
+                deps.savedSearchDao.deleteAllForUser(uid)
+                deps.timeEntryDao.deleteAllForUser(uid)
+                deps.reminderDao.deleteAllForUser(uid)
+                deps.projectReminderDao.deleteAllForUser(uid)
+                deps.calendarImportEventDao.deleteAllForUser(uid)
+                deps.calendarSyncTaskMapDao.clearAll(uid)
+                deps.googleEventShadowDao.deleteAllForUser(uid)
 
-        // The rows that are the profile's content proper.
-        deps.tagsRepository.deleteAllForCurrentProfile().getOrThrow()
-        deps.tagGroupRepository.deleteAllForCurrentProfile().getOrThrow()
-        deps.taskRepository.deleteAllForCurrentProfile().getOrThrow()
-        deps.notesRepository.deleteAllForCurrentProfile().getOrThrow()
-        deps.projectsRepository.deleteAllForCurrentProfile().getOrThrow()
-        deps.savedAgendaViewsRepository.deleteAllForCurrentProfile().getOrThrow()
+                // The rows that are the profile's content proper.
+                deps.tagsRepository.deleteAllForCurrentProfile().getOrThrow()
+                deps.tagGroupRepository.deleteAllForCurrentProfile().getOrThrow()
+                deps.taskRepository.deleteAllForCurrentProfile().getOrThrow()
+                deps.notesRepository.deleteAllForCurrentProfile().getOrThrow()
+                deps.projectsRepository.deleteAllForCurrentProfile().getOrThrow()
+                deps.savedAgendaViewsRepository.deleteAllForCurrentProfile().getOrThrow()
+
+                attachmentFiles
+            }
+
+        attachmentFiles.forEach { deps.attachmentStorage.deleteFile(it) }
 
         // The drafts are not in the database, so no database wipe reaches them.
         draftStore.clearPrefix("")

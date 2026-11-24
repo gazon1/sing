@@ -6,6 +6,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -224,6 +225,54 @@ class HlcFactoryPersistenceTest {
                 requireNotNull(store.stored) >= minted,
                 "the clock of the tick minted during the batch must be persisted: " +
                     "stored=${store.stored}, minted=$minted",
+            )
+
+            scope.close()
+        }
+
+    /**
+     * A batch that is cancelled still writes its clock.
+     *
+     * The batch suppresses the per-tick clock writes, and the suppression is global:
+     * a tick minted by an unrelated call during the batch does not write its clock
+     * either. The batch's final write is the only one that carries it — so if the
+     * batch is cancelled before that write lands, the clock is lost, and a restart
+     * restores a clock older than one the device already issued.
+     *
+     * A `finally` of a cancelled coroutine runs in a cancelled context, where a
+     * suspending call throws before it does anything: the write has to be
+     * explicitly not cancellable.
+     *
+     * The gate puts the test in exactly that window: the write is in flight, waiting
+     * to be let through, when the cancellation arrives.
+     */
+    @Test
+    fun `a cancelled batch still writes its clock`() =
+        runTest {
+            val store = GatedHlcStore()
+            val scope = newScope()
+            val factory =
+                HlcFactory(
+                    deviceIdProvider =
+                        object : DeviceIdProvider {
+                            override suspend fun getOrInitDeviceId(): String = "node-a"
+                        },
+                    clock = MutableClock(),
+                    scope = scope,
+                    hlcStore = store,
+                )
+
+            val job = scope.launch { factory.batched { factory.tick() } }
+            // The batch's write is now waiting at the gate.
+            job.cancel()
+            store.gate.complete(Unit)
+            job.join()
+
+            assertEquals(
+                1,
+                store.written.size,
+                "the clock of a cancelled batch must still be written: the batch " +
+                    "suppressed the per-tick writes, so this one is the only one",
             )
 
             scope.close()

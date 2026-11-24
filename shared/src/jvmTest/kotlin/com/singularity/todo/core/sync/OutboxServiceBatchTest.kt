@@ -5,6 +5,7 @@ package com.singularity.todo.core.sync
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -122,6 +123,16 @@ class OutboxServiceBatchTest {
         }
     }
 
+    /**
+     * The service under test.
+     *
+     * The patch builder is the **production** [SyncPatchBuilder], constructed here
+     * rather than taken from a helper, so that a reader of this file can see what
+     * builds the patches: the batch's chunking, its shadow reads and its diffs are
+     * the production code, and only the two DAOs below it are test doubles. A
+     * test double builder would make the equivalence test below compare two
+     * executions of the double and prove nothing about the batch.
+     */
     private fun TestScope.service(
         outbox: FakeSyncOutboxDao = FakeSyncOutboxDao(),
         shadow: FakeSyncShadowDao = FakeSyncShadowDao(),
@@ -129,7 +140,12 @@ class OutboxServiceBatchTest {
     ): OutboxService =
         OutboxService(
             outboxDao = outbox,
-            patchBuilder = fakeSyncPatchBuilder(shadow),
+            patchBuilder =
+                SyncPatchBuilder(
+                    shadowDao = shadow,
+                    hlcFactory = FakeHlcFactory(),
+                    idGenerator = SequentialIdGenerator(),
+                ),
             scopeProvider = scopeProvider,
             engineState =
                 SyncEngineState(

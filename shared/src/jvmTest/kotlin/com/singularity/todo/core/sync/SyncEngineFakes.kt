@@ -618,7 +618,7 @@ open class FakeSyncShadowDao : SyncShadowDao {
  * broken diff — the same rule as the deleted `SyncRepositoryCoalescingTest`, in its
  * second form.
  */
-internal fun fakeSyncPatchBuilder(shadowDao: SyncShadowDao = FakeSyncShadowDao()): SyncPatchBuilder =
+internal fun productionPatchBuilder(shadowDao: SyncShadowDao = FakeSyncShadowDao()): SyncPatchBuilder =
     SyncPatchBuilder(
         shadowDao = shadowDao,
         hlcFactory = FakeHlcFactory(),

@@ -5,9 +5,11 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 
 /**
@@ -193,6 +195,20 @@ open class HlcFactory(
      * batch was running may well have written its clock already, and the batch's clock
      * is the older of the two by then; writing it would move the stored clock
      * backwards. [writeClock] drops it instead.
+     *
+     * ## Why the write survives a cancellation
+     *
+     * The write is the one thing in the batch that must not be lost, because the batch
+     * suppressed the per-tick writes: a tick minted by an unrelated call during the
+     * batch did not write its own clock either, and this write is the only one that
+     * carries it.
+     *
+     * A `finally` of a cancelled coroutine runs in a cancelled context, where a
+     * suspending call throws before it does anything — so without [NonCancellable] the
+     * write would be skipped exactly when the batch was abandoned, and the stored
+     * clock would stay older than a clock the device already issued. The write is
+     * therefore not cancellable. It is a single local file write, so it cannot hold
+     * the cancellation for long.
      */
     suspend fun <T> batched(block: () -> T): T {
         synchronized(this) { batchDepth++ }
@@ -204,7 +220,7 @@ open class HlcFactory(
                     batchDepth--
                     if (batchDepth == 0) _lastHlc else null
                 }
-            last?.let { writeClock(it) }
+            last?.let { withContext(NonCancellable) { writeClock(it) } }
         }
     }
 

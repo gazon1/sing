@@ -94,6 +94,16 @@ The mutex is held *outside* the monitor that guards the last clock: a writer
 waiting for the mutex needs that monitor to read the newest written clock, so
 holding the monitor while waiting for the mutex would deadlock.
 
+**The batch's clock write is not cancellable.** The batch suppressed the
+per-tick writes, so its final write is the only one that carries a clock
+minted during the batch — including a clock minted by an unrelated call
+that happens to run while the batch is open. A `finally` of a cancelled
+coroutine runs in a cancelled context, where a suspending call throws
+before it does anything: without an explicit `NonCancellable` the write
+would be skipped exactly when the batch was abandoned, and the stored
+clock would stay older than a clock the device already issued. The write
+is a single local file write, so it cannot hold a cancellation for long.
+
 **`SyncPatchBuilder.forEachChunk`** — mints the whole batch's clocks up front
 (one `batched` block, one clock write, before anything is queued), then walks
 the batch in pieces of `SQL_BIND_CHUNK` (500) entities: one shadow read, one
@@ -112,11 +122,27 @@ List<SyncableEntity>)` overloads the single-entity one — so the lexical
 architecture rules that scan for `syncRepository.enqueue(` still see the
 repositories' call sites.
 
+**`ProfileContentResetter` runs the whole reset in one transaction.** The
+reset touches many tables, and each repository in it writes through a unit
+of work of its own. Without a transaction around the reset, every one of
+them commits on its own: a failure in the middle leaves the profile half
+deleted — the tags are gone, the tasks are not — and nothing records which
+half ran. One transaction around the reset makes it all or nothing; the
+repositories' own writes join it rather than opening a transaction of
+their own, which is what `UnitOfWork` already promises and
+`UnitOfWorkIsAtomicTest` already asserts.
+
+The attachment **files** are the one thing a transaction cannot cover: a
+file is not a row, so a rollback cannot bring it back. They are deleted
+after the commit instead of before it. A file that outlives its row is
+invisible garbage in a profile that no longer exists; a row that outlives
+its file is a broken attachment in a profile that is still there.
+
 What did **not** change:
 
-* `ProfileContentResetter` and `ProfileWipePlan` are untouched. The wipe still
-  goes through the same five repositories, in the same order, inside the same
-  transactions, with the same ownership checks.
+* `ProfileWipePlan` is untouched. The wipe still goes through the same
+  five repositories, in the same order, with the same ownership checks —
+  only the transaction boundary around them is new.
 * Every removed row still gets its own patch. Nothing is summarised, and no
   remote deletion is lost.
 * The single-entity `enqueue` path is semantically unchanged.
@@ -156,6 +182,34 @@ is running does not write its clock by itself. Nothing is lost — the tick is
 either counted in the batch's final write, or it sees that the batch is over
 and writes itself — but the property is worth stating, because it is the one
 that a reader of `tick()` would otherwise assume is broken.
+
+**Why the batch's write is not cancellable.** Because the suppression is
+global, the batch's final write is the *only* write that carries a clock
+minted during the batch. If the batch is cancelled before that write lands,
+the clock is lost — and the stored clock then says less than the device
+already issued. A cancelled coroutine's `finally` runs in a cancelled
+context, where a suspending call throws before it does anything, so the
+write has to opt out of the cancellation explicitly. The cost is bounded: it
+is one local file write.
+
+**Why the reset is one transaction.** The issue asks for a cleanup that is
+"atomic or has a documented, tested resumable boundary". A resumable
+boundary needs a durable record of what already ran — a new table, a state
+machine, a retry contract — which is a second, larger piece of machinery
+than the problem needs. One transaction is the smaller answer: the reset
+either lands whole or not at all, and there is nothing to resume because
+there is no half-done state. The transaction does not grow with the
+profile: the deletes are set-based, and the patches, shadows and outbox rows
+are still produced and released one chunk at a time, so the transaction
+holds a bounded amount of memory. The repositories' own writes join the
+outer transaction, which `UnitOfWork` already promises.
+
+**Why the attachment files are deleted after the commit.** A transaction
+covers rows; a file is not a row. Deleting the files first would leave the
+attachment rows pointing at files that are already gone whenever the
+transaction rolls back — a broken attachment in a profile that is still
+there. Deleting them after the commit leaves, in the worst case, a file
+whose row is gone: invisible garbage in a profile that no longer exists.
 
 **Why the batch is chunked.** The patches are the memory, not the statements.
 Fifty thousand rows' worth of patches, shadows and outbox rows do not fit in
@@ -202,6 +256,14 @@ entirely on the sync side of the delete.
 * The stored clock only ever moves forward. A clock written while a batch is
   finishing is not rolled back by the batch's write, and the store refuses an
   older clock of its own accord.
+* A cancelled batch still writes its clock. The write is the only one that
+  carries a clock minted during the batch, so it is not cancellable.
+* The reset is atomic: a failure anywhere in it leaves the profile whole
+  instead of half deleted. `ProfileResetReachesTheWholeProfileTest` asserts
+  that a failing repository undoes the deletions that came before it.
+* The attachment files of a wiped profile are deleted after the commit. A
+  crash between the commit and the deletion leaves files whose rows are
+  gone — invisible garbage, not a broken attachment.
 * The outbox grows exactly as before. A device with a large profile still
   holds one queued patch per removed row until they are pushed, and the push
   side already takes them in batches (`PushPhase`).
@@ -213,6 +275,11 @@ entirely on the sync side of the delete.
   the reference device before the change and 20.3 s after it; on the emulator
   155.8 s became 5.0 s, and the fifty-thousand-row profile, which died with
   `OutOfMemoryError`, is cleaned in 40.4 s.
+* **Not re-measured:** those numbers were taken before the reset became one
+  transaction. The transaction holds the whole reset open, so the wall clock
+  on a device may differ; the memory bound is unchanged, because the
+  transaction holds rows that were already in memory, not a new copy of them.
+  The 50k measurement on the reference device is still open.
 
 ## Links
 
@@ -220,7 +287,7 @@ entirely on the sync side of the delete.
 * `docs/architecture/large-restore-results.md` — the measurements, before
   and after.
 * `shared/src/jvmTest/.../core/sync/OutboxServiceBatchTest.kt` — the batch
-  contract.
+  contract, against the production patch builder.
 * `shared/src/jvmTest/.../core/sync/HlcFactoryPersistenceTest.kt` — the clock
   write.
 * `shared/src/jvmTest/.../core/sync/HlcStoreTest.kt` — the store's refusal to
@@ -228,5 +295,7 @@ entirely on the sync side of the delete.
 * `shared/src/jvmTest/.../feature/profile/ProfileContentWipeTest.kt` — the
   wipe's real path: the tombstones it queues and the rollback when a chunk of
   them fails.
+* `shared/src/jvmTest/.../core/wipe/ProfileResetReachesTheWholeProfileTest.kt`
+  — the reset as a whole, including the rollback of a failed reset.
 * `shared/src/commonMain/.../core/wipe/ProfileContentResetter.kt` — the entry
-  point, unchanged.
+  point, and the transaction boundary around the reset.

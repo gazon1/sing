@@ -72,7 +72,7 @@ class SyncEngineIntegrationTest {
         val outboxService =
             OutboxService(
                 outboxDao = outbox,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 scopeProvider = scopeProvider,
                 engineState = state,
                 monoNow = { clock.now().toEpochMilliseconds() },
@@ -86,7 +86,7 @@ class SyncEngineIntegrationTest {
                 stateRepository = stateRepo,
                 scopeProvider = scopeProvider,
                 shadowDao = shadow,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 outboxService = outboxService,
                 _outboxDao = outbox,
                 _deadLetterDao = FakeSyncDeadLetterDao(),
@@ -106,7 +106,7 @@ class SyncEngineIntegrationTest {
                         shadowDao = shadow,
                         idGenerator = SequentialIdGenerator(),
                         scopeProvider = scopeProvider,
-                        patchBuilder = fakeSyncPatchBuilder(shadow),
+                        patchBuilder = productionPatchBuilder(shadow),
                         monoNow = { clock.now().toEpochMilliseconds() },
                         phases = state.phases,
                         writerProvider = { fakeSyncDocumentWriter() },

@@ -86,7 +86,7 @@ class SyncEngineEnqueueReportsFailureTest {
         val outboxService =
             OutboxService(
                 outboxDao = outbox,
-                patchBuilder = fakeSyncPatchBuilder(FakeSyncShadowDao()),
+                patchBuilder = productionPatchBuilder(FakeSyncShadowDao()),
                 scopeProvider = FakeSyncScopeProvider(SyncScope("owner-enqueue", "profile-1")),
                 engineState = state,
                 monoNow = { clock.now().toEpochMilliseconds() },
@@ -99,7 +99,7 @@ class SyncEngineEnqueueReportsFailureTest {
             stateRepository = FakeSyncStateRepository(),
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-enqueue", "profile-1")),
             shadowDao = FakeSyncShadowDao(),
-            patchBuilder = fakeSyncPatchBuilder(FakeSyncShadowDao()),
+            patchBuilder = productionPatchBuilder(FakeSyncShadowDao()),
             outboxService = outboxService,
             _outboxDao = outbox,
             _deadLetterDao = FakeSyncDeadLetterDao(),

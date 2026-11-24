@@ -68,7 +68,7 @@ class SyncEnginePushTest {
         val outboxService =
             OutboxService(
                 outboxDao = outbox,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 scopeProvider = FakeSyncScopeProvider(SyncScope("owner-push", "profile-1")),
                 engineState = state,
                 monoNow = { clock.now().toEpochMilliseconds() },
@@ -87,7 +87,7 @@ class SyncEnginePushTest {
                 // engine settles it, so two instances would test a system where the
                 // halves cannot see each other.
                 shadowDao = shadow,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 outboxService = outboxService,
                 _outboxDao = outbox,
                 _deadLetterDao = deadLetter,
