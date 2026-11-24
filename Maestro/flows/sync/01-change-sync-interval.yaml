@@ -1,20 +1,24 @@
-# SYNC-SETTINGS-01: change how often sync runs (Android UI residue).
+# Android UI residue of the sync-interval flow.
+#
+# This flow carries **no** `scenario:` tag, and deliberately so: it exercises the
+# path to the Sync tab and the interval-row interaction, not the scenario.
 #
 # preconditions: signed-in session, Settings → Sync tab open.
 # steps:
 #   1. Open Settings → Sync through the Android narrow settings sheet.
 #   2. Confirm sync controls are reachable and change the interval row.
 # expected: the Android Sync settings UI exposes the interval control and accepts
-# the interval change interaction. Value change, immediate apply, and
+# the interval change interaction. The value change, the immediate apply and the
 # restart/reload survival are owned by the desktop carrier
-# `SyncSettings01ScenarioTest`, not by this flow.
+# `SyncSettings01ScenarioTest` (SYNC-SETTINGS-01), not by this flow -- so this
+# flow does not claim SYNC-SETTINGS-01, and the android cell of that scenario is
+# an honest hole.
 #
 appId: com.singularity.todo
 name: sync-change-interval
 tags:
   - regression
   - sync
-  - scenario:SYNC-SETTINGS-01
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 

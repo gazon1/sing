@@ -1,0 +1,44 @@
+# Restore a synthetic archive through the app's own restore path.
+#
+# The path is the one a person uses: Settings -> Backup -> Restore, the
+# system file picker, the file, the confirmation. Nothing here writes into
+# the database — the archive goes in through the same screen a person's
+# backup comes in through, which is the only way to know that the path
+# works.
+#
+# The archive's name comes in as ARCHIVE_NAME: the file is pushed into the
+# device's Downloads before the flow runs, and the picker shows it there.
+#
+# The flow stops right after the confirmation is tapped. The import runs
+# after that, and the command that drives this flow watches the screen for
+# the snackbar that reports it — so the import's own duration is measured,
+# not the flow's.
+appId: com.singularity.todo
+name: large-restore-restore-archive
+---
+# The shared launch helper, the way the certified suite starts the app: the
+# notification permission is granted, the airplane mode is switched off
+# afterwards, and the first-run tour is dismissed. A flow that launches the
+# app on its own bypasses all of that.
+- runFlow: ../../Maestro/helpers/launch-clean.yaml
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 60000
+- runFlow: open-backup-settings.yaml
+- tapOn:
+    id: backup_restore_button
+# The system file picker is up, and the archive is in it.
+- extendedWaitUntil:
+    visible:
+      text: "${ARCHIVE_NAME}"
+    timeout: 60000
+- tapOn:
+    text: "${ARCHIVE_NAME}"
+# Restoring overwrites the profile's data, so the app asks first.
+- extendedWaitUntil:
+    visible:
+      id: dialog_confirm
+    timeout: 30000
+- tapOn:
+    id: dialog_confirm

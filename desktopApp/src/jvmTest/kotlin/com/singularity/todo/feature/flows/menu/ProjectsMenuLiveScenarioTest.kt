@@ -31,23 +31,22 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class ProjectsMenuLiveScenarioTest {
+    /**
+     * The owner of `MENU-03`.
+     *
+     * The scenario is one claim with two halves — the menu's project list shows
+     * a project created elsewhere *and* the new name of a project renamed
+     * elsewhere — and the traceability rule allows **one** owner per scenario
+     * and target. So the owner carries both halves: a test that owns the
+     * scenario and asserts only the creation is a claim the rename half of the
+     * spec makes and nobody proves.
+     *
+     * Both changes are made while the drawer is open, so the liveness is
+     * observed rather than inferred from a reopen.
+     */
     @Test
-    @DisplayName("MENU-03 the project tree reflects creations made elsewhere")
-    fun the_tree_is_live() =
-        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-            openDrawer()
-            expandProjectsSection()
-
-            // Created while the menu is open: the tree has to show it without the
-            // menu being closed and reopened in between.
-            seedProject(koin, "robot-late", "Latecomer")
-
-            awaitTag(TestTags.menuProjectNode("robot-late"))
-        }
-
-    @Test
-    @DisplayName("MENU-03 the project tree reflects renames made elsewhere")
-    fun the_tree_reflects_renames() =
+    @DisplayName("MENU-03 the project tree reflects creations and renames made elsewhere")
+    fun the_tree_reflects_creations_and_renames() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
             seedProject(koin, "roadmap", "Roadmap")
 
@@ -61,5 +60,11 @@ class ProjectsMenuLiveScenarioTest {
 
             awaitTag(TestTags.menuProjectNode("roadmap")).performScrollTo()
             assertTextDisplayed("Renamed")
+
+            // Created while the menu is open: the tree has to show it without the
+            // menu being closed and reopened in between.
+            seedProject(koin, "robot-late", "Latecomer")
+
+            awaitTag(TestTags.menuProjectNode("robot-late"))
         }
 }

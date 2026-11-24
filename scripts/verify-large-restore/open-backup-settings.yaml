@@ -1,0 +1,47 @@
+# Open Settings and land on the Backup tab.
+#
+# This is the same walk the shared helpers do, but with timeouts that fit a
+# loaded machine. The shared helpers are tuned for the certified suite on a
+# real phone; this one runs on whatever device the command was pointed at, and
+# that device may be busy — a menu sheet that takes six seconds to compose is
+# fine, a five-second assertion on it is not.
+#
+# The shared helpers are left alone on purpose: they are not this flow's to
+# retune.
+appId: com.singularity.todo
+name: large-restore-open-backup-settings
+---
+# The app menu at the bottom of the bar.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_sheet
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 60000
+- tapOn:
+    id: menu_settings
+# The Settings screen has two shapes. On a narrow screen the tabs sit behind a
+# dropdown trigger; on a wide one (the settings nav rail) they are there to be
+# tapped. The run may be pointed at either, so the trigger is optional and the
+# tab row is found where it is.
+- tapOn:
+    id: settings_tab_dropdown
+    optional: true
+
+# The tab list is a scrollable column on a narrow screen, so the row can sit
+# below the fold.
+- scrollUntilVisible:
+    element:
+      id: settings_tab_backup
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: settings_tab_backup
+- extendedWaitUntil:
+    visible:
+      id: backup_restore_button
+    timeout: 60000
