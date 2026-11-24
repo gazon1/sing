@@ -760,59 +760,127 @@ qualifications:
       apk_commit_sha: e74c7bb9fa17
       maestro_version: 2.10.0
       return_code: 0
+  Maestro/flows/menu/06-tree-live.yaml:
+    fingerprint: sha256:0c27d6aa132f9741a8bbc28ea3ed692419c7add574894f8ae1774a6a151141b7
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5554
+    commit: cb084683b66e
+    apk_commit_sha: cb084683b66e
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-1/06-tree-live.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-2/06-tree-live.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-3/06-tree-live.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/sync/01-change-sync-interval.yaml:
+    fingerprint: sha256:d6682af4cf94fa6a6426add809b2c09dd21f9ef2dd761906c4b2173b88a3f6f3
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5554
+    commit: cb084683b66e
+    apk_commit_sha: cb084683b66e
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-1/01-change-sync-interval.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-2/01-change-sync-interval.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/sync/01-change-sync-interval/attempt-3/01-change-sync-interval.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5554
+      commit: cb084683b66e
+      apk_commit_sha: cb084683b66e
+      maestro_version: 2.10.0
+      return_code: 0
 exceptions:
   Maestro/flows/archive/02-bulk-archive-confirm.yaml:
     fingerprint: sha256:793db33e3909688eeceef23a368f96d298fa72e61d67c9218d0b647f7cf293ca
-    reason: >-
-      The flow was split by gazon1/sing#3126: the confirmation and cancellation
-      behaviour moved to the desktop behaviour owner and what is left is the
-      Android residue (long-press context sheet, archive overflow popup ids,
-      the modal result dialog). That content was never requalified on a device.
-      The baseline entry on main records the plain sha256 of the flow file
-      rather than the flow's fingerprint (the gate compares the fingerprint --
-      the flow plus its transitive helper dependencies), so the entry no longer
-      matches and the gate reports a stale baseline. This PR does not re-baseline
-      the flow: re-baselining would admit changed device content without the
-      qualification the gate asks for. It is admitted here by an explicit
-      exception instead, so the admission is a recorded decision rather than a
-      quiet hash update. The baseline repair itself belongs on main, where the
-      flow was changed.
+    reason: 'The flow was split by gazon1/sing#3126: the confirmation and cancellation
+      behaviour moved to the desktop behaviour owner and what is left is the Android
+      residue (long-press context sheet, archive overflow popup ids, the modal result
+      dialog). That content was never requalified on a device. The baseline entry
+      on main records the plain sha256 of the flow file rather than the flow''s fingerprint
+      (the gate compares the fingerprint -- the flow plus its transitive helper dependencies),
+      so the entry no longer matches and the gate reports a stale baseline. This PR
+      does not re-baseline the flow: re-baselining would admit changed device content
+      without the qualification the gate asks for. It is admitted here by an explicit
+      exception instead, so the admission is a recorded decision rather than a quiet
+      hash update. The baseline repair itself belongs on main, where the flow was
+      changed.'
     evidence: gazon1/sing#3126
-  Maestro/flows/menu/06-tree-live.yaml:
-    fingerprint: sha256:0c27d6aa132f9741a8bbc28ea3ed692419c7add574894f8ae1774a6a151141b7
-    reason: >-
-      The flow was split by gazon1/sing#3141: the liveness behaviour (a project
-      created or renamed elsewhere shows up in the menu) moved to the desktop
-      behaviour owner, and what is left is the Android residue -- after a change
-      made on another surface the modal sheet is closed, and reopening it must
-      expose the current project row by its stable resource id. The trimmed
-      content was verified on a device (Maestro 2.10.0, emulator-5554,
-      2026-11-24) but not requalified through the gate's three device attempts,
-      so the baseline entry no longer matches and the gate reports a stale
-      baseline. This PR does not re-baseline the flow: re-baselining would
-      admit changed device content without the qualification the gate asks
-      for. It is admitted here by an explicit exception instead, so the
-      admission is a recorded decision rather than a quiet hash update. The
-      baseline repair itself belongs on main, where the flow was changed. The
-      flow was changed once more in this PR -- its `scenario:MENU-03` tag was
-      dropped, because the residue it asserts is not the scenario -- so the
-      fingerprint above is the one of the changed file.
-    evidence: gazon1/sing#3141
-  Maestro/flows/sync/01-change-sync-interval.yaml:
-    fingerprint: sha256:d6682af4cf94fa6a6426add809b2c09dd21f9ef2dd761906c4b2173b88a3f6f3
-    reason: >-
-      The flow was trimmed by gazon1/sing#3138: the behaviour half (the
-      interval changes, is applied immediately and survives a restart) is owned
-      by the desktop owner SyncSettings01ScenarioTest, and what is left is the
-      Android narrow-settings-sheet residue -- the path to the Sync tab and the
-      interval-row interaction. The trimmed content was not requalified on a
-      device, so the baseline entry no longer matches and the gate reports a
-      stale baseline. This PR does not re-baseline the flow: re-baselining
-      would admit changed device content without the qualification the gate
-      asks for. It is admitted here by an explicit exception instead, so the
-      admission is a recorded decision rather than a quiet hash update. The
-      baseline repair itself belongs on main, where the flow was changed. The
-      flow was changed once more in this PR -- its `scenario:SYNC-SETTINGS-01`
-      tag was dropped, because the residue it asserts is not the scenario -- so
-      the fingerprint above is the one of the changed file.
-    evidence: gazon1/sing#3138
