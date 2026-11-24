@@ -5,7 +5,12 @@
 # the overdue section is auto-collapsed with an accurate count and an explicit
 # expand affordance, and the full Overdue destination contains all overdue tasks.
 #
+# One seed link, not chunks: the batch write landed the thousand rows in ~1 s on
+# this device, inside the 30 s shell budget (ADR
+# 2026-11-24-the-seed-writes-its-rows-without-a-patch).
+#
 # прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
+# перепроверен: да (2026-11-25) — тот же аппарат, один seed-линк на 1001 строку
 appId: com.singularity.todo
 name: agenda-large-overdue
 tags:

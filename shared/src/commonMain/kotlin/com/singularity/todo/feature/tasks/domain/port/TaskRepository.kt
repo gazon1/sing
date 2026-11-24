@@ -41,14 +41,11 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
 
     suspend fun create(item: Task): Result<Task>
 
-    /**
-     * Creates [items] in one write transaction.
-     *
-     * For a bulk fixture: one commit means observers see one change instead of one
-     * per row, which is what keeps seeding thousands of rows from re-querying the
-     * whole table thousands of times.
-     */
-    suspend fun createAll(items: List<Task>): Result<List<Task>>
+    // A bulk *fixture* is written through
+    // [com.singularity.todo.core.seed.SeedTaskWriter], not through this contract: a
+    // seeded row is asserted on by the flow that wrote it and never synced, and a
+    // `createAll` here made that the invisible choice of every caller. See ADR
+    // 2026-11-24-the-seed-writes-its-rows-without-a-patch.
 
     suspend fun update(item: Task): Result<Task>
 

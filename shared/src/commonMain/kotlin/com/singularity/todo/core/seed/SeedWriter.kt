@@ -69,6 +69,13 @@ class SeedWriter(
     private val notes: NotesRepository,
     private val projects: ProjectsRepository,
     private val currentUser: ProfileAwareCurrentUser,
+    /**
+     * The batch write a bulk fixture needs. Separate from [tasks] because it writes rows
+     * and no sync patch: a fixture is asserted on where it was written, and telling the
+     * server about it is the cost that made a thousand-row seed outlast every Maestro
+     * wait. See ADR `2026-11-24-the-seed-writes-its-rows-without-a-patch`.
+     */
+    private val seedTasks: SeedTaskWriter,
 ) {
     /**
      * Makes the profile hold exactly one live task named [TaskSeed.title].
@@ -167,8 +174,14 @@ class SeedWriter(
      * A bulk fixture's titles are distinct and the runner wipes the profile before
      * the flow, so there is nothing to dedupe against. [writeTask] reads the whole
      * task table twice per row, which is O(n²) for a few thousand titles; this
-     * builds the rows and creates them in one transaction. Dependencies are not
+     * builds the rows and writes them in one transaction. Dependencies are not
      * applied.
+     *
+     * The rows are *not* synchronised: they are written through [SeedTaskWriter],
+     * which enqueues no patch. A flow asserts on the row it seeded, on this device,
+     * in this run — so the outbox write per row bought nothing and cost ~30 ms a row,
+     * which made a thousand-row seed outlast every Maestro wait. See ADR
+     * `2026-11-24-the-seed-writes-its-rows-without-a-patch`.
      *
      * A spec that names a project gets it, exactly as in [writeTask]: the project
      * is resolved *before* any row is written, so a name that is not there fails
@@ -186,8 +199,8 @@ class SeedWriter(
                 .mapNotNull { it.projectName }
                 .distinct()
                 .associateWith { name -> resolveProjectId(name) }
-        return tasks
-            .createAll(
+        return seedTasks
+            .writeFixtures(
                 specs.map { spec ->
                     TaskDomain.buildTask(
                         input = validatedInput(spec, spec.projectName?.let { projectIds.getValue(it) }),
@@ -197,7 +210,7 @@ class SeedWriter(
                         userId = currentUser.current,
                     )
                 },
-            ).getOrThrow()
+            )
             .map { it.id }
     }
 

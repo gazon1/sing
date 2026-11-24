@@ -324,13 +324,6 @@ class TaskRepositoryImpl(
             }
         }
 
-    override suspend fun createAll(items: List<Task>): Result<List<Task>> =
-        runCatchingCancellable {
-            unitOfWork.write {
-                items.map { create(it).getOrThrow() }
-            }
-        }
-
     override suspend fun update(item: Task): Result<Task> =
         runCatchingCancellable {
             unitOfWork.write {
@@ -1160,7 +1153,7 @@ private fun Task.normalizedDescription(): Task {
  * A mapper that left the column out would let `@Upsert` reset it to "[]", and
  * the links of a task would vanish with every write that did not mention them.
  */
-private fun Task.toEntity(outgoingLinks: String = linksJsonOf(description, descriptionHtml)): TaskEntity =
+internal fun Task.toEntity(outgoingLinks: String = linksJsonOf(description, descriptionHtml)): TaskEntity =
     TaskEntity(
         id = id.value,
         title = title,

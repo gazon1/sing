@@ -7,7 +7,6 @@ import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
@@ -37,10 +36,10 @@ import kotlin.time.Instant
 @Tag("fast")
 class SeedWriterTest {
     private val currentUser = FakeProfileAwareCurrentUser()
-    private val tasks: TaskRepository = FakeTaskRepository(explicitCurrentUser = currentUser)
+    private val tasks: FakeTaskRepository = FakeTaskRepository(explicitCurrentUser = currentUser)
     private val notes: NotesRepository = FakeNotesRepository(currentUser = currentUser)
     private val projects: ProjectsRepository = FakeProjectsRepository(currentUser = currentUser)
-    private val writer = SeedWriter(tasks, notes, projects, currentUser)
+    private val writer = SeedWriter(tasks, notes, projects, currentUser, seedTasks = tasks)
 
     private val stamp = Instant.fromEpochMilliseconds(1_767_225_600_000)
 

@@ -8,6 +8,7 @@ import androidx.test.filters.LargeTest
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Until
 import com.singularity.todo.MainActivity
+import com.singularity.todo.core.seed.SeedTaskWriter
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
 import com.singularity.todo.core.ui.TestTags
@@ -256,6 +257,7 @@ class TaskDetailOverflowActionsTest : InstrumentedTestBase() {
             notes = koin.get<NotesRepository>(),
             projects = koin.get<ProjectsRepository>(),
             currentUser = koin.get<ProfileAwareCurrentUser>(),
+            seedTasks = koin.get<SeedTaskWriter>(),
         )
     }
 
