@@ -24,8 +24,17 @@ import sys
 from pathlib import Path
 from xml.etree import ElementTree
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import frame_time_evidence  # noqa: E402  — one owner of the rule of a complete measurement
+
 ROOT = Path(__file__).resolve().parent.parent
 EVIDENCE = ROOT / "docs" / "architecture" / "frame-time-evidence" / "desktop-jvm-frame-time-baseline.json"
+
+# The screens the desktop baseline measures. The set is written down here and
+# not taken from the runs: three runs that measured the same three screens
+# agree with each other and are still not the baseline of the five screens
+# the project measures.
+REQUIRED_SCENARIOS = frame_time_evidence.REQUIRED_DESKTOP_SCENARIOS
 
 
 def scenario_order(scenario: str) -> tuple[int, str]:
@@ -37,13 +46,7 @@ def scenario_order(scenario: str) -> tuple[int, str]:
     list does not know goes last, in alphabetical order - it is published,
     not dropped.
     """
-    order = (
-        "agenda-upcoming-scroll",
-        "projects-list-scroll",
-        "project-detail-open",
-        "task-detail-open",
-        "calendar-periods",
-    )
+    order = REQUIRED_SCENARIOS
     return (order.index(scenario) if scenario in order else len(order), scenario)
 
 
@@ -261,6 +264,18 @@ def main(argv: list[str]) -> int:
                 for index, scenarios in enumerate(scenario_sets, start=1)
             )
             + ". The runs of a series have to measure the same scenarios."
+        )
+
+    # And they have to be the whole baseline: three runs that measured the
+    # same three screens agree with each other and are still not the baseline
+    # of the five screens the project measures.
+    missing = [name for name in REQUIRED_SCENARIOS if name not in scenario_sets[0]]
+    if missing:
+        raise SystemExit(
+            f"the runs did not measure the whole desktop baseline: "
+            f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} missing. "
+            "The published file is the baseline of the five desktop screens, and a "
+            "series that measured a part of it cannot be published as the whole."
         )
 
     grouped: dict[str, list[tuple[Path, dict]]] = {}

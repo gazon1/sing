@@ -35,6 +35,72 @@ DOC = ROOT / "docs" / "architecture" / "compose-frame-time-baseline.md"
 
 SCENARIO = "agenda-upcoming-scroll"
 
+# The screens the desktop baseline measures. A series that leaves one of them
+# out is refused by the publisher, so a fixture of the tests that is meant to
+# be published has to hold all of them.
+DESKTOP_SCENARIOS = (
+    "agenda-upcoming-scroll",
+    "projects-list-scroll",
+    "project-detail-open",
+    "task-detail-open",
+    "calendar-periods",
+)
+
+# The screens the Android baseline measures. The same rule holds there: the
+# report has to name the whole set, not the set the run happened to pick.
+ANDROID_SCENARIOS = (
+    "agenda-scroll",
+    "project-tasks-scroll",
+    "project-detail-scroll",
+    "task-detail-scroll",
+    "calendar-periods",
+)
+
+
+def desktop_series(**overrides: object) -> list[dict]:
+    """One report per required desktop scenario - a series that can be published."""
+    return [scenario_report(scenario=name, **overrides) for name in DESKTOP_SCENARIOS]
+
+
+def android_report(
+    samples: int = 1,
+    measured_runs: int = 1,
+    builds: list[str] | None = None,
+    scenarios: tuple[str, ...] = ANDROID_SCENARIOS,
+    planned: list[str] | None = None,
+) -> dict:
+    """A report of the Android measurement, with the whole set of scenarios.
+
+    `planned` is the list the report claims it was about. It defaults to the
+    scenarios the report holds, and a report that planned less than it holds
+    is the case the completeness rule has to catch.
+    """
+    versions = builds or ["0.1.0"] * samples
+    return {
+        "method": {
+            "measuredRuns": measured_runs,
+            "plannedScenarios": list(scenarios if planned is None else planned),
+        },
+        "scenarios": {
+            name: {
+                "samples": [
+                    {"appVersionName": version, "measuredDurationsMs": [1.0]} for version in versions
+                ],
+                "summary": {
+                    "totalFrames": 181,
+                    "framesPerRunMedian": 181,
+                    "jankyFramesPerRunMedian": 6,
+                    "jankyPercentOverall": 3.07,
+                    "gfxinfoP50MedianMs": 14,
+                    "gfxinfoP95MedianMs": 21,
+                    "measuredFramesMedianMs": 14.06,
+                    "measuredFramesP95Ms": 21.18,
+                },
+            }
+            for name in scenarios
+        },
+    }
+
 
 def scenario_report(
     scenario: str = SCENARIO,
@@ -147,11 +213,11 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
                 [
                     (
                         "2026-11-24T15:36:47",
-                        [scenario_report(open_median=470.0, gesture_median=80.0, gestures=[70.0, 80.0])],
+                        desktop_series(open_median=470.0, gesture_median=80.0, gestures=[70.0, 80.0]),
                     ),
                     (
                         "2026-11-24T15:37:35",
-                        [scenario_report(open_median=452.0, gesture_median=76.0, gestures=[60.0, 76.0])],
+                        desktop_series(open_median=452.0, gesture_median=76.0, gestures=[60.0, 76.0]),
                     ),
                 ],
             )
@@ -169,8 +235,8 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", [scenario_report(open_median=470.0, gesture_median=80.0)]),
-                    ("2026-11-24T15:37:35", [scenario_report(open_median=452.0, gesture_median=76.0)]),
+                    ("2026-11-24T15:36:47", desktop_series(open_median=470.0, gesture_median=80.0)),
+                    ("2026-11-24T15:37:35", desktop_series(open_median=452.0, gesture_median=76.0)),
                 ],
             )
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -186,11 +252,11 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
                 [
                     (
                         "2026-11-24T15:36:47",
-                        [scenario_report(gestures=[70.0, 80.0], opens=[460.0])],
+                        desktop_series(gestures=[70.0, 80.0], opens=[460.0]),
                     ),
                     (
                         "2026-11-24T15:37:35",
-                        [scenario_report(gestures=[60.0, 65.0], opens=[440.0])],
+                        desktop_series(gestures=[60.0, 65.0], opens=[440.0]),
                     ),
                 ],
             )
@@ -206,8 +272,8 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", [scenario_report(host_load=3.5)]),
-                    ("2026-11-24T15:37:35", [scenario_report(host_load=4.0)]),
+                    ("2026-11-24T15:36:47", desktop_series(host_load=3.5)),
+                    ("2026-11-24T15:37:35", desktop_series(host_load=4.0)),
                 ],
             )
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -220,29 +286,30 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             result = self._publish(
                 tmp,
                 [
-                    (
-                        "2026-11-24T15:36:47",
-                        [
-                            scenario_report(scenario=SCENARIO),
-                            scenario_report(scenario="projects-list-scroll"),
-                        ],
-                    ),
-                    (
-                        "2026-11-24T15:37:35",
-                        [
-                            scenario_report(scenario=SCENARIO),
-                            scenario_report(scenario="projects-list-scroll"),
-                        ],
-                    ),
+                    ("2026-11-24T15:36:47", desktop_series()),
+                    ("2026-11-24T15:37:35", desktop_series()),
                 ],
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             evidence = self._evidence(tmp)
-            self.assertEqual(
-                sorted(evidence["scenarios"]),
-                ["agenda-upcoming-scroll", "projects-list-scroll"],
-            )
+            self.assertEqual(sorted(evidence["scenarios"]), sorted(DESKTOP_SCENARIOS))
             self.assertEqual(len(evidence["scenarios"]["projects-list-scroll"]["runs"]), 2)
+
+    def test_a_series_that_left_a_screen_out_is_not_published(self):
+        """Three runs of four screens agree with each other and are not the baseline."""
+        partial = [name for name in DESKTOP_SCENARIOS if name != "calendar-periods"]
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(
+                tmp,
+                [
+                    ("2026-11-24T15:36:47", [scenario_report(scenario=name) for name in partial]),
+                    ("2026-11-24T15:37:35", [scenario_report(scenario=name) for name in partial]),
+                ],
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("did not measure the whole desktop baseline", result.stderr)
+            self.assertIn("calendar-periods", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
 
     def test_the_dataset_and_the_subject_of_the_runs_are_published(self):
         """A number without the dataset and the subject it was measured on is not a number."""
@@ -250,8 +317,8 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", [scenario_report()]),
-                    ("2026-11-24T15:37:35", [scenario_report()]),
+                    ("2026-11-24T15:36:47", desktop_series()),
+                    ("2026-11-24T15:37:35", desktop_series()),
                 ],
             )
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -266,8 +333,8 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", [scenario_report(dataset={"profile": "10k", "seed": 42})]),
-                    ("2026-11-24T15:37:35", [scenario_report(dataset={"profile": "1k", "seed": 42})]),
+                    ("2026-11-24T15:36:47", desktop_series(dataset={"profile": "10k", "seed": 42})),
+                    ("2026-11-24T15:37:35", desktop_series(dataset={"profile": "1k", "seed": 42})),
                 ],
             )
             self.assertNotEqual(result.returncode, 0)
@@ -280,8 +347,8 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", [scenario_report(subject={"screen": "Task 751"})]),
-                    ("2026-11-24T15:37:35", [scenario_report(subject={"screen": "Task 42"})]),
+                    ("2026-11-24T15:36:47", desktop_series(subject={"screen": "Task 751"})),
+                    ("2026-11-24T15:37:35", desktop_series(subject={"screen": "Task 42"})),
                 ],
             )
             self.assertNotEqual(result.returncode, 0)
@@ -294,8 +361,8 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", [scenario_report(distance_px=400)]),
-                    ("2026-11-24T15:37:35", [scenario_report(distance_px=800)]),
+                    ("2026-11-24T15:36:47", desktop_series(distance_px=400)),
+                    ("2026-11-24T15:37:35", desktop_series(distance_px=800)),
                 ],
             )
             self.assertNotEqual(result.returncode, 0)
@@ -308,7 +375,7 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", [scenario_report(scenario=SCENARIO)]),
+                    ("2026-11-24T15:36:47", desktop_series()),
                     (
                         "2026-11-24T15:37:35",
                         [scenario_report(scenario="projects-list-scroll")],
@@ -322,9 +389,9 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
     def test_a_run_that_does_not_match_its_own_configuration_is_not_published(self):
         """A report whose samples do not match its configuration is not a measurement."""
         with tempfile.TemporaryDirectory() as tmp:
-            report = scenario_report(gestures=[70.0, 80.0])
-            report["measurements"][1]["samples"] = 9
-            result = self._publish(tmp, [("2026-11-24T15:36:47", [report])])
+            report = desktop_series(gestures=[70.0, 80.0])
+            report[0]["measurements"][1]["samples"] = 9
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("does not match its own configuration", result.stderr)
             self.assertFalse((Path(tmp) / "evidence.json").exists())
@@ -332,7 +399,7 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
     def test_copies_of_one_run_are_not_published_as_three_runs(self):
         """Three copies of one execution are one run, and Gradle skipped the rest."""
         with tempfile.TemporaryDirectory() as tmp:
-            report = [scenario_report()]
+            report = desktop_series()
             result = self._publish(
                 tmp,
                 [
@@ -349,23 +416,12 @@ class PublishAndroidEvidenceTest(unittest.TestCase):
     """The published Android evidence is the report of the measurement."""
 
     def _report(self, samples: int = 1, measured_runs: int = 1, builds: list[str] | None = None) -> dict:
-        """A report of one scenario with the given number of runs.
+        """A report of the whole set of scenarios, with the given number of runs.
 
         `measured_runs` is how many runs the measurement was asked for, and
         `samples` is how many of them are in the report.
         """
-        versions = builds or ["0.1.0"] * samples
-        return {
-            "method": {"measuredRuns": measured_runs, "plannedScenarios": ["agenda-scroll"]},
-            "scenarios": {
-                "agenda-scroll": {
-                    "samples": [
-                        {"appVersionName": version, "measuredDurationsMs": [1.0]} for version in versions
-                    ],
-                    "summary": {"totalFrames": 181, "measuredFramesMedianMs": 14.06},
-                }
-            },
-        }
+        return android_report(samples=samples, measured_runs=measured_runs, builds=builds)
 
     def _publish(self, tmp: str, report: dict) -> subprocess.CompletedProcess:
         report_path = Path(tmp) / "frame-time-report.json"
@@ -415,11 +471,28 @@ class PublishAndroidEvidenceTest(unittest.TestCase):
 
     def test_a_report_without_one_of_its_scenarios_is_not_published(self):
         """A scenario that was never measured is missing, not empty."""
-        report = self._report()
-        report["method"]["plannedScenarios"] = ["agenda-scroll", "calendar-periods"]
+        report = android_report(
+            scenarios=tuple(name for name in ANDROID_SCENARIOS if name != "calendar-periods"),
+            planned=list(ANDROID_SCENARIOS),
+        )
         with tempfile.TemporaryDirectory() as tmp:
             result = self._publish(tmp, report)
             self.assertEqual(result.returncode, 1)
+            self.assertIn("calendar-periods", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_report_of_one_scenario_is_not_published(self):
+        """The set the run picked is not the set the baseline measures.
+
+        The report of a run of a single scenario declares that one scenario
+        as the one it was about, and it holds it - so everything the report
+        says about itself is true, and it is still not a baseline.
+        """
+        report = android_report(scenarios=("agenda-scroll",), planned=["agenda-scroll"])
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(tmp, report)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("were not measured at all", result.stderr)
             self.assertIn("calendar-periods", result.stderr)
             self.assertFalse((Path(tmp) / "evidence.json").exists())
 
@@ -428,23 +501,11 @@ class UpdateDocTablesTest(unittest.TestCase):
     """The tables and the spread of the document come from the artifacts."""
 
     def _android_report(self, samples: int = 1, measured_runs: int = 1) -> dict:
-        return {
-            "method": {"measuredRuns": measured_runs, "plannedScenarios": ["agenda-scroll"]},
-            "scenarios": {
-                "agenda-scroll": {
-                    "samples": [{"appVersionName": "0.1.0+gc9bd6166a5d3"} for _ in range(samples)],
-                    "summary": {
-                        "framesPerRunMedian": 181,
-                        "jankyFramesPerRunMedian": 6,
-                        "jankyPercentOverall": 3.07,
-                        "gfxinfoP50MedianMs": 14,
-                        "gfxinfoP95MedianMs": 21,
-                        "measuredFramesMedianMs": 14.06,
-                        "measuredFramesP95Ms": 21.18,
-                    },
-                }
-            },
-        }
+        return android_report(
+            samples=samples,
+            measured_runs=measured_runs,
+            builds=["0.1.0+gc9bd6166a5d3"] * samples,
+        )
 
     def _desktop_evidence(self) -> dict:
         return {
@@ -537,23 +598,11 @@ class RenderTableTest(unittest.TestCase):
     """The table of the document is rendered out of the report."""
 
     def _report(self, samples: int = 1, measured_runs: int = 1) -> dict:
-        return {
-            "method": {"measuredRuns": measured_runs, "plannedScenarios": ["agenda-scroll"]},
-            "scenarios": {
-                "agenda-scroll": {
-                    "samples": [{"appVersionName": "0.1.0+gc9bd6166a5d3"} for _ in range(samples)],
-                    "summary": {
-                        "framesPerRunMedian": 181,
-                        "jankyFramesPerRunMedian": 6,
-                        "jankyPercentOverall": 3.07,
-                        "gfxinfoP50MedianMs": 14,
-                        "gfxinfoP95MedianMs": 21,
-                        "measuredFramesMedianMs": 14.06,
-                        "measuredFramesP95Ms": 21.18,
-                    },
-                }
-            },
-        }
+        return android_report(
+            samples=samples,
+            measured_runs=measured_runs,
+            builds=["0.1.0+gc9bd6166a5d3"] * samples,
+        )
 
     def _render(self, tmp: str, report: dict) -> subprocess.CompletedProcess:
         report_path = Path(tmp) / "frame-time-report.json"
@@ -569,7 +618,7 @@ class RenderTableTest(unittest.TestCase):
             result = self._render(tmp, self._report())
             self.assertEqual(result.returncode, 0, result.stderr)
             rows = [line for line in result.stdout.splitlines() if line.startswith("| `")]
-            self.assertEqual(len(rows), 1)
+            self.assertEqual(len(rows), len(ANDROID_SCENARIOS))
             self.assertIn("181", rows[0])
             self.assertIn("3,07 %", rows[0])
             self.assertIn("14,06 мс", rows[0])
@@ -582,8 +631,10 @@ class RenderTableTest(unittest.TestCase):
             self.assertNotIn("| `", result.stdout)
 
     def test_a_report_without_one_of_its_scenarios_has_no_table(self):
-        report = self._report()
-        report["method"]["plannedScenarios"] = ["agenda-scroll", "calendar-periods"]
+        report = android_report(
+            scenarios=tuple(name for name in ANDROID_SCENARIOS if name != "calendar-periods"),
+            planned=list(ANDROID_SCENARIOS),
+        )
         with tempfile.TemporaryDirectory() as tmp:
             result = self._render(tmp, report)
             self.assertEqual(result.returncode, 1)
