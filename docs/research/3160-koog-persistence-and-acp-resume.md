@@ -90,7 +90,7 @@ reason to reject it. The reason is what the feature can checkpoint:
   `FunctionalAIAgent`, so this cast is the wall, not a detail.
 - Restoring is an **agent-graph operation**: `runFromCheckpoint(agent: AIAgent<Input, Output>, input,
   checkpoint, …)` (`Persistence.kt:267`) writes the checkpoint into an `AIAgentRunSession`'s
-  *graph* context (`Persistence.kt:292-300`). There is no `AIAgent` and no graph session in the
+  *graph* context (`Persistence.kt:290-299`). There is no `AIAgent` and no graph session in the
   chat path to restore into.
 - The checkpoint payload (`AgentCheckpointData`) does contain `messageHistory: List<Message>`,
   `llmModel`, `tools` and the node `storage` — but that payload is *produced by* the graph feature
@@ -124,7 +124,7 @@ Verified in `acp-jvm-0.34.0-sources.jar` and `acp-model-jvm-0.34.0-sources.jar`:
   Both are `@UnstableApi`.
 - The wire method exists in protocol **v1**, not only in the draft v2:
   `AcpMethod.AgentMethods.V1.SessionResume` → `"session/resume"`
-  (`commonMain/com/agentclientprotocol/model/Methods.kt:205`). The app speaks v1
+  (`commonMain/com/agentclientprotocol/model/Methods.kt:205-206`). The app speaks v1
   (`SUPPORTED_PROTOCOL_VERSION = 1`, `AcpClient.kt:638`), and `session/load` sits next to it at
   `Methods.kt:152`.
 - Capability negotiation: `SessionCapabilities.resume: SessionResumeCapabilities?` — a **marker**,
