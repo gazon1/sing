@@ -27,7 +27,7 @@ gave these phases:
 | `AgendaEvaluator.evaluate(Upcoming)` | 102 ms |
 | retained after the read (50k tasks) | 94 MB |
 
-Three separate pieces of avoidable work showed up in the read and the evaluation:
+Four pieces of avoidable work showed up in the read and the evaluation:
 
 1. `withExtras` and `withScopedExtras` built the dependency projections with two
    `filter` + `groupBy` passes over the same list. Both projections are questions
