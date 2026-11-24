@@ -297,18 +297,19 @@ class CreateTaskFlowTest {
         }
 
     /**
-     * Desktop owner of the "full task creation" behavior in
-     * [Maestro/flows/tasks/13-create-full-task.yaml](Maestro/flows/tasks/13-create-full-task.yaml).
+     * Desktop owner of the regression-sensitive create/save outcome behind
+     * [Maestro/flows/tasks/13-create-full-task.yaml](Maestro/flows/tasks/13-create-full-task.yaml)
+     * and the TASK-12 scenario shape.
      *
-     * The device flow keeps the real-IME, draft-restoration and multi-date-sheet
-     * confirm guarantees; this test owns the regression-sensitive behavior: a
-     * task created from Today with a chosen priority is saved, lands in Today, and
-     * shows its priority indicator in the agenda row.
+     * Device-only guarantees remain in Maestro: real IME, draft restoration, and
+     * multi-date confirm on Android. Row presence/parity is owned by
+     * [CreateAndEditFieldParityTest]; this test proves the creation path actually
+     * sets required fields and lands in the expected agenda bucket.
      */
     @Test
-    fun a_task_created_from_today_with_high_priority_appears_in_today_with_its_priority() =
+    fun a_task_created_with_high_priority_and_today_due_date_appears_in_today_with_its_priority() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) {
-            tapTab("Today")
+            tapTab("Inbox")
             clickContentDescription(DesktopShell.FAB_ADD_TASK)
             typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Plan release")
 
@@ -316,10 +317,16 @@ class CreateTaskFlowTest {
             clickTag(TestTags.PRIORITY_OPTION_HIGH)
             assertTextDisplayed("High priority")
 
+            clickTagScrolled(TestTags.TASK_EDITOR_DUE_ROW)
+            clickTag(TestTags.MultiDatePicker.day(TODAY_ISO))
+            clickTag(TestTags.MultiDatePicker.OK)
+
             clickTag(TestTags.TASK_EDITOR_SAVE)
 
             awaitTag(TestTags.taskItem("Plan release"))
+            tapTab("Today")
             assertTagDisplayed(TestTags.agendaSection("Today"))
+            assertTagDisplayed(TestTags.taskItem("Plan release"))
             assertContentDescriptionDisplayed("High priority")
         }
 
@@ -398,6 +405,7 @@ class CreateTaskFlowTest {
         /** Mid-month, so no assertion in this file straddles a boundary. */
         val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
         val CLOCK: FakeClock = FakeClock(FIXED_NOW)
+        val TODAY_ISO: String = LocalDate(2026, 9, 16).toString()
         const val FAILURE_MESSAGE = "Could not save the task"
     }
 }

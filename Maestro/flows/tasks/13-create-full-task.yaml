@@ -11,6 +11,7 @@ name: tasks-create-full-task
 tags:
   - regression
   - tasks
+  - scenario:TASK-12
 ---
 # Open editor from FAB
 - runFlow: ../../helpers/launch-clean.yaml

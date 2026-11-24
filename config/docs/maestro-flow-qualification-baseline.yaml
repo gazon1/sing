@@ -112,7 +112,7 @@ flows:
   Maestro/flows/tasks/08-date-buckets.yaml: sha256:511eaf3ddd707c2d64955c0cd147e01f731379b0d91863c10101354b52d61268
   Maestro/flows/tasks/09-rename-empty.yaml: sha256:99f0532057eea828b49931b5f3a548f38abdaa7c4f158af261e25f4ef89e445c
   Maestro/flows/tasks/10-swipe-delete-undo.yaml: sha256:782a87feef3c5acce0e59c7461cbe90fe2883476af472092828ca7e94abac923
-  Maestro/flows/tasks/13-create-full-task.yaml: sha256:588ac970d42ad6746848979ecb324df81c729b8867b090cff16ab7c7130b30d5
+  Maestro/flows/tasks/13-create-full-task.yaml: sha256:b17db7477e87537580598378c007bc90876e4eacbf99f4e66421820d06bf2f43
   Maestro/flows/tasks/14-prefill-from-today.yaml: sha256:4ae9b67ec6c15b8390f4cda4898f2bb341f0bbc370461082301e85fefc2413a2
   Maestro/flows/tasks/15-prefill-from-inbox.yaml: sha256:29d3b090009d0a4a3150cca33802c702ff27c64fe9d5f90fe48f6fecc4b75910
   Maestro/flows/tasks/16-return-to-source-tab.yaml: sha256:9ea57e58dbd700d3ea69ed0bc2f98e00cb4af3988797595fcce0c1771a21df92
