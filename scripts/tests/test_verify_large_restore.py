@@ -415,6 +415,53 @@ class ProfileScopeTest(unittest.TestCase):
         self.assertEqual(driver.scoped_user_id("work", "u1"), "work/u1")
 
 
+class ProfileSwitchTest(unittest.TestCase):
+    """The profile the run ends up in has to be the profile it asked for.
+
+    The switch waits for the active profile to change, and when the profile of
+    the run's name is not on the device yet, any change would do: a profile
+    that became active some other way — the person using the phone switching
+    profiles while the run waits — would be taken for the run's own, claimed
+    and wiped. The name the database holds for the profile that is active says
+    which profile it is.
+    """
+
+    def test_the_profile_of_the_run_name_may_be_wiped(self):
+        self.assertIsNone(driver.profile_switch_problem("verify-large-restore", "verify-large-restore"))
+
+    def test_a_profile_of_another_name_may_not(self):
+        problem = driver.profile_switch_problem("Personal", "verify-large-restore")
+        self.assertIsNotNone(problem)
+        self.assertIn("Personal", problem)
+        self.assertIn("verify-large-restore", problem)
+
+    def test_a_profile_that_cannot_be_read_may_not(self):
+        """A name that cannot be read is not the name the run asked for: the
+        run refuses rather than wipes a profile it cannot name.
+        """
+        self.assertIsNotNone(driver.profile_switch_problem(None, "verify-large-restore"))
+
+    def test_the_name_is_read_from_the_database_of_the_device(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path = _database(
+                Path(raw),
+                [
+                    "INSERT INTO profiles (id, name) VALUES ('default', 'Personal')",
+                    "INSERT INTO profiles (id, name) VALUES ('P2', 'verify-large-restore')",
+                ],
+            )
+            self.assertIsNone(
+                driver.profile_switch_problem(
+                    driver.profile_name_for_id(path, "P2"), "verify-large-restore"
+                )
+            )
+            self.assertIsNotNone(
+                driver.profile_switch_problem(
+                    driver.profile_name_for_id(path, "default"), "verify-large-restore"
+                )
+            )
+
+
 class ActiveProfileTest(unittest.TestCase):
     """The profile the app works in is read from the file the app keeps it in.
 
@@ -1599,15 +1646,38 @@ def _device_database(tmp: Path) -> Path:
     )
 
 
-def _profile_patches() -> list:
+def _create_profile(db: Path, profile_id: str, name: str) -> None:
+    """The row the app writes into its database when it creates a profile.
+
+    The link that switches the profile creates it when the device does not
+    have it yet, and the row is what the copy of the database says about the
+    profile the app ended up in.
+    """
+    connection = sqlite3.connect(db)
+    try:
+        connection.execute(
+            "INSERT OR REPLACE INTO profiles (id, name, is_default) VALUES (?, ?, 0)",
+            (profile_id, name),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def _profile_patches(db: Path | None = None) -> list:
     """The profile the run works in, and the one the device was left in."""
+    def switch(serial, profile_name, expected_id, previous_id):
+        # The switch creates the profile when the device does not have it, and
+        # the app writes its row into the database — so the copy of the
+        # database the run reads after the switch names the profile the run
+        # asked for. A switch that finds the profile there changes nothing.
+        if expected_id is None and db is not None:
+            _create_profile(db, TEST_PROFILE_ID, profile_name)
+        return TEST_PROFILE_ID
+
     return [
         unittest.mock.patch.object(driver, "current_profile_id", lambda serial: "default"),
-        unittest.mock.patch.object(
-            driver,
-            "switch_profile",
-            lambda serial, profile_name, expected_id, previous_id: TEST_PROFILE_ID,
-        ),
+        unittest.mock.patch.object(driver, "switch_profile", switch),
     ]
 
 
@@ -1880,7 +1950,7 @@ def _device_patches(tmp: Path, db: Path | None = None):
             "taskTags": 1,
         }
     }
-    return _profile_patches() + [
+    return _profile_patches(db) + [
         unittest.mock.patch.object(
             driver.capture, "resolve_device", lambda serial, devices: "test-device"
         ),
@@ -2575,7 +2645,7 @@ class NegativePhaseExitCodeTest(unittest.TestCase):
                 "taskTags": 1,
             }
         }
-        return _profile_patches() + [
+        return _profile_patches(db) + [
             unittest.mock.patch.object(
                 driver.capture, "resolve_device", lambda serial, devices: "test-device"
             ),
@@ -2849,6 +2919,63 @@ class ProfileOwnershipTest(unittest.TestCase):
                 report["profile"]["testProfile"]["claimedBy"], "files/run-2.owner"
             )
 
+    def test_a_switch_that_lands_on_another_profile_is_not_wiped(self):
+        """The switch waits for the profile to change, and any change would do
+        when the profile of the run's name is not on the device yet: a person
+        using the phone who switches profiles while the run waits must not
+        lose their rows. The run reads the name of the profile that became
+        active and refuses to claim and to wipe a profile of another name.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            db = _device_database(tmp)
+            foreign = "f0e1d2c3-b4a5-4968-8776-655443332211"
+            claimed: list[str] = []
+            wiped: list[str] = []
+
+            def switch(serial, profile_name, expected_id, previous_id):
+                # The app ended up in a profile of another name — the person
+                # using the phone switched while the run waited.
+                _create_profile(db, foreign, "Somebody else's profile")
+                return foreign
+
+            apk = tmp / "the.apk"
+            apk.write_bytes(b"not really an APK")
+            argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+            with unittest.mock.patch.dict(
+                os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}
+            ):
+                with contextlib.ExitStack() as stack:
+                    for patch in _device_patches(tmp, db):
+                        stack.enter_context(patch)
+                    stack.enter_context(
+                        unittest.mock.patch.object(driver, "switch_profile", switch)
+                    )
+                    stack.enter_context(
+                        unittest.mock.patch.object(
+                            driver, "claim_profile", lambda serial, pid, name: claimed.append(pid)
+                        )
+                    )
+                    stack.enter_context(
+                        unittest.mock.patch.object(
+                            driver,
+                            "reset_content",
+                            lambda serial, out=None, scope="", attempts=4, profile_id="": (
+                                wiped.append(profile_id) or ({}, 1.0)
+                            ),
+                        )
+                    )
+                    exit_code = driver.main(argv)
+            report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(exit_code, driver.EXIT_SETUP)
+            self.assertIn("refuses to claim it and to wipe it", report["error"])
+            # The profile of somebody else was neither claimed nor wiped.
+            self.assertEqual(claimed, [])
+            self.assertEqual(wiped, [])
+            self.assertNotIn("profile wiped", report["phases"])
+
     def test_a_name_that_is_not_a_plain_word_is_refused(self):
         """The name goes into a link and into a file name: a name that is not a
         plain word is refused before anything is touched.
@@ -2999,9 +3126,10 @@ class SwitchBackFailureTest(unittest.TestCase):
         apk = tmp / "the.apk"
         apk.write_bytes(b"not really an APK")
         argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+        db = _device_database(tmp)
         with unittest.mock.patch.dict(os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}):
             with contextlib.ExitStack() as stack:
-                for patch in _device_patches(tmp):
+                for patch in _device_patches(tmp, db):
                     stack.enter_context(patch)
                 for patch in _flow_patches(browse_ok):
                     stack.enter_context(patch)
@@ -3009,6 +3137,9 @@ class SwitchBackFailureTest(unittest.TestCase):
                 def switch(serial, profile_name, expected_id, previous_id):
                     if profile_name != driver.TEST_PROFILE_NAME:
                         raise driver.RunError("the app did not switch back")
+                    # The app creates the profile it switches to and writes its
+                    # row into the database.
+                    _create_profile(db, TEST_PROFILE_ID, profile_name)
                     return TEST_PROFILE_ID
 
                 stack.enter_context(

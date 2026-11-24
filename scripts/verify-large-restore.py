@@ -1461,6 +1461,14 @@ def switch_profile(
     The switch is waited for: the app writes the active profile into a file
     of its own, and that file is what says the switch happened. A link that
     was delivered and not acted upon leaves the file as it was.
+
+    When the profile of that name is already on the device, the switch is
+    waited for by its id, and the id was read from the database as the id of
+    that name. When it is not, the switch is waited for by any change of the
+    active profile — and the caller checks the name of the profile that
+    became active against the name it asked for (see
+    [profile_switch_problem]), because a profile that became active some
+    other way is not the profile of the run.
     """
     send_debug_link(serial, f"profile={quote(profile_name)}")
     deadline = time.monotonic() + 120
@@ -1561,6 +1569,26 @@ def profile_ownership_problem(existing_id: str | None, marker_id: str | None, na
         "destroy the rows of the profile the device's owner keeps there. Delete that "
         "profile on the device, or give it another name (--test-profile), and run the "
         "command again."
+    )
+
+
+def profile_switch_problem(active_name: str | None, expected_name: str) -> str | None:
+    """Why the profile the app ended up in may not be wiped — or nothing when it may.
+
+    The switch waits for the active profile to change, and when the profile of
+    the run's name is not on the device yet, any change would do: a profile that
+    became active some other way — the person using the phone switching
+    profiles while the run waits — would be taken for the run's own, claimed
+    and wiped. The name the database holds for the profile that is active says
+    which profile it is, and the run refuses to touch anything when it is not
+    the one it asked for.
+    """
+    if active_name == expected_name:
+        return None
+    return (
+        f"the app works in the profile named {active_name!r}, not in the profile "
+        f"{expected_name!r} the run asked for: the run refuses to claim it and to "
+        "wipe it rather than destroy the rows of a profile that is not its own"
     )
 
 
@@ -3027,14 +3055,27 @@ def main(argv: list[str] | None = None) -> int:
         )
         if existing_test_id is None:
             # The profile did not exist, so the run has just created it: the
-            # marker is written before the wipe, so that a run that dies
+            # profile the app has just created is not in the database that was
+            # read before the switch, so the database is read again: the scope
+            # of the profile under test has to come from the rows the profile
+            # actually owns.
+            before_db = pull_database(serial, out_dir / "before-wipe-db")
+            # The switch waits for the active profile to change, and when the
+            # profile is new, any change would do: a profile that became active
+            # some other way — the person using the phone switching profiles
+            # while the run waits — would be taken for the run's own. The name
+            # the database holds for the profile that is active says which
+            # profile it is, and the run refuses to claim and to wipe a profile
+            # that is not the one it asked for.
+            switched = profile_switch_problem(
+                profile_name_for_id(before_db, test_profile_id),
+                test_profile_name,
+            )
+            if switched:
+                raise RunError(switched)
+            # The marker is written before the wipe, so that a run that dies
             # half way through leaves a profile the next run can claim.
             claim_profile(serial, test_profile_id, test_profile_name)
-            # The profile the run has just created is not in the database that
-            # was read before the switch, so the database is read again: the
-            # scope of the profile under test has to come from the rows the
-            # profile actually owns.
-            before_db = pull_database(serial, out_dir / "before-wipe-db")
         owner = owner_id(before_db, test_profile_id)
         if owner is None:
             raise RunError(
