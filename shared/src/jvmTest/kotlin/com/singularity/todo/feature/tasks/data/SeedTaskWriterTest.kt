@@ -79,7 +79,8 @@ class SeedTaskWriterTest {
                     dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
                     unitOfWork = RoomUnitOfWork(db),
                 )
-            seeds = SeedTaskDaoWriter(taskDao = db.taskDao(), currentUser = currentUser, unitOfWork = RoomUnitOfWork(db))
+            seeds =
+                SeedTaskDaoWriter(taskDao = db.taskDao(), currentUser = currentUser, unitOfWork = RoomUnitOfWork(db))
         }
 
     @AfterTest

@@ -210,8 +210,7 @@ class SeedWriter(
                         userId = currentUser.current,
                     )
                 },
-            )
-            .map { it.id }
+            ).map { it.id }
     }
 
     /**
