@@ -199,6 +199,31 @@ class TaskDependencyVerbFilterTest {
         }
 
     @Test
+    fun `the list read carries both projections of one edge table`() =
+        runTest {
+            // What this pins is the *answer*, not the number of passes that produced
+            // it: a table holding both a blocking and a follow-up edge for one task
+            // must reach the task as two different sets. Collapsing the enrichment
+            // into one walk must not drop one projection or fold one into the other —
+            // the mistake that makes a task blocked in one place and ordered in
+            // another from the same rows.
+            //
+            // The single pass itself is a performance property. A value assertion
+            // cannot see it: the two-pass version answers exactly the same thing, so
+            // this test passes against it by design.
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Both ways"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
+
+            val listed = repo.observeByFilter(TaskFilter.All).first().single { it.id == TaskId("t1") }
+
+            assertEquals(setOf(TaskId("dep")), listed.blockedBy, "the blocking projection")
+            assertEquals(setOf(TaskId("dep")), listed.followsUp, "the follow-up projection")
+        }
+
+    @Test
     fun `the typed read still sees every edge`() =
         runTest {
             val repo = repository()
