@@ -7,6 +7,8 @@ import com.agentclientprotocol.client.ClientOperationsFactory
 import com.agentclientprotocol.common.SessionCreationParameters
 import com.agentclientprotocol.model.AcpMethod
 import com.agentclientprotocol.model.AgentCapabilities
+import com.agentclientprotocol.model.InitializeResponse
+import com.agentclientprotocol.model.LoadSessionRequest
 import com.agentclientprotocol.model.ResumeSessionRequest
 import com.agentclientprotocol.model.SessionCapabilities
 import com.agentclientprotocol.model.SessionId
@@ -24,6 +26,7 @@ import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -38,7 +41,9 @@ import kotlin.test.assertTrue
  *
  * - the pinned client (0.34.0) can issue `session/resume`, in protocol **v1**;
  * - resume is negotiated as a **marker** capability — `sessionCapabilities.resume` is present or
- *   absent, and its presence is the whole answer.
+ *   absent, and its presence is the whole answer;
+ * - the restart-capable counterpart `session/load` is available on the same client, and
+ *   `loadSession` is negotiated as a plain **boolean** on the agent's capabilities.
  *
  * Both are facts about the library, not about the application: the application does not read
  * capabilities yet, and reading them is a later decision. So the test touches the library directly
@@ -172,6 +177,55 @@ class AcpResumeCapabilityTest {
             assertEquals("/work/project", decoded.cwd, "the working directory must travel on the wire")
         }
 
+    /**
+     * The restart-capable operation is on the wire too.
+     *
+     * The note's conclusion is that `session/resume` is the wrong mechanism and `session/load` is
+     * the one that survives an agent restart. That makes `session/load` the operation the note
+     * actually leans on — so the wire proof has to cover it as well, or an SDK bump could change
+     * or remove it while the note keeps claiming it is available.
+     *
+     * The two calls differ in what they promise, not in how they are sent: `session/load` carries
+     * the same session id and working directory as `session/resume`, and the difference lives in
+     * the agent's behaviour (replay the retained history as `session/update`s). So the frame is
+     * asserted the same way — method name, session id, working directory.
+     */
+    @Test
+    fun `the client puts session load on the wire`() =
+        runTest {
+            val transport = FakeAcpTransport()
+            val protocol = Protocol(backgroundScope, transport)
+            protocol.start()
+            val client = Client(protocol)
+
+            val sessionId = SessionId("session-3160")
+            val parameters = SessionCreationParameters(cwd = "/work/project", mcpServers = emptyList())
+
+            val load =
+                launch {
+                    client.loadSession(
+                        sessionId,
+                        parameters,
+                        // The agent never answers in this test, so the factory is never called.
+                        ClientOperationsFactory { _, _ -> error("the agent never answers here") },
+                    )
+                }
+
+            val request = transport.awaitRequest()
+            load.cancel()
+
+            assertEquals(
+                "session/load",
+                request.method.name,
+                "the client must put the load method on the wire — it is the restart-capable path",
+            )
+
+            val params = assertNotNull(request.params, "the load request must carry params")
+            val decoded = ACPJson.decodeFromJsonElement(LoadSessionRequest.serializer(), params)
+            assertEquals(sessionId, decoded.sessionId, "the session id must travel on the wire")
+            assertEquals("/work/project", decoded.cwd, "the working directory must travel on the wire")
+        }
+
     @Test
     fun `resume is negotiated as a marker capability`() {
         val capabilities =
@@ -183,7 +237,7 @@ class AcpResumeCapabilityTest {
             )
 
         assertNotNull(
-            capabilities.sessionCapabilities?.resume,
+            capabilities.sessionCapabilities.resume,
             "an agent that advertises resume is read through sessionCapabilities.resume",
         )
         assertNull(
@@ -200,6 +254,78 @@ class AcpResumeCapabilityTest {
             """{"resume":{}}""",
             json,
             "the wire shape is a marker: presence means supported, the payload means nothing",
+        )
+    }
+
+    /**
+     * The capabilities are read off a real `initialize` response, not only built by hand.
+     *
+     * The two tests above *construct* `AgentCapabilities` and `SessionCapabilities` in Kotlin and
+     * look at the values. That proves the model reads a marker correctly, but it never touches the
+     * inbound path: the wire JSON an agent actually sends is a different thing from the Kotlin
+     * objects the SDK hands you. If the decoding of an `initialize` response changed shape — a
+     * capability moved, a boolean became a marker — those tests would keep passing while the
+     * negotiation the note describes could no longer happen.
+     *
+     * So the test decodes representative v1 `initialize` responses: one that advertises both
+     * capabilities and one that advertises neither, and asserts what the application would read
+     * off them.
+     */
+    @Test
+    fun `the inbound initialize response decodes the resume and load capabilities`() {
+        val advertising =
+            Json.parseToJsonElement(
+                """
+                {
+                  "protocolVersion": 1,
+                  "agentCapabilities": {
+                    "loadSession": true,
+                    "sessionCapabilities": { "resume": {} }
+                  },
+                  "agentInfo": { "name": "claude-agent-acp", "version": "0.112.0" }
+                }
+                """.trimIndent(),
+            )
+        val silent =
+            Json.parseToJsonElement(
+                """
+                {
+                  "protocolVersion": 1,
+                  "agentCapabilities": {},
+                  "agentInfo": { "name": "codex-acp", "version": "2.12.0" }
+                }
+                """.trimIndent(),
+            )
+
+        val advertisingResponse =
+            ACPJson.decodeFromJsonElement(InitializeResponse.serializer(), advertising)
+        assertEquals(
+            1,
+            advertisingResponse.protocolVersion,
+            "the pinned SDK decodes the v1 protocol version",
+        )
+        assertEquals(
+            "claude-agent-acp",
+            advertisingResponse.agentInfo?.name,
+            "the agent identifies itself in the initialize response",
+        )
+        assertTrue(
+            advertisingResponse.agentCapabilities.loadSession,
+            "loadSession is read as a boolean off the initialize response",
+        )
+        assertNotNull(
+            advertisingResponse.agentCapabilities.sessionCapabilities.resume,
+            "an agent that advertises resume is read through sessionCapabilities.resume",
+        )
+
+        val silentResponse = ACPJson.decodeFromJsonElement(InitializeResponse.serializer(), silent)
+        assertFalse(
+            silentResponse.agentCapabilities.loadSession,
+            "an agent that advertises nothing does not support loadSession",
+        )
+        assertNull(
+            silentResponse.agentCapabilities.sessionCapabilities.resume,
+            "an agent that advertises nothing does not support resume",
         )
     }
 

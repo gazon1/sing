@@ -118,8 +118,10 @@ So the two candidate readings of "Koog persistence" both fail for the chat:
 **Verdict: do not adopt.** The tripwire is `KoogCheckpointApplicabilityTest`
 (`shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/KoogCheckpointApplicabilityTest.kt`): it
 pins the facts the decision rests on — the checkpoint API is defined in terms of a Koog `AIAgent`,
-and the chat holds no Koog agent at all: neither in the loop, nor in the project-owned port it turns
-through (`TextGenPort`, `ChatTurn`).
+the feature itself installs into a **graph** pipeline only (`AIAgentGraphFeature`, and *not*
+`AIAgentFunctionalFeature`), and the chat holds no Koog agent at all: neither in the loop, nor in
+the project-owned port it turns through (`TextGenPort`, `ChatTurn`), nor in the streaming
+implementation that actually runs the chat (`KoogAgentService.streamChat`).
 
 ## 2. ACP session restore: the SDK can do it; the profiles and the lifecycle do not yet justify it
 
@@ -159,9 +161,12 @@ the v2 resume method share the wire name `session/resume` and are told apart by 
 `com.agentclientprotocol.model.v2.ResumeSessionRequest`), that the client's own request builder
 produces the v1 type, that resume is a *marker* capability (`sessionCapabilities.resume` is
 present or absent — no payload to interpret), and that the marker travels as exactly
-`{"resume":{}}`. It also runs the pinned client against a fake transport and reads the frame that
-comes out, so the claim is checked on the wire and not only in the library's own method objects. A
-dependency bump that changes any of those fails the test instead of quietly invalidating this note.
+`{"resume":{}}`. It also runs the pinned client against a fake transport and reads the frames that
+come out — one for `session/resume`, one for the restart-capable `session/load` — so both claims
+are checked on the wire and not only in the library's own method objects, and it decodes
+representative v1 `initialize` responses to pin the **inbound** path: `sessionCapabilities.resume`
+read back as a present-or-absent marker and the separate boolean `loadSession`. A dependency bump
+that changes any of those fails the test instead of quietly invalidating this note.
 
 **The version cannot be read off the wire, and that is worth knowing before anyone writes a probe.**
 The v1 and v2 resume payloads are wire-identical: v1 sends

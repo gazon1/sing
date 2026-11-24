@@ -52,6 +52,55 @@ class KoogCheckpointApplicabilityTest {
         )
     }
 
+    /**
+     * The checkpoint feature is graph-only — that is what makes it inapplicable to this chat.
+     *
+     * The test above pins the *shape* of the public API: `runFromCheckpoint` takes an `AIAgent`.
+     * That shape alone does not carry the conclusion. An `AIAgent` could, in a later Koog version,
+     * be restored into a functional agent as well, and the note would go stale while this test
+     * still passed.
+     *
+     * The decisive fact is the feature's own contract. `Persistence.Feature` installs itself into
+     * an `AIAgentGraphPipeline` and casts the strategy to `AIAgentGraphStrategy`. It is a *graph*
+     * feature, not a functional one — and a functional agent (`FunctionalAIAgent`) has a different
+     * pipeline and a different strategy, so the checkpoint feature cannot be installed there at
+     * all. The built-in chat is a functional-shaped hand-written loop, which is why it is outside
+     * the feature's reach.
+     *
+     * So the tripwire pins the contract itself: the feature is a graph feature, it is *not* a
+     * functional feature, its installation takes a graph pipeline, and a functional agent's
+     * strategy is not a graph strategy.
+     */
+    @Test
+    fun `the checkpoint feature installs into a graph pipeline only`() {
+        val feature = Class.forName("ai.koog.agents.snapshot.feature.Persistence\$Feature")
+        val graphFeature = Class.forName("ai.koog.agents.core.feature.AIAgentGraphFeature")
+        val functionalFeature = Class.forName("ai.koog.agents.core.feature.AIAgentFunctionalFeature")
+        val graphPipeline = Class.forName("ai.koog.agents.core.feature.pipeline.AIAgentGraphPipeline")
+        val graphStrategy = Class.forName("ai.koog.agents.core.agent.entity.AIAgentGraphStrategy")
+        val functionalStrategy = Class.forName("ai.koog.agents.core.agent.AIAgentFunctionalStrategy")
+
+        assertTrue(
+            graphFeature.isAssignableFrom(feature),
+            "the checkpoint feature is a graph feature — that is what restricts it to graph agents",
+        )
+        assertFalse(
+            functionalFeature.isAssignableFrom(feature),
+            "the checkpoint feature must not be installable into a functional agent's pipeline",
+        )
+        assertTrue(
+            feature.declaredMethods.any { method ->
+                method.name == "install" && method.parameterTypes.any { it == graphPipeline }
+            },
+            "the checkpoint feature installs into a graph pipeline",
+        )
+        assertFalse(
+            graphStrategy.isAssignableFrom(functionalStrategy),
+            "a functional agent's strategy is not a graph strategy, so the checkpoint feature " +
+                "cannot reach it",
+        )
+    }
+
     @Test
     fun `the chat loop holds no koog agent`() {
         val agentTypes =
