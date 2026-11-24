@@ -121,7 +121,6 @@ Maestro/flows/smoke/03-health-drilldown.yaml
 Maestro/flows/smoke/06-session-anonymous.yaml
 Maestro/flows/sync/01-change-sync-interval.yaml
 Maestro/flows/sync/01-offline-create-survives-reconnect.yaml
-Maestro/flows/system/menu-sheet.yaml
 Maestro/flows/system/search-finds-task.yaml
 Maestro/flows/system/seed-unknown-key.yaml
 Maestro/flows/system/shell-search-button.yaml

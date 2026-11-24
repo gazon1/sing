@@ -159,7 +159,7 @@ Audit-only inventory for issue [#3105](https://github.com/gazon1/sing/issues/310
 | `sync/01-change-sync-interval.yaml` | 80 s | `desktopApp/src/jvmTest/.../feature/flows/sync/SyncSettings01ScenarioTest.kt` |
 | `profile/01-create-profile.yaml` | 61 s | retired 2026-11-23 (#3122); `desktopApp/src/jvmTest/.../feature/flows/profile/ProfileFlowTest.kt` (`PROFILE-01`) owns the behavior |
 | `menu/06-tree-live.yaml` | 64 s | `desktopApp/src/jvmTest/.../feature/flows/menu/ProjectsMenuLiveScenarioTest.kt` — holds the **creation** half only; the rename half has no owner yet |
-| `system/menu-sheet.yaml` | 18 s | `androidApp/src/androidTest/.../MenuSheetBoundsTest.kt` — the derived tag set, asserted by resource id |
+| `system/menu-sheet.yaml` | 18 s | retired 2026-11-24 (#3123); `androidApp/src/androidTest/.../MenuSheetBoundsTest.kt` owns the derived tag set by resource id |
 
 Every row is a proposal for a follow-up change issue. Acting on one means naming the owner, dropping the flow and updating the catalogue and the scenario link in the same commit — otherwise the scenario id loses its carrier.
 
