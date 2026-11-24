@@ -317,6 +317,88 @@ holes, 49 dark scenarios and 7 unreachable cells; the ratchet floors are
 re-locked at that measurement.
 
 
+## Review round 11
+
+The round-10 review returned changes on both sides: six majors from one
+reviewer and one major plus three minors from the other. Most of them say the
+same thing — a test that owns a scenario id has to carry the **whole** scenario,
+and a flow that carries a scenario tag has to earn it. Both were true of this
+branch in a way the matrix could not see, because the matrix counts claims, not
+the weight of a claim.
+
+**The NAV-02 owner now executes every assertion of the scenario.** The owner
+was four tests, of which three carried no id: the model, the drawer's entries,
+the two hand-drawn project sections and the real drawer were four separate
+assertions, and the id sat on one of them. The rule the scanner enforces is one
+owner per scenario and target, so an owner that asserts half the scenario is
+half a carrier — the cell reads `●` while a claim of it goes unproved. The four
+assertions are now private helpers of the one owning test, which runs all of
+them. Nothing is lost: the same assertions, the same messages, one owner.
+
+**MENU-03 has one owner that carries both of its halves.** The scenario claims
+two things — a project created elsewhere appears in the menu, and a project
+renamed elsewhere shows its new name — and the id sat on the test that proved
+only the first. The second half was proved by a test that carried no id, so the
+matrix showed one owner for a scenario nobody owned whole. The two are merged
+into a single owner that asserts both while the drawer is open. The
+alternative — splitting the spec into two scenarios — was rejected: the split
+would make the matrix tidy and the guarantee smaller, and a guarantee that
+existed only to be split is a guarantee nobody made.
+
+**SYNC-SETTINGS-01's id moved to the test that proves the scenario.** The same
+shape: the id sat on the test that taps the interval row and sees the value
+change, while the test that proves the apply point and the survival across a
+restart carried no id. The id now belongs to the second test, which asserts the
+value change as well as the apply and the boundary. The first test keeps its
+assertions and loses the id — it is a good test, and it is not the whole
+scenario. The `runBlocking` that the second test used to read the persisted
+value is gone as well: the harness body is a suspend lambda, so the value is
+polled with `withTimeoutOrNull` and a short `delay` instead of blocking the
+thread, which is what the repository's own `NoRunBlocking` rule asks for.
+
+**The two residue flows lost the scenario tags they did not earn.** After
+`gazon1/sing#3141` and `gazon1/sing#3138` trimmed `menu/06-tree-live.yaml` and
+`sync/01-change-sync-interval.yaml` to a residue, both flows kept their
+`scenario:` tags — so the matrix counted two android claims that neither flow
+makes. A tag is a claim about what a flow proves, and a residue proves none of
+it: the menu flow asserts that reopening the sheet exposes a row by its stable
+id, and the sync flow asserts that the Sync tab is reachable. Both tags are
+dropped, and the two android cells they carried are **honest holes** — 68 → 70
+holes, 92 → 90 carriers, with the ratchet floors re-locked at that measurement.
+The guarantees themselves are not narrowed: `MENU-03` and `SYNC-SETTINGS-01`
+still claim android, and the android tier is where they are unverified. A
+narrowed claim would have kept the count and hidden the gap; this keeps the gap
+and shows it.
+
+**The persistence limitation is named instead of implied.** The desktop tier
+has no on-disk database — the harness runs on an in-memory fake, and there is
+no Room builder anywhere on the JVM tier — so the "survives a restart" half of
+`SYNC-SETTINGS-01` is proved as a **fresh app mount over the same repository
+state**: the setting is written, and a later mount reads it back. The disk
+round-trip is the android tier's part, and the scenario spec says so, so a
+reader of the matrix is told what the desktop carrier does and does not prove
+instead of discovering it.
+
+**Two counts in the inventory were stale.** The suite table said 30 smoke flows
+in shares of 8/8/7/7 and 127 `full` flows in shares of 32/32/32/31; the
+runner's own selection today is 29 smoke flows in shares of 8/7/7/7 and 121
+`full` flows in shares of 31/30/30/30. Both are corrected, in the table and in
+the prose that repeats the smoke figure.
+
+**The foreign repairs are a recorded waiver, not a technical necessity.** The
+two repairs this branch carries for main — the harness-convention fix and the
+qualification repair — are still here by the repository owner's decision, and
+they are still liftable on their own (`git cherry-pick e7c760ff69 dd117394b1
+main`). What changes is how the branch explains them: they are a **waiver** of
+the one-concern-per-pull-request convention, granted by the owner and recorded
+here, rather than a repair that "had" to live here. The waiver is what the
+review asked for, and it is the reason the repairs are not in this section's
+list of repairs.
+
+The merged tree measures 141 specs, 160 claimed cells, 90 carriers, 70 holes,
+49 dark scenarios and 7 unreachable cells.
+
+
 ## Links
 
 - Issue: https://github.com/gazon1/sing/issues/3119
