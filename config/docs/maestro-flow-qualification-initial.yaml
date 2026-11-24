@@ -57,6 +57,7 @@ initial_flows:
 - Maestro/flows/menu/09-attach-account-entry.yaml
 - Maestro/flows/menu/10-large-projects.yaml
 - Maestro/flows/nav/01-no-calendar-tab.yaml
+- Maestro/flows/nav/02-menu-parity.yaml
 - Maestro/flows/nav/bottom-nav-tabs.yaml
 - Maestro/flows/nav/deep-link-task.yaml
 - Maestro/flows/negative/01-empty-inbox.yaml

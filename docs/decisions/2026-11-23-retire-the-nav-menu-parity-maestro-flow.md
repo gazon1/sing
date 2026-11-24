@@ -138,12 +138,14 @@ another one (see Consequences).
   host, in seconds — and the Android sheet's own reachability stays on the
   device where it belongs, in `MenuSheetBoundsTest`.
 - The qualification artifacts (`config/docs/maestro-flow-qualification-initial.yaml`
-  and `...-baseline.yaml`) name the flows that existed when the rule was
-  introduced, and a flow that no longer exists cannot be one of them: the
-  retired `nav/02-menu-parity.yaml` left the frozen set and the baseline map,
-  and the pinned digests were refreshed to match — the same thing main's
-  #3121 retirement did for `agenda/04-saved-view-results`. The change removes
-  a name; it admits no flow without qualification.
+  and `...-baseline.yaml`) are the record of the flows that were in a blocking
+  scope when the rule was introduced, and the frozen set only grows: the
+  retired `nav/02-menu-parity.yaml` stays in the frozen set and keeps its
+  baseline fingerprint, because it *was* in a blocking scope when the rule was
+  introduced. What retires it is its absence from the catalogue — the gate
+  admits a flow out of the catalogue, never out of a list, so a name in the
+  frozen set that no longer has a file is a record, not an admission. The
+  pinned digests were refreshed to match the artifacts.
 - Main's own #3136 split left `archive/02-bulk-archive-confirm.yaml` with a
   stale baseline fingerprint: the flow's content changed and the gate refuses
   it. The flow is admitted by an **evidence-backed exception** in
@@ -200,6 +202,40 @@ The whole set of project rows is compared — a row nobody expected is a row
 the assertion sees — and the order is the order the rows are drawn in. The
 drawer that offers the roots only now fails this test, which is the point:
 the guarantee is about the drawer, so the drawer is what is opened.
+
+## Review round 8
+
+The next review round returned no blocking and no major finding, and two
+minors that both touched the same thing — the record the retirement keeps:
+
+> The frozen set can only grow, so a retired flow has to stay in it. The
+> stated reason for declining that does not hold: keeping a retired flow in
+> the frozen set does not require the gate to qualify a file that does not
+> exist.
+
+The reason it was declined was that main's sibling retirements (#3120–#3123)
+removed the retired flow from both qualification artifacts. But main's own
+artifacts and main's own pinned digests no longer agree — main is red on that
+gate today — and the rule the gate documents is that the frozen set only
+grows. The frozen set is a record of what was in a blocking scope when the
+rule was introduced, and `nav/02-menu-parity.yaml` was in one. The gate never
+qualifies a flow out of the frozen set: it walks the catalogue and admits a
+flow that is in the frozen set and whose fingerprint still matches. A name in
+the frozen set without a file behind it is therefore a record, not an
+admission. So the flow stays in the frozen set and keeps its baseline
+fingerprint, and the pinned digests were refreshed.
+
+Two further minors asked for the foreign repairs to move to their own pull
+request: the qualification exception for `archive/02-bulk-archive-confirm.yaml`
+and the harness-convention fix in `OpenSavedViewShowsMatchingTasksFlowTest`.
+Both come from main's own #3136, and both are what the *merged* tree needs:
+the qualification gate is blocking, and a blocking gate that the tree fails
+is a tree nobody can merge. A repair that a blocked tree needs has no pull
+request of its own to live in — that pull request could not pass its own
+gates — so the repair rides here, where the merge carries it. This is the
+one exception to "a repair that unblocks a pull request goes in its own pull
+request", and the tree is what makes the exception: the repair is the reason
+the pull request can be merged at all.
 
 ## Links
 
