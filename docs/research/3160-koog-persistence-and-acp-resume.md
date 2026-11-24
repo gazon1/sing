@@ -18,7 +18,7 @@ jars in the Gradle cache, not out of upstream documentation.
 | Can Koog checkpointing carry a built-in chat across process death? | **No.** The feature is graph-only, and the chat never enters a graph | §1 |
 | Can the pinned ACP client issue `session/resume`? | **Yes** — protocol **v1**, gated on a marker capability | §2 |
 | Can it issue `session/load` (the restart-capable call)? | **Yes** — gated on a separate boolean capability | §2 |
-| Should ACP session restore be built now? | **No** — five independent reasons, and the pinned SDK cannot even decode the current bridges' `initialize` | §2 |
+| Should ACP session restore be built now? | **No** — five independent reasons, and the pinned SDK cannot even decode the Claude and Codex `initialize` frames | §2 |
 | What should be built? | One project-owned transcript table in Room, text first | [Recommendation](#recommendation-the-smallest-viable-design) |
 | What is explicitly out of scope? | Koog checkpointing, moving the chat onto `AIAgent`, ACP session plumbing, GenUI surfaces, tool-call payloads, a new persistence engine | [Recommendation](#recommendation-the-smallest-viable-design) |
 
@@ -188,14 +188,18 @@ representative v1 `initialize` responses to pin the **inbound** path: `sessionCa
 read back as a present-or-absent marker and the separate boolean `loadSession`. A dependency bump
 that changes any of those fails the test instead of quietly invalidating this note.
 
-It also carries the **captured** frames the configured bridges actually sent on 2026-11-25
-(`build/diagnostics/acp-probe-claude.log`, `build/diagnostics/acp-probe-codex.log`) and pins the
-two facts the practical no-go rests on: the pinned SDK cannot decode them (`auth.status` is an
-object where the SDK expects `Boolean?`), and the capabilities they advertise (`loadSession: true`
-and `sessionCapabilities.resume: {}`, at bridge versions 0.112.0 and 2.12.0) are the ones the
-profile table above lists. The frames are an observation of a specific package version — the
-bridges are launched through unpinned `npx` packages, so capabilities still have to be negotiated
-at runtime — but the *SDK side*, which this repository does pin, is protected.
+It also carries the **captured** frames the configured agents actually sent on 2026-11-25
+(`build/diagnostics/acp-probe-claude.log`, `build/diagnostics/acp-probe-codex.log`,
+`build/diagnostics/acp-probe-gemini.log`) and pins the facts the practical no-go rests on: the
+pinned SDK cannot decode the two bridge frames (`auth.status` is an object where the SDK expects
+`Boolean?`), it *does* decode the default Gemini CLI's frame, and the capabilities the agents
+advertise (`loadSession: true` everywhere, `sessionCapabilities.resume: {}` on the two bridges
+only, at versions 0.112.0, 2.12.0 and 0.71.1) are the ones the profile table above lists. A final
+test pins the profiles the registry actually holds to the packages those frames came from, so a
+changed executable cannot leave the table stale while the suite stays green. The frames are an
+observation of a specific package version — the agents are launched through unpinned packages, so
+capabilities still have to be negotiated at runtime — but the *SDK side*, which this repository
+does pin, is protected.
 
 **The version cannot be read off the wire, and that is worth knowing before anyone writes a probe.**
 The v1 and v2 resume payloads are wire-identical: v1 sends
@@ -232,7 +236,8 @@ The registry is hard-coded Kotlin, not a config file
 
 - **Gemini CLI** answers `initialize` with `agentCapabilities: { loadSession: true, promptCapabilities,
   mcpCapabilities }` and no `sessionCapabilities`
-  (`@google/gemini-cli@0.71.1`, bundle `gemini-7FHLRHNN.js:18745-18760`). Its dispatcher answers
+  (`@google/gemini-cli@0.71.1`, bundle `gemini-7FHLRHNN.js:18745-18760`; and the **captured**
+  frame of 2026-11-25, `build/diagnostics/acp-probe-gemini.log`). Its dispatcher answers
   `session/resume` with *method not found*, because the agent object has no
   `unstable_resumeSession` (`:15742-15748`). So the **default profile cannot resume**.
 - **The Claude bridge** advertises `sessionCapabilities: { …, resume: {} }` and registers a handler
@@ -263,17 +268,6 @@ bridges answer with `"auth":{"logout":{},"status":{}}` — an **object** where t
 boolean. The frames are in `build/diagnostics/acp-probe-claude.log` (claude-agent-acp 0.112.0) and
 `build/diagnostics/acp-probe-codex.log` (codex-acp 2.12.0).
 
-This matters for this issue in two separate ways:
-
-1. **The connection fails before resume is reachable.** With the pinned SDK 0.34.0, the resume
-   capability these bridges advertise is currently unusable in practice — not because resume is
-   wrong, but because the session cannot even be opened. Any future ACP-resume work starts by
-   fixing this shape mismatch (or by moving to an SDK version whose `AgentAuthCapabilities.status`
-   accepts the object form).
-2. **It confirms the table above is a source-level statement, not a runtime one.** The capability
-   advertisement was read from the wire frame, so the *advertisement* is real; what is not real is
-   any end-to-end session with these bridges under the pinned SDK.
-
 Three caveats that a reader of the table above must not miss:
 
 1. **The bridges are not version-pinned.** The profiles launch `npx @agentclientprotocol/…`, so the
@@ -281,20 +275,26 @@ Three caveats that a reader of the table above must not miss:
    installed bridge, not of this repository — the table is true as of the versions checked, and the
    capability must be read at runtime, not assumed.
 2. **Capability is not the same as usefulness — and `resume` and `load` are not the same thing.**
-   The protocol has two ways to pick a conversation back up, and they differ in *which process*
-   must still be alive:
+   The protocol has two ways to pick a conversation back up, and they differ in *where the
+   transcript comes from*:
 
-   - **`session/resume`** reconnects to a session the **same live agent process** still holds,
-     without replaying the history. This application never connects to an agent that is already
-     running: every profile is *launched* as a child process (`SubprocessAcpAgentLauncher`,
-     `AcpAgentLauncher.kt:78-104`) and the protocol travels over that child's standard input and
-     output (`Subprocess.spawnDuplex`, `core/process/Subprocess.kt:295-309`). A restarted app
-     therefore launches a *new* child, and the session died with the old one — and an agent
-     orphaned by a killed app cannot be reached either, even if it survives the kill: the pipes
-     died with the app that held them, and a new process cannot re-attach to a child it did not
-     spawn. An orderly close ends the tree outright as well (`AcpClient.close()`/`terminate()` →
-     `ProcessTree`, `AcpClient.kt:485-601`). **So `session/resume` cannot carry a conversation
-     across an app restart**, whatever the agent keeps.
+   - **`session/resume`** reconnects to an **existing** session *without replaying* the history.
+     That is all the protocol promises about it: the protocol documentation describes it as
+     "reconnect to an existing session **without replaying** the conversation history"
+     (`https://agentclientprotocol.com/protocol/v1/session-setup.md`, "Resuming sessions"). The
+     protocol does **not** state which process must still be alive — whether a session outlives
+     the agent process that created it is the agent's own business, and the note did not verify it
+     for the configured bridges (see "What was not verified"). What *is* verified here is this
+     application's transport: it never connects to an agent that is already running. Every profile
+     is *launched* as a child process (`SubprocessAcpAgentLauncher`, `AcpAgentLauncher.kt:78-104`)
+     and the protocol travels over that child's standard input and output (`Subprocess.spawnDuplex`,
+     `core/process/Subprocess.kt:295-309`). A restarted app therefore launches a *new* child, and
+     this app has no way to reach an agent it did not spawn — an agent orphaned by a killed app
+     cannot be reached either, even if it survives the kill: the pipes died with the app that held
+     them. An orderly close ends the tree outright as well (`AcpClient.close()`/`terminate()` →
+     `ProcessTree`, `AcpClient.kt:485-601`). **So with this application's transport,
+     `session/resume` cannot carry a conversation across an app restart** — not because the
+     protocol forbids it, but because there is no surviving agent for this app to talk to.
    - **`session/load`** is the protocol's documented "persistence across restarts" path: the
      **agent** stores the transcript, and a *newly connected* agent process reloads it by id and
      replays the history as `session/update`s before it answers. The protocol documentation says
@@ -309,11 +309,48 @@ Three caveats that a reader of the table above must not miss:
      v1 `session/load` and v2 `session/resume` with `replayFrom: {type: "start"}`: reattach,
      replay retained history as ordinary `session/update`s, then answer"
      (`dist/index.js:54242-54270`, method map at `:5444`). **So the restart case is not ruled out by
-     the protocol or by the bridges — it is ruled out by this application**, which keeps no session
-     id and does not read the capability that promises it.
-3. **The pinned SDK cannot open these sessions at all** (see above): `auth.status` is a boolean in
-   SDK 0.34.0 and an object in the bridges. Whatever the session-restore design ends up being, it
-   starts after that mismatch is resolved.
+     the protocol, and it is not ruled out by the bridges either** — it is ruled out by *this
+     application*, whose transport cannot reach an agent it did not spawn, and which keeps no
+     session id and does not read the capability that promises it.
+3. **The pinned SDK cannot open the two bridges' sessions at all** (see above): `auth.status` is a
+   boolean in SDK 0.34.0 and an object in the Claude and Codex bridges. Whatever the session-restore
+   design ends up being, it starts after that mismatch is resolved. The default Gemini profile is
+   the odd one out — its frame decodes — and it advertises no resume anyway.
+
+### The default profile is a different case: Gemini decodes, and then fails for another reason
+
+The same probe was run against the **default** profile on 2026-11-25
+(`build/diagnostics/acp-probe-gemini.log`, `@google/gemini-cli@0.71.1`, launched as the registry
+launches it). Its `initialize` result, captured verbatim:
+
+```
+{"protocolVersion":1,"authMethods":[{"id":"oauth-personal","name":"Log in with Google","description":"Log in with your Google account"},{"id":"gemini-api-key","name":"Gemini API key","description":"Use an API key with Gemini Developer API","_meta":{"api-key":{"provider":"google"}}},{"id":"vertex-ai","name":"Vertex AI","description":"Use an API key with Vertex AI GenAI API"},{"id":"gateway","name":"AI API Gateway","description":"Use a custom AI API Gateway","_meta":{"gateway":{"protocol":"google","restartRequired":"false"}}}],"agentInfo":{"name":"gemini-cli","title":"Gemini CLI","version":"0.71.1"},"agentCapabilities":{"loadSession":true,"promptCapabilities":{"image":true,"audio":true,"embeddedContext":true},"mcpCapabilities":{"http":true,"sse":true}}}
+```
+
+Three things follow, and they must not be merged with the bridges' case:
+
+1. **The frame carries no `auth` block at all**, so the pinned SDK 0.34.0 **decodes it** — the
+   `$.status` mismatch above is a property of the two bridges, not of the protocol version and not
+   of the SDK.
+2. **It confirms the table's Gemini row on the wire**: `loadSession: true` and **no
+   `sessionCapabilities`**, so no resume. The default profile cannot resume — now an observation,
+   not only a reading of the bundle.
+3. **The handshake still failed**, but later and for an unrelated reason: the client got past
+   `initialize` and the probe's `session/new` was refused with
+   `Gemini API key is missing or not configured.` That is this host's configuration, not a protocol
+   or SDK defect, and it is why no session was opened against any of the three agents.
+
+This matters for this issue in two separate ways:
+
+1. **The connection fails before resume is reachable.** With the pinned SDK 0.34.0, the resume
+   capability these two bridges advertise is currently unusable in practice — not because resume
+   is wrong, but because the session cannot even be opened. Any future ACP-resume work with them
+   starts by fixing this shape mismatch (or by moving to an SDK version whose
+   `AgentAuthCapabilities.status` accepts the object form). The default profile is not in this
+   case — see the next section.
+2. **It confirms the table above is a source-level statement, not a runtime one.** The capability
+   advertisement was read from the wire frame, so the *advertisement* is real; what is not real is
+   any end-to-end session with these bridges under the pinned SDK.
 
 ### Verdict: **no-go** for building ACP session restore now
 
@@ -323,15 +360,18 @@ gates — but because everything a restore needs is missing and none of it is ch
 1. the app never reads capabilities, so it cannot know whether resume — or `session/load` — is on
    the table;
 2. the app never persists a session id, so it has nothing to resume and nothing to load;
-3. `session/resume`, the call the pinned SDK exposes, needs the *same live agent process*, and this
-   application launches its agent as a child it speaks to over pipes — so that call cannot cross a
-   restart, whatever the agent keeps;
+3. `session/resume`, the call the pinned SDK exposes, reconnects to an existing session without
+   replaying it — and this application launches its agent as a child it speaks to over pipes, so
+   after a restart it has a *new* child and no way to reach the old one. Whether the configured
+   bridges would themselves accept a resume after *their own* process restarted is unverified
+   here; either way, this application's transport gives it no session to resume;
 4. `session/load`, the call that *can* cross a restart, replays the history **from the agent**,
    which would put two transcripts in the picture — the agent's and this application's own — and
    the recommendation below is that this application's own is the one that counts;
-5. and, as the live probe shows, the pinned SDK 0.34.0 cannot decode the bridges' `initialize`
-   response at all (`$.status`), so there is no working session to resume or to load in the first
-   place.
+5. and, as the live probe shows, the pinned SDK 0.34.0 cannot decode the Claude and Codex
+   bridges' `initialize` response at all (`$.status`), so with those two there is no working
+   session to resume or to load in the first place. (The default Gemini profile decodes — but it
+   advertises no resume, and it is the profile with no session id and no capability read.)
 
 The one thing that *is* cheap and worth doing later: read
 `agentInfo.capabilities.sessionCapabilities?.resume` and `agentInfo.capabilities.loadSession` right
@@ -381,7 +421,7 @@ persisting a rendered UI tree — a second format, a second table, and a schema 
 
 | Situation | Transcript (text) | A live model/agent execution | ACP `session/resume` | ACP `session/load` |
 |---|---|---|---|---|
-| Process death, app restarted | **Yes** — if the transcript is in Room | No — the model call is over; the next message starts a new call | No — the session lived in the old child process, which died with the app | In principle **yes** — a new child reloads the agent's stored transcript by id and replays it — but the app keeps no id to ask with |
+| Process death, app restarted | **Yes** — if the transcript is in Room | No — the model call is over; the next message starts a new call | No — the old child died with the app, and this app cannot re-attach to a process it did not spawn | In principle **yes** — a new child reloads the agent's stored transcript by id and replays it — but the app keeps no id to ask with |
 | Turn cancelled by the reader | **Yes** — the partial answer is a row | No | No — `session/cancel` stops the turn; the session survives only while the process does | In principle yes — the agent still holds the session; the app still has no id |
 | App killed, agent orphaned | **Yes** | No | No — the pipes died with the app, so the orphan cannot be reached | The orphan's stored transcript survives on disk, and a *new* child could load it — if the app kept the id |
 | Agent process died, app alive | **Yes** | No | No — `AgentUnavailable` (`AcpClient.kt:399`), and the id is dead | The stored transcript may still be there; the app has no id, and the agent may not have finished writing it |
@@ -389,11 +429,13 @@ persisting a rendered UI tree — a second format, a second table, and a schema 
 
 The rule the table states: **transcript restoration and execution resumption are different
 features.** The transcript is the application's own data and survives anything. Resuming an
-*execution* is a property of *someone else's* live process — and `session/resume` needs exactly
-that: the same agent process, still holding the session. This application does not run anyone
-else's long-lived process: it launches the agent itself and speaks to it over pipes, so that
-session lives and dies with the app (`Subprocess.spawnDuplex`, `core/process/Subprocess.kt:295-309`;
-`ProcessTree`, `AcpClient.kt:485-601`).
+*execution* is a property of *someone else's* live process: `session/resume` reconnects to a
+session that process still holds, so it needs a reachable agent that kept that session — the last
+table row is the case where the agent is reachable (a separately running agent over a socket).
+This application does not run anyone else's long-lived process: it launches the agent itself and
+speaks to it over pipes, so the session lives and dies with the app
+(`Subprocess.spawnDuplex`, `core/process/Subprocess.kt:295-309`; `ProcessTree`,
+`AcpClient.kt:485-601`) — and the app cannot re-attach to a process it did not spawn.
 
 The second rule follows from the table's other half: **`session/load` promises something different,
 and this application cannot collect it either — yet.** There, the persistence is the *agent's*: the
@@ -445,11 +487,12 @@ chat.**
    200-character prose block?
 4. *Then, separately*: the ACP capability read (`sessionCapabilities?.resume` and `loadSession`) —
    two lines, no persistence — and, with it, the session-id store. The call to look at first is
-   `session/load`, not `session/resume`: `resume` needs the same live agent process, which the
-   child-per-launch topology cannot give, while `load` is the protocol's documented
-   persistence-across-restarts path and both bridges implement it. Whether to use it at all is a
-   separate decision, and it carries one the transcript does not: the agent would replay its own
-   history, so the app must decide whose transcript is the truth.
+   `session/load`, not `session/resume`: `resume` reconnects to an existing session without
+   replaying it, and the child-per-launch topology gives this app no surviving agent to reconnect
+   to after a restart, while `load` is the protocol's documented persistence-across-restarts path
+   and both bridges implement it. Whether to use it at all is a separate decision, and it carries
+   one the transcript does not: the agent would replay its own history, so the app must decide
+   whose transcript is the truth.
 
 ## How to reproduce the findings
 
@@ -484,8 +527,18 @@ chat.**
   SDK. Frames: `build/diagnostics/acp-probe-claude.log`, `build/diagnostics/acp-probe-codex.log`.
   The 2026-10-25 run against claude-agent-acp 0.95.0 is the one that completed a handshake
   (`~/.cache/pompano-tmp/acp-bridge-probe.7t7HgO.log`).
+- The **default** profile was probed live on 2026-11-25 (`build/diagnostics/acp-probe-gemini.log`,
+  `@google/gemini-cli@0.71.1`). Its `initialize` frame **decodes** under the pinned SDK and confirms
+  the table's row — `loadSession: true`, no `sessionCapabilities` — but the probe then failed at
+  `session/new` with `Gemini API key is missing or not configured.`, so no session was opened
+  against it either. Nothing about Gemini's behaviour *after* `initialize` is established here.
 - Whether a bridge's `session/resume` **works** end to end — that needs a live agent with a live
   session, and it is not what this issue asks for.
+- Whether a bridge would answer `session/resume` for a session **retained across a restart of the
+  agent's own process** (claude-agent-acp 0.112.0, codex-acp 2.12.0). The protocol does not forbid
+  it, and the note does not assert that it is impossible — it was simply not exercised, so this
+  remains **unverified**. What *is* verified is the transport fact on this application's side: it
+  launches a fresh child per run and cannot re-attach to an agent it did not spawn.
 - Whether a bridge's `session/load` **works** end to end. The implementations were read from the
   packages (claude-agent-acp 0.112.0, codex-acp 2.12.0) and both replay a stored transcript by
   session id, but no load was performed: it needs a live agent that already has a stored session,

@@ -452,6 +452,146 @@ class AcpResumeCapabilityTest {
         """.trimIndent()
 
     /**
+     * The **default** profile's captured frame — the one the note's table says cannot resume.
+     *
+     * `@google/gemini-cli` 0.71.1, launched exactly as the registry launches it, captured
+     * verbatim on 2026-11-25 from `build/diagnostics/acp-probe-gemini.log`.
+     *
+     * Two facts make this frame worth its own fixture, and they are the reason it is not just
+     * another row in the test above:
+     *
+     * - it carries **no `auth` block**, so the pinned SDK **decodes** it — the `$.status`
+     *   mismatch is a property of the Claude and Codex bridges, not of the SDK or the protocol
+     *   version;
+     * - it advertises `loadSession: true` and **no `sessionCapabilities`**, so the default
+     *   profile can load but cannot resume.
+     */
+    @Test
+    fun `the default profile decodes and still advertises no resume`() {
+        val frame = Json.parseToJsonElement(geminiInitializeFrame).jsonObject
+
+        val agentInfo = frame["agentInfo"]?.jsonObject
+        assertEquals(
+            "gemini-cli",
+            agentInfo?.get("name")?.jsonPrimitive?.content,
+            "the captured Gemini frame is the agent the note's table lists",
+        )
+        assertEquals(
+            "0.71.1",
+            agentInfo?.get("version")?.jsonPrimitive?.content,
+            "the captured Gemini frame is the 0.71.1 CLI the note's table lists",
+        )
+
+        val capabilities = frame["agentCapabilities"]?.jsonObject
+        assertNotNull(capabilities, "the Gemini frame must carry agentCapabilities")
+        assertEquals(
+            JsonPrimitive(true),
+            capabilities.get("loadSession"),
+            "the Gemini CLI advertises loadSession: true",
+        )
+        assertNull(
+            capabilities.get("sessionCapabilities"),
+            "the Gemini CLI advertises no sessionCapabilities — so it cannot resume",
+        )
+
+        // And unlike the two bridges, the pinned SDK decodes this frame.
+        val decoded =
+            ACPJson.decodeFromJsonElement(
+                InitializeResponse.serializer(),
+                Json.parseToJsonElement(geminiInitializeFrame),
+            )
+        assertTrue(
+            decoded.agentCapabilities.loadSession,
+            "loadSession is read as a boolean off the Gemini frame",
+        )
+        assertNull(
+            decoded.agentCapabilities.sessionCapabilities.resume,
+            "the default profile is read as having no resume capability",
+        )
+    }
+
+    /**
+     * The captured frames must stay attached to the profiles that are actually configured.
+     *
+     * The note's table is a claim about *the profiles the registry launches*: `gemini`, the Claude
+     * bridge and the Codex bridge. If a profile's executable or package changed, the frames would
+     * still decode, the other tests would still pass, and the table would quietly become a claim
+     * about programs this application no longer runs.
+     *
+     * So the correspondence is pinned directly: the profile the registry holds must launch the
+     * package that named itself in the captured frame, and the default entry must still be the
+     * Gemini CLI — the one profile that cannot resume.
+     */
+    @Test
+    fun `the configured profiles still launch the agents the frames were captured from`() {
+        val claude = AcpAgentRegistry.byId("claude-code")
+        val codex = AcpAgentRegistry.byId("codex")
+        val gemini = AcpAgentRegistry.byId("gemini-cli")
+        assertNotNull(claude, "the Claude bridge profile must be registered")
+        assertNotNull(codex, "the Codex bridge profile must be registered")
+        assertNotNull(gemini, "the Gemini CLI profile must be registered")
+
+        val claudeName = agentNameOf(claudeInitializeFrame)
+        val codexName = agentNameOf(codexInitializeFrame)
+        val geminiName = agentNameOf(geminiInitializeFrame)
+
+        // The bridges are npx invocations: the package is the argument.
+        assertEquals("npx", claude.command, "the Claude profile is an npx invocation")
+        assertEquals(
+            listOf(claudeName),
+            claude.args,
+            "the Claude profile must launch the package the captured frame came from",
+        )
+        assertEquals("npx", codex.command, "the Codex profile is an npx invocation")
+        assertEquals(
+            listOf(codexName),
+            codex.args,
+            "the Codex profile must launch the package the captured frame came from",
+        )
+
+        // The Gemini CLI is an installed binary, and it names itself with the package-style name.
+        assertEquals("gemini", gemini.command, "the Gemini profile launches the installed binary")
+        assertEquals(
+            listOf("--experimental-acp"),
+            gemini.args,
+            "the Gemini profile keeps the ACP flag the note's table lists",
+        )
+        assertTrue(
+            geminiName.startsWith(gemini.command),
+            "the captured Gemini frame must come from the binary the profile launches: $geminiName",
+        )
+
+        assertEquals(
+            "gemini-cli",
+            AcpAgentRegistry.default.id,
+            "the default profile must still be the one that cannot resume",
+        )
+        assertEquals(
+            1,
+            AcpAgentRegistry.entries.count { it.isDefault },
+            "exactly one profile is preselected",
+        )
+    }
+
+    /** The `agentInfo.name` a captured frame carries. */
+    private fun agentNameOf(frame: String): String {
+        val root = Json.parseToJsonElement(frame).jsonObject
+        val info = root["agentInfo"]?.jsonObject
+        val name = info?.get("name")?.jsonPrimitive?.content
+        return name.orEmpty()
+    }
+
+    /**
+     * The `initialize` result the Gemini CLI sent on 2026-11-25, captured verbatim.
+     *
+     * `@google/gemini-cli` 0.71.1, from `build/diagnostics/acp-probe-gemini.log`.
+     */
+    private val geminiInitializeFrame =
+        """
+        {"protocolVersion":1,"authMethods":[{"id":"oauth-personal","name":"Log in with Google","description":"Log in with your Google account"},{"id":"gemini-api-key","name":"Gemini API key","description":"Use an API key with Gemini Developer API","_meta":{"api-key":{"provider":"google"}}},{"id":"vertex-ai","name":"Vertex AI","description":"Use an API key with Vertex AI GenAI API"},{"id":"gateway","name":"AI API Gateway","description":"Use a custom AI API Gateway","_meta":{"gateway":{"protocol":"google","restartRequired":"false"}}}],"agentInfo":{"name":"gemini-cli","title":"Gemini CLI","version":"0.71.1"},"agentCapabilities":{"loadSession":true,"promptCapabilities":{"image":true,"audio":true,"embeddedContext":true},"mcpCapabilities":{"http":true,"sse":true}}}
+        """.trimIndent()
+
+    /**
      * A transport that records what the client sends and answers nothing.
      *
      * It is a fake, not a mock: it has no expectations to set, only a place to put the frames.
