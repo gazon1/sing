@@ -273,6 +273,52 @@ def maestro_argv(
     return argv
 
 
+def app_crash_evidence(serial: str) -> list[str]:
+    """App-level crashes and ANRs recorded by the system, read from the log.
+
+    `prepare_device` sets `hide_error_dialogs 1`, which is what stops the
+    emulator's own ANR windows from covering the screen. The setting is
+    deliberately broad — Android hides *every* system error dialog under it —
+    so it also hides the dialog an app-level crash or ANR would raise. That is
+    the one signal the flows lose, and it is the signal that matters: a flow
+    whose assertion happens to still pass would no longer be told that the app
+    under test crashed on the way there.
+
+    So the signal is read back from the log instead of from a dialog. The
+    activity manager records a crash or an ANR whether or not a window is
+    shown, and these are the two lines it records. Only this app is reported:
+    the launcher and system_server ANRs are what the setting exists to hide,
+    and reporting them would turn a slow emulator into a red shard for the
+    wrong reason.
+
+    Empty list means the app was not seen crashing. Best-effort: a device that
+    does not answer returns nothing, and a caller must not read that as "the
+    app crashed".
+    """
+    out = try_run(
+        ["adb", "-s", serial, "shell", "logcat", "-d", "-v", "brief"],
+        timeout=60,
+    )
+    if out is None or out.returncode != 0:
+        return []
+    text = out.stdout or ""
+    lines = text.splitlines()
+    findings: list[str] = []
+    for index, line in enumerate(lines):
+        if f"ANR in {APP_ID}" in line:
+            findings.append(line.strip())
+            continue
+        if "FATAL EXCEPTION" not in line:
+            continue
+        # The block that follows a `FATAL EXCEPTION` marker names the process
+        # on a `Process: <package>, PID <n>` line within the next handful of
+        # lines. A crash somewhere else in the log is not this app's crash.
+        block = lines[index : index + 12]
+        if any(f"Process: {APP_ID}" in entry for entry in block):
+            findings.extend(entry.strip() for entry in block if entry.strip())
+    return findings
+
+
 def run_maestro(
     *,
     serial: str,
@@ -427,6 +473,28 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{GREEN}=== Maestro E2E passed ==={_col('0', '')}", flush=True)
     else:
         print(f"{RED}=== Maestro E2E failed (exit {rc}) ==={_col('0', '')}", flush=True)
+
+    # The dialogs `prepare_device` hides include the app's own crash and ANR
+    # windows, so a flow can now pass over a crashed process. Read the signal
+    # back from the activity manager's log, where a crash or an ANR is recorded
+    # whether or not a window was shown. A shard whose flows all passed but
+    # whose app crashed is still a red shard: the run did not test what it says
+    # it tested.
+    crashes = app_crash_evidence(device)
+    if crashes:
+        print(
+            f"{RED}The app crashed or ANR'd during this shard, "
+            f"though no dialog was shown ({len(crashes)} line(s)):{_col('0', '')}",
+            flush=True,
+        )
+        for finding in crashes[:20]:
+            print(f"  {finding}", flush=True)
+        if rc == EXIT_PASS:
+            print(
+                f"{RED}=== Maestro E2E failed: the app crashed underneath a passing run ==={_col('0', '')}",
+                flush=True,
+            )
+            return EXIT_FAIL
 
     return rc
 

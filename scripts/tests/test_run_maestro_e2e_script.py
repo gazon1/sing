@@ -231,5 +231,80 @@ class EngineArgvTest(unittest.TestCase):
         self.assertEqual(argv[argv.index("--engine") + 1], "maestro-runner")
 
 
+class AppCrashEvidenceTest(unittest.TestCase):
+    """The dialogs are hidden, so the crash has to be read out of the log.
+
+    `prepare_device` sets `hide_error_dialogs 1` to keep the emulator's own ANR
+    windows off the screen. Android hides *every* system error dialog under
+    that setting, including the app's own crash and ANR windows — so a flow can
+    pass over a crashed process and nothing on screen says so. This is the
+    compensating signal, and these tests are what keep it honest.
+    """
+
+    def setUp(self):
+        self.mod = _load_script()
+
+    def _evidence(self, log: str) -> list[str]:
+        fake = subprocess.CompletedProcess(args=[], returncode=0, stdout=log, stderr="")
+        with unittest.mock.patch.object(self.mod, "try_run", return_value=fake):
+            return self.mod.app_crash_evidence("emulator-5554")
+
+    def test_an_app_anr_is_reported(self):
+        log = (
+            "I/ActivityManager: ANR in com.singularity.todo "
+            "(com.singularity.todo/.MainActivity)\n"
+        )
+        self.assertTrue(
+            self._evidence(log),
+            "an ANR in the app under test must not be swallowed by the hidden dialog",
+        )
+
+    def test_an_app_crash_is_reported(self):
+        log = (
+            "E/AndroidRuntime: FATAL EXCEPTION: main\n"
+            "E/AndroidRuntime: Process: com.singularity.todo, PID 4321\n"
+            "E/AndroidRuntime: java.lang.IllegalStateException: boom\n"
+        )
+        self.assertTrue(
+            self._evidence(log),
+            "a crash in the app under test must not be swallowed by the hidden dialog",
+        )
+
+    def test_the_launcher_anr_the_setting_hides_is_not_reported(self):
+        """The setting exists to hide this; reporting it would redden a shard
+        for the emulator's slowness rather than for the app."""
+        log = (
+            "I/ActivityManager: ANR in com.google.android.apps.nexuslauncher\n"
+            "I/ActivityManager: ANR in system_server\n"
+        )
+        self.assertEqual([], self._evidence(log))
+
+    def test_another_app_crash_is_not_reported(self):
+        log = (
+            "E/AndroidRuntime: FATAL EXCEPTION: main\n"
+            "E/AndroidRuntime: Process: com.example.other, PID 99\n"
+        )
+        self.assertEqual([], self._evidence(log))
+
+    def test_a_device_that_does_not_answer_is_not_a_crash(self):
+        self.assertEqual([], self._evidence(""))
+        with unittest.mock.patch.object(self.mod, "try_run", return_value=None):
+            self.assertEqual([], self.mod.app_crash_evidence("emulator-5554"))
+
+    def test_a_passing_shard_whose_app_crashed_is_a_failed_shard(self):
+        """The guard is only worth having if it changes the exit code."""
+        source = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn(
+            "crashes = app_crash_evidence(device)",
+            source,
+            "the shard must read the crash signal after the flows ran",
+        )
+        self.assertIn(
+            "return EXIT_FAIL",
+            source.split("crashes = app_crash_evidence(device)", 1)[1],
+            "a passing shard whose app crashed must not exit 0",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

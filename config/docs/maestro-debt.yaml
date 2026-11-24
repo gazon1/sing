@@ -172,7 +172,7 @@ causes:
   owner: product
   status: fixed
   flows: 1
-  note: "Fixed by #842 (EventBus double-collect); seeing it again is a regression. The 2026-11-24 smoke run (45357418110) reported this cause on tasks/10-swipe-delete-undo, and that run did not record whether the row had gone, so the branch cannot claim the cause moved elsewhere. The flow now asserts the row disappeared before it looks for the snackbar, which will tell the two failure modes apart on the next run: a row that is still there fails on `task_item_buy_milk is not visible` (#869) and never reaches this key, while a row that went and a snackbar action that did not arrive still fails here. Until that run exists, the observed failure stays counted here rather than being written off as fixed."
+  note: "Fixed by #842 (EventBus double-collect); seeing it again is a regression. The 2026-11-24 smoke run (45357418110) reported this cause on tasks/10-swipe-delete-undo, and that run did not record whether the row had gone first. The flow does not assert that today: it swipes and waits for the snackbar action, so one key covers two failure modes — a swipe that never crossed the delete threshold, and a row that went but whose snackbar action never arrived. Until the flow distinguishes them (a `notVisible: task_item_buy_milk` wait before the snackbar assertion), the observed failure stays counted here rather than being written off as fixed."
 - key: "Assertion is false: id: task_editor_title_input is visible"
   issue: 837
   owner: unclassified

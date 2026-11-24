@@ -13,6 +13,7 @@ import contextlib
 import io
 import os
 import pathlib
+import re
 import sys
 import tempfile
 import threading
@@ -851,16 +852,23 @@ class DevicePreparationTest(unittest.TestCase):
         )
 
     def test_the_error_dialog_setting_has_one_owner(self):
+        """One writer. The results runner *reads* crashes back from the log
+        because this setting hides them too; that is a reader, not a second
+        writer, and the distinction is what this guard is about."""
         root = pathlib.Path(__file__).resolve().parent.parent
-        owners = [
-            path.relative_to(root).as_posix()
-            for path in sorted(root.rglob("*.py"))
-            if "tests" not in path.parts
-            and "hide_error_dialogs" in path.read_text(encoding="utf-8", errors="replace")
-        ]
+        writers = []
+        for path in sorted(root.rglob("*.py")):
+            if "tests" in path.parts:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            writes = re.search(
+                r'"settings",\s*"put",\s*"global",\s*"hide_error_dialogs"', text
+            ) or re.search(r"settings put global hide_error_dialogs", text)
+            if writes:
+                writers.append(path.relative_to(root).as_posix())
         self.assertEqual(
             ["src/emulator/_startup.py"],
-            owners,
+            writers,
             "the error-dialog setting is written in more than one place: it will drift",
         )
 
