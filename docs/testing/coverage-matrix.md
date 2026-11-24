@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**141 scenarios · 94/161 claimed cells automated · 67 holes**
+**141 scenarios · 93/160 claimed cells automated · 67 holes**
 
 ## feature.agenda
 
@@ -32,7 +32,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `AGENDA-06` | A saved view survives create, rename, reopen and delete | ○ | — | The list ends where it started — empty — with every intermediate step observable along the way: the rename is what the… |
 | `AGENDA-07` | A saved view can be copied to another profile | ○ | — | The copy appears in the destination profile's saved-views list as a distinct entry from the source, so a view can be… |
 | `AGENDA-08` | A saved view survives an app restart | ○ | — | The saved view is still listed and still opens, so it was persisted rather than held in memory. Restarting without… |
-| `AGENDA-09` | Upcoming groups future tasks under date headers and leaves Today out | ● | — | The three future tasks are listed under date headers in the Upcoming tab, and each appears once. The day/week control… |
+| `AGENDA-09` | Upcoming groups future tasks under date headers and leaves Today out | ⊘ | ⊘ | The three future tasks are listed under date headers in the Upcoming tab, and each appears once. The day/week control… |
 | `AGENDA-10` | Upcoming date headers are chronological and an empty day has no header | — | ● | The headers name their dates and appear earliest first. There is no header for a day between them that carries no… |
 | `AGENDA-STATE-01` | A saved view shows only the tasks in a chosen workflow state | — | ● | The section is named after the state, and it contains the in-progress task and not the task with no state — the view… |
 | `AGENDA-STATE-02` | A saved view follows a task after its workflow state changes | — | ● | The in-progress section was empty before the change and contains the moved task afterwards, while the view itself was… |

@@ -28,7 +28,6 @@ Maestro/flows/agenda/06-full-lifecycle.yaml
 Maestro/flows/agenda/07-copy-to-profile.yaml
 Maestro/flows/agenda/07-large-overdue.yaml
 Maestro/flows/agenda/08-persistence-restart.yaml
-Maestro/flows/agenda/09-upcoming-timeline.yaml
 Maestro/flows/agenda/10-overflow-menu.yaml
 Maestro/flows/archive/01-restore.yaml
 Maestro/flows/archive/02-bulk-archive-confirm.yaml
@@ -121,7 +120,6 @@ Maestro/flows/smoke/03-health-drilldown.yaml
 Maestro/flows/smoke/06-session-anonymous.yaml
 Maestro/flows/sync/01-change-sync-interval.yaml
 Maestro/flows/sync/01-offline-create-survives-reconnect.yaml
-Maestro/flows/system/menu-sheet.yaml
 Maestro/flows/system/search-finds-task.yaml
 Maestro/flows/system/seed-unknown-key.yaml
 Maestro/flows/system/shell-search-button.yaml

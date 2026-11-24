@@ -1,12 +1,12 @@
 {
   "measurement": "python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
-  "measured_at": "2026-11-23",
-  "commit": "gazon1/sing#3115 — removed the Android flow that asserted the unreachable system-calendar state; retagged calendar_sync/03 as scenario:CAL-SYNC-SYSTEM-02; merged twice with main and re-locked at the merged measurement",
+  "measured_at": "2026-11-24",
+  "commit": "gazon1/sing#3115 — removed the Android flow that asserted the unreachable system-calendar state; retagged calendar_sync/03 as scenario:CAL-SYNC-SYSTEM-02; merged three times with main and re-locked at the merged measurement",
   "corpus": {
     "specs": 141,
-    "claimed_cells": 161,
-    "carriers": 94,
-    "note": "The size of the corpus the floors above were measured against. `specs` is the number of scenario rows, `claimed_cells` the number of live obligation cells (the matrix's own denominator, retired rows excluded) and `carriers` the number of links the scanner resolved. These three are recomputed by scripts/check-traceability-ratchet.py from the same traceability package that renders the matrix, and a mismatch fails the gate: a block nobody reads is a block that rots. The block on `main` said 133 / 260 / 103 while the tree measured 141 / 161 / 92 — its own committed matrix header reads `141 scenarios · 92/161 claimed cells automated`."
+    "claimed_cells": 160,
+    "carriers": 93,
+    "note": "The size of the corpus the floors above were measured against. `specs` is the number of scenario rows, `claimed_cells` the number of live obligation cells (the matrix's own denominator, retired rows excluded) and `carriers` the number of links the scanner resolved. These three are recomputed by scripts/check-traceability-ratchet.py from the same traceability package that renders the matrix, and a mismatch fails the gate: a block nobody reads is a block that rots. The block on `main` said 133 / 260 / 103 while the tree measured 141 / 161 / 92 — its own committed matrix header reads `141 scenarios · 92/161 claimed cells automated`. The third merge moved the corpus by one cell and one carrier: main retired `agenda/09-upcoming-timeline.yaml` (#3120) and `system/menu-sheet.yaml` (#3123) and split `archive/02-bulk-archive-confirm.yaml` (#3126), so the merged tree measures 141 / 160 / 93 — the floors themselves did not move, because main's own work changed neither the number of holes nor the number of dark scenarios."
   },
   "floors": [
     {
