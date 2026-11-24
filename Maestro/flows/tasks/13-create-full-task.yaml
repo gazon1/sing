@@ -188,4 +188,4 @@ tags:
 # ── Verify priority badge (High = red flag) ───────────────────────────
 # The priority is shown as a colored flag icon in the task row.
 # We verify the task row exists; detailed badge verification is
-# done in the desktop Compose UI test (CreateFullTaskFlowTest).
+# done in the desktop Compose UI test (CreateTaskFlowTest).

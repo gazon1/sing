@@ -9,6 +9,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraft
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
@@ -33,10 +34,12 @@ import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.typeIntoTag
+import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import org.koin.dsl.module
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 /**
  * Desktop mirror of `Maestro/flows/tasks/create-task.yaml`, covering the editor
@@ -295,6 +298,33 @@ class CreateTaskFlowTest {
         }
 
     /**
+     * Desktop owner of the "full task creation" behavior in
+     * [Maestro/flows/tasks/13-create-full-task.yaml](Maestro/flows/tasks/13-create-full-task.yaml).
+     *
+     * The device flow keeps the real-IME, draft-restoration and multi-date-sheet
+     * confirm guarantees; this test owns the regression-sensitive behavior: a
+     * task created from Today with a chosen priority is saved, lands in Today, and
+     * shows its priority indicator in the agenda row.
+     */
+    @Test
+    fun a_task_created_from_today_with_high_priority_appears_in_today_with_its_priority() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            tapTab("Today")
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+            typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Plan release")
+
+            clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
+            clickTag(TestTags.PRIORITY_OPTION_HIGH)
+            assertTextDisplayed("High priority")
+
+            clickTag(TestTags.TASK_EDITOR_SAVE)
+
+            awaitTag(TestTags.taskItem("Plan release"))
+            assertTagDisplayed(TestTags.agendaSection("Today"))
+            assertContentDescriptionDisplayed("High priority")
+        }
+
+    /**
      * Positive control: proves that a missing tag produces an actionable error
      * listing the nearest available tags rather than a bare "not found" message.
      *
@@ -366,6 +396,9 @@ class CreateTaskFlowTest {
     }
 
     private companion object {
+        /** Mid-month, so no assertion in this file straddles a boundary. */
+        val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
+        val CLOCK: FakeClock = FakeClock(FIXED_NOW)
         const val FAILURE_MESSAGE = "Could not save the task"
     }
 }
