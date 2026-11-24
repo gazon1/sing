@@ -154,9 +154,10 @@ causes:
   note: "Fixed by this change: the flow typed the password into the email field, because Maestro drops the selector from an `inputText` command, so the sign-in never fired and no error was ever produced. The cause is a regression guard from now on."
 - key: "Assertion is false: id: calendar_sync_system_unavailable is visible"
   issue: 835
-  owner: unclassified
-  status: accepted
+  owner: test
+  status: fixed
   flows: 1
+  note: "Fixed by gazon1/sing#3115: the flow that produced this assertion asserted a state no Android device can reach. The panel's 'system calendar unavailable' branch is gated on `deviceSyncSupported` (calendarProvider && syncRepo && appQueries && scheduler), and on Android every one of those seams is real, so the panel takes the available branch instead. The flow calendar_sync/02-system-calendar-unavailable was removed, and the guarantee it named is owned on the desktop tier by CalendarSyncSystemScenarioTest.the_system_panel_says_why_it_cannot_work. The cause is a regression guard from now on: if the unavailable message ever shows on Android, this is what it will look like."
 - key: "Assertion is false: id: dialog_date_picker_ok is visible"
   issue: 836
   owner: unclassified

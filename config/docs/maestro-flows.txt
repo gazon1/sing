@@ -54,7 +54,6 @@ Maestro/flows/calendar/01-month-view.yaml
 Maestro/flows/calendar/02-view-mode.yaml
 Maestro/flows/calendar/03-tap-day.yaml
 Maestro/flows/calendar_sync/01-provider-toggle.yaml
-Maestro/flows/calendar_sync/02-system-calendar-unavailable.yaml
 Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml
 Maestro/flows/capture/01-today.yaml
 Maestro/flows/capture/02-task-detail.yaml
