@@ -458,12 +458,16 @@ profile therefore behaves exactly as it did before.
   navigates — the helper does not navigate, and its wait would time out on an
   element the app never renders on the tab it is left on.
 - Changing the helper invalidates the fingerprint of every flow that runs it:
-  the qualification fingerprint covers the files a flow runs transitively, so
-  the 69 flows that seed now have a stale baseline. They are not broken — their
-  assertions and their navigation are unchanged — but the evidence that
-  admitted them was three passing runs against the old helper. The sweep is
-  tracked in issue #3140; it is not this entry's work, and the ADR does not
-  excuse it with exceptions.
+  the qualification fingerprint covers the files a flow runs transitively. The
+  gate reports 69 flows in blocking scopes that it no longer admits — 57 with a
+  stale baseline and 12 with no admission — and 34 of those 69 run the seed
+  helper. The gate was green before this entry: at the base revision it
+  admitted every flow in a blocking scope (114 baselined, 13 qualified, 0
+  excepted), so the whole 69 is this entry's debt and not a debt it inherited.
+  They are not broken — their assertions and their navigation are unchanged —
+  but the evidence that admitted them was three passing runs against the old
+  helper. The sweep is tracked in issue #3140; it is not this entry's work,
+  and the ADR does not excuse it with exceptions.
 - `smoke/07-seed-helper-contract` is the runtime half of the contract: the
   optional input, the named entity, and the seed that writes no entity.
 - A flow that seeds an entity the agenda does not show still waits for it

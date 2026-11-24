@@ -20,6 +20,8 @@
 #
 # The seed writes into the profile the device carries and replaces the row its
 # title names, so every run asserts on the same two rows.
+#
+# прогнан на устройстве: да (2026-11-24) — эмулятор Android, emulator-5554
 appId: com.singularity.todo
 name: smoke-seed-helper-contract
 tags:
