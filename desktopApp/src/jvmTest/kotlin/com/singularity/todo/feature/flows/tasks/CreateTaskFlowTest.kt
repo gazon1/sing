@@ -36,6 +36,7 @@ import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.typeIntoTag
 import org.junit.jupiter.api.Tag
 import org.koin.dsl.module
+import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
@@ -323,10 +324,9 @@ class CreateTaskFlowTest {
 
             clickTag(TestTags.TASK_EDITOR_SAVE)
 
-            awaitTag(TestTags.taskItem("Plan release"))
             tapTab("Today")
+            awaitTag(TestTags.taskItem("Plan release"))
             assertTagDisplayed(TestTags.agendaSection("Today"))
-            assertTagDisplayed(TestTags.taskItem("Plan release"))
             assertContentDescriptionDisplayed("High priority")
         }
 
