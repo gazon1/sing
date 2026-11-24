@@ -144,6 +144,15 @@ another one (see Consequences).
   and the pinned digests were refreshed to match — the same thing main's
   #3121 retirement did for `agenda/04-saved-view-results`. The change removes
   a name; it admits no flow without qualification.
+- Main's own #3136 split left `archive/02-bulk-archive-confirm.yaml` with a
+  stale baseline fingerprint: the flow's content changed and the gate refuses
+  it. The flow is admitted by an **evidence-backed exception** in
+  `config/docs/maestro-flow-qualification.yaml` — the split is the evidence,
+  and the behaviour half of the flow is owned by a headless test that needs no
+  device — and not by writing the new fingerprint into the baseline. The
+  baseline admits the content a flow had when the rule was introduced;
+  re-baselining a changed flow would admit content nobody qualified, which is
+  the one thing the pinned baseline exists to prevent.
 
 ## Review round 1
 

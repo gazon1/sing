@@ -129,7 +129,7 @@ FROZEN_SET_DIGEST = "sha256:f3655fcf6c060e2123e0762ba0b11b6b1a698b9f6dfaf97f45f2
 #: changed — a source change, reviewed as one, that says in the diff that
 #: flows are admitted without being qualified. Print the current digest with
 #: ``--print-baseline-digest``.
-BASELINE_DIGEST = "sha256:291a791e174029fcf2ff9543b238ac0d9b4a41eb72d81692cec959f9395fccbe"
+BASELINE_DIGEST = "sha256:b758ddd0d88cbf2c817183478c684e802bda90440df0dae15a0ef74a10c1449e"
 
 #: A reference inside a flow/helper: `file: path`, `- runFlow: path` or
 #: `- runScript: path`. The extension is not restricted to YAML: a flow can run

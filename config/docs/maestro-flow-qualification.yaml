@@ -706,4 +706,17 @@ qualifications:
       apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
-exceptions: {}
+exceptions:
+  Maestro/flows/archive/02-bulk-archive-confirm.yaml:
+    fingerprint: sha256:793db33e3909688eeceef23a368f96d298fa72e61d67c9218d0b647f7cf293ca
+    reason: >-
+      main trimmed the flow to the device residue when it split the guarantee:
+      the behaviour half (bulk archive asks first, Cancel writes nothing,
+      confirming archives and reports "Moved 1 task to archive") is owned by the
+      headless desktop test ArchiveBulkActionFlowTest, and the flow keeps only
+      the long-press context sheet, the overflow's resource ids and the modal
+      result dialog window. The trimmed flow was not requalified with three
+      device runs — no device was available — so it is excepted with the split
+      as its evidence instead of being re-baselined, which would have admitted
+      changed content without qualification.
+    evidence: https://github.com/gazon1/sing/pull/3136
