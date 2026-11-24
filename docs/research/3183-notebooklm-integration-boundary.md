@@ -27,7 +27,7 @@ human-driven browser login. Everything below marks whether it was *observed* or 
 | Profile | `default`, `authenticated` | `notebooklm profile list` |
 | Local auth material | 23 cookies, `storage_state.json` + `context.json` | `notebooklm doctor` |
 | OS | Fedora 44, linux 7.2.10 x86_64 | session environment |
-| 10x-chat reference | `main` @ clone 2026-11-25, `src/knowledge/{contract,notebooklm}.ts` | `git clone --depth 1` |
+| 10x-chat reference | commit **`5664164447`** (2026-11-24), `src/knowledge/{contract,notebooklm}.ts` | `git clone --depth 1` + `git rev-parse HEAD` |
 | Sing Koog | **1.3.0** | `gradle/libs.versions.toml:122` |
 | Sing MCP SDK | `io.modelcontextprotocol:kotlin-sdk` **0.16.0** | `gradle/libs.versions.toml:173` |
 
@@ -133,8 +133,8 @@ notebook the user shares with the web UI.
 
 ### 2. The MCP surface does not start in this installation
 
-`notebooklm-mcp` exists as a console script and the package ships `mcp/` with 19 tool
-modules, but it fails immediately:
+`notebooklm-mcp` exists as a console script and the package ships an `mcp/tools/` tree of
+20 modules (10 public tool groups, 10 underscore helpers), but it fails immediately:
 
 ```
 File "…/notebooklm/mcp/server.py", line 30, in <module>
@@ -166,7 +166,7 @@ kill. So a hung `notebooklm ask` blocks a coroutine until the CLI's own HTTP tim
 Adding a deadline is small work. The problem is what the deadline *means*: killing the CLI
 mid-`source add` leaves the outcome unknown, and the fix for that is the `mayHaveRun`
 contract — which is a real, non-trivial correctness surface (see
-[the 10x-chat adapter](https://github.com/gazon1/10x-chat/blob/main/src/knowledge/notebooklm.ts))
+[the 10x-chat adapter](https://github.com/gazon1/10x-chat/blob/56641644478fbd7d4ef5a0c62d884a007e4c1543/src/knowledge/notebooklm.ts))
 that neither Android nor desktop has any use for when the agent does the research.
 
 ## Alternatives evaluated
@@ -304,6 +304,6 @@ Revisit when **all** of these are true:
 - Issue [#3183](https://github.com/gazon1/sing/issues/3183), parent [#3182](https://github.com/gazon1/sing/issues/3182), consumer [#3189](https://github.com/gazon1/sing/issues/3189)
 - [Decision record](../decisions/2026-11-25-notebooklm-stays-outside-the-app.md)
 - [The brief contract in force](../architecture/knowledge-briefs.md)
-- 10x-chat: [`contract.ts`](https://github.com/gazon1/10x-chat/blob/main/src/knowledge/contract.ts), [`notebooklm.ts`](https://github.com/gazon1/10x-chat/blob/main/src/knowledge/notebooklm.ts), [`knowledge-notebooklm.test.ts`](https://github.com/gazon1/10x-chat/blob/main/tests/knowledge-notebooklm.test.ts)
+- 10x-chat: [`contract.ts`](https://github.com/gazon1/10x-chat/blob/56641644478fbd7d4ef5a0c62d884a007e4c1543/src/knowledge/contract.ts), [`notebooklm.ts`](https://github.com/gazon1/10x-chat/blob/56641644478fbd7d4ef5a0c62d884a007e4c1543/src/knowledge/notebooklm.ts), [`knowledge-notebooklm.test.ts`](https://github.com/gazon1/10x-chat/blob/56641644478fbd7d4ef5a0c62d884a007e4c1543/tests/knowledge-notebooklm.test.ts)
 - `notebooklm-py` 0.8.6: `cli/error_handler.py`, `cli/chat_cmd.py`, `_app/errors.py`, `_app/views.py`
 - Sing: `shared/src/jvmMain/kotlin/com/singularity/todo/core/process/Subprocess.kt`, `shared/build.gradle.kts` (MCP SDK is JVM-only), `mcp-server/src/test/…/McpServerEndToEndTest.kt` (the only MCP client)

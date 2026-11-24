@@ -136,5 +136,5 @@ successful citation output would change.
 - Issue [#3183](https://github.com/gazon1/sing/issues/3183) — this decision; parent [#3182](https://github.com/gazon1/sing/issues/3182); consumer [#3189](https://github.com/gazon1/sing/issues/3189) — no-go
 - [2026-11-22-a-knowledge-brief-is-a-note-attached-to-its-owner.md](2026-11-22-a-knowledge-brief-is-a-note-attached-to-its-owner.md) — the contract this decision preserves
 - `docs/architecture/knowledge-briefs.md` — the workflow, unchanged
-- [gazon1/10x-chat `src/knowledge/notebooklm.ts`](https://github.com/gazon1/10x-chat/blob/main/src/knowledge/notebooklm.ts) — the adapter held in reserve
+- [gazon1/10x-chat `src/knowledge/notebooklm.ts`](https://github.com/gazon1/10x-chat/blob/56641644478fbd7d4ef5a0c62d884a007e4c1543/src/knowledge/notebooklm.ts) — the adapter held in reserve
 - `shared/src/jvmMain/kotlin/com/singularity/todo/core/process/Subprocess.kt` — the seam a future adapter would reuse
