@@ -3,6 +3,7 @@
 Review 7 (PR #3145, #3113) flagged missing regression coverage for the
 launch-clean spotlight fix. Review 8 flagged the startup-race window where the
 spotlight can appear after an initial dismissal but before nav readiness.
+Review 9 flagged that the race-mitigation assertion was too weak.
 
 This is a structural contract test: it pins helper ordering/race mitigation and
 the skip-spotlight no-op contract. It is not a device/CI rerun and does not
@@ -47,16 +48,6 @@ def _is_nav_readiness_wait(command: object) -> bool:
     return isinstance(visible, dict) and visible.get("id") == "nav_tab_today"
 
 
-def _contains_skip_spotlight(node: object) -> bool:
-    if _is_run_flow(node, "skip-spotlight.yaml"):
-        return True
-    if isinstance(node, dict):
-        return any(_contains_skip_spotlight(value) for value in node.values())
-    if isinstance(node, list):
-        return any(_contains_skip_spotlight(item) for item in node)
-    return False
-
-
 class LaunchCleanSpotlightContractTest(unittest.TestCase):
     def test_skip_spotlight_covers_before_during_and_after_nav_readiness(self):
         commands = _commands(LAUNCH_CLEAN)
@@ -89,10 +80,49 @@ class LaunchCleanSpotlightContractTest(unittest.TestCase):
         )
 
         race_mitigation = commands[skip_indices[0] + 1:wait_indices[0]]
+        self.assertTrue(race_mitigation, "expected a race-mitigation step before nav readiness wait")
+
+        # The race guard must be conditional on nav not being ready, wait briefly
+        # for a late spotlight, and dismiss it. A bare nested skip-spotlight call
+        # is not enough: that would miss the async-appearance window.
+        guarded = [
+            command for command in race_mitigation
+            if isinstance(command, dict)
+            and isinstance(command.get("runFlow"), dict)
+            and command["runFlow"].get("when", {}).get("notVisible", {}).get("id") == "nav_tab_today"
+        ]
         self.assertTrue(
-            any(_contains_skip_spotlight(command) for command in race_mitigation),
-            "launch-clean should re-check spotlight while nav is not yet ready; "
-            "the first dismissal can run before the spotlight card is rendered",
+            guarded,
+            "race mitigation must be guarded by notVisible nav_tab_today so it only "
+            "runs when shell readiness is still blocked",
+        )
+        guarded_commands: list[object] = []
+        for command in guarded:
+            nested = command["runFlow"].get("commands", [])
+            if isinstance(nested, list):
+                guarded_commands.extend(nested)
+
+        spotlight_waits = [
+            command for command in guarded_commands
+            if isinstance(command, dict)
+            and isinstance(command.get("extendedWaitUntil"), dict)
+            and command["extendedWaitUntil"].get("visible", {}).get("id") == "onboarding_spotlight_card"
+        ]
+        self.assertTrue(
+            spotlight_waits,
+            "race mitigation must wait briefly for onboarding_spotlight_card to appear",
+        )
+        self.assertTrue(
+            any(wait["extendedWaitUntil"].get("timeout") == 5000 for wait in spotlight_waits),
+            "spotlight race wait should be bounded to 5000ms",
+        )
+        self.assertTrue(
+            any(wait["extendedWaitUntil"].get("optional") is True for wait in spotlight_waits),
+            "spotlight race wait must be optional so absence does not fail launch-clean",
+        )
+        self.assertTrue(
+            any(_is_run_flow(command, "skip-spotlight.yaml") for command in guarded_commands),
+            "race mitigation must dismiss spotlight after the optional appearance wait",
         )
 
     def test_nav_readiness_wait_keeps_shell_timeout(self):
