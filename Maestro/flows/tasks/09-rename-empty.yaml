@@ -34,13 +34,16 @@ tags:
     id: task_editor_title_input
 - eraseText: 50
 
-# The editor stays open with an empty title field.
+# Attempt to save the empty title. The editor rejects it and shows the
+# validation error instead of persisting an empty/Untitled title.
+- tapOn:
+    id: task_editor_save
 - extendedWaitUntil:
     visible:
-      id: task_editor_title_input
-    timeout: 5000
+      id: task_editor_title_error
+    timeout: 8000
 
-# Navigate back — task should still exist with its original title.
+# The editor stays open; navigating back leaves the original title intact.
 - back
 - extendedWaitUntil:
     visible:

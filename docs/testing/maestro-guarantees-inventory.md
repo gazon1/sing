@@ -77,7 +77,7 @@ The runner retries a flow on a **device-level failure** (`maestro._runner`, `--m
 | Suite | Flows | Shards | Shard sizes | What selects it |
 |---|---:|---:|---|---|
 | `smoke` | 29 | 4 | 8 / 7 / 7 / 7 | every flow that declares the `smoke` tag, wherever it lives |
-| `full` | 127 | 4 | 32 / 32 / 32 / 31 | every catalogue flow except those tagged `manual` or `auth-live` |
+| `full` | 122 | 4 | 31 / 31 / 30 / 30 | every catalogue flow except those tagged `manual` or `auth-live` |
 | excluded | 8 | — | — | tagged `manual` or `auth-live` — run by hand, never by CI |
 
 The catalogue held 135 flows at the audit (2026-11-22); it holds **130** today — five flows were retired after the audit: `profile/01-create-profile.yaml` ([#3122](https://github.com/gazon1/sing/issues/3122)), `agenda/04-saved-view-results.yaml` ([#3121](https://github.com/gazon1/sing/issues/3121)), `agenda/09-upcoming-timeline.yaml` ([#3120](https://github.com/gazon1/sing/issues/3120)), `system/menu-sheet.yaml` ([#3123](https://github.com/gazon1/sing/issues/3123)) and `calendar_sync/02-system-calendar-unavailable.yaml` (gazon1/sing#3115) — so the `full` suite is 122 automated flows now. The shard count comes from `config/docs/e2e-shards.txt` (`full 4`, `smoke 4`).
