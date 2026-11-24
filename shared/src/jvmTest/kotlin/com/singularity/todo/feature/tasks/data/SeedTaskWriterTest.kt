@@ -118,12 +118,20 @@ class SeedTaskWriterTest {
             assertEquals(seeded.map { it.id }, written.map { it.id }, "the rows come back as they went in")
             assertEquals(
                 seeded.map { it.id }.toSet(),
-                db.taskDao().listAllForUser(user.value).map { TaskId(it.id) }.toSet(),
+                db
+                    .taskDao()
+                    .listAllForUser(user.value)
+                    .map { TaskId(it.id) }
+                    .toSet(),
                 "every seeded row must be in the table, under its own id",
             )
             assertEquals(
                 seeded.map { it.title }.toSet(),
-                db.taskDao().listAllForUser(user.value).map { it.title }.toSet(),
+                db
+                    .taskDao()
+                    .listAllForUser(user.value)
+                    .map { it.title }
+                    .toSet(),
                 "and it must be the row that was asked for, not a neighbouring one",
             )
         }
