@@ -317,7 +317,8 @@ class CrashLogCollectorTest(unittest.TestCase):
             "I/ActivityManager: ANR in com.singularity.todo (stale, previous shard)\n",
             encoding="utf-8",
         )
-        with unittest.mock.patch.object(self.mod.subprocess, "Popen") as popen:
+        with unittest.mock.patch.object(self.mod.subprocess, "Popen") as popen, \
+                unittest.mock.patch.object(self.mod, "try_run") as try_run:
             popen.return_value = unittest.mock.Mock()
             collector = self.mod.CrashLogCollector("emulator-5554", self.path)
             with collector:
@@ -328,8 +329,71 @@ class CrashLogCollectorTest(unittest.TestCase):
                 "the collector must not read a crash from before the shard started",
             )
 
+    def test_the_device_buffers_are_cleared_before_the_reader_starts(self):
+        """An empty output file is not an empty input stream.
+
+        `logcat` replays what is already buffered before it streams, so a file
+        opened empty still receives the previous shard's crash. The boundary
+        has to be cleared on the device, and it has to be cleared *before* the
+        reader starts — starting the reader first and clearing after would drop
+        whatever the app logged in between.
+        """
+        order: list[str] = []
+
+        def recording_try_run(args, **kwargs):
+            order.append("clear")
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        def recording_popen(*args, **kwargs):
+            order.append("start-reader")
+            return unittest.mock.Mock()
+
+        with unittest.mock.patch.object(self.mod, "try_run", recording_try_run), \
+                unittest.mock.patch.object(self.mod.subprocess, "Popen", recording_popen):
+            with self.mod.CrashLogCollector("emulator-5554", self.path):
+                pass
+
+        self.assertEqual(
+            ["clear", "start-reader"],
+            order,
+            "the device buffers must be cleared before the streaming reader starts",
+        )
+
+    def test_a_replayed_buffer_entry_does_not_reach_the_capture(self):
+        """The regression this exists for: the buffers were cleared first, so
+        the stream the reader sees holds nothing from the previous shard."""
+        emitted: list[str] = []
+
+        def clear_then_nothing(args, **kwargs):
+            if "-c" in args:
+                emitted.clear()  # the clear empties what the reader would replay
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        # Seed what a previous shard left buffered.
+        emitted.append("I/ActivityManager: ANR in com.singularity.todo (previous shard)")
+
+        def fake_popen(*args, **kwargs):
+            handle = kwargs["stdout"]
+            if emitted:  # a reader replays the buffer unless it was cleared
+                handle.write("\n".join(emitted) + "\n")
+                handle.flush()
+            return unittest.mock.Mock()
+
+        with unittest.mock.patch.object(self.mod, "try_run", clear_then_nothing), \
+                unittest.mock.patch.object(self.mod.subprocess, "Popen", fake_popen):
+            collector = self.mod.CrashLogCollector("emulator-5554", self.path)
+            with collector:
+                pass
+
+        self.assertEqual(
+            [],
+            collector.findings(),
+            "a crash buffered by an earlier shard must not be attributed to this one",
+        )
+
     def test_the_collector_streams_logcat_into_the_file(self):
-        with unittest.mock.patch.object(self.mod.subprocess, "Popen") as popen:
+        with unittest.mock.patch.object(self.mod.subprocess, "Popen") as popen, \
+                unittest.mock.patch.object(self.mod, "try_run"):
             popen.return_value = unittest.mock.Mock()
             collector = self.mod.CrashLogCollector("emulator-5554", self.path)
             with collector:

@@ -321,11 +321,13 @@ class CrashLogCollector:
       so a crash early in a long or noisy shard is overwritten before a later
       read reaches it. A live `logcat` process writes each line to the file as
       it arrives, and the file is not circular.
-    - **The capture starts at the shard's boundary.** The file is opened before
-      the flows start, so it begins empty. An emulator reused from an earlier
-      shard cannot make a clean shard fail on the previous shard's crash, which
-      is the failure mode that would make this signal untrustworthy in the one
-      direction that matters — blaming code that did not run.
+    - **The capture starts at the shard's boundary.** The device's buffers are
+      cleared before the reader starts, so the stream holds this shard and
+      nothing from an earlier one. A file opened empty is not enough on its own:
+      `logcat` replays what is already buffered before it streams, so an
+      emulator reused from a shard that crashed would hand that crash to the
+      next shard — the failure mode that makes this signal untrustworthy in the
+      one direction that matters, blaming code that did not run.
 
     Best-effort throughout: a device that refuses `logcat` leaves nothing to
     read, and an empty result means "not seen crashing", never "crashed".
@@ -340,6 +342,25 @@ class CrashLogCollector:
     def __enter__(self) -> "CrashLogCollector":
         self.path.parent.mkdir(parents=True, exist_ok=True)
         try:
+            # The boundary has to be on the *device*, not in this filesystem.
+            # A fresh `logcat` reader replays what is already in the buffers
+            # before it starts streaming, so an empty file would otherwise
+            # still receive the previous shard's crash. Clearing the buffers
+            # first is what makes "this shard only" true rather than assumed.
+            #
+            # Order matters and is the opposite of the obvious one: clear, then
+            # start the reader. Starting the reader first and clearing after
+            # would drop anything the app logged in between.
+            cleared = try_run(
+                ["adb", "-s", self.serial, "shell", "logcat", "-b", "all", "-c"],
+                timeout=30,
+            )
+            if cleared is None or cleared.returncode != 0:
+                print(
+                    f"{YELLOW}Could not clear the device log before the shard; "
+                    f"a crash from an earlier shard may be attributed to this one.{_col('0', '')}",
+                    flush=True,
+                )
             self._handle = self.path.open("w", encoding="utf-8", errors="replace")
             self._process = subprocess.Popen(
                 ["adb", "-s", self.serial, "shell", "logcat", "-v", "brief"],
