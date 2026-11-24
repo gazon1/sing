@@ -568,12 +568,24 @@ interface TaskDao {
     @Query("SELECT tag_id FROM task_tags WHERE task_id = :taskId")
     fun getTagIdsForTask(taskId: String): Flow<List<String>>
 
-    /** Scoped to the owning task's user; the cross-ref table has no `user_id`. */
+    /**
+     * The tag ids of one task, scoped to the owning task's user; the cross-ref
+     * table has no `user_id`.
+     *
+     * The scope is resolved through the task's own row, not through the list of
+     * the user's task ids: that list is the whole task table, and SQLite builds
+     * it again for every read — so each read of one task's tags cost a scan of
+     * every task the user owns. Measured on restored synthetic datasets: 10.8 ms
+     * per read as raw SQL on a 10k-task profile, 131.3 ms on a 50k one and
+     * 234.2 ms on an 80k one; 0.02–0.06 ms after rewriting the query as a
+     * primary-key join on `tasks.id` — see
+     * `docs/architecture/dependency-query-performance.md`.
+     */
     @Query(
         """
-        SELECT tag_id FROM task_tags
-        WHERE task_id = :taskId
-        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        SELECT tt.tag_id FROM task_tags tt
+        JOIN tasks t ON t.id = tt.task_id
+        WHERE tt.task_id = :taskId AND t.user_id = :userId
         """,
     )
     fun getTagIdsForUser(
