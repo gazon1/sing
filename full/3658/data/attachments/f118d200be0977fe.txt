@@ -1,0 +1,40 @@
+=== FakeAppDatabase snapshot ===
+
+--- Tasks (2 rows) ---
+TaskEntity(id=Idle task, title=Idle task, description=null, priority=None, kind=Task, projectId=null, parentTaskId=null, sortOrder=0, dueDate=2026-09-16, dueTime=null, startDate=null, startTime=null, endDate=null, endTime=null, accentColor=null, emoji=null, estimateMinutes=null, completedAt=null, someday=false, archivedAt=null, isPinned=false, recurrenceRule=null, seriesId=null, workflowState=Open, outgoingLinks=[], aiSuppressedTagIds=[], createdAt=0, updatedAt=0, userId=test-user, descriptionHtml=null, sync=SyncColumns(serverVersion=0, syncStatus=LOCAL_ONLY, syncError=null, lastSyncedAt=null, deviceId=null, hlc=null))
+TaskEntity(id=Other task, title=Other task, description=null, priority=None, kind=Task, projectId=null, parentTaskId=null, sortOrder=0, dueDate=2026-09-16, dueTime=null, startDate=null, startTime=null, endDate=null, endTime=null, accentColor=null, emoji=null, estimateMinutes=null, completedAt=null, someday=false, archivedAt=null, isPinned=false, recurrenceRule=null, seriesId=null, workflowState=Open, outgoingLinks=[], aiSuppressedTagIds=[], createdAt=0, updatedAt=0, userId=test-user, descriptionHtml=null, sync=SyncColumns(serverVersion=0, syncStatus=LOCAL_ONLY, syncError=null, lastSyncedAt=null, deviceId=null, hlc=null))
+
+--- TaskTags (0 rows) ---
+
+--- TaskDependencies (0 rows) ---
+
+--- Notes (0 rows) ---
+
+--- Projects (0 rows) ---
+
+--- Tags (0 rows) ---
+
+--- SyncOutbox (0 rows) ---
+
+--- Attachments (0 rows) ---
+
+--- Reminders (0 rows) ---
+
+--- ProjectReminders (0 rows) ---
+
+--- Checklist (0 rows) ---
+
+--- LlmUsage (0 rows) ---
+
+--- Profiles (0 rows) ---
+
+--- AgendaViews (1 rows) ---
+AgendaViewEntity(id=46e31a5d-e851-4343-87cb-7ec3f0502ab9, userId=test-user, name=In progress, sectionsJson={"title":"In progress","sections":[{"id":"in_progress","name":"In progress","order":0,"selector":{"_type":"WorkflowState","state":"in_progress"},"discard":false,"prefill":null,"groupBy":null}],"layout":"ListFlat"}, createdAt=1789552800000, updatedAt=1789552800000)
+
+--- RemoteConfigs (0 rows) ---
+
+--- SavedSearches (0 rows) ---
+
+--- TagGroups (0 rows) ---
+
+--- ProjectTagGroups (0 rows) ---

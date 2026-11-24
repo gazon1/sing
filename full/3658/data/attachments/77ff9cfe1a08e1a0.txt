@@ -1,0 +1,439 @@
+Printing with useUnmergedTree = 'true'
+Node #21965 at (l=0.0, t=0.0, r=1024.0, b=768.0)px
+ |-Node #21966 at (l=0.0, t=0.0, r=1024.0, b=768.0)px
+   BackgroundColor = 'Color(0.99607843, 0.96862745, 1.0, 1.0, sRGB IEC61966-2.1)'
+   IsContainer = 'true'
+   Shape = 'RectangleShape'
+    |-Node #21973 at (l=0.0, t=0.0, r=1024.0, b=768.0)px
+    | BackgroundColor = 'Color(0.972549, 0.9764706, 1.0, 1.0, sRGB IEC61966-2.1)'
+    | IsContainer = 'true'
+    | Shape = 'RectangleShape'
+    |  |-Node #22153 at (l=0.0, t=48.0, r=1024.0, b=768.0)px
+    |  |  |-Node #22258 at (l=0.0, t=48.0, r=1024.0, b=768.0)px
+    |  |     |-Node #22279 at (l=0.0, t=48.0, r=1024.0, b=768.0)px
+    |  |       BackgroundColor = 'Color(0.972549, 0.9764706, 1.0, 1.0, sRGB IEC61966-2.1)'
+    |  |       IsContainer = 'true'
+    |  |       Shape = 'RectangleShape'
+    |  |        |-Node #22293 at (l=0.0, t=112.0, r=1024.0, b=768.0)px
+    |  |        | BackgroundColor = 'Color(0.972549, 0.9764706, 1.0, 1.0, sRGB IEC61966-2.1)'
+    |  |        | IsContainer = 'true'
+    |  |        | Shape = 'RectangleShape'
+    |  |        |  |-Node #22302 at (l=0.0, t=112.0, r=1024.0, b=768.0)px
+    |  |        |    BackgroundColor = 'Color(0.972549, 0.9764706, 1.0, 1.0, sRGB IEC61966-2.1)'
+    |  |        |    IsContainer = 'true'
+    |  |        |    Shape = 'RectangleShape'
+    |  |        |     |-Node #22327 at (l=16.0, t=184.0, r=1008.0, b=200.0)px, Tag: 'agenda_greeting'
+    |  |        |     | Text = '[Good morning]'
+    |  |        |     | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |  |        |     |-Node #22329 at (l=0.0, t=208.0, r=1024.0, b=768.0)px
+    |  |        |     | CollectionInfo = 'CollectionInfo(rowCount=2, columnCount=1)'
+    |  |        |     | IsTraversalGroup = 'true'
+    |  |        |     | PlatformScrollbarListState = 'androidx.compose.foundation.lazy.LazyListState@592a8de4'
+    |  |        |     | Shape = 'androidx.compose.foundation.VerticalScrollableClipShape@1564db6f'
+    |  |        |     | VerticalScrollAxisRange = 'ScrollAxisRange(value=0.0, maxValue=0.0, reverseScrolling=false)'
+    |  |        |     | Actions = [GetScrollViewportLength, IndexForKey, ScrollBy, ScrollByOffset, ScrollToIndex]
+    |  |        |     |  |-Node #22334 at (l=16.0, t=240.0, r=105.0, b=256.0)px, Tag: 'agenda_section_no_date'
+    |  |        |     |  | Text = '[No Date  ·  1]'
+    |  |        |     |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |  |        |     |  |-Node #22336 at (l=964.0, t=228.0, r=1004.0, b=268.0)px
+    |  |        |     |  | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+    |  |        |     |  | Focused = 'false'
+    |  |        |     |  | Role = 'Button'
+    |  |        |     |  | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+    |  |        |     |  | Actions = [OnClick, RequestFocus]
+    |  |        |     |  | MergeDescendants = 'true'
+    |  |        |     |  |  |-Node #22337 at (l=972.0, t=236.0, r=996.0, b=260.0)px
+    |  |        |     |  |    ContentDescription = '[Create in No Date]'
+    |  |        |     |  |    Role = 'Image'
+    |  |        |     |  |-Node #22341 at (l=24.0, t=280.0, r=1000.0, b=353.0)px
+    |  |        |     |  | BackgroundColor = 'Color(0.8980392, 0.28235295, 0.3019608, 1.0, sRGB IEC61966-2.1)'
+    |  |        |     |  | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 0.0.dp), topEnd = CornerSize(size = 0.0.dp), bottomEnd = CornerSize(size = 0.0.dp), bottomStart = CornerSize(size = 0.0.dp))'
+    |  |        |     |  |  |-Node #22342 at (l=966.7, t=301.7, r=1002.7, b=337.7)px
+    |  |        |     |  |    ContentDescription = '[Delete task]'
+    |  |        |     |  |    Role = 'Image'
+    |  |        |     |  |-Node #22344 at (l=0.0, t=280.0, r=1024.0, b=353.0)px
+    |  |        |     |    BackgroundColor = 'Color(0.972549, 0.9764706, 1.0, 1.0, sRGB IEC61966-2.1)'
+    |  |        |     |    Shape = 'RectangleShape'
+    |  |        |     |     |-Node #22347 at (l=0.0, t=280.0, r=1024.0, b=352.0)px, Tag: 'task_item_navigation_task'
+    |  |        |     |       Focused = 'false'
+    |  |        |     |       Actions = [OnClick, OnLongClick, RequestFocus]
+    |  |        |     |       MergeDescendants = 'true'
+    |  |        |     |        |-Node #22348 at (l=29.0, t=305.0, r=51.0, b=327.0)px, Tag: 'task_checkbox_navigation_task'
+    |  |        |     |        | ContentDataType = 'PlatformContentDataType(type=4)'
+    |  |        |     |        | Focused = 'false'
+    |  |        |     |        | Role = 'Checkbox'
+    |  |        |     |        | StateDescription = 'Not done'
+    |  |        |     |        | ToggleableState = 'Off'
+    |  |        |     |        | Actions = [OnClick, OnFillData, RequestFocus]
+    |  |        |     |        | MergeDescendants = 'true'
+    |  |        |     |        |  |-Node #22349 at (l=29.0, t=305.0, r=51.0, b=327.0)px
+    |  |        |     |        |  | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+    |  |        |     |        |  |-Node #22350 at (l=40.0, t=316.0, r=62.0, b=338.0)px
+    |  |        |     |        |    BackgroundColor = 'Color(0.54509807, 0.5803922, 0.6509804, 1.0, sRGB IEC61966-2.1)'
+    |  |        |     |        |    Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+    |  |        |     |        |-Node #22354 at (l=80.0, t=292.0, r=1008.0, b=314.0)px
+    |  |        |     |          Text = '[Navigation task]'
+    |  |        |     |          Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |  |        |     |-Node #22306 at (l=0.0, t=112.0, r=1024.0, b=176.0)px
+    |  |        |       IsTraversalGroup = 'true'
+    |  |        |        |-Node #22307 at (l=0.0, t=112.0, r=1024.0, b=176.0)px
+    |  |        |          Shape = 'RectangleShape'
+    |  |        |           |-Node #22309 at (l=16.0, t=130.0, r=185.0, b=158.0)px
+    |  |        |           |  |-Node #22310 at (l=16.0, t=130.0, r=185.0, b=158.0)px
+    |  |        |           |    Text = '[Navigation Test]'
+    |  |        |           |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |  |        |           |-Node #22313 at (l=928.0, t=124.0, r=968.0, b=164.0)px, Tag: 'agenda_saved_views_button'
+    |  |        |           | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+    |  |        |           | Focused = 'false'
+    |  |        |           | Role = 'Button'
+    |  |        |           | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+    |  |        |           | Actions = [OnClick, RequestFocus]
+    |  |        |           | MergeDescendants = 'true'
+    |  |        |           |  |-Node #22314 at (l=936.0, t=132.0, r=960.0, b=156.0)px
+    |  |        |           |    ContentDescription = '[Saved views]'
+    |  |        |           |    Role = 'Image'
+    |  |        |           |-Node #22316 at (l=976.0, t=124.0, r=1016.0, b=164.0)px, Tag: 'agenda_overflow_button'
+    |  |        |             BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+    |  |        |             Focused = 'false'
+    |  |        |             Role = 'Button'
+    |  |        |             Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+    |  |        |             Actions = [OnClick, RequestFocus]
+    |  |        |             MergeDescendants = 'true'
+    |  |        |              |-Node #22317 at (l=984.0, t=132.0, r=1008.0, b=156.0)px
+    |  |        |                ContentDescription = '[More actions]'
+    |  |        |                Role = 'Image'
+    |  |        |-Node #22282 at (l=0.0, t=48.0, r=1024.0, b=112.0)px
+    |  |          IsTraversalGroup = 'true'
+    |  |           |-Node #22283 at (l=0.0, t=48.0, r=1024.0, b=112.0)px
+    |  |             Shape = 'RectangleShape'
+    |  |              |-Node #22285 at (l=16.0, t=66.0, r=185.0, b=94.0)px
+    |  |                 |-Node #22286 at (l=16.0, t=66.0, r=185.0, b=94.0)px
+    |  |                   Text = '[Navigation Test]'
+    |  |                   Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |  |-Node #22079 at (l=4.0, t=4.0, r=44.0, b=44.0)px, Tag: 'nav_menu_button'
+    |  | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+    |  | Focused = 'false'
+    |  | Role = 'Button'
+    |  | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+    |  | Actions = [OnClick, RequestFocus]
+    |  | MergeDescendants = 'true'
+    |  |  |-Node #22080 at (l=12.0, t=12.0, r=36.0, b=36.0)px
+    |  |    ContentDescription = '[Menu]'
+    |  |    Role = 'Image'
+    |  |-Node #22324 at (l=52.0, t=4.0, r=92.0, b=44.0)px, Tag: 'shell_back_button'
+    |  | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+    |  | Focused = 'false'
+    |  | Role = 'Button'
+    |  | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+    |  | Actions = [OnClick, RequestFocus]
+    |  | MergeDescendants = 'true'
+    |  |  |-Node #22325 at (l=60.0, t=12.0, r=84.0, b=36.0)px
+    |  |    ContentDescription = '[Back]'
+    |  |    Role = 'Image'
+    |  |-Node #22081 at (l=96.0, t=6.0, r=1024.0, b=42.0)px
+    |    BackgroundColor = 'Color(0.93333334, 0.94509804, 0.9764706, 1.0, sRGB IEC61966-2.1)'
+    |    IsContainer = 'true'
+    |    Shape = 'RectangleShape'
+    |     |-Node #22082 at (l=96.0, t=6.0, r=1024.0, b=42.0)px
+    |       HorizontalScrollAxisRange = 'ScrollAxisRange(value=0.0, maxValue=0.0, reverseScrolling=false)'
+    |       IsTraversalGroup = 'true'
+    |       Shape = 'androidx.compose.foundation.HorizontalScrollableClipShape@6b01381'
+    |       Actions = [ScrollBy, ScrollByOffset]
+    |        |-Node #22083 at (l=100.0, t=10.0, r=148.0, b=38.0)px
+    |        | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+    |        | Focused = 'false'
+    |        | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 4.0.dp), topEnd = CornerSize(size = 4.0.dp), bottomEnd = CornerSize(size = 4.0.dp), bottomStart = CornerSize(size = 4.0.dp))'
+    |        | Actions = [OnClick, RequestFocus]
+    |        | MergeDescendants = 'true'
+    |        |  |-Node #22084 at (l=112.0, t=16.0, r=136.0, b=32.0)px
+    |        |    Text = '[File]'
+    |        |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |        |-Node #22085 at (l=148.0, t=10.0, r=200.0, b=38.0)px
+    |        | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+    |        | Focused = 'false'
+    |        | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 4.0.dp), topEnd = CornerSize(size = 4.0.dp), bottomEnd = CornerSize(size = 4.0.dp), bottomStart = CornerSize(size = 4.0.dp))'
+    |        | Actions = [OnClick, RequestFocus]
+    |        | MergeDescendants = 'true'
+    |        |  |-Node #22086 at (l=160.0, t=16.0, r=188.0, b=32.0)px
+    |        |    Text = '[Edit]'
+    |        |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |        |-Node #22087 at (l=200.0, t=10.0, r=266.0, b=38.0)px
+    |        | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+    |        | Focused = 'false'
+    |        | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 4.0.dp), topEnd = CornerSize(size = 4.0.dp), bottomEnd = CornerSize(size = 4.0.dp), bottomStart = CornerSize(size = 4.0.dp))'
+    |        | Actions = [OnClick, RequestFocus]
+    |        | MergeDescendants = 'true'
+    |        |  |-Node #22088 at (l=212.0, t=16.0, r=254.0, b=32.0)px
+    |        |    Text = '[Agent]'
+    |        |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |        |-Node #22089 at (l=266.0, t=10.0, r=324.0, b=38.0)px
+    |        | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+    |        | Focused = 'false'
+    |        | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 4.0.dp), topEnd = CornerSize(size = 4.0.dp), bottomEnd = CornerSize(size = 4.0.dp), bottomStart = CornerSize(size = 4.0.dp))'
+    |        | Actions = [OnClick, RequestFocus]
+    |        | MergeDescendants = 'true'
+    |        |  |-Node #22090 at (l=278.0, t=16.0, r=312.0, b=32.0)px
+    |        |    Text = '[View]'
+    |        |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |        |-Node #22091 at (l=324.0, t=10.0, r=380.0, b=38.0)px
+    |          BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+    |          Focused = 'false'
+    |          Shape = 'RoundedCornerShape(topStart = CornerSize(size = 4.0.dp), topEnd = CornerSize(size = 4.0.dp), bottomEnd = CornerSize(size = 4.0.dp), bottomStart = CornerSize(size = 4.0.dp))'
+    |          Actions = [OnClick, RequestFocus]
+    |          MergeDescendants = 'true'
+    |           |-Node #22092 at (l=336.0, t=16.0, r=368.0, b=32.0)px
+    |             Text = '[Help]'
+    |             Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |-Node #21976 at (l=-1024.0, t=0.0, r=0.0, b=768.0)px
+      PaneTitle = 'Navigation menu'
+       |-Node #21977 at (l=-1024.0, t=0.0, r=0.0, b=768.0)px, Tag: 'desktop_drawer'
+         BackgroundColor = 'Color(0.9490196, 0.9529412, 0.98039216, 1.0, sRGB IEC61966-2.1)'
+         IsContainer = 'true'
+         Shape = 'RoundedCornerShape(topStart = CornerSize(size = 0.0.dp), topEnd = CornerSize(size = 16.0.dp), bottomEnd = CornerSize(size = 16.0.dp), bottomStart = CornerSize(size = 0.0.dp))'
+          |-Node #21978 at (l=-1024.0, t=0.0, r=0.0, b=768.0)px
+             |-Node #21979 at (l=-1024.0, t=0.0, r=0.0, b=768.0)px
+               IsTraversalGroup = 'true'
+               Shape = 'androidx.compose.foundation.VerticalScrollableClipShape@1564db6f'
+               VerticalScrollAxisRange = 'ScrollAxisRange(value=0.0, maxValue=264.0, reverseScrolling=false)'
+               Actions = [ScrollBy, ScrollByOffset]
+                |-Node #21980 at (l=-1008.0, t=12.0, r=-943.0, b=26.0)px
+                | Text = '[Navigation]'
+                | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #21981 at (l=-1012.0, t=38.0, r=-12.0, b=94.0)px
+                | BackgroundColor = 'Color(0.38039216, 0.43137255, 0.49803922, 1.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'true'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #21983 at (l=-996.0, t=54.0, r=-972.0, b=78.0)px
+                |  | ContentDescription = '[Inbox]'
+                |  | Role = 'Image'
+                |  |-Node #21986 at (l=-960.0, t=54.0, r=-916.0, b=78.0)px
+                |    Text = '[Inbox]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #21987 at (l=-1012.0, t=94.0, r=-12.0, b=150.0)px
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #21989 at (l=-996.0, t=110.0, r=-972.0, b=134.0)px
+                |  | ContentDescription = '[Today]'
+                |  | Role = 'Image'
+                |  |-Node #21992 at (l=-960.0, t=110.0, r=-913.0, b=134.0)px
+                |    Text = '[Today]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #21993 at (l=-1012.0, t=150.0, r=-12.0, b=206.0)px
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #21995 at (l=-996.0, t=166.0, r=-972.0, b=190.0)px
+                |  | ContentDescription = '[Upcoming]'
+                |  | Role = 'Image'
+                |  |-Node #21998 at (l=-960.0, t=166.0, r=-879.0, b=190.0)px
+                |    Text = '[Upcoming]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #21999 at (l=-1012.0, t=206.0, r=-12.0, b=262.0)px
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22001 at (l=-996.0, t=222.0, r=-972.0, b=246.0)px
+                |  | ContentDescription = '[Calendar]'
+                |  | Role = 'Image'
+                |  |-Node #22004 at (l=-960.0, t=222.0, r=-888.0, b=246.0)px
+                |    Text = '[Calendar]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22006 at (l=-1012.0, t=279.0, r=-12.0, b=335.0)px, Tag: 'menu_statistics'
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22008 at (l=-996.0, t=295.0, r=-972.0, b=319.0)px
+                |  | ContentDescription = '[Statistics]'
+                |  | Role = 'Image'
+                |  |-Node #22011 at (l=-960.0, t=295.0, r=-886.0, b=319.0)px
+                |    Text = '[Statistics]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22012 at (l=-1012.0, t=335.0, r=-12.0, b=391.0)px, Tag: 'menu_notes'
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22014 at (l=-996.0, t=351.0, r=-972.0, b=375.0)px
+                |  | ContentDescription = '[Notes]'
+                |  | Role = 'Image'
+                |  |-Node #22017 at (l=-960.0, t=351.0, r=-913.0, b=375.0)px
+                |    Text = '[Notes]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22018 at (l=-1012.0, t=391.0, r=-12.0, b=447.0)px, Tag: 'menu_aichat'
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22020 at (l=-996.0, t=407.0, r=-972.0, b=431.0)px
+                |  | ContentDescription = '[AI Chat]'
+                |  | Role = 'Image'
+                |  |-Node #22023 at (l=-960.0, t=407.0, r=-901.0, b=431.0)px
+                |    Text = '[AI Chat]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22024 at (l=-1012.0, t=447.0, r=-12.0, b=503.0)px, Tag: 'menu_proposals'
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22026 at (l=-996.0, t=463.0, r=-972.0, b=487.0)px
+                |  | ContentDescription = '[Proposals]'
+                |  | Role = 'Image'
+                |  |-Node #22029 at (l=-960.0, t=463.0, r=-883.0, b=487.0)px
+                |    Text = '[Proposals]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22030 at (l=-1012.0, t=503.0, r=-12.0, b=559.0)px, Tag: 'menu_search'
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22032 at (l=-996.0, t=519.0, r=-972.0, b=543.0)px
+                |  | ContentDescription = '[Search]'
+                |  | Role = 'Image'
+                |  |-Node #22035 at (l=-960.0, t=519.0, r=-905.0, b=543.0)px
+                |    Text = '[Search]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22036 at (l=-1012.0, t=559.0, r=-12.0, b=615.0)px, Tag: 'menu_archive'
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22038 at (l=-996.0, t=575.0, r=-972.0, b=599.0)px
+                |  | ContentDescription = '[Archive]'
+                |  | Role = 'Image'
+                |  |-Node #22041 at (l=-960.0, t=575.0, r=-900.0, b=599.0)px
+                |    Text = '[Archive]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22042 at (l=-1012.0, t=615.0, r=-12.0, b=671.0)px, Tag: 'menu_pomodoro'
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22044 at (l=-996.0, t=631.0, r=-972.0, b=655.0)px
+                |  | ContentDescription = '[Pomodoro]'
+                |  | Role = 'Image'
+                |  |-Node #22047 at (l=-960.0, t=631.0, r=-879.0, b=655.0)px
+                |    Text = '[Pomodoro]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22048 at (l=-1012.0, t=671.0, r=-12.0, b=727.0)px, Tag: 'menu_profiles'
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22050 at (l=-996.0, t=687.0, r=-972.0, b=711.0)px
+                |  | ContentDescription = '[Profiles]'
+                |  | Role = 'Image'
+                |  |-Node #22053 at (l=-960.0, t=687.0, r=-901.0, b=711.0)px
+                |    Text = '[Profiles]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22054 at (l=-1012.0, t=727.0, r=-12.0, b=783.0)px, Tag: 'menu_settings'
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22056 at (l=-996.0, t=743.0, r=-972.0, b=767.0)px
+                |  | ContentDescription = '[Settings]'
+                |  | Role = 'Image'
+                |  |-Node #22059 at (l=-960.0, t=743.0, r=-894.0, b=767.0)px
+                |    Text = '[Settings]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22060 at (l=-1012.0, t=783.0, r=-12.0, b=839.0)px, Tag: 'menu_ai_usage'
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22062 at (l=-996.0, t=799.0, r=-972.0, b=823.0)px
+                |  | ContentDescription = '[AI Usage]'
+                |  | Role = 'Image'
+                |  |-Node #22065 at (l=-960.0, t=799.0, r=-889.0, b=823.0)px
+                |    Text = '[AI Usage]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22104 at (l=-1012.0, t=839.0, r=-12.0, b=895.0)px, Tag: 'menu_attach_account'
+                | BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                | Focused = 'false'
+                | Role = 'Tab'
+                | Selected = 'false'
+                | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                | Actions = [OnClick, RequestFocus]
+                | MergeDescendants = 'true'
+                |  |-Node #22106 at (l=-996.0, t=855.0, r=-972.0, b=879.0)px
+                |  | ContentDescription = '[Attach Account]'
+                |  | Role = 'Image'
+                |  |-Node #22109 at (l=-960.0, t=855.0, r=-838.0, b=879.0)px
+                |    Text = '[Attach Account]'
+                |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |-Node #22067 at (l=-1008.0, t=920.0, r=-16.0, b=968.0)px, Tag: 'menu_projects_header'
+                |  |-Node #22068 at (l=-1008.0, t=937.0, r=-960.0, b=951.0)px
+                |  | Text = '[Projects]'
+                |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+                |  |-Node #22069 at (l=-956.0, t=924.0, r=-916.0, b=964.0)px, Tag: 'menu_projects_expand'
+                |    BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                |    Focused = 'false'
+                |    Role = 'Button'
+                |    Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                |    Actions = [OnClick, RequestFocus]
+                |    MergeDescendants = 'true'
+                |     |-Node #22070 at (l=-948.0, t=932.0, r=-924.0, b=956.0)px
+                |       ContentDescription = '[Expand projects]'
+                |       Role = 'Image'
+                |-Node #22071 at (l=-1012.0, t=976.0, r=-12.0, b=1032.0)px, Tag: 'menu_all_projects'
+                  BackgroundColor = 'Color(0.0, 0.0, 0.0, 0.0, sRGB IEC61966-2.1)'
+                  Focused = 'false'
+                  Role = 'Tab'
+                  Selected = 'false'
+                  Shape = 'RoundedCornerShape(topStart = CornerSize(size = 50.0%), topEnd = CornerSize(size = 50.0%), bottomEnd = CornerSize(size = 50.0%), bottomStart = CornerSize(size = 50.0%))'
+                  Actions = [OnClick, RequestFocus]
+                  MergeDescendants = 'true'
+                   |-Node #22073 at (l=-996.0, t=992.0, r=-972.0, b=1016.0)px
+                   | ContentDescription = '[All projects]'
+                   | Role = 'Image'
+                   |-Node #22076 at (l=-960.0, t=992.0, r=-871.0, b=1016.0)px
+                     Text = '[All projects]'
+                     Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]

@@ -1,0 +1,12 @@
++0.00s  awaitContentDescriptionDisplayed(Menu)    OK    0.00s
++0.21s  openDrawer    OK    0.21s
++0.33s  tapTab(Inbox)    OK    0.33s
++0.33s  awaitTag(agenda_saved_views_button)    OK    0.00s
++0.35s  awaitTag(saved_agenda_card_navigation_test)    OK    0.02s
++0.35s  assertTagDisplayed(saved_agenda_card_navigation_test)    OK    0.02s
++0.35s  awaitTag(saved_agenda_card_navigation_test)    OK    0.00s
++0.39s  awaitTag(agenda_section_no_date)    OK    0.03s
++0.39s  assertTagDisplayed(agenda_section_no_date)    OK    0.03s
++0.39s  awaitTag(task_item_navigation_task)    OK    0.00s
++0.39s  assertTagDisplayed(task_item_navigation_task)    OK    0.00s
++5.39s  awaitTag(top_bar_back_button)    FAIL  5.00s  AssertionError: Tag 'top_bar_back_button' is not in the semantics tree.

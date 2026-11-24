@@ -1,0 +1,37 @@
+=== FakeAppDatabase snapshot ===
+
+--- Tasks (0 rows) ---
+
+--- TaskTags (0 rows) ---
+
+--- TaskDependencies (0 rows) ---
+
+--- Notes (0 rows) ---
+
+--- Projects (0 rows) ---
+
+--- Tags (0 rows) ---
+
+--- SyncOutbox (0 rows) ---
+
+--- Attachments (0 rows) ---
+
+--- Reminders (0 rows) ---
+
+--- ProjectReminders (0 rows) ---
+
+--- Checklist (0 rows) ---
+
+--- LlmUsage (0 rows) ---
+
+--- Profiles (0 rows) ---
+
+--- AgendaViews (0 rows) ---
+
+--- RemoteConfigs (0 rows) ---
+
+--- SavedSearches (0 rows) ---
+
+--- TagGroups (0 rows) ---
+
+--- ProjectTagGroups (0 rows) ---
