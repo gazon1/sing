@@ -41,6 +41,20 @@ numbers fall when real work lands, and both are cheap to compute from files that
 are already the input to `traceability validate` (no stand, no network, no test
 run).
 
+The `corpus` block, checked instead of trusted
+-----------------------------------------------
+The floor file also records the size of the corpus the floors were measured
+against: the number of scenario rows, the number of live obligation cells (the
+matrix's own denominator — a retired row is not an obligation) and the number
+of carriers the scanner resolved. Those three are metadata, and metadata that
+is read by nobody rots: the block on `main` said 133 specs / 260 claimed cells
+/ 103 carriers while the tree measured 141 / 161 / 92, and every gate stayed
+green the whole time. So they are recomputed here from the same traceability
+package that renders the matrix, and a mismatch fails the gate. The block
+stays in the file because it is the number a reader of a diff wants next to
+the floors — but it is a claim the gate checks, not a second copy somebody has
+to remember to update.
+
 What this gate does NOT catch, stated rather than implied
 ---------------------------------------------------------
 Two things, and the first is the deliberate way to accept growth: raising a
@@ -203,6 +217,37 @@ def cli(ctx: click.Context, config: str, accept_growth: bool) -> None:
     # tests worse rather than the gate.
     measured, _dark_ids = _metrics(coverage)
 
+    # The `corpus` block records the size of the corpus the floors were measured
+    # against. It is metadata, and metadata nobody reads rots: the block on
+    # `main` still said 133 specs / 260 claimed cells / 103 carriers while the
+    # tree measured 141 / 161 / 92, and every registered gate stayed green the
+    # whole time. So the three numbers are recomputed here from the same
+    # traceability package that renders the matrix, and a mismatch fails the
+    # gate. The definitions are the matrix's own: `specs` is the number of
+    # scenario rows, `claimed_cells` the number of live obligation cells (the
+    # matrix's denominator — a retired row is not an obligation), `carriers` the
+    # number of links the scanner resolved.
+    corpus_drift: list[str] = []
+    corpus = cfg.get("corpus")
+    if isinstance(corpus, dict):
+        live_cells = [
+            cell
+            for row in coverage.cells.values()
+            for cell in row.values()
+            if cell.state.is_obligation
+        ]
+        computed = {
+            "specs": len(coverage.cells),
+            "claimed_cells": len(live_cells),
+            "carriers": len(links),
+        }
+        for key, actual in computed.items():
+            if key not in corpus:
+                continue
+            recorded = int(corpus[key])
+            if recorded != actual:
+                corpus_drift.append(f"{key}: recorded {recorded}, measured {actual}")
+
     floors = {f["metric"]: f for f in cfg.get("floors", [])}
     missing = [m.key for m in METRICS if m.key not in floors]
     if missing:
@@ -226,7 +271,7 @@ def cli(ctx: click.Context, config: str, accept_growth: bool) -> None:
                 f"regression is caught at this level"
             )
 
-    if not grew:
+    if not grew and not corpus_drift:
         # Built from METRICS rather than written out: the third metric was
         # added to the tuple and to this gate's comparisons, and the success
         # line went on naming only the first two. A green run that does not
@@ -239,36 +284,51 @@ def cli(ctx: click.Context, config: str, accept_growth: bool) -> None:
         )
         raise ctx.exit(CLEAN)
 
-    click.echo("")
-    for metric, allowed, actual in grew:
-        click.echo(
-            f"check-traceability-ratchet: FAIL — {metric.key} grew from {allowed} "
-            f"to {actual} (+{actual - allowed})"
-        )
-        click.echo(f"  {metric.label}")
-    click.echo("")
-    click.echo("These are scenarios the suite claims to verify and does not. Holes are")
-    click.echo("normal — a matrix with none of them is a matrix nobody believes — but a")
-    click.echo("count that only ever goes up is a queue nobody drains:")
-    # Iterated over the CELLS, not over `dark_ids`. Listing only fully-dark scenarios
-    # was correct while every scenario was either fully covered or fully uncovered, and
-    # stopped being correct the moment a scenario got one target and not the other:
-    # `CAL-SYNC-SYSTEM-01` has a desktop carrier, so its android hole — an ordinary
-    # hole, and one a reader is expected to go and close — never appeared in this
-    # listing at all. The number said 40 and the list showed 34, with the difference
-    # being exactly the holes that a partial fix had made easy to forget. The cell is
-    # the unit the matrix is drawn in, so it is the unit this list is written in too.
-    for scenario in sorted(coverage.cells):
-        for target, cell in sorted(coverage.cells[scenario].items()):
-            if cell.state.was_claimed and not cell.state.is_automated:
-                click.echo(f"  {coverage.glyph(scenario, target)} {scenario} [{target}]")
-    click.echo("")
-    click.echo("Either attach a carrier (the cheapest path is a reachability probe")
-    click.echo("first — see .agents/skills/singularity-todo-scenario-traceability/SKILL.md), or")
-    click.echo("state the growth in the commit message and re-run with --accept-growth.")
-    click.echo("Note that the spec's own comment header is the only place the plan is")
-    click.echo("recorded, so a hole opened here can be opened without anyone noticing.")
-    raise ctx.exit(CLEAN if accept_growth else VALIDATION_FAILURE)
+    if grew:
+        click.echo("")
+        for metric, allowed, actual in grew:
+            click.echo(
+                f"check-traceability-ratchet: FAIL — {metric.key} grew from {allowed} "
+                f"to {actual} (+{actual - allowed})"
+            )
+            click.echo(f"  {metric.label}")
+        click.echo("")
+        click.echo("These are scenarios the suite claims to verify and does not. Holes are")
+        click.echo("normal — a matrix with none of them is a matrix nobody believes — but a")
+        click.echo("count that only ever goes up is a queue nobody drains:")
+        # Iterated over the CELLS, not over `dark_ids`. Listing only fully-dark scenarios
+        # was correct while every scenario was either fully covered or fully uncovered, and
+        # stopped being correct the moment a scenario got one target and not the other:
+        # `CAL-SYNC-SYSTEM-01` has a desktop carrier, so its android hole — an ordinary
+        # hole, and one a reader is expected to go and close — never appeared in this
+        # listing at all. The number said 40 and the list showed 34, with the difference
+        # being exactly the holes that a partial fix had made easy to forget. The cell is
+        # the unit the matrix is drawn in, so it is the unit this list is written in too.
+        for scenario in sorted(coverage.cells):
+            for target, cell in sorted(coverage.cells[scenario].items()):
+                if cell.state.was_claimed and not cell.state.is_automated:
+                    click.echo(f"  {coverage.glyph(scenario, target)} {scenario} [{target}]")
+        click.echo("")
+        click.echo("Either attach a carrier (the cheapest path is a reachability probe")
+        click.echo("first — see .agents/skills/singularity-todo-scenario-traceability/SKILL.md), or")
+        click.echo("state the growth in the commit message and re-run with --accept-growth.")
+        click.echo("Note that the spec's own comment header is the only place the plan is")
+        click.echo("recorded, so a hole opened here can be opened without anyone noticing.")
+
+    if corpus_drift:
+        click.echo("")
+        click.echo("check-traceability-ratchet: FAIL — the `corpus` block does not match")
+        click.echo("the corpus this tree actually has.")
+        for line in corpus_drift:
+            click.echo(f"  {line}")
+        click.echo("")
+        click.echo("The block records the corpus the floors were measured against, and it is")
+        click.echo("recomputed here from the same package the matrix is rendered from — so a")
+        click.echo("mismatch means the recorded numbers are stale. Update them in the floor")
+        click.echo("file, or drop the block: a number nobody checks is a number nobody reads.")
+
+    exit_code = CLEAN if (grew and accept_growth) else VALIDATION_FAILURE
+    raise ctx.exit(exit_code)
 
 
 

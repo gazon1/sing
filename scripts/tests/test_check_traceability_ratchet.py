@@ -175,5 +175,49 @@ class MetricDeclarationTest(unittest.TestCase):
         self.assertEqual({metric.key for metric in ratchet.METRICS}, recorded)
 
 
+class CorpusBlockTest(unittest.TestCase):
+    """The `corpus` block is checked, not just kept.
+
+    The block records the size of the corpus the floors were measured against.
+    It is metadata, and metadata nobody reads rots: on `main` it still said
+    133 specs / 260 claimed cells / 103 carriers while the tree measured
+    141 / 161 / 92, and every registered gate stayed green throughout. So the
+    three numbers are recomputed from the traceability package and a mismatch
+    is a failure rather than a silent difference nobody notices.
+    """
+
+    def test_the_recorded_corpus_matches_the_measured_corpus(self):
+        """The committed block is the one the tree actually has."""
+        result = _run_gate(config_path=FLOOR_FILE)
+        self.assertEqual(0, result.returncode, result.stdout)
+
+    def test_a_stale_corpus_count_fails_the_gate(self):
+        config = _recorded_floors()
+        config["corpus"]["claimed_cells"] = 282
+        result = _run_gate(json.dumps(config))
+        self.assertEqual(1, result.returncode)
+        self.assertIn("`corpus` block does not match", result.stdout)
+        self.assertIn("claimed_cells: recorded 282", result.stdout)
+
+    def test_a_stale_corpus_count_fails_even_when_the_floors_are_met(self):
+        """Corpus drift is not masked by floors that pass.
+
+        The floors and the corpus are separate claims about the same tree. A
+        gate that only looked at the floors would keep a stale corpus green.
+        """
+        config = _recorded_floors()
+        config["corpus"]["specs"] = 999
+        result = _run_gate(json.dumps(config))
+        self.assertEqual(1, result.returncode)
+        self.assertIn("specs: recorded 999", result.stdout)
+
+    def test_a_floor_file_without_a_corpus_block_is_still_accepted(self):
+        """The block is optional; a file without one is not a broken file."""
+        config = _recorded_floors()
+        config.pop("corpus", None)
+        result = _run_gate(json.dumps(config))
+        self.assertEqual(0, result.returncode, result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
