@@ -120,7 +120,9 @@ question cannot pass as a successful measurement.
   costs the size of the user's task list: on the measured datasets the read
   through the DAO drops from 12.97 ms (10k), 94.74 ms (50k) and 262.94 ms (90k)
   to 0.29 ms, 0.37 ms and 0.24 ms — the remaining cost is the call around the
-  query and does not grow with the database.
+  query and does not grow with the database. The tail moves the same way: p95
+  through the DAO goes from 18.05 ms (10k) and 375.30 ms (90k) to 1.04 ms and
+  0.35 ms.
 - The scope of the read is unchanged in meaning: the owner sees the tags of its
   own task, a foreign profile sees none, the tags of a task that does not exist
   are visible to nobody.
