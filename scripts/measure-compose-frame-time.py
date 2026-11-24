@@ -11,9 +11,10 @@ WHAT IT DOES
     1. switches the app into the profile that holds the dataset (the debug
        seed link carries the profile name, so the switch is the app's own
        path, not a write into its database);
-    2. drives four representative interactions — the Upcoming timeline, a
-       project's task list, a task's detail, the calendar's periods — and
-       records the frame times the platform reports for each of them;
+    2. drives four representative interactions — the agenda's overdue
+       section, a project's task list, a task's detail, the calendar's
+       periods — and records the frame times the platform reports for each
+       of them;
     3. repeats every interaction after a warm-up and writes the medians, the
        sample counts and the raw runs into a JSON report and a Markdown
        table.
@@ -52,6 +53,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import statistics
 import subprocess
@@ -61,6 +63,7 @@ import xml.etree.ElementTree as ElementTree
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlencode
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -427,6 +430,32 @@ def parse_frame_summary(text: str) -> dict:
     return summary
 
 
+def require_frame_summary(summary: dict, scenario: str) -> dict:
+    """Reject a summary that does not carry the platform's own numbers.
+
+    A summary without the frame count is not a measurement of zero frames:
+    it is the absence of a measurement. `dumpsys gfxinfo` prints nothing
+    useful for a process that was not drawing, and a report that stores
+    such a run as a sample with zero frames states a fact about nothing.
+    """
+    missing = [key for key in ("totalFrames", "jankyFrames") if key not in summary]
+    if missing:
+        raise MeasurementError(
+            f"the '{scenario}' run returned no frame data "
+            f"({', '.join(missing)} missing), so it says nothing"
+        )
+    if summary["totalFrames"] <= 0:
+        raise MeasurementError(
+            f"the '{scenario}' run counted zero frames, so it says nothing"
+        )
+    if summary["jankyFrames"] > summary["totalFrames"]:
+        raise MeasurementError(
+            f"the '{scenario}' run counted {summary['jankyFrames']} janky frames "
+            f"out of {summary['totalFrames']}, which cannot be true"
+        )
+    return summary
+
+
 def frame_durations(serial: str, package: str) -> list[float]:
     """The duration of every frame the platform has timed, in milliseconds."""
     return parse_frame_durations(
@@ -564,6 +593,136 @@ def profile_scope_facts(connection, profile_name: str) -> dict:
     return facts
 
 
+def device_database_path(serial: str) -> Path:
+    """Where the copy of the device's own database lives."""
+    return ROOT / "build" / "perf" / f"frame-time-device-{device_fingerprint(serial)}.db"
+
+
+def profile_task_relations(serial: str, profile_name: str) -> dict[str, dict[str, int]]:
+    """What is attached to each task of the profile under measurement.
+
+    The issue asks for a task with a realistic amount of metadata and related
+    tasks. The first row of the agenda is whatever the sort order puts first,
+    and on a synthetic dataset that is usually a task with nothing on it — a
+    detail screen that shows a title and nothing else measures nothing. The
+    relations are read from the copy of the device's own database, so the
+    choice of the task is a fact about the data instead of a guess.
+    """
+    local = device_database_path(serial)
+    if not profile_name or not local.is_file():
+        return {}
+    try:
+        import sqlite3
+
+        connection = sqlite3.connect(f"file:{local}?mode=rw", uri=True)
+    except Exception:  # noqa: BLE001 — the report says what it could not read
+        return {}
+    try:
+        row = connection.execute(
+            "select id from profiles where name = ?",
+            (profile_name,),
+        ).fetchone()
+        if not row:
+            return {}
+        scope = row[0] + "/%"
+        relations: dict[str, dict[str, int]] = {}
+        for task_id, title in connection.execute(
+            "select id, title from tasks where user_id like ? and archived_at is null",
+            (scope,),
+        ):
+            relations[title] = {"children": 0, "tags": 0, "dependencies": 0, "notes": 0, "checklist": 0}
+        for title, key, query in (
+            (
+                None,
+                "children",
+                "select t.title, count(*) from tasks c join tasks t on c.parent_task_id = t.id "
+                "where t.user_id like ? and c.archived_at is null group by t.title",
+            ),
+            (
+                None,
+                "tags",
+                "select t.title, count(*) from task_tags x join tasks t on x.task_id = t.id "
+                "where t.user_id like ? group by t.title",
+            ),
+            (
+                None,
+                "dependencies",
+                "select t.title, count(*) from task_dependencies d join tasks t on d.task_id = t.id "
+                "where t.user_id like ? group by t.title",
+            ),
+            (
+                None,
+                "notes",
+                "select t.title, count(*) from notes n join tasks t on n.task_id = t.id "
+                "where t.user_id like ? group by t.title",
+            ),
+            (
+                None,
+                "checklist",
+                "select t.title, count(*) from checklist_items c join tasks t on c.task_id = t.id "
+                "where t.user_id like ? group by t.title",
+            ),
+        ):
+            for title, count in connection.execute(query, (scope,)):
+                if title in relations:
+                    relations[title][key] = count
+        return relations
+    except Exception:  # noqa: BLE001 — the report says what it could not read
+        return {}
+    finally:
+        connection.close()
+
+
+def task_slug(tag: str) -> str:
+    """The slug of the title a task row's tag carries.
+
+    The app makes the tag of a row from the title of the task
+    (`TestTags.taskItem`), so the tag says which task the row is even when
+    the row's own node carries no text at all.
+    """
+    name = tag.split("/")[-1]
+    prefix = "task_item_"
+    return name[len(prefix):] if name.startswith(prefix) else name
+
+
+def choose_task_row(
+    rows: list[tuple[str, str]],
+    task_title: str,
+    relations: dict[str, dict[str, int]],
+) -> tuple[str, str]:
+    """The agenda row to open, and why it is that one.
+
+    The requested task wins: if the operator named a task, that is the task
+    the run opens, and a row that is not on the screen is an error rather
+    than a quiet substitution. Without a request the run opens the row that
+    holds the most of what the issue asks the detail screen to show —
+    children, tags, dependencies, notes and checklist items — because the
+    first row of a sorted list is the emptiest one.
+
+    The row is recognised by the tag the app made from the title, not by the
+    text of the node: the tagged node of a row carries no text of its own,
+    and the title sits in a child of it.
+    """
+    by_slug = {slug(title): title for title in relations}
+    if task_title:
+        wanted = slug(task_title)
+        for tag, title in rows:
+            if title == task_title or task_slug(tag) == wanted:
+                return tag, title
+        raise MeasurementError(
+            f"the task '{task_title}' is not on the screen of the agenda; "
+            "the run refuses to measure a different task"
+        )
+    if not rows:
+        raise MeasurementError("the agenda showed no task row to open")
+    return max(
+        rows,
+        key=lambda row: sum(
+            relations.get(by_slug.get(task_slug(row[0]), row[1]), {}).values()
+        ),
+    )
+
+
 def copy_device_database(serial: str, local: Path) -> None:
     """Copy the app's database off the device, whole.
 
@@ -576,8 +735,13 @@ def copy_device_database(serial: str, local: Path) -> None:
     of a database that is days old.
 
     The previous run's leftovers go first: a WAL that belongs to another
-    database is not a WAL that can be recovered into this one.
+    database is not a WAL that can be recovered into this one. The main
+    file goes first too, because a copy that fails leaves the old file
+    where it was, and the counts of an old file are the counts of an
+    earlier device — a report that quotes them states a fact about
+    yesterday.
     """
+    local.unlink(missing_ok=True)
     for suffix in ("-wal", "-shm"):
         local.with_name(local.name + suffix).unlink(missing_ok=True)
     for name in ("todo.db", "todo.db-wal", "todo.db-shm"):
@@ -589,6 +753,11 @@ def copy_device_database(serial: str, local: Path) -> None:
         if proc.returncode == 0 and proc.stdout:
             target = local if name == "todo.db" else local.with_name(local.name + name[len("todo.db"):])
             target.write_bytes(proc.stdout)
+    if not local.is_file() or local.stat().st_size == 0:
+        raise MeasurementError(
+            "the database of the device could not be copied, so the dataset of "
+            "this run is unknown"
+        )
 
 
 def dataset_facts(serial: str, profile_name: str = "") -> dict:
@@ -601,7 +770,7 @@ def dataset_facts(serial: str, profile_name: str = "") -> dict:
     adb_ok("shell", "am", "force-stop", APP_ID, serial=serial)
     # One copy per device: two runs that share a file read each other's
     # database, and the counts in the report stop being about the device.
-    local = ROOT / "build" / "perf" / f"frame-time-device-{device_fingerprint(serial)}.db"
+    local = device_database_path(serial)
     local.parent.mkdir(parents=True, exist_ok=True)
     copy_device_database(serial, local)
     facts: dict = {"database": str(local.name)}
@@ -651,6 +820,8 @@ class Device:
     height: int
     #: What the run found on the device and writes into the report.
     notes: dict = field(default_factory=dict)
+    #: What is attached to each task of the profile, by title.
+    relations: dict = field(default_factory=dict)
 
     def scroll_pane(
         self,
@@ -728,7 +899,7 @@ def switch_profile(device: Device, profile_name: str) -> None:
         "-a",
         "android.intent.action.VIEW",
         "-d",
-        f"{DEBUG_SEED_SCHEME}?profile={profile_name}",
+        f"{DEBUG_SEED_SCHEME}?{urlencode({'profile': profile_name})}",
         serial=device.serial,
     )
     time.sleep(2.0)
@@ -925,26 +1096,46 @@ def interact_project_detail(device: Device) -> None:
     device.scroll_pane(wait_for_pane(device.serial), count=4)
 
 
+def opened_task_title(serial: str) -> str:
+    """The title the open task detail shows, if it shows one."""
+    for node in dump_ui(serial):
+        if "task_editor_title_input" in node.get("resource-id", ""):
+            return (node.get("text") or "").strip()
+    return ""
+
+
 def navigate_task_detail(device: Device, task_title: str) -> None:
     """The detail of a task with a realistic amount of metadata.
 
-    The task is a row that is really on the screen: the run reads the rows
-    off the agenda's populated section and opens the first one.
+    The task is a row that is really on the screen, and the run opens the
+    one that carries the most of what the detail screen shows: the
+    relations are counted in the device's own database, so the choice is a
+    fact about the data. The title that was opened and its relations go
+    into the report — a baseline that does not say what it measured says
+    nothing about what to compare it with.
     """
     navigate_agenda(device)
-    row = ""
+    rows: list[tuple[str, str]] = []
     for node in dump_ui(device.serial):
         resource_id = node.get("resource-id", "")
         if "task_item_" in resource_id:
-            row = resource_id.split("/")[-1]
-            device.notes["task"] = node.get("text", row)
-            break
-    if not row:
-        if not task_title:
-            raise MeasurementError("the agenda showed no task row to open")
-        row = "task_item_" + slug(task_title)
-    tap_tag(device.serial, row, timeout=60.0, package=device.package)
+            rows.append((resource_id.split("/")[-1], (node.get("text") or "").strip()))
+    tag, _ = choose_task_row(rows, task_title, device.relations)
+    tap_tag(device.serial, tag, timeout=60.0, package=device.package)
     wait_for_tag(device.serial, "task_editor_title_input", package=device.package)
+    opened = opened_task_title(device.serial)
+    if not opened:
+        raise MeasurementError(
+            "the opened task shows no title, so the run does not know what it measured"
+        )
+    if task_title and slug(opened) != slug(task_title):
+        raise MeasurementError(
+            f"the run opened the task '{opened}' instead of '{task_title}'"
+        )
+    # The title of the open task is the title of the task the relations were
+    # counted for: the report says what was measured, not what was planned.
+    device.notes["task"] = opened
+    device.notes["taskRelations"] = device.relations.get(opened, {})
 
 
 def restore_to_top(device: Device) -> None:
@@ -1058,6 +1249,7 @@ def measure_scenario(
         scenario.interact(device)
         time.sleep(scenario.settle)
         summary = frame_summary(device.serial, device.package)
+        require_frame_summary(summary, scenario.name)
         durations = frame_durations(device.serial, device.package)
         summary["measuredDurationsMs"] = durations
         after = screen_signature(dump_ui(device.serial))
@@ -1080,6 +1272,11 @@ def measure_scenario(
         # shared, and another run can put another build on it in the middle
         # of a measurement.
         summary["appVersionName"] = app_version(device.serial)
+        # What the run opened: a baseline that does not say which task it
+        # measured does not say what to compare it with.
+        if device.notes.get("task"):
+            summary["openedTask"] = device.notes["task"]
+            summary["openedTaskRelations"] = device.notes.get("taskRelations", {})
         print(
             f"  run {index - warmup + 1}/{runs}: "
             f"frames={summary.get('totalFrames', '?')} "
@@ -1098,6 +1295,22 @@ def measure_scenario(
                 }
             )
     return {"name": scenario.name, "description": scenario.description, "samples": samples}
+
+
+def percentile(values: list[float], fraction: float) -> float | None:
+    """A percentile, by the nearest-rank rule.
+
+    The rule is the one the report and the document quote: the p-th
+    percentile is the value at rank `ceil(p * n)` of the sorted values, so
+    every reported percentile is a value that was actually measured. The
+    median is the middle value of an odd-sized sample and the mean of the
+    two middle values of an even-sized one (`statistics.median`).
+    """
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = max(1, min(len(ordered), math.ceil(fraction * len(ordered))))
+    return ordered[rank - 1]
 
 
 def aggregate(samples: list[dict]) -> dict:
@@ -1125,7 +1338,7 @@ def aggregate(samples: list[dict]) -> dict:
         "gfxinfoP95MedianMs": median_of(p95),
         "measuredFramesMedianMs": median_of(durations),
         "measuredFramesP95Ms": (
-            round(sorted(durations)[int(0.95 * (len(durations) - 1))], 2) if durations else None
+            round(percentile(durations, 0.95), 2) if durations else None
         ),
         "measuredFramesMaxMs": round(max(durations), 2) if durations else None,
     }
@@ -1138,7 +1351,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Measure Android frame times for the app's primary screens.",
     )
     parser.add_argument("--serial", required=True, help="the device to measure on")
-    parser.add_argument("--package", default=APP_ID, help="the app's package")
     parser.add_argument(
         "--profile-name",
         default="",
@@ -1176,7 +1388,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="",
         help="where the report goes; by default a new directory under build/perf/",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.runs < 1:
+        parser.error("--runs must be at least 1: a run without a measurement is not a run")
+    if args.warmup < 0:
+        parser.error("--warmup cannot be negative")
+    return args
 
 
 def write_report(report: dict, out_dir: Path) -> Path:
@@ -1244,17 +1461,20 @@ def main(argv: list[str] | None = None) -> int:
 def measure(args: argparse.Namespace, out_dir: Path) -> int:
     """The measurement itself, on a device this process has claimed."""
     width, height = screen_size(args.serial)
-    device = Device(serial=args.serial, package=args.package, width=width, height=height)
+    device = Device(serial=args.serial, package=APP_ID, width=width, height=height)
 
     print(f"device: {args.serial}")
     if wake_device(args.serial):
         print("device: woken up")
     dataset = dataset_facts(args.serial, args.profile_name)
     print(f"dataset: {dataset}")
+    device.relations = profile_task_relations(args.serial, args.profile_name)
 
     scope = dataset.get("profileScope") or {}
     project_name = args.project or (scope.get("busiestProject") or {}).get("name", "Project 1")
-    task_title = args.task or "Task 1"
+    # An empty task title means: open the task of the agenda that carries
+    # the most relations. A named task is opened by name, or the run fails.
+    task_title = args.task
 
     if args.profile_name:
         switch_profile(device, args.profile_name)
@@ -1262,7 +1482,7 @@ def measure(args: argparse.Namespace, out_dir: Path) -> int:
     scenarios = {
         "agenda-scroll": Scenario(
             name="agenda-scroll",
-            description="Upcoming timeline, opened and scrolled",
+            description="the Today tab's overdue section, opened and scrolled",
             navigate=navigate_agenda,
             interact=interact_agenda,
             restore=restore_to_top,
@@ -1283,7 +1503,11 @@ def measure(args: argparse.Namespace, out_dir: Path) -> int:
         ),
         "task-detail-scroll": Scenario(
             name="task-detail-scroll",
-            description=f"detail of the task '{task_title}'",
+            description=(
+                f"detail of the task '{task_title}'"
+                if args.task
+                else "detail of the task of the agenda that carries the most relations"
+            ),
             navigate=lambda device: navigate_task_detail(device, task_title),
             interact=interact_task_detail,
             restore=restore_to_top,
@@ -1300,7 +1524,7 @@ def measure(args: argparse.Namespace, out_dir: Path) -> int:
     report: dict = {
         "device": device_facts(args.serial),
         "dataset": dataset,
-        "build": {"package": args.package, "variant": "debug"},
+        "build": {"package": APP_ID, "variant": "debug"},
         "method": {
             "source": "adb shell dumpsys gfxinfo <package> (summary) and framestats (per frame)",
             "warmupRuns": args.warmup,

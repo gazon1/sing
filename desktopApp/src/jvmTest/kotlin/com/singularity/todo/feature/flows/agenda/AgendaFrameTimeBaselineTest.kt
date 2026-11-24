@@ -24,6 +24,8 @@ import kotlinx.datetime.plus
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import org.koin.core.Koin
+import java.io.File
+import kotlin.math.ceil
 import kotlin.test.Test
 import kotlin.time.Instant
 
@@ -134,27 +136,52 @@ class AgendaFrameTimeBaselineTest {
                 }
             }
 
-            println(
-                "FRAME_TIME_BASELINE " +
-                    buildJson(
-                        mapOf(
-                            "target" to "jvm-desktop",
-                            "scenario" to "agenda-upcoming-scroll",
-                            "tasks" to taskCount,
-                            "runs" to measuredRuns,
-                            "warmupRuns" to warmupRuns,
-                            "dragsPerRun" to dragsPerRun,
-                            "dragDistancePx" to dragDistance.toInt(),
-                            "openTimelineMedianMs" to medianMs(opens),
-                            "openTimelineSamples" to opens.size,
-                            "scrollMedianMs" to medianMs(drags),
-                            "scrollP95Ms" to percentileMs(drags, 0.95),
-                            "scrollSamples" to drags.size,
-                            "composedRows" to composedRows,
-                        ),
+            val report =
+                buildJson(
+                    mapOf(
+                        "target" to "jvm-desktop",
+                        "scenario" to "agenda-upcoming-scroll",
+                        "tasks" to taskCount,
+                        "runs" to measuredRuns,
+                        "warmupRuns" to warmupRuns,
+                        "dragsPerRun" to dragsPerRun,
+                        "dragDistancePx" to dragDistance.toInt(),
+                        "openTimelineMedianMs" to medianMs(opens),
+                        "openTimelineSamples" to opens.size,
+                        "openTimelineSamplesMs" to opens.map { it / 1_000_000.0 },
+                        "scrollMedianMs" to medianMs(drags),
+                        "scrollP95Ms" to percentileMs(drags, 0.95),
+                        "scrollSamples" to drags.size,
+                        "scrollSamplesMs" to drags.map { it / 1_000_000.0 },
+                        "composedRows" to composedRows,
+                        "percentileConvention" to
+                            "nearest-rank; the median of an even-sized sample is the mean of its two middle values",
                     ),
-            )
+                )
+            println("FRAME_TIME_BASELINE $report")
+            // The report is written by the test that measured: the copy the
+            // document publishes is this file, not a number someone typed.
+            // The path is taken from the root of the repository, not from the
+            // working directory of the test, which is the module directory.
+            val outDir = File(repoRoot(), "build/perf/frame-time-desktop")
+            outDir.mkdirs()
+            File(outDir, "frame-time-baseline.json").writeText(report)
         }
+
+    /**
+     * The root of the repository.
+     *
+     * The working directory of the test is the directory of the module, so a
+     * relative path would put the report into the build directory of the
+     * module - and `./gw clean` would take it away.
+     */
+    private fun repoRoot(): File {
+        var dir: File? = File(System.getProperty("user.dir")).absoluteFile
+        while (dir != null && !File(dir, "settings.gradle.kts").isFile) {
+            dir = dir.parentFile
+        }
+        return dir ?: error("the repository root is not above ${System.getProperty("user.dir")}")
+    }
 
     /** The tags of the task rows the screen holds. */
     @OptIn(ExperimentalTestApi::class)
@@ -174,8 +201,7 @@ class AgendaFrameTimeBaselineTest {
 
     /** How many task rows the screen holds in its tree. */
     @OptIn(ExperimentalTestApi::class)
-    private fun DesktopComposeUiTest.taskRowCount(): Int =
-        taskRowTags().size
+    private fun DesktopComposeUiTest.taskRowCount(): Int = taskRowTags().size
 
     /**
      * The scrollable that holds the rows of the timeline.
@@ -318,24 +344,53 @@ class AgendaFrameTimeBaselineTest {
         println("FRAME_TIME_PROGRESS seeded=${tasks.size} in ${(System.nanoTime() - started) / 1_000_000}ms")
     }
 
-    private fun medianMs(values: List<Long>): Double =
-        if (values.isEmpty()) 0.0 else values.sorted()[values.size / 2] / 1_000_000.0
-
-    private fun percentileMs(values: List<Long>, percentile: Double): Double {
+    /**
+     * The median of the samples.
+     *
+     * The middle value of an odd-sized sample, the mean of the two middle
+     * values of an even-sized one — the same rule the Android script uses,
+     * so the two platforms' numbers are quoted by one convention.
+     */
+    private fun medianMs(values: List<Long>): Double {
         if (values.isEmpty()) return 0.0
         val sorted = values.sorted()
-        val index = ((sorted.size - 1) * percentile).toInt()
-        return sorted[index] / 1_000_000.0
+        val middle = sorted.size / 2
+        val median =
+            if (sorted.size % 2 == 1) {
+                sorted[middle].toDouble()
+            } else {
+                (sorted[middle - 1] + sorted[middle]).toDouble() / 2.0
+            }
+        return median / 1_000_000.0
+    }
+
+    /**
+     * A percentile, by the nearest-rank rule.
+     *
+     * The p-th percentile is the value at rank `ceil(p * n)` of the sorted
+     * values, so every reported percentile is a value that was actually
+     * measured.
+     */
+    private fun percentileMs(
+        values: List<Long>,
+        percentile: Double,
+    ): Double {
+        if (values.isEmpty()) return 0.0
+        val sorted = values.sorted()
+        val rank = maxOf(1, minOf(sorted.size, ceil(percentile * sorted.size).toInt()))
+        return sorted[rank - 1] / 1_000_000.0
     }
 
     private fun buildJson(fields: Map<String, Any>): String =
         fields.entries.joinToString(prefix = "{", postfix = "}") { (key, value) ->
-            val rendered =
-                when (value) {
-                    is String -> "\"$value\""
-                    is Double -> "%.3f".format(value)
-                    else -> value.toString()
-                }
-            "\"$key\": $rendered"
+            "\"$key\": ${renderValue(value)}"
+        }
+
+    private fun renderValue(value: Any): String =
+        when (value) {
+            is String -> "\"$value\""
+            is Double -> "%.3f".format(value)
+            is List<*> -> value.joinToString(prefix = "[", postfix = "]") { renderValue(it!!) }
+            else -> value.toString()
         }
 }

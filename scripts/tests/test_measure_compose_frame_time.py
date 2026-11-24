@@ -11,6 +11,11 @@ the arithmetic that turns the platform's output into the report:
   occupied the screen, and drops the rows that are not frames;
 * `aggregate` reports medians over the runs, so one slow run cannot become
   the baseline;
+* `require_frame_summary` refuses a run that counted no frames — a missing
+  measurement is not a measurement of zero;
+* `percentile` is the nearest-rank rule the report and the document quote;
+* `choose_task_row` opens the task that carries the most of what the detail
+  screen shows, and refuses to open a different task than the one asked for;
 * `slug` reproduces the app's own test tag (`TestTags.slug`) — a slug that
   differs by one character makes the run open nothing;
 * `node_bounds` finds the node a test tag names, with or without the
@@ -20,7 +25,9 @@ The file name has a dash in it, so the script is loaded by path — the way
 the repository's own tests load it.
 """
 
+import contextlib
 import importlib.util
+import io
 import sys
 import tempfile
 import unittest
@@ -143,6 +150,152 @@ class AggregateTest(unittest.TestCase):
         self.assertEqual(driver.aggregate([]), {})
 
 
+class RequireFrameSummaryTest(unittest.TestCase):
+    """A run that counted no frames is an error, not a zero.
+
+    `dumpsys gfxinfo` prints nothing useful for a process that was not
+    drawing. A report that stores such a run as a sample with zero frames
+    states a fact about nothing — and the medians of the scenario then carry
+    that nothing into the baseline.
+    """
+
+    def test_a_summary_without_the_frame_count_is_refused(self):
+        with self.assertRaises(driver.MeasurementError):
+            driver.require_frame_summary({"jankyFrames": 0}, "agenda-scroll")
+
+    def test_a_run_that_counted_no_frames_is_refused(self):
+        with self.assertRaises(driver.MeasurementError):
+            driver.require_frame_summary({"totalFrames": 0, "jankyFrames": 0}, "agenda-scroll")
+
+    def test_more_janky_frames_than_frames_is_refused(self):
+        with self.assertRaises(driver.MeasurementError):
+            driver.require_frame_summary({"totalFrames": 10, "jankyFrames": 11}, "agenda-scroll")
+
+    def test_a_real_summary_passes_through(self):
+        summary = driver.parse_frame_summary(GFXINFO_SUMMARY)
+        self.assertIs(driver.require_frame_summary(summary, "agenda-scroll"), summary)
+
+
+class PercentileTest(unittest.TestCase):
+    """The percentile rule the report and the document quote.
+
+    The nearest-rank rule: the p-th percentile is the value at rank
+    `ceil(p * n)` of the sorted values, so every percentile that is reported
+    is a value that was actually measured.
+    """
+
+    def test_the_nearest_rank_is_the_value_that_was_measured(self):
+        values = [float(value) for value in range(1, 101)]
+        self.assertEqual(driver.percentile(values, 0.95), 95)
+
+    def test_a_short_sample_ends_at_its_last_value(self):
+        self.assertEqual(driver.percentile([10.0, 20.0, 30.0], 0.95), 30.0)
+
+    def test_no_values_are_no_percentile(self):
+        self.assertIsNone(driver.percentile([], 0.95))
+
+    def test_the_median_of_an_even_sample_is_the_mean_of_its_two_middle_values(self):
+        samples = [
+            {
+                "totalFrames": 100,
+                "jankyFrames": 0,
+                "measuredDurationsMs": [10.0, 20.0, 30.0, 40.0],
+            }
+        ]
+        summary = driver.aggregate(samples)
+        self.assertAlmostEqual(summary["measuredFramesMedianMs"], 25.0)
+        self.assertAlmostEqual(summary["measuredFramesP95Ms"], 40.0)
+
+
+class ChooseTaskRowTest(unittest.TestCase):
+    """The task the detail scenario opens.
+
+    The first row of a sorted list is the emptiest one: a detail screen that
+    holds nothing but a title says nothing about the cost of drawing a
+    detail screen. So the row with the most relations wins — and a task that
+    was named explicitly is opened by name or not at all.
+
+    The rows are recognised by the tag the app made from the title: the
+    tagged node of a row carries no text of its own.
+    """
+
+    ROWS = [("task_item_task_a", ""), ("task_item_task_b", "")]
+    RELATIONS = {
+        "Task A": {"children": 0, "tags": 1, "dependencies": 0, "notes": 0, "checklist": 0},
+        "Task B": {"children": 3, "tags": 2, "dependencies": 1, "notes": 1, "checklist": 1},
+    }
+
+    def test_the_named_task_is_the_one_that_is_opened(self):
+        tag, _ = driver.choose_task_row(self.ROWS, "Task A", self.RELATIONS)
+        self.assertEqual(tag, "task_item_task_a")
+
+    def test_a_named_task_that_is_not_on_the_screen_is_refused(self):
+        with self.assertRaises(driver.MeasurementError):
+            driver.choose_task_row(self.ROWS, "Task C", self.RELATIONS)
+
+    def test_without_a_name_the_row_with_the_most_relations_wins(self):
+        tag, _ = driver.choose_task_row(self.ROWS, "", self.RELATIONS)
+        self.assertEqual(tag, "task_item_task_b")
+
+    def test_an_agenda_without_a_row_is_refused(self):
+        with self.assertRaises(driver.MeasurementError):
+            driver.choose_task_row([], "", self.RELATIONS)
+
+    def test_a_title_the_app_wrote_as_text_still_counts(self):
+        rows = [("task_item_task_a", "Task A"), ("task_item_task_b", "Task B")]
+        tag, _ = driver.choose_task_row(rows, "", self.RELATIONS)
+        self.assertEqual(tag, "task_item_task_b")
+
+
+class SwitchProfileTest(unittest.TestCase):
+    """The profile name travels in the link, encoded.
+
+    A profile name with a space in it breaks a link that is put together by
+    hand: the app receives a truncated name and switches into no profile at
+    all — silently, because the link still opens.
+    """
+
+    def test_the_profile_name_is_encoded_into_the_link(self):
+        commands: list[str] = []
+        original_adb = driver.adb_ok
+        original_sleep = driver.time.sleep
+
+        def fake_adb(*args, serial, timeout=120.0):
+            commands.append(" ".join(args))
+            return ""
+
+        driver.adb_ok = fake_adb
+        driver.time.sleep = lambda seconds: None
+        try:
+            driver.switch_profile(driver.Device("serial", "com.singularity.todo", 10, 10), "my profile")
+        finally:
+            driver.adb_ok = original_adb
+            driver.time.sleep = original_sleep
+        self.assertIn("profile=my+profile", commands[0])
+
+
+class ArgumentsTest(unittest.TestCase):
+    """The command line refuses the runs that would measure nothing."""
+
+    def _refused(self, argv: list[str]) -> None:
+        # argparse writes the usage it refused with to stderr; the test does
+        # not need it, and the test output stays readable.
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                driver.parse_args(argv)
+
+    def test_a_run_without_a_measurement_is_refused(self):
+        self._refused(["--serial", "serial", "--runs", "0"])
+
+    def test_a_negative_warm_up_is_refused(self):
+        self._refused(["--serial", "serial", "--warmup", "-1"])
+
+    def test_the_package_is_not_choosable(self):
+        # The command measures this application; a flag that half of it
+        # honoured was a contradiction waiting to be found.
+        self._refused(["--serial", "serial", "--package", "com.example"])
+
+
 class SlugTest(unittest.TestCase):
     def test_the_apps_own_slug(self):
         self.assertEqual(driver.slug("Project 1"), "project_1")
@@ -223,6 +376,14 @@ class DatabaseCopyTest(unittest.TestCase):
             local.with_name(local.name + "-wal").write_bytes(b"a log of another database")
             self._copy(tmp, failing={"databases/todo.db-wal"})
             self.assertFalse(local.with_name(local.name + "-wal").exists())
+
+    def test_the_database_of_yesterday_does_not_survive_a_failed_copy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            local = Path(tmp) / "device.db"
+            local.write_bytes(b"the database of yesterday")
+            with self.assertRaises(driver.MeasurementError):
+                self._copy(tmp, failing={"databases/todo.db"})
+            self.assertFalse(local.exists())
 
 
 class WakeDeviceTest(unittest.TestCase):
