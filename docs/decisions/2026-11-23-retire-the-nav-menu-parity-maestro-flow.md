@@ -1,0 +1,410 @@
+---
+title: "The nav/02-menu-parity Maestro flow is retired — the menu model owns the parity"
+date: 2026-11-23
+status: accepted
+tags: [maestro, traceability, nav, menu]
+issue: 3119
+---
+
+## Context
+
+`Maestro/flows/nav/02-menu-parity.yaml` was the audit's top-ranked
+replace-candidate (#3105): 35 s of device time for three visibility
+assertions, and the guarantee behind them — "the menu offers the same
+destinations on both platforms" — is a fact about `AppMenu` and
+`DestinationKind`, two pieces of common code.
+
+Issue #3119 asks for the flow to be retired, with four conditions: every
+assertion of the flow must be matched to a named owner (not inferred from
+the class name of a candidate), the headless owner must demonstrably fail
+when parity regresses, only the duplicated behaviour may be removed, and the
+catalogue, the scenario link and the ownership documentation must move in
+the same change.
+
+## Idea
+
+1. **Delete the flow and trust the class name.** The flow's scenario id is
+   `NAV-02`, and `MenuParityFlowTest` carries `NAV-02` in its
+   `@DisplayName`. That is a link, not a proof of equivalence: the class
+   could assert something entirely different.
+2. **Read the two assertion sets against each other, entry by entry**, and
+   keep the flow if any assertion of it has no owner on any tier.
+3. **Delete the flow, and narrow the scenario's claim to the tier that
+   still has a carrier** — the android cell becomes unclaimed, so the hole
+   count does not move.
+
+## Decision
+
+**Option 2, and the flow goes — in full.**
+
+The three assertions of the flow, and where each one lives now:
+
+| Flow assertion | Owner after the retirement |
+|---|---|
+| `nav_tab_calendar` is visible (the Calendar is a bar tab, not a menu entry) | `Maestro/flows/nav/01-no-calendar-tab.yaml` (scenario NAV-01) — the tab bar's own flow, which asserts the Calendar tab's absence from the bar and the other tabs' presence; `Maestro/flows/nav/bottom-nav-tabs.yaml` covers the bar's tabs; the *model* half — Calendar is a tab and Pomodoro is a menu entry — is asserted by `MenuParityFlowTest` itself and by `shared/src/commonTest/.../shell/AppMenuTest.kt` |
+| `menu_all_projects` is visible (the way into the full project list) | `Maestro/flows/menu/04-all-projects.yaml` (scenario MENU-06) and, device-side, `androidApp/src/androidTest/.../ui/MenuSheetBoundsTest.kt`, whose `requiredMenuTags()` is derived from `AppMenu` and adds `MENU_ALL_PROJECTS` explicitly |
+| `menu_project_node_roadmap` is visible (a seeded project is listed in the menu) | `Maestro/flows/menu/01-projects-roots.yaml` (scenario MENU-08) — the flow that lists the projects' roots on the device |
+
+No assertion of the flow was Android-only. The two that touch the sheet
+(`menu_all_projects`, `menu_project_node_roadmap`) are sheet-reachability
+properties, and reachability *as a resource id inside the sheet's own
+window* is what `MenuSheetBoundsTest` already asserts for the whole entry
+set — with a list derived from the model, so it cannot drift the way a
+hand-written flow list can. The project row itself is covered on the device
+by MENU-08's own flow, which lists the roots.
+
+The scenario has a second half — the project tree — and it is owned by the
+same class. Both surfaces draw the same section from the same state, and the
+one switch between the two drawings is the expander: the sheet passes `null`
+and draws the roots, the drawer passes a toggle and draws the tree (ADR
+`2026-11-12-android-menu-roots-only.md`). The roots the two surfaces offer
+are therefore the roots of one state, and `MenuParityFlowTest` asserts that
+the two drawings offer the same root projects in the same order.
+
+### The owner was shown to fail when parity regresses
+
+The claim "the headless owner catches what the flow caught" was checked, not
+assumed. One entry was added to `AppMenu.account` — a destination the
+declared menu destinations do not contain — and the desktop test was run:
+
+```
+MenuParityFlowTest > NAV-02 Android and Desktop expose the same menu entries
+and the same project tree FAILED
+  org.opentest4j.AssertionFailedError: the menu offers something the declared
+  menu destinations do not, or misses one ==> expected:
+  <[Statistics, Notes, AiChat, Proposals, Search, Archive, Pomodoro,
+  ProfileSwitcher, Settings, AiUsage]> but was:
+  <[Settings, ProfileSwitcher, AttachAccount, Search, Statistics, Notes,
+  AiChat, Proposals, Archive, Pomodoro, AiUsage]>
+```
+
+The probe was reverted in the same change; the tree carries no trace of it.
+The Maestro flow would have kept passing, because the entry it spot-checks
+(`nav_tab_calendar`, `menu_all_projects`, one project row) was untouched.
+
+The scenario keeps both targets. `NAV-02`'s android cell is now an honest
+hole, and the hole floor in `config/docs/traceability-ratchet.json` was
+raised 71 → 72 with the reason next to the number — and lowered back to 71
+when main closed the hole `PROFILE-01` was carrying in the same window, and
+to 70 when main's later retirement of `agenda/04-saved-view-results` closed
+another one (see Consequences).
+
+## Rationale
+
+- **The model is the guarantee.** Both surfaces draw `AppMenu`; the parity
+  assertion `DestinationKind.menuEntries.toSet() == AppMenu.allDestinations`
+  fails on the commit that introduces a divergence, while the flow would
+  keep passing as long as the three entries it spot-checks remained. The
+  flow was strictly weaker than its owner.
+- **The flow was the only android carrier of `NAV-02`, and that is the
+  point.** A carrier that asserts the same thing from the other side is
+  what the inventory called redundancy. Removing it opens one hole in the
+  matrix, which the matrix is built to show.
+- **Narrowing the claim to dodge the hole is the wrong trade.** Option 3
+  would keep the number at 71 by deleting the promise "Android and Desktop
+  expose the same menu" — the promise is still true, and it is still the
+  scenario's title. The repository's precedent is to attach a carrier or
+  split the scenario, never to narrow a claim; a narrower claim would have
+  made the matrix green and the guarantee unwritten.
+- **Attaching a weaker android carrier would contradict the issue.** An
+  inert `@DisplayName` on the JUnit4 `MenuSheetBoundsTest` (plus a new
+  `junit-jupiter-api` androidTest dependency) would fill the cell with a
+  nightly-only marker that asserts nothing about parity. That is a hole
+  painted over, not a guarantee.
+- **The stale prose is fixed in the same place.** The scenario's
+  `expected` said both surfaces offer the same entries "including
+  Calendar". Calendar is a tab — `AppDestination.Calendar !in
+  AppMenu.allDestinations` — so the sentence was wrong before this change.
+  It now says what the model says.
+
+## Consequences
+
+- The Maestro suite loses one `full`-suite flow (35 s of measured flow
+  time) and one android carrier of `NAV-02`.
+- The scenario matrix shows `NAV-02` as `○` on android and `●` on desktop;
+  the hole is recorded in the ratchet floor with the reason. The floor was
+  raised 71 → 72 when the flow was retired, and lowered back to 71 when
+  main's `PROFILE-01` change dropped that scenario's android claim in the
+  same window: the hole `PROFILE-01` was carrying closed as this one opened,
+  so the total was back at 71 and this retirement spent no hole budget. The
+  composition moved — `NAV-02`'s android cell is the hole now — the budget
+  did not. Since then main moved again: its retirement of
+  `agenda/04-saved-view-results` gave `AGENDA-04` a desktop carrier and
+  closed that scenario's android cell, so `main` measures 67 holes where this
+  branch measures 68. The floor is 68 — the level the merged tree measures —
+  and this retirement spends one hole against `main`, the cell it opens and
+  names.
+- The menu's parity is now enforced in one place, in common code, on the
+  host, in seconds — and the Android sheet's own reachability stays on the
+  device where it belongs, in `MenuSheetBoundsTest`.
+- The qualification artifacts (`config/docs/maestro-flow-qualification-initial.yaml`
+  and `...-baseline.yaml`) are the record of the flows that were in a blocking
+  scope when the rule was introduced, and the frozen set only grows: the
+  retired `nav/02-menu-parity.yaml` stays in the frozen set and keeps its
+  baseline fingerprint, because it *was* in a blocking scope when the rule was
+  introduced. What retires it is its absence from the catalogue — the gate
+  admits a flow out of the catalogue, never out of a list, so a name in the
+  frozen set that no longer has a file is a record, not an admission. The
+  pinned digests were refreshed to match the artifacts.
+- Main's own #3136 split left `archive/02-bulk-archive-confirm.yaml` with a
+  stale baseline fingerprint: the flow's content changed and the gate refuses
+  it. The flow is admitted by an **evidence-backed exception** in
+  `config/docs/maestro-flow-qualification.yaml` — the split is the evidence,
+  and the behaviour half of the flow is owned by a headless test that needs no
+  device — and not by writing the new fingerprint into the baseline. The
+  baseline admits the content a flow had when the rule was introduced;
+  re-baselining a changed flow would admit content nobody qualified, which is
+  the one thing the pinned baseline exists to prevent.
+
+## Review round 1
+
+The independent review (ChatGPT, correctness role) returned one MAJOR
+finding, and it was right:
+
+> The surviving parity test does not verify the project-tree parity still
+> claimed by NAV-02. Its model assertion compares menu destinations, and its
+> UI assertion checks destination entries in the Desktop drawer. Neither
+> assertion compares root projects or their ordering between Android and
+> Desktop.
+
+The claim was in the scenario's `expected` all along — "the same root
+projects in the same order" — but no test asserted it: the desktop carrier
+covered the entries and nothing else, so the matrix said `●` for a cell
+whose guarantee was half-covered. The flow that was retired did not close
+the gap either: it asserted that one seeded root was visible, never the
+order and never the cross-platform equality.
+
+The fix is in the owner rather than in the scenario: `MenuParityFlowTest`
+now renders the two drawings of the shared section over one state — the
+sheet's (`onToggleExpanded = null`, the roots) and the drawer's (the tree) —
+and asserts that they offer the same root projects in the same order, and
+that the sheet holds no child. The claim in `NAV-02.yaml` is unchanged; what
+changed is that it now has a carrier that says it.
+
+## Review round 7
+
+A later review round returned another MAJOR, and it was right too:
+
+> The test draws synthetic `ProjectTreeSection` drawings rather than the
+> real call sites. A regression in `DesktopMenuDrawer` — passing `null`
+> where a toggle belongs — would leave the synthetic pair agreeing with
+> itself and the test green.
+
+Two hand-drawn drawings can only prove what the composable does with the
+state it was handed. They cannot prove that the drawer hands it that state:
+a drawer that passed `null` would draw the roots only, and the synthetic
+pair would still agree — because both halves were written by the same hand.
+
+So the owner now has a third test: it opens the **real** Desktop drawer,
+seeds a parent, a child and a sibling through the repository, unfolds the
+Projects section, and reads the rows the drawer actually put on the screen.
+The whole set of project rows is compared — a row nobody expected is a row
+the assertion sees — and the order is the order the rows are drawn in. The
+drawer that offers the roots only now fails this test, which is the point:
+the guarantee is about the drawer, so the drawer is what is opened.
+
+## Review round 8
+
+The next review round returned no blocking and no major finding, and two
+minors that both touched the same thing — the record the retirement keeps:
+
+> The frozen set can only grow, so a retired flow has to stay in it. The
+> stated reason for declining that does not hold: keeping a retired flow in
+> the frozen set does not require the gate to qualify a file that does not
+> exist.
+
+The reason it was declined was that main's sibling retirements (#3120–#3123)
+removed the retired flow from both qualification artifacts. But main's own
+artifacts and main's own pinned digests no longer agree — main is red on that
+gate today — and the rule the gate documents is that the frozen set only
+grows. The frozen set is a record of what was in a blocking scope when the
+rule was introduced, and `nav/02-menu-parity.yaml` was in one. The gate never
+qualifies a flow out of the frozen set: it walks the catalogue and admits a
+flow that is in the frozen set and whose fingerprint still matches. A name in
+the frozen set without a file behind it is therefore a record, not an
+admission. So the flow stays in the frozen set and keeps its baseline
+fingerprint, and the pinned digests were refreshed.
+
+The second minor was in the owner: the real-drawer test deduplicated the
+project rows it read, so a row drawn twice was folded away instead of
+failing. The deduplication is gone; a row that appears twice now fails the
+test by name.
+
+Two further minors asked for the foreign repairs to move to their own pull
+request: the qualification exception for `archive/02-bulk-archive-confirm.yaml`
+and the harness-convention fix in `OpenSavedViewShowsMatchingTasksFlowTest`.
+Both come from main's own #3136, and both are what the *merged* tree needs:
+the qualification gate is blocking, and a blocking gate that the tree fails
+is a tree nobody can merge. A repair that a blocked tree needs has no pull
+request of its own to live in — that pull request could not pass its own
+gates — so the repair rides here, where the merge carries it. This is the
+one exception to "a repair that unblocks a pull request goes in its own pull
+request", and the tree is what makes the exception: the repair is the reason
+the pull request can be merged at all.
+
+## Review round 9
+
+Round 9 reviewed the two round-8 fixes. One reviewer found no defect at all:
+no blocking, no major, and the two fixes — the retired flow staying in the
+frozen set, the deduplication gone from the drawer owner — both read as the
+corrections they were. The second reviewer agreed on blocking and major and
+returned three minors.
+
+The third minor was correct and is fixed: the contract in
+`docs/testing/maestro-flow-qualification.md` said the frozen set only grows
+as if the gate enforced the growth. The gate enforces the **pin** — an
+artifact that does not match the pinned digest is refused — but a change that
+removes a name *and* refreshes the pin is a source change, and the growth is
+checked by the review of that change, not by the gate. The contract now says
+so, in those words.
+
+The first two minors asked again for the two foreign repairs to move to a
+dedicated pull request into main, and this time with a counter-argument worth
+answering: the CI workflow runs on the pull request's merge checkout, and
+main has no branch protection, so a dedicated repair pull request would run
+its gates against a repaired tree and could be merged on its own.
+
+That counter-argument is about the *mechanics* of the split, and the
+mechanics are right. What it does not reach is the qualification repair,
+because after the frozen-set restore this pull request's qualification change
+**is** the repair and nothing else: the frozen set and the baseline map in
+this tree are byte-identical to main's, because the retired flow is in them
+again. What remains of this pull request's qualification delta is the two
+pinned digests — the values main's own artifacts imply, which main has not
+refreshed — and the exception that main's #3136 requires. A dedicated repair
+pull request would therefore change the *same lines of the same file* this
+pull request changes, with the same values: it cannot be lifted out of here
+without either duplicating the change in a pull request that conflicts with
+this one, or leaving this pull request red on a blocking gate.
+
+The harness-convention repair could be split on its own — it touches no line
+this pull request touches. It stays for the reason the round-8 review already
+accepted: main is red on that gate today, the repair is two lines, and the
+repository owner asked for it to stay with the retirement. Both repairs live
+in their own commits (`e7c760ff69`, `dd117394b1`), so either can be lifted
+into main on its own — `git cherry-pick e7c760ff69 dd117394b1 main` — and
+neither depends on the retirement's content.
+
+## Review round 10
+
+The merge of `main` brought two of main's own regressions into this branch,
+and both are inherited rather than caused by the retirement.
+
+**Main is red on the qualification gate.** `gazon1/sing#3141` split
+`menu/06-tree-live.yaml` and `gazon1/sing#3138` changed
+`sync/01-change-sync-interval.yaml` without requalifying either flow, so the
+pinned baseline no longer matches their content. Both are admitted by an
+**evidence-backed exception** in `config/docs/maestro-flow-qualification.yaml`
+— the upstream pull request is the evidence — and not by writing the new
+fingerprints into the baseline, for the same reason `archive/02` is: the
+baseline admits the content a flow had when the rule was introduced, and
+re-baselining a changed flow would admit content nobody qualified. The
+baseline repair belongs to main, which owns the flows.
+
+**Main is red on `traceability validate`.** `ProjectsMenuLiveScenarioTest`
+carried two `@DisplayName`s starting with `MENU-03` and
+`SyncSettings01ScenarioTest` carried two starting with `SYNC-SETTINGS-01`,
+so each of those scenarios was claimed by two tests on the desktop tier. The
+scanner's rule — one scenario may be claimed by at most one test per target —
+refuses that, because two claims make the matrix cell ambiguous. The second
+test of each pair keeps its name and its assertions and gives the scenario id
+back: the claim stays with the test that has always owned it, and the rule
+stays one-owner. The alternative — merging two claims into one — would hide
+exactly the disagreement the matrix exists to show.
+
+The merged tree measures 141 specs, 160 claimed cells, 92 carriers, 68
+holes, 49 dark scenarios and 7 unreachable cells; the ratchet floors are
+re-locked at that measurement.
+
+
+## Review round 11
+
+The round-10 review returned changes on both sides: six majors from one
+reviewer and one major plus three minors from the other. Most of them say the
+same thing — a test that owns a scenario id has to carry the **whole** scenario,
+and a flow that carries a scenario tag has to earn it. Both were true of this
+branch in a way the matrix could not see, because the matrix counts claims, not
+the weight of a claim.
+
+**The NAV-02 owner now executes every assertion of the scenario.** The owner
+was four tests, of which three carried no id: the model, the drawer's entries,
+the two hand-drawn project sections and the real drawer were four separate
+assertions, and the id sat on one of them. The rule the scanner enforces is one
+owner per scenario and target, so an owner that asserts half the scenario is
+half a carrier — the cell reads `●` while a claim of it goes unproved. The four
+assertions are now private helpers of the one owning test, which runs all of
+them. Nothing is lost: the same assertions, the same messages, one owner.
+
+**MENU-03 has one owner that carries both of its halves.** The scenario claims
+two things — a project created elsewhere appears in the menu, and a project
+renamed elsewhere shows its new name — and the id sat on the test that proved
+only the first. The second half was proved by a test that carried no id, so the
+matrix showed one owner for a scenario nobody owned whole. The two are merged
+into a single owner that asserts both while the drawer is open. The
+alternative — splitting the spec into two scenarios — was rejected: the split
+would make the matrix tidy and the guarantee smaller, and a guarantee that
+existed only to be split is a guarantee nobody made.
+
+**SYNC-SETTINGS-01's id moved to the test that proves the scenario.** The same
+shape: the id sat on the test that taps the interval row and sees the value
+change, while the test that proves the apply point and the survival across a
+restart carried no id. The id now belongs to the second test, which asserts the
+value change as well as the apply and the boundary. The first test keeps its
+assertions and loses the id — it is a good test, and it is not the whole
+scenario. The `runBlocking` that the second test used to read the persisted
+value is gone as well: the harness body is a suspend lambda, so the value is
+polled with `withTimeoutOrNull` and a short `delay` instead of blocking the
+thread, which is what the repository's own `NoRunBlocking` rule asks for.
+
+**The two residue flows lost the scenario tags they did not earn.** After
+`gazon1/sing#3141` and `gazon1/sing#3138` trimmed `menu/06-tree-live.yaml` and
+`sync/01-change-sync-interval.yaml` to a residue, both flows kept their
+`scenario:` tags — so the matrix counted two android claims that neither flow
+makes. A tag is a claim about what a flow proves, and a residue proves none of
+it: the menu flow asserts that reopening the sheet exposes a row by its stable
+id, and the sync flow asserts that the Sync tab is reachable. Both tags are
+dropped, and the two android cells they carried are **honest holes** — 68 → 70
+holes, 92 → 90 carriers, with the ratchet floors re-locked at that measurement.
+The guarantees themselves are not narrowed: `MENU-03` and `SYNC-SETTINGS-01`
+still claim android, and the android tier is where they are unverified. A
+narrowed claim would have kept the count and hidden the gap; this keeps the gap
+and shows it.
+
+**The persistence limitation is named instead of implied.** The desktop tier
+has no on-disk database — the harness runs on an in-memory fake, and there is
+no Room builder anywhere on the JVM tier — so the "survives a restart" half of
+`SYNC-SETTINGS-01` is proved as a **fresh app mount over the same repository
+state**: the setting is written, and a later mount reads it back. The disk
+round-trip is the android tier's part, and the scenario spec says so, so a
+reader of the matrix is told what the desktop carrier does and does not prove
+instead of discovering it.
+
+**Two counts in the inventory were stale.** The suite table said 30 smoke flows
+in shares of 8/8/7/7 and 127 `full` flows in shares of 32/32/32/31; the
+runner's own selection today is 29 smoke flows in shares of 8/7/7/7 and 121
+`full` flows in shares of 31/30/30/30. Both are corrected, in the table and in
+the prose that repeats the smoke figure.
+
+**The foreign repairs are a recorded waiver, not a technical necessity.** The
+two repairs this branch carries for main — the harness-convention fix and the
+qualification repair — are still here by the repository owner's decision, and
+they are still liftable on their own (`git cherry-pick e7c760ff69 dd117394b1
+main`). What changes is how the branch explains them: they are a **waiver** of
+the one-concern-per-pull-request convention, granted by the owner and recorded
+here, rather than a repair that "had" to live here. The waiver is what the
+review asked for, and it is the reason the repairs are not in this section's
+list of repairs.
+
+The merged tree measures 141 specs, 160 claimed cells, 90 carriers, 70 holes,
+49 dark scenarios and 7 unreachable cells.
+
+
+## Links
+
+- Issue: https://github.com/gazon1/sing/issues/3119
+- Parent inventory: https://github.com/gazon1/sing/issues/3105
+- Owner: `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/menu/MenuParityFlowTest.kt`
+- Android residue: `androidApp/src/androidTest/kotlin/com/singularity/todo/ui/MenuSheetBoundsTest.kt`
+- Scenario: `scripts/src/traceability/scenarios/nav/NAV-02.yaml`
+- Inventory: `docs/testing/maestro-guarantees-inventory.md`
+- Related: `docs/decisions/2026-11-12-android-menu-roots-only.md`

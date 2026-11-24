@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**141 scenarios · 93/160 claimed cells automated · 67 holes**
+**141 scenarios · 90/160 claimed cells automated · 70 holes**
 
 ## feature.agenda
 
@@ -106,7 +106,7 @@ the table carries the one-line version so a row is readable in a diff.
 |---|---|---|---|---|
 | `MENU-01` | The Desktop menu shows the projects as an expandable tree with children indented | — | ● | A and C are listed at the top level of the Projects section. Expanding A reveals B indented under it, so B reads as a… |
 | `MENU-02` | Tapping a project in the menu opens the project detail screen | ● | ● | The project's own screen opens, showing that project's name and its tasks. The menu closes on the way in, so the… |
-| `MENU-03` | The menu's project list reflects creations and renames made elsewhere | ● | ● | The menu's Projects section shows the new name and shows the newly created project, and neither change needed the app… |
+| `MENU-03` | The menu's project list reflects creations and renames made elsewhere | ○ | ● | The menu's Projects section shows the new name and shows the newly created project, and neither change needed the app… |
 | `MENU-04` | The Calendar is an entry of the menu on Android and Desktop | ● | ● | Calendar is listed in the menu on both platforms, and choosing it opens the calendar. The menu closes on the way in,… |
 | `MENU-05` | A project without children shows no expander, and a closed project is absent from the menu's Projects section | ● | ● | The childless project shows no expander control, so nothing in the menu invites an expansion that cannot happen. The… |
 | `MENU-06` | The full project list stays reachable from the Projects section of the menu | ● | ● | The full project list opens with its search and its sorting, so the menu's Projects section is not the only way to… |
@@ -119,7 +119,7 @@ the table carries the one-line version so a row is readable in a diff.
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
 | `NAV-01` | The bottom navigation bar no longer holds a Calendar button | ● | ● | There is no Calendar item among the tabs on either platform. The other tabs are still there, so the bar lost exactly… |
-| `NAV-02` | Android and Desktop expose the same menu entries and the same root projects | ● | ● | Both surfaces offer the same entries — including Calendar and the Projects section — and the same root projects in the… |
+| `NAV-02` | Android and Desktop expose the same menu entries and the same root projects | ○ | ● | Both surfaces offer the same entries — the Projects section among them, and not the Calendar, which is a tab and not a… |
 
 ## feature.negative
 
@@ -215,7 +215,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `SYNC-OFFLINE-01` | Work with no network and watch the queue drain | ◇ | ◇ | The indicator shows how many changes are waiting, and the count survives a restart. Restoring the network drains it to… |
 | `SYNC-PROFILES-01` | Have a profile follow the account to another device | ◇ | ◇ | The profile arrives on B under the same name with no duplicate. Switching profiles during a sync does not let the… |
 | `SYNC-PROTO-01` | Meet a server the app is too old for | ○ | ○ | The user is told to update the app to keep syncing. Local work is not blocked and no data is damaged. Proposed rather… |
-| `SYNC-SETTINGS-01` | Change how often sync runs | ● | ● | The new interval takes effect without a restart and survives one. |
+| `SYNC-SETTINGS-01` | Change how often sync runs | ○ | ● | The new interval takes effect without a restart and survives one. |
 | `SYNC-SIGNOUT-01` | Sign out and sign back in as somebody else | ○ | ○ | The first sign-out confirms briefly and leaves no way back into the signed-in state. With unsent changes the user is… |
 | `SYNC-STATUS-01` | See what sync is doing, and start it by hand | ○ | ● | Each state reads as what it is: no account and no network are calm states rather than red errors, and an error names… |
 
@@ -286,6 +286,8 @@ Claimed but not automated:
 - `CALENDAR-03` / android
 - `LIFECYCLE-01` / android
 - `LIFECYCLE-02` / android
+- `MENU-03` / android
+- `NAV-02` / android
 - `NOTES-01` / android
 - `NOTES-02` / android
 - `NOTES-03` / android
@@ -307,6 +309,7 @@ Claimed but not automated:
 - `SYNC-PROFILES-01` / desktop
 - `SYNC-PROTO-01` / android
 - `SYNC-PROTO-01` / desktop
+- `SYNC-SETTINGS-01` / android
 - `SYNC-SIGNOUT-01` / android
 - `SYNC-SIGNOUT-01` / desktop
 - `SYNC-STATUS-01` / android
