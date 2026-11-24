@@ -132,6 +132,37 @@ last seed wrote. A rename is the sharp case: `menu/06-tree-live` seeds a
 project, renames it, and asserts on the renamed row, so the wait that covered
 the first seed does not cover the second.
 
+**Whose wait it is.** The helper's wait runs inside the invocation of the seed
+that asked for it, so it is evidence for that seed's entity and for no other.
+A wait the helper made for a later seed says nothing about the entity an
+earlier seed wrote — and the row the earlier seed wrote is already on screen,
+so the later wait returns at once and proves nothing about the write the flow
+asserts on. Two seeds of one row, where only the second one names the row in
+`WAIT_FOR`, are therefore a flow the gate rejects: the row was there before
+the second seed ran, so nothing waited for what the second seed wrote.
+
+**What the helper may name as a target of its wait.** The elements the seed
+brings onto the screen the app is left on: the row of a task that is due
+today and the only row of its seed, or the section that holds it. Three kinds
+of element are not among them:
+
+- **A row of an overdue task.** The Today tab collapses the overdue section
+  once the profile holds enough overdue tasks
+  (`AgendaPresets.LARGE_OVERDUE_THRESHOLD` — twenty), and the helper neither
+  expands the section nor scrolls to the row. A wait for such a row runs out
+  its timeout on a row the app does not render, even though the seed wrote it.
+  The overdue *section* is a target — its header is rendered whether the
+  section is expanded or collapsed — so an overdue seed is waited for by its
+  section, the container rule.
+- **A row of a multi-row seed.** The list the seed filled is longer than the
+  screen, and the helper does not scroll.
+- **A section the flow named before the seed.** It was there before the seed
+  ran, so the wait for it returns at once.
+
+An entity on another screen — a note, a project, a task in another tab — is
+not among them either: the helper does not navigate, so its wait would run out
+its timeout on an element the app never renders.
+
 **How an entity is waited for.** By the row the app renders it under, by the
 container that renders only because the entity is in it, or by the name the
 entity is called. The name is the handle a rename needs: the row was already

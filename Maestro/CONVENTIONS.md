@@ -138,19 +138,28 @@ Which of those waits live in the helper and which stay in the flow:
   title-named entity is named by the element its title produces
   (`TestTags.slug`); an id-named entity is named by that id. The element has to
   be on the screen the seed leaves the app on — the agenda's Today tab, with
-  its Overdue and Today sections: a task that is overdue or due today, and the
-  section it is in. Three things are not: an element that is elsewhere (the
-  helper does not navigate), a row of a seed that wrote several rows (the list
-  is longer than the screen and the helper does not scroll), and a section the
-  flow named before the seed (it was already there, so the wait for it returns
-  at once and proves nothing about the row the seed wrote). The helper's wait
-  does not scroll, so it covers an entity that is on that screen. The helper
-  waits in this order — the link, the shell wait, the entity wait — and the
-  wait after the link is the one that absorbs the arrival: a wait before it
-  would be satisfied by the row the seed is about to rewrite. The shell wait
-  stands between the link and the entity wait: it lets the app come up, and an
-  entity wait above it would be a wait for a row the seed may not have written
-  yet.
+  its Overdue and Today sections: a task that is due today, and the section it
+  is in. Four things are not: an element that is elsewhere (the helper does
+  not navigate), the row of an overdue task (the Today tab collapses the
+  overdue section once the profile holds enough overdue tasks, and the helper
+  neither expands it nor scrolls), a row of a seed that wrote several rows (the
+  list is longer than the screen and the helper does not scroll), and a section
+  the flow named before the seed (it was already there, so the wait for it
+  returns at once and proves nothing about the row the seed wrote). An overdue
+  seed is waited for by its section — the header is rendered whether the
+  section is expanded or collapsed. The helper's wait does not scroll, so it
+  covers an entity that is on that screen. The helper waits in this order — the
+  link, the shell wait, the entity wait — and the wait after the link is the
+  one that absorbs the arrival: a wait before it would be satisfied by the row
+  the seed is about to rewrite. The shell wait stands between the link and the
+  entity wait: it lets the app come up, and an entity wait above it would be a
+  wait for a row the seed may not have written yet.
+
+  The helper's wait belongs to the seed that asked for it: it runs inside that
+  seed's own invocation. A flow that seeds the same row twice and asks the
+  helper to wait for it only the second time has not waited for the second
+  seed — the row the first seed wrote was already on screen, so the wait
+  returns at once.
 
 - **One link writes one kind.** The seeder takes the first kind the query
   names — task, then note, then project, then the bulk projects — so a link

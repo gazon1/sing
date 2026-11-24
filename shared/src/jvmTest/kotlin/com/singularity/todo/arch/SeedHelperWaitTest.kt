@@ -393,6 +393,52 @@ class SeedHelperWaitTest {
     }
 
     @Test
+    fun `an overdue row is not a target of the helper's wait`() {
+        // The Today tab collapses the overdue section once the profile holds
+        // enough overdue tasks (`AgendaPresets.LARGE_OVERDUE_THRESHOLD`), and
+        // the helper neither expands the section nor scrolls to the row. A row
+        // of an overdue task is therefore not a thing the helper can wait for.
+        //
+        // The section itself is a target: its header is rendered whether the
+        // section is expanded or collapsed.
+        val targets = landingTargetsOf(OVERDUE_SEED)
+
+        assertTrue(
+            "task_item_fixture" !in targets,
+            "the row of an overdue task is among the targets the helper may wait " +
+                "for: ${targets.joinToString()}. The overdue section is collapsed " +
+                "once the profile holds enough overdue tasks, and the helper does " +
+                "not expand it — the wait would run out its timeout on a row the " +
+                "app does not render.",
+        )
+        assertTrue(
+            "agenda_section_overdue" in targets,
+            "the overdue section is not among the targets: ${targets.joinToString()}. " +
+                "Its header is rendered whether the section is expanded or collapsed.",
+        )
+    }
+
+    @Test
+    fun `a task due days ago is overdue too`() {
+        // The overdue section holds every task that was due in the past, not
+        // only the one that was due yesterday.
+        for (due in listOf("-1d", "-2d", "-30d")) {
+            assertTrue(
+                landingWaitProblem("task=Fixture&due=$due", "task_item_fixture") != null,
+                "The check accepts a WAIT_FOR for the row of a task that was due " +
+                    "$due. Such a task is overdue, and an overdue row is not a " +
+                    "thing the helper can wait for.",
+            )
+            assertTrue(
+                landingWaitProblem("task=Fixture&due=$due", "agenda_section_overdue") == null,
+                "The check rejects a WAIT_FOR for the overdue section of a task " +
+                    "that was due $due. The section is rendered whether it is " +
+                    "expanded or collapsed.",
+            )
+        }
+    }
+
+    @Test
     fun `a count the seeder refuses writes no entity`() {
         // `SeedCount.parse` refuses a count outside 1..10000, and the seeder
         // then writes nothing at all. Such a seed creates no entity, so there
@@ -639,6 +685,19 @@ class SeedHelperWaitTest {
                 env:
                   QUERY: "task=Fixture&due=today"
                   WAIT_FOR: "agenda_section_today"
+            """.trimIndent()
+
+        /** A flow whose seed writes an overdue task and names its row to wait for. */
+        val OVERDUE_SEED =
+            """
+            appId: com.singularity.todo
+            name: fixture
+            ---
+            - runFlow:
+                file: seed.yaml
+                env:
+                  QUERY: "task=Fixture&due=-1d"
+                  WAIT_FOR: "task_item_fixture"
             """.trimIndent()
     }
 }

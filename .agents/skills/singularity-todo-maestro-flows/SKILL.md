@@ -333,12 +333,15 @@ A flow waits for the entity it seeded before it asserts on it, and a bare
   title-named entity is named by the element its title produces
   (`TestTags.slug`), an id-named entity by that id. The element has to be on
   the screen the seed leaves the app on — the agenda's Today tab: a task that
-  is overdue or due today, and the section it is in. Three things are not: an
-  element that is elsewhere (the helper does not navigate), a row of a seed
-  that wrote several rows (the list is longer than the screen and the helper
-  does not scroll), and a section the flow named before the seed (it was
-  already there, so the wait for it returns at once and proves nothing about
-  the row the seed wrote). The helper's wait does not scroll,
+  is due today, and the section it is in. Four things are not: an element that
+  is elsewhere (the helper does not navigate), the row of an overdue task (the
+  Today tab collapses the overdue section once the profile holds enough
+  overdue tasks, and the helper neither expands it nor scrolls — an overdue
+  seed is waited for by its section, whose header is rendered either way), a
+  row of a seed that wrote several rows (the list is longer than the screen
+  and the helper does not scroll), and a section the flow named before the
+  seed (it was already there, so the wait for it returns at once and proves
+  nothing about the row the seed wrote). The helper's wait does not scroll,
   so it covers an entity that is on that screen — the shell wait alone says
   nothing about the seed, because the app was already up before the link
   arrived. The helper waits in this order: the link, the shell wait, the
@@ -346,7 +349,9 @@ A flow waits for the entity it seeded before it asserts on it, and a bare
   wait before it would be satisfied by the row the seed is about to rewrite.
   The shell wait stands between the link and the entity wait: it lets the app
   come up, and an entity wait above it would be a wait for a row the seed may
-  not have written yet.
+  not have written yet. The wait belongs to the seed that asked for it: two
+  seeds of one row where only the second names it in `WAIT_FOR` have not
+  waited for the second seed — the first seed's row was already on screen.
 
 - **One link writes one kind.** The seeder takes the first kind the query
   names — task, then note, then project, then the bulk projects — so a link

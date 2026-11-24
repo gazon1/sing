@@ -55,6 +55,15 @@ internal object SeedWaitTree {
 
         for (seed in seeds) {
             val seeded = seededEntity(parseQuery(seed.query))
+            // The rows an earlier seed of this flow already wrote. A row that
+            // was there before the seed cannot be the evidence that this
+            // seed's write arrived: a wait for it returns at once.
+            val earlierRows =
+                seeds
+                    .filter { other -> compareOrder(other.position, seed.position) < 0 }
+                    .flatMap { other -> seededEntity(parseQuery(other.query)).entities }
+                    .flatMap { entity -> entity.rows }
+                    .toSet()
             // A container covers an entity only while the container is the
             // section that the seed brings in. A section the flow already
             // named before the seed was there before the seed, and a wait for
@@ -77,6 +86,11 @@ internal object SeedWaitTree {
                 for (assert in asserts) {
                     if (!assertsEntity(assert, entity)) continue
                     checked++
+                    // The row the seed wrote was already on screen when an
+                    // earlier seed of the same flow wrote it: a wait for that
+                    // row returns at once, and it is no evidence of this
+                    // seed's write.
+                    val stale = entity.rows.any { row -> row in earlierRows }
                     // A wait in the flow, or the helper's own wait for the entity
                     // the caller named — either way, after the seed and before the
                     // assert. A wait that names the element under `notVisible`
@@ -88,12 +102,7 @@ internal object SeedWaitTree {
                                 compareOrder(it.position, seed.position) >= 0 &&
                                 compareOrder(it.position, assert.position) <= 0
                         } ||
-                            seeds.any {
-                                it.waitFor != null &&
-                                    it.waitFor in landingIds &&
-                                    compareOrder(it.position, seed.position) >= 0 &&
-                                    compareOrder(it.position, assert.position) <= 0
-                            }
+                            helperWaited(seed, assert, landingIds, stale)
                     if (!waited) {
                         violations +=
                             "$label: asserts ${subjectOf(assert)} without waiting for it — " +
@@ -105,6 +114,34 @@ internal object SeedWaitTree {
             }
         }
         return RuleResult(violations, checked)
+    }
+
+    /**
+     * Whether the helper's own wait covers the assertion.
+     *
+     * The helper's wait runs inside the invocation of the seed that asked for
+     * it, so it is evidence for that seed and for no other: a wait the helper
+     * made for a later seed says nothing about the entity an earlier seed
+     * wrote.
+     *
+     * The target has to be one the seed brings onto the screen the app is left
+     * on — the rows the helper may wait for and the sections that hold them.
+     *
+     * And the target has to be able to observe the write at all. A row an
+     * earlier seed of the same flow already wrote is on screen before this
+     * seed runs, so a wait for it returns at once and proves nothing about
+     * the write the assertion is about.
+     */
+    private fun helperWaited(
+        seed: Event.Seed,
+        assert: Event.Assert,
+        landingIds: Set<String>,
+        stale: Boolean,
+    ): Boolean {
+        val waitFor = seed.waitFor ?: return false
+        if (waitFor !in landingIds) return false
+        if (stale) return false
+        return compareOrder(seed.position, assert.position) <= 0
     }
 
     /**
@@ -527,6 +564,7 @@ internal object SeedWaitTree {
                 val count = SeedCount.parse(params["count"])
                 if (count != null) {
                     val landing = isLandingDue(params["due"])
+                    val overdue = isOverdue(params["due"])
                     if (count > 1) {
                         (1..count).forEach { index ->
                             entities +=
@@ -546,10 +584,18 @@ internal object SeedWaitTree {
                             Entity(
                                 listOf(TestTags.taskItem(title)),
                                 listOf(title),
-                                helperWaitable = landing,
+                                // An overdue row is not there to be waited for
+                                // either: the app collapses the overdue
+                                // section once the profile holds enough
+                                // overdue tasks, and the helper neither
+                                // expands the section nor scrolls to the row.
+                                // The section itself is a target — its header
+                                // is rendered whether the section is expanded
+                                // or collapsed.
+                                helperWaitable = landing && !overdue,
                             )
                     }
-                    DUE_SECTIONS[params["due"]]?.let { section ->
+                    dueSection(params["due"])?.let { section ->
                         containers += TestTags.agendaSection(section)
                     }
                 }
@@ -605,17 +651,59 @@ internal object SeedWaitTree {
     }
 
     /**
+     * Whether a due date puts the task in the overdue section.
+     *
+     * A task due in the past is overdue — whatever day it was due on — and the
+     * Today tab holds it in the Overdue section.
+     */
+    private fun isOverdue(due: String?): Boolean {
+        val expr = due?.lowercase() ?: return false
+        val relative = RELATIVE_DAYS.matchEntire(expr) ?: return false
+        return relative.groupValues[1] == "-" && relative.groupValues[2] != "0"
+    }
+
+    /**
+     * The agenda section a task is in, by its due date.
+     *
+     * Only the sections that are named the same way whatever the day is:
+     * Overdue, Today, Tomorrow. A task due further out is grouped under
+     * its date, and that name is not knowable from the query — so such a
+     * task is waited for by its row.
+     */
+    private fun dueSection(due: String?): String? {
+        val expr = due?.lowercase() ?: return null
+        val relative = RELATIVE_DAYS.matchEntire(expr)
+        val sign = relative?.groupValues?.get(1) ?: ""
+        val days = relative?.groupValues?.get(2) ?: ""
+        return when {
+            expr == "today" -> "Today"
+            expr == "tomorrow" -> "Tomorrow"
+            relative == null -> null
+            sign == "-" && days != "0" -> "Overdue"
+            days == "0" -> "Today"
+            days == "1" -> "Tomorrow"
+            else -> null
+        }
+    }
+
+    /**
      * The elements the helper may wait for: what the seed brings onto the
      * screen the app is left on.
      *
      * The helper waits on the agenda's Today tab — that is where the seed
      * leaves the app — so a target it names has to be rendered there: the row
-     * of a task that is overdue or due today and the only row of its seed, or
-     * the section that holds it.
+     * of a task that is due today and the only row of its seed, or the
+     * section that holds it.
      *
      * A row of a multi-row seed is not among them: the list the seed filled is
      * longer than the screen, so the row may be below the fold, and the helper
      * does not scroll.
+     *
+     * An overdue row is not among them either: the Today tab collapses the
+     * overdue section once the profile holds enough overdue tasks, and the
+     * helper neither expands the section nor scrolls to the row. The section
+     * itself is: its header is rendered whether the section is expanded or
+     * collapsed.
      *
      * A section the flow named before the seed is not among them either: it
      * was there before the seed, a wait for it returns at once, and it cannot
@@ -661,11 +749,12 @@ internal object SeedWaitTree {
          * The helper waits on the agenda's Today tab — the screen the seed
          * leaves the app on — and it does not scroll. So the row it may wait
          * for is a row of that screen that is there to be seen: a task that is
-         * overdue or due today, and the only row of its seed. A row of a
-         * multi-row seed is below the fold of the list the seed itself filled,
-         * a task in another tab, a note, a project and a profile are on
-         * screens the app is not on — the helper's wait would run out its
-         * timeout on any of them.
+         * due today, and the only row of its seed. A row of a multi-row seed
+         * is below the fold of the list the seed itself filled, an overdue
+         * row is in a section the app collapses once the profile holds enough
+         * overdue tasks, a task in another tab, a note, a project and a
+         * profile are on screens the app is not on — the helper's wait would
+         * run out its timeout on any of them.
          */
         val helperWaitable: Boolean = false,
     )
@@ -701,22 +790,6 @@ internal object SeedWaitTree {
 
     /** The commands that assert an element is there. */
     val ASSERT_COMMANDS = setOf("assertVisible")
-
-    /**
-     * The agenda section a task is in, by its due date.
-     *
-     * Only the sections that are named the same way whatever the day is:
-     * Overdue, Today, Tomorrow. A task due further out is grouped under
-     * its date, and that name is not knowable from the query — so such a
-     * task is waited for by its row.
-     */
-    val DUE_SECTIONS =
-        mapOf(
-            "-1d" to "Overdue",
-            "today" to "Today",
-            "tomorrow" to "Tomorrow",
-            "+1d" to "Tomorrow",
-        )
 
     /**
      * The agenda sections the Today tab renders.
