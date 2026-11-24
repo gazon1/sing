@@ -182,7 +182,7 @@ class SeedHelperWaitTest {
                     if (seeded.entities.isEmpty()) {
                         null
                     } else {
-                        Triple(seed, waitFor, waitForTargets(seeded))
+                        Triple(seed, waitFor, seedTargets(seeded))
                     }
                 }
             for ((seed, waitFor, targets) in named) {
@@ -219,7 +219,7 @@ class SeedHelperWaitTest {
             SeedWaitTree.seededEntity(
                 SeedWaitTree.parseQuery("task=Buy%20milk&due=today"),
             )
-        val targets = waitForTargets(seeded)
+        val targets = seedTargets(seeded)
 
         assertTrue(
             targets.contains("task_item_buy_milk"),
@@ -232,14 +232,90 @@ class SeedHelperWaitTest {
     }
 
     /**
-     * The elements a `WAIT_FOR` may name for a seed.
+     * The elements a seed writes: the rows the app renders the entities under,
+     * and the containers they are in.
      *
-     * The helper waits for an id — `visible: {id: "${WAIT_TARGET}"}` — so the
+     * The helper waits for an *id* — `visible: {id: "${WAIT_TARGET}"}` — so the
      * display names of the entities are not among them: a `WAIT_FOR` that
      * carries a name is an id the app never renders.
      */
-    private fun waitForTargets(seeded: SeedWaitTree.Seeded): Set<String> =
+    private fun seedTargets(seeded: SeedWaitTree.Seeded): Set<String> =
         (seeded.entities.flatMap { entity -> entity.rows } + seeded.containers).toSet()
+
+    @Test
+    fun `a WAIT_FOR names an entity the seed brought to the screen it lands on`() {
+        val seeds = mutableListOf<Pair<Path, Event.Seed>>()
+        SeedWaitTree.forEachFile(maestroRoot) { file, events ->
+            events.filterIsInstance<Event.Seed>().forEach { seed -> seeds += file to seed }
+        }
+        val checked =
+            seeds.mapNotNull { (file, seed) ->
+                val waitFor = seed.waitFor ?: return@mapNotNull null
+                val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(seed.query))
+                if (seeded.entities.isEmpty()) return@mapNotNull null
+                Triple(file, waitFor, seeded)
+            }
+        val violations =
+            checked.mapNotNull { (file, waitFor, seeded) ->
+                if (waitFor in SeedWaitTree.landingTargets(seeded)) {
+                    return@mapNotNull null
+                }
+                "${SeedWaitTree.rel(maestroRoot, file)}: WAIT_FOR=$waitFor is not on the screen the " +
+                    "seed leaves the app on — the seed brings ${seedTargets(seeded).joinToString()} " +
+                    "up, and the helper waits on the agenda's Today tab"
+            }
+        val checkedCount = checked.size
+
+        assertTrue(
+            checkedCount >= 1,
+            "scanned only $checkedCount WAIT_FORs — the collector is likely broken",
+        )
+        assertTrue(
+            violations.isEmpty(),
+            "WAIT_FORs that name an entity the seed does not bring on screen " +
+                "(${violations.size}/$checkedCount):\n" +
+                violations.joinToString("\n") { "  - $it" } +
+                "\n\nThe seed leaves the app on the agenda's Today tab, and the " +
+                "helper waits there without navigating. A note, a project, a " +
+                "profile and a task in another tab are not on that screen — the " +
+                "flow waits for those itself, after it navigates to them.",
+        )
+
+        // The check has to be able to fail: a note is on the Notes screen, and
+        // the helper would wait out its timeout on an element the app never
+        // renders on the tab it is left on.
+        assertTrue(
+            landingWaitProblem("note=Alpha", "note_item_by_title_alpha") != null,
+            "The check does not notice a WAIT_FOR that names a note. A note is on " +
+                "the Notes screen; the helper waits on the agenda's Today tab and " +
+                "would run out its timeout there.",
+        )
+
+        // A task that is due today is on that screen: the helper may wait for it.
+        assertTrue(
+            landingWaitProblem("task=TodayTask&due=today", "task_item_todaytask") == null,
+            "The check rejects a WAIT_FOR for a task that is due today. Such a task " +
+                "is in the Today section of the tab the seed leaves the app on.",
+        )
+    }
+
+    /**
+     * What is wrong with a `WAIT_FOR` that names an element, if anything.
+     *
+     * The helper waits on the agenda's Today tab — the screen the seed leaves
+     * the app on — so the element it names has to be rendered there.
+     */
+    private fun landingWaitProblem(
+        query: String,
+        waitFor: String,
+    ): String? {
+        val seeded = SeedWaitTree.seededEntity(SeedWaitTree.parseQuery(query))
+        return if (waitFor in SeedWaitTree.landingTargets(seeded)) {
+            null
+        } else {
+            "the seed \"$query\" does not bring $waitFor on screen"
+        }
+    }
 
     @Test
     fun `the helper waits for the entity after the seed it waits for`() {
@@ -279,14 +355,55 @@ class SeedHelperWaitTest {
             "The check does not notice a helper whose entity wait runs before the " +
                 "seed link. A check that cannot fail holds nothing.",
         )
+
+        // And on a helper whose entity wait runs after the link but before the
+        // shell wait: the shell wait is what closes the stale-row race, and an
+        // entity wait above it waits for a row the seed may not have written.
+        val beforeShell =
+            """
+            env:
+              $OPTIONAL_INPUT
+            ---
+            - openLink: "todo-debug://seed?${'$'}{QUERY}"
+            - runFlow:
+                when:
+                  $GUARD
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        $WAIT_TARGET_ID
+                      timeout: 8000
+            - extendedWaitUntil:
+                visible:
+                  id: nav_tab_today
+                timeout: 30000
+            """.trimIndent()
+        assertTrue(
+            helperOrderProblem(beforeShell) != null,
+            "The check does not notice a helper whose entity wait runs before the " +
+                "shell wait. The shell wait lets the app come up; an entity wait " +
+                "above it is a wait for a row that may not have been written yet.",
+        )
     }
 
     /**
      * What is wrong with the order of the helper's commands, if anything.
      *
+     * The order is three steps, and every one of them has to hold:
+     *
+     *   1. the link opens the seed;
+     *   2. the shell wait lets the app come up;
+     *   3. the entity wait absorbs the arrival of the row the seed wrote.
+     *
      * The link has to come first: the entity wait is the wait for the row the
      * link writes, and a wait that runs before the link waits for a row that is
      * not there yet — or for the old row the link is about to replace.
+     *
+     * The shell wait has to come between the two: the app was already up
+     * before the link arrived, so the shell wait returns at once, and the row
+     * the seed wrote is still on its way. An entity wait that runs *before*
+     * the shell wait is a wait for a row that may not have been written yet —
+     * the stale-row race the shell wait exists to close.
      */
     private fun helperOrderProblem(text: String): String? {
         val lines = text.lines()
@@ -296,10 +413,22 @@ class SeedHelperWaitTest {
                 lines[index].trim() == "- extendedWaitUntil:" &&
                     lines.getOrNull(index + 2)?.trim() == WAIT_TARGET_ID
             }
+        // The shell wait is the other wait: the one that brings the app up,
+        // before the entity wait. It is found by exclusion — the entity wait
+        // is the only wait that targets $WAIT_TARGET — so the check does not
+        // depend on how the shell wait is written.
+        val shellIndex =
+            lines.indices.firstOrNull { index ->
+                index != waitIndex &&
+                    index > linkIndex &&
+                    lines[index].trim() == "- extendedWaitUntil:"
+            }
         return when {
             linkIndex < 0 -> "the helper has no seed link"
             waitIndex == null -> "the helper has no entity wait"
             waitIndex < linkIndex -> "the entity wait runs before the seed link"
+            shellIndex == null -> "the helper has no shell wait after the seed link"
+            waitIndex < shellIndex -> "the entity wait runs before the shell wait"
             else -> null
         }
     }

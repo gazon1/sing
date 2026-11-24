@@ -50,9 +50,12 @@
 # This helper does NOT run launch-clean — the caller decides.
 #
 # The app comes up on the Today tab. An entity the caller names is waited for
-# there when it is on that screen; an entity that is elsewhere — a note, a
-# project, a task in another tab — is the flow's to wait for, after it
-# navigates.
+# there when it is on that screen — a task that is overdue or due today, and
+# the section it is in; an entity that is elsewhere — a note, a project, a
+# task in another tab — is the flow's to wait for, after it navigates. The
+# gate holds the caller to the screen: the helper does not navigate, and its
+# wait would time out on an element the app never renders on the tab it is
+# left on.
 #
 # The contract: a flow waits for what it seeded before it asserts on it.
 #

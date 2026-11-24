@@ -60,6 +60,9 @@ internal object SeedWaitTree {
             // it returns at once — it cannot be the evidence that the seeded
             // row arrived.
             val containers = seeded.containers.filter { it !in namedBefore(seed.position, waits, asserts) }
+            // The containers of the sections the app is left on: the ones the
+            // helper can wait for at all.
+            val landingContainers = containers.filter { it in LANDING_CONTAINERS }
             for (entity in seeded.entities) {
                 // The ids of the entity: what the helper's own wait names, and
                 // what a wait for the row or the container names. The names are
@@ -67,6 +70,14 @@ internal object SeedWaitTree {
                 // id, so the names are not among its targets.
                 val ids = (entity.rows + containers).toSet()
                 val handles = (ids + entity.names).toSet()
+                // What the helper may wait for: the row of an entity the seed
+                // brings onto the screen the app is left on, and the section
+                // that holds it. An entity the seed leaves on another screen
+                // is not there to be waited for — the helper's wait would time
+                // out on an element the app never renders.
+                val landingIds =
+                    (if (entity.onLandingScreen) entity.rows else emptyList()) +
+                        landingContainers
                 for (assert in asserts) {
                     if (!assertsEntity(assert, entity)) continue
                     checked++
@@ -83,7 +94,7 @@ internal object SeedWaitTree {
                         } ||
                             seeds.any {
                                 it.waitFor != null &&
-                                    it.waitFor in ids &&
+                                    it.waitFor in landingIds &&
                                     compareOrder(it.position, seed.position) >= 0 &&
                                     compareOrder(it.position, assert.position) <= 0
                             }
@@ -473,12 +484,13 @@ internal object SeedWaitTree {
         val containers = mutableListOf<String>()
         params["task"]?.let { title ->
             val count = params["count"]?.toIntOrNull() ?: 1
+            val landing = isLandingDue(params["due"])
             if (count > 1) {
                 (1..count).forEach { index ->
-                    entities += Entity(listOf(TestTags.taskItem("$title-$index")), listOf("$title-$index"))
+                    entities += Entity(listOf(TestTags.taskItem("$title-$index")), listOf("$title-$index"), landing)
                 }
             } else {
-                entities += Entity(listOf(TestTags.taskItem(title)), listOf(title))
+                entities += Entity(listOf(TestTags.taskItem(title)), listOf(title), landing)
             }
             DUE_SECTIONS[params["due"]]?.let { section ->
                 containers += TestTags.agendaSection(section)
@@ -512,6 +524,45 @@ internal object SeedWaitTree {
     }
 
     /**
+     * Whether a due date puts the task on the screen the app is left on.
+     *
+     * The app comes up on the agenda's Today tab, and that tab holds the
+     * overdue and today's tasks. A task due later is in the Upcoming tab, a
+     * task without a date is in the Inbox, and neither is on screen.
+     *
+     * A date the seed resolves against the device's own "today" — `YYYY-MM-DD`
+     * — is not decidable here: it is overdue on one day and upcoming on
+     * another. Such a task is treated as not on the screen, and the flow that
+     * seeds it waits for it itself.
+     */
+    private fun isLandingDue(due: String?): Boolean {
+        val expr = due?.lowercase() ?: return false
+        if (expr == "today") return true
+        val relative = RELATIVE_DAYS.matchEntire(expr) ?: return false
+        val sign = relative.groupValues[1]
+        return sign == "-" || (sign.isEmpty() && relative.groupValues[2] == "0")
+    }
+
+    /**
+     * The elements the helper may wait for: what the seed brings onto the
+     * screen the app is left on.
+     *
+     * The helper waits on the agenda's Today tab — that is where the seed
+     * leaves the app — so a target it names has to be rendered there: the row
+     * of a task that is overdue or due today, or the section that holds it.
+     *
+     * An entity on another screen is not among them. The helper does not
+     * navigate, so its wait would run out its timeout on an element the app
+     * never renders — and the flow would fail on the helper, before it had a
+     * chance to navigate to the entity itself.
+     */
+    fun landingTargets(seeded: Seeded): Set<String> =
+        seeded.entities
+            .filter { it.onLandingScreen }
+            .flatMap { it.rows }
+            .toSet() + seeded.containers.filter { it in LANDING_CONTAINERS }
+
+    /**
      * What a seed writes: the entities it created, and the containers they are in.
      *
      * The containers are the seed's, not an entity's: a section that holds a
@@ -521,7 +572,20 @@ internal object SeedWaitTree {
     data class Seeded(val entities: List<Entity>, val containers: List<String>)
 
     /** One entity the seed wrote: the rows it is rendered under, the names it is called. */
-    data class Entity(val rows: List<String>, val names: List<String>)
+    data class Entity(
+        val rows: List<String>,
+        val names: List<String>,
+        /**
+         * Whether the seed brings the entity onto the screen the app is left on.
+         *
+         * The seed brings the app up on the agenda's Today tab, so what is
+         * there to be waited for is what that tab renders: a task that is
+         * overdue or due today. A task in another tab, a note, a project and a
+         * profile are on screens the app is not on — the helper's wait would
+         * never see them, and the flow is the one that navigates there.
+         */
+        val onLandingScreen: Boolean = false,
+    )
 
     /**
      * The path of a file, relative to the worktree root.
@@ -561,6 +625,21 @@ internal object SeedWaitTree {
             "tomorrow" to "Tomorrow",
             "+1d" to "Tomorrow",
         )
+
+    /**
+     * The agenda sections the Today tab renders.
+     *
+     * The seed leaves the app on that tab, so the sections it renders are the
+     * containers the helper may wait for. The other sections are on the tabs
+     * the app is not on.
+     */
+    val LANDING_SECTIONS = setOf("Overdue", "Today")
+
+    /** The ids of the sections the app is left on. */
+    val LANDING_CONTAINERS: Set<String> = LANDING_SECTIONS.map { TestTags.agendaSection(it) }.toSet()
+
+    /** A due date relative to the device's own today: `-1d`, `+2d`, `0d`. */
+    val RELATIVE_DAYS = Regex("""^([+-]?)(\d+)d$""")
 
     /** The selector a wait uses when it waits for an element to be there. */
     const val VISIBLE = "visible"

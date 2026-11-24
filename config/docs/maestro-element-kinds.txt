@@ -241,6 +241,8 @@ task_item_due_today item
 task_item_due_tomorrow item
 task_item_emptyurltask2026 item
 task_item_healthoverdue_task item
+task_item_helpernamedentity item
+task_item_helperoptionalinput item
 task_item_measure_the_kitchen_counter item
 task_item_offline_task item
 task_item_order_the_kitchen_tiles item

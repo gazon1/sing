@@ -63,6 +63,29 @@ whatever was on screen already — the row the seed is about to rewrite
 satisfies it, and the flow goes on to assert on a row that has not been
 written yet. The gate holds the helper to that order.
 
+The shell wait has to stand *between* the link and the entity wait, and that is
+a third step rather than a detail of the second. The app was already up before
+the link arrived, so the shell wait returns at once — the row the seed wrote is
+still on its way. An entity wait above it is a wait for a row that may not have
+been written yet: the stale-row race the shell wait exists to close. The gate
+reads the shell wait by exclusion — the entity wait is the only wait that
+targets `$WAIT_TARGET` — so the check does not depend on how the shell wait is
+written.
+
+**What the helper may wait for.** The screen the seed leaves the app on: the
+agenda's Today tab, with its Overdue and Today sections and the rows of the
+tasks in them. The helper does not navigate, so an element that is not on that
+screen is not there to be waited for — the wait would run out its timeout on an
+element the app never renders, and the flow would fail on the helper before it
+had a chance to navigate to the entity itself. A `WAIT_FOR` that names a note,
+a project, a profile or a task in another tab is therefore refused by the gate:
+the flow waits for those itself, after it navigates. The gate knows the screen
+from the seed's own query — a task that is overdue or due today is in the Today
+tab, a task due later is in the Upcoming tab, a task without a date is in the
+Inbox — and it holds the caller to it. A date the seed resolves against the
+device's own "today" (`YYYY-MM-DD`) is not decidable statically, so such a task
+is treated as not on the screen.
+
 **What the helper's wait does not do.** It does not scroll. A wait that
 scrolls moves the viewport a flow is about to assert on, and the flow's own
 `scrollUntilVisible` is the thing that absorbs a row below the fold. And it
@@ -140,8 +163,19 @@ business and is tracked separately (issue #3135).
 **What the rule is held against.** `SeedHelperWaitTest` holds the rule to
 fixtures as well as to the tree: flows written to break it — a wait that
 precedes the seed, two seeds of one row with a wait that covers only the first
-— and a helper whose entity wait sits outside the guarded block. A gate that
-cannot fail holds nothing.
+— and a helper whose entity wait sits outside the guarded block, a helper whose
+entity wait runs before the seed link, and a helper whose entity wait runs
+between the link and the shell wait. A gate that cannot fail holds nothing.
+
+**The runtime half.** The gate reads the YAML; it cannot hold what the helper
+does on a device. `smoke/07-seed-helper-contract` is that half: a seed with no
+`WAIT_FOR` (the input is optional, and the flow waits for the row itself), a
+seed with a `WAIT_FOR` (the helper waits for the row, and the flow asserts on
+it right away, with no wait of its own), and a seed that writes no entity
+(`session=anonymous` — no row, so no entity is named, and the app still comes
+up). The app is already up when the seeds run, so the helper's shell wait
+returns at once — the case where a wait *before* the seed would be satisfied by
+a row that was already on screen.
 
 **How the order is read.** The gate reads the tree's commands the way they
 run: every command carries the path of its own place in the flow — its index
@@ -178,7 +212,21 @@ profile therefore behaves exactly as it did before.
   `Maestro/CONVENTIONS.md` and the `singularity-todo-maestro-flows` skill —
   and held by `SeedHelperWaitTest`: the helper keeps a guarded wait, a seed
   that writes no entity names none, a `WAIT_FOR` names an entity the seed
-  wrote, and every flow that asserts a seeded entity waits for it first.
+  wrote, a `WAIT_FOR` names an element the seed brought on screen, and every
+  flow that asserts a seeded entity waits for it first.
+- A `WAIT_FOR` names an element on the agenda's Today tab. A note, a project,
+  a profile or a task in another tab is waited for by the flow, after it
+  navigates — the helper does not navigate, and its wait would time out on an
+  element the app never renders on the tab it is left on.
+- Changing the helper invalidates the fingerprint of every flow that runs it:
+  the qualification fingerprint covers the files a flow runs transitively, so
+  the 69 flows that seed now have a stale baseline. They are not broken — their
+  assertions and their navigation are unchanged — but the evidence that
+  admitted them was three passing runs against the old helper. The sweep is
+  tracked in issue #3140; it is not this entry's work, and the ADR does not
+  excuse it with exceptions.
+- `smoke/07-seed-helper-contract` is the runtime half of the contract: the
+  optional input, the named entity, and the seed that writes no entity.
 - A flow that seeds an entity the agenda does not show still waits for it
   itself, by the row rule or the container rule.
 - `scripts/check-ui-wait-budgets.py` now reads the waits nested in a
@@ -236,6 +284,8 @@ profile therefore behaves exactly as it did before.
 - Issue #3135 — the bulk seed writes ~30 ms a row, so a thousand-row seed
   outlasts every Maestro wait. Tracked separately; the seed's write path is
   not changed by this entry.
+- Issue #3140 — the qualification sweep that follows from this entry's change
+  to the helper.
 - `Maestro/flows/tasks/08-date-buckets.yaml` — a flow that names the entity it
   wants waited for.
 - `Maestro/flows/agenda/07-large-overdue.yaml` — a flow that waits for the
