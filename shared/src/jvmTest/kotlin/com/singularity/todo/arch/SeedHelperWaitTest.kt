@@ -508,6 +508,22 @@ class SeedHelperWaitTest {
     }
 
     @Test
+    fun `a seed with a key the seeder does not know writes no entity`() {
+        // The seeder reads the key as the link spells it: ` task=Fixture` names
+        // no parameter the seeder knows, so it writes nothing. A model that
+        // trimmed the key away would say the link wrote a task — and the gate
+        // would let a flow through that fails on the device, on a row that was
+        // never written.
+        val seeded = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery(" task=Fixture&due=today"))
+
+        assertTrue(
+            seeded.entities.isEmpty(),
+            "the model writes ${seeded.entities.size} entities for \" task=Fixture\" — the " +
+                "seeder reads the key as \" task\", knows no such parameter, and writes nothing",
+        )
+    }
+
+    @Test
     fun `a task due today is a target of the helper's wait`() {
         // The seeder reads every relative date but the negative one as
         // positive: `+0d` is today, and so is `0d`. A gate that does not know

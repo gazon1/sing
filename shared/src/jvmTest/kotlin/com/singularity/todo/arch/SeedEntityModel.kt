@@ -22,12 +22,19 @@ internal object SeedEntityModel {
      * nothing, and a model that kept the pair would say the link wrote a task
      * with an empty title — and the gate would hold a flow to a wait for a
      * row that was never written.
+     *
+     * The key is kept the way the seeder keeps it — as the link spells it,
+     * neither trimmed nor normalised. A link that writes ` task=Fixture`
+     * writes nothing for the seeder, because the seeder reads the key as
+     * " task" and knows no such parameter; a model that trimmed the key away
+     * would say the link wrote a task, and the gate would let a flow through
+     * that fails on the device.
      */
     fun parseQuery(query: String): Map<String, String> =
         query
             .split("&")
             .filter { it.contains("=") }
-            .map { pair -> pair.substringBefore("=").trim() to decode(pair.substringAfter("=")) }
+            .map { pair -> decode(pair.substringBefore("=")) to decode(pair.substringAfter("=")) }
             .filter { (key, value) -> key.isNotBlank() && value.isNotBlank() }
             .toMap()
 

@@ -100,7 +100,7 @@ internal object SeedWaitTree {
                     // condition holds, so an assertion outside that block is
                     // not about that seed: the seed may never have run.
                     val onEntity = assertsEntity(assert, entity)
-                    val inScope = seed.scope == null || assert.scope == seed.scope
+                    val inScope = seed.scope == null || isInside(assert.scope, seed.scope)
                     if (onEntity && inScope) {
                         checked++
                         // A wait in the flow, or the helper's own wait for the entity
@@ -112,8 +112,11 @@ internal object SeedWaitTree {
                                 it.positive &&
                                     // A wait in a conditional block runs only when
                                     // the condition holds, so it cannot cover an
-                                    // assertion outside that block.
-                                    (it.scope == null || it.scope == assert.scope) &&
+                                    // assertion outside that block. A wait in an
+                                    // outer block covers an assertion in a block
+                                    // nested in it: the outer block ran before
+                                    // the inner one did.
+                                    (it.scope == null || isInside(assert.scope, it.scope)) &&
                                     it.handles.any { handle ->
                                         handle in handles &&
                                             distinguishes(handle, entity, earlierNames, earlierRows, repeated)
@@ -394,6 +397,28 @@ internal object SeedWaitTree {
             if (difference != 0) return difference
         }
         return a.size.compareTo(b.size)
+    }
+
+    /**
+     * Whether an event in `scope` sits inside the conditional block `outer`.
+     *
+     * A scope is the path of the `runFlow` that carries the condition, so the
+     * scopes are a hierarchy, not a flat list: a block nested in a block is
+     * inside it. An assertion in a nested block is about the seed of the block
+     * around it — the outer condition held, so the outer block ran — while a
+     * seed in a nested block says nothing about an assertion outside it, for
+     * the other way round: the inner condition may not hold, so the seed may
+     * never have run.
+     *
+     * An event that is in no conditional block is in none of them.
+     */
+    private fun isInside(
+        scope: List<Int>?,
+        outer: List<Int>,
+    ): Boolean {
+        if (scope == null) return false
+        if (scope.size < outer.size) return false
+        return scope.subList(0, outer.size) == outer
     }
 
     /** One top-level command of a Maestro file. */

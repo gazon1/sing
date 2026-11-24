@@ -510,6 +510,75 @@ class SeededEntityWaitTest {
     }
 
     @Test
+    fun `a seed in a conditional block is held to an assertion in a block nested inside it`() {
+        // The blocks are a hierarchy, not a list. The assertion sits in a block
+        // nested in the block the seed is in: where the inner condition holds,
+        // the outer one held too, so the seed did run — and the assertion is
+        // about the entity it wrote.
+        val events = SeedWaitTree.fixture("flow.yaml" to NESTED_BLOCK_SEED_AND_ASSERT)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule ignores a seed whose block holds the assertion in a block " +
+                "nested inside it. That assertion is about the seeded entity, so " +
+                "something has to wait for it.",
+        )
+    }
+
+    @Test
+    fun `a seed in a block nested in a conditional block is not held to an assertion in the outer block`() {
+        // The other way round: the seed is in the inner block, and the inner
+        // block runs only when its own condition holds — so the seed may never
+        // have run, and an assertion in the outer block is not about it.
+        val events = SeedWaitTree.fixture("flow.yaml" to NESTED_BLOCK_SEED_OUTER_ASSERT)
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isEmpty(),
+            "The rule holds an assertion in an outer block to a seed in a block " +
+                "nested inside it: " +
+                "${SeedWaitTree.waitViolations("fixture", events).violations}",
+        )
+    }
+
+    @Test
+    fun `a seed in a file a conditional block runs is not held to an assertion outside it`() {
+        // The condition is on the `runFlow` that pulls the file in, so the file
+        // belongs to the block: the seed in it may never have run, and an
+        // assertion outside the block is not about it.
+        val events =
+            SeedWaitTree.fixture(
+                "flow.yaml" to CONDITIONAL_FILE_SEED_OUTSIDE_ASSERT,
+                "wrapper.yaml" to CONDITIONAL_FILE_SEED,
+            )
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isEmpty(),
+            "The rule holds an assertion outside a conditional block to a seed " +
+                "in the file the block runs: " +
+                "${SeedWaitTree.waitViolations("fixture", events).violations}",
+        )
+    }
+
+    @Test
+    fun `a seed in a file a conditional block runs is held to the rule inside the block`() {
+        // The other half: the scope reaches the seed through the file, so the
+        // assertion next to it — inside the block, in the file — is still an
+        // assertion about the seeded entity.
+        val events =
+            SeedWaitTree.fixture(
+                "flow.yaml" to CONDITIONAL_FILE_SEED_BLOCK,
+                "wrapper.yaml" to CONDITIONAL_FILE_SEED_ASSERTED,
+            )
+
+        assertTrue(
+            SeedWaitTree.waitViolations("fixture", events).violations.isNotEmpty(),
+            "The rule ignores a seed that runs inside a conditional block through " +
+                "the file it runs: the assertion next to it is about the seeded " +
+                "entity, so something has to wait for it.",
+        )
+    }
+
+    @Test
     fun `an assertion written as a scalar is an assertion on the entity`() {
         // `assertVisible: "Fixture"` is the short form of the block form. A
         // gate that reads only the block form does not see the assertion at

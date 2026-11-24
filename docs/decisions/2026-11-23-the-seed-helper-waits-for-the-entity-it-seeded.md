@@ -135,6 +135,12 @@ that kept them would say the link wrote a task with an empty title, and the
 gate would hold the flow to a wait for a row that was never written — a flow
 that waits for nothing it cannot have.
 
+The key is read as the link spells it. The seeder decodes the key and looks it
+up as it is: ` task=Fixture` names no parameter it knows, and it writes nothing.
+A model that trimmed the key away would say the link wrote a task, and the gate
+would let a flow through that fails on the device, on a row that was never
+written.
+
 **What the helper may name as a target of its wait.** A row of the screen
 the seed leaves the app on, and the section that holds it. Three things are
 not: a row of a *multi-row* seed (the list the seed filled is longer than the
@@ -298,11 +304,18 @@ contract is written in the header of `helpers/seed.yaml`, and it is repeated in
 `Maestro/CONVENTIONS.md` and in the `singularity-todo-maestro-flows` skill —
 three documents that a flow author may read instead of the first. A repetition
 that drifts is a second contract, and a flow written against it fails on a
-device for a reason the source does not show. `SeedHelperWaitTest` therefore
-holds the three to each other: every clause of the contract has to be stated in
-all three, and a document that states none of them fails the check — a check
-that cannot fail holds nothing. The three copies state the contract alike, and
-the check holds them to it.
+device for a reason the source does not show. `SeedContractCopiesTest`
+therefore holds the three to each other: every clause of the contract has to be
+stated in all three, and a document that states none of them fails the check — a
+check that cannot fail holds nothing.
+
+A repetition can also drift by *denying* the contract while keeping its
+wording: a copy that says the helper navigates to the section holds every
+marker of the contract and states the opposite of one of its clauses. So the
+opposite of each clause is a forbidden wording, and a copy that states one is
+held to it. The check is shown to be able to fail: a document that keeps every
+marker of the contract and denies one clause has to be caught by the
+contradiction check and by nothing else.
 
 **The runtime half.** The gate reads the YAML; it cannot hold what the helper
 does on a device. `smoke/07-seed-helper-contract` is that half: a seed with no
@@ -347,6 +360,17 @@ to each other, and an assertion outside the block is not held to a seed that may
 never have run. The block's scope reaches the file the same way it reaches a
 helper: a file that runs under a `when:` of its own is a file that may not have
 run at all.
+
+**The scope is a hierarchy, not a list.** A block may be nested in a block, and
+a scope is the path of the `runFlow` that carries the condition — so the scopes
+are paths, and one path may be a prefix of another. A seed in a block is
+therefore held to an assertion in a block *nested inside it*: where the inner
+condition holds, the outer one held too, so the seed did run, and the assertion
+is about the entity it wrote. The other way round does not hold: a seed in a
+nested block may never have run, so an assertion in the outer block is not
+about it. A gate that matches scopes by equality loses the inner half of that
+hierarchy, and a flow that asserts on a seeded row inside a nested block with
+nothing waiting for it passes the gate.
 
 ## Rationale
 
@@ -437,8 +461,9 @@ profile therefore behaves exactly as it did before.
 - The gate descends into the commands of a conditional block: a seed under a
   `when:` guard is matched with the assertions of the same block only, and an
   assertion outside the block is not held to a seed that may never have run.
-- The three copies of the contract state it alike, and `SeedHelperWaitTest`
-  holds them to each other: every clause has to be stated in all three.
+- The three copies of the contract state it alike, and `SeedContractCopiesTest`
+  holds them to each other: every clause has to be stated in all three, and a
+  copy that denies a clause while keeping its wording is held to it as well.
 - The helper's own wait covers one entity of the seed that asked for it: a link
   that names a profile and a task writes two entities, and the wait for the
   task's row says nothing about the profile. The section a task is in belongs
@@ -450,6 +475,12 @@ profile therefore behaves exactly as it did before.
 - The scope of a conditional block reaches the file the block runs as well: a
   `runFlow` with a `when:` of its own pulls the file into that block, so an
   assertion outside the block is not held to a seed in the file.
+- The scope is a hierarchy: a seed in a block is held to an assertion in a
+  block nested inside it, and a seed in a nested block is not held to an
+  assertion in the outer block — the inner condition may not have held.
+- A parameter's key is read as the link spells it: ` task=…` names no
+  parameter the seeder knows, it writes nothing, and the gate does not hold a
+  flow to a wait for a row that was never written.
 - A container belongs to the entity and not to the seed: a wait for the section
   of a task covers that task and says nothing about another entity of the same
   link. The flow's own wait is held to the same rule as the helper's.
@@ -489,6 +520,9 @@ profile therefore behaves exactly as it did before.
   the gate that holds the helper and its callers to this entry.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeededEntityWaitTest.kt` —
   the gate that holds the flows to the rule that one wait covers one entity.
+- `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedContractCopiesTest.kt` —
+  the gate that holds the three copies of the contract to each other: every
+  clause in all three, and the opposite of a clause in none.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedWaitTree.kt` —
   the tree the two gates read, and the rule they hold the flows to.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedEntityModel.kt` —
