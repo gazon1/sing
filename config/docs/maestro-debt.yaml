@@ -57,11 +57,10 @@ environment:
   measured_on: '2026-10-22'
   apk_commit_sha: 742deef01cd1
   note: >-
-    The floor belongs to this environment. The Maestro shards are skipped in
-    CI — there is no emulator there — so the emulator's calibration guarded
-    nothing, while every local run happens on a phone. A run on another
-    device is a different measurement, and the gate says so rather than
-    comparing them.
+    The floor belongs to this environment. The CI e2e workflow runs the Maestro
+    shards on the `singularity-api36` AVD (API 36 emulator), while local runs may
+    happen on a phone. A run on another calibrated kind or API is a different
+    measurement, and the gate says so rather than comparing them.
 
 environments:
   - kind: device
@@ -173,6 +172,7 @@ causes:
   owner: product
   status: fixed
   flows: 1
+  note: "Fixed by #842 (EventBus double-collect); seeing it again is a regression. The 2026-11-24 smoke run (45357418110) reported this cause on tasks/10-swipe-delete-undo, and that run did not record whether the row had gone first. The flow does not assert that today: it swipes and waits for the snackbar action, so one key covers two failure modes — a swipe that never crossed the delete threshold, and a row that went but whose snackbar action never arrived. Until the flow distinguishes them (a `notVisible: task_item_buy_milk` wait before the snackbar assertion), the observed failure stays counted here rather than being written off as fixed."
 - key: "Assertion is false: id: task_editor_title_input is visible"
   issue: 837
   owner: unclassified
@@ -292,12 +292,30 @@ causes:
   status: fixed
   flows: 0
   note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Assertion is false: id: checklist_inline_add_input is visible"
+  issue: 3113
+  owner: test
+  status: fixed
+  flows: 0
+  note: "Fixed by this change: TASK-CHECK-01 now scrolls to the inline add input after expanding the checklist section; on small viewports the add row renders below the fold."
+- key: "Assertion is false: id: subtask_add_input is visible"
+  issue: 3113
+  owner: test
+  status: fixed
+  flows: 0
+  note: "Fixed by this change: TASK-SUB-01 now scrolls to the subtask add input after expanding the subtasks section; on small viewports the add row renders below the fold."
+- key: "Assertion is false: \"Discuss roadmap\" is visible"
+  issue: 3113
+  owner: test
+  status: accepted
+  flows: 1
+  note: "Observed 2026-11-24 smoke (emulator API 36, run 45357418110): notes/01-edit-body saved body text rendered as 'Discuss rodp' in preview, suggesting IME/composition loss before save. Needs device repro; registered to keep registry aligned with observed cause."
 - key: "Assertion is false: id: nav_tab_today is visible"
   issue: 927
   owner: test
   status: fixed
   flows: 0
-  note: "Fixed by this change; the cause is a regression guard from now on."
+  note: "Shared-helper regression guard. launch-clean now dismisses first-run spotlight before nav_tab_today readiness, rechecks spotlight if nav is not yet ready (async-appearance race mitigation), and dismisses again after readiness. Smoke run 45361682445 (15/29 flows) showed this readiness cause before this fix; no fresh device/CI rerun in this session. Keep fixed as a regression guard; reclassify/reopen only with new evidence of the same cause recurring after this fix."
 
 # The causes the device found. A phone's screen is smaller than the emulator's
 # and its locale is Russian, so what the emulator hid showed up here.

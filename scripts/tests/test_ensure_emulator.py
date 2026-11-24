@@ -13,6 +13,7 @@ import contextlib
 import io
 import os
 import pathlib
+import re
 import sys
 import tempfile
 import threading
@@ -833,6 +834,42 @@ class DevicePreparationTest(unittest.TestCase):
             ["src/emulator/_startup.py"],
             owners,
             "the IME setting is written in more than one place: it will drift",
+        )
+
+    def test_acquiring_a_device_hides_the_error_dialogs(self):
+        """An overloaded emulator puts up its own ANR window over the app.
+
+        `Pixel Launcher isn't responding` and `Process system isn't responding`
+        are real windows: while one is up the app underneath is not on screen,
+        and Maestro reports whichever element it asked about — `nav_tab_today`
+        in fifteen flows of run 45361682445, four shards, every one of them with
+        the dialog in the screenshot. Hiding them is the platform's own switch.
+        """
+        commands = self._recorded_commands()
+        self.assertTrue(
+            any("hide_error_dialogs" in c and c.rstrip().endswith("1") for c in commands),
+            f"an ANR dialog can still cover the app: {commands}",
+        )
+
+    def test_the_error_dialog_setting_has_one_owner(self):
+        """One writer. The results runner *reads* crashes back from the log
+        because this setting hides them too; that is a reader, not a second
+        writer, and the distinction is what this guard is about."""
+        root = pathlib.Path(__file__).resolve().parent.parent
+        writers = []
+        for path in sorted(root.rglob("*.py")):
+            if "tests" in path.parts:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            writes = re.search(
+                r'"settings",\s*"put",\s*"global",\s*"hide_error_dialogs"', text
+            ) or re.search(r"settings put global hide_error_dialogs", text)
+            if writes:
+                writers.append(path.relative_to(root).as_posix())
+        self.assertEqual(
+            ["src/emulator/_startup.py"],
+            writers,
+            "the error-dialog setting is written in more than one place: it will drift",
         )
 
     # ── the emulator / physical-device distinction ───────────────────────────
