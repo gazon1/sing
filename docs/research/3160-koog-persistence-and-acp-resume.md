@@ -2,9 +2,9 @@
 
 Status: research recorded 2026-11-25 (workspace `gazon1/research-ai-verify-koog-persistence-and-acp-sess`).
 Outcome: **Koog's checkpointing does not apply to the built-in chat path; the pinned ACP client can
-issue `session/resume`, but no configured profile makes it worth building yet — and with the pinned
-SDK the current bridges cannot even complete a handshake. The smallest viable design is a
-project-owned transcript table in Room — text only, no live session restore.**
+issue `session/resume` and `session/load`, but no configured profile makes it worth building yet —
+and with the pinned SDK the current bridges cannot even complete a handshake. The smallest viable
+design is a project-owned transcript table in Room — text only, no live session restore.**
 
 Everything below was checked against the pinned versions in this checkout: Koog `1.3.0`
 (`gradle/libs.versions.toml:122`), the Kotlin ACP SDK `0.34.0` (`gradle/libs.versions.toml:133`),
@@ -25,9 +25,11 @@ They are easy to confuse, so the note keeps them apart:
 |---|---|---|---|
 | Koog | Agent-graph **checkpointing** (`agents-features-snapshot`) | The position of a Koog agent *graph* mid-run, plus the message history of that run | Anything outside a Koog agent graph; the built-in chat never enters one |
 | ACP | `session/resume` | A *live* agent-side session, in the agent's own process | The conversation's text, unless the agent replays it; nothing the agent no longer holds |
+| ACP | `session/load` | A session the **agent itself** stored, reloaded into a freshly connected agent process and replayed as `session/update`s | Whatever the agent never stored — and this application's own transcript still does not exist |
 
 Neither is "a chat log". A chat log has to be written by this application, in this application's
-storage, or it does not exist.
+storage, or it does not exist. And the two ACP calls are not two names for one thing — §2 keeps
+them apart, because they need different processes to be alive.
 
 ## What the built-in chat is today
 
@@ -119,7 +121,7 @@ pins the facts the decision rests on — the checkpoint API is defined in terms 
 and the chat holds no Koog agent at all: neither in the loop, nor in the project-owned port it turns
 through (`TextGenPort`, `ChatTurn`).
 
-## 2. ACP resume: the SDK can do it; the profiles and the lifecycle do not yet justify it
+## 2. ACP session restore: the SDK can do it; the profiles and the lifecycle do not yet justify it
 
 ### What the pinned client offers
 
@@ -128,6 +130,13 @@ Verified in `acp-jvm-0.34.0-sources.jar` and `acp-model-jvm-0.34.0-sources.jar`:
 - `Client.resumeSession(sessionId, sessionParameters, operationsFactory)` —
   `commonMain/com/agentclientprotocol/client/Client.kt:576`, and the operations overload at `:604`.
   Both are `@UnstableApi`.
+- `Client.loadSession(sessionId, sessionParameters, operationsFactory)` — the same file, `:445`,
+  and the operations overload at `:475`. It is **not** marked unstable, and it is gated by the
+  separate boolean `AgentCapabilities.loadSession`, not by `sessionCapabilities.resume`: *"Only
+  available if the agent supports the `loadSession` capability"*
+  (`commonMain/com/agentclientprotocol/model/Requests.kt:399-408`). It is the call the protocol
+  documents as the persistence-across-restarts path, and the one §4 keeps apart from
+  `session/resume`.
 - The wire method exists in protocol **v1**, not only in the draft v2:
   `AcpMethod.AgentMethods.V1.SessionResume` → `"session/resume"`
   (`commonMain/com/agentclientprotocol/model/Methods.kt:205-206`). The app speaks v1
@@ -147,10 +156,21 @@ The claim is pinned by `AcpResumeCapabilityTest`
 asserts that the pinned client exposes the resume call, that the call travels as **v1** (the v1 and
 the v2 resume method share the wire name `session/resume` and are told apart by their request type
 — `com.agentclientprotocol.model.ResumeSessionRequest` against
-`com.agentclientprotocol.model.v2.ResumeSessionRequest`), that resume is a *marker* capability
-(`sessionCapabilities.resume` is present or absent — no payload to interpret), and that the marker
-travels as exactly `{"resume":{}}`. A dependency bump that changes any of those fails the test
-instead of quietly invalidating this note.
+`com.agentclientprotocol.model.v2.ResumeSessionRequest`), that the client's own request builder
+produces the v1 type, that resume is a *marker* capability (`sessionCapabilities.resume` is
+present or absent — no payload to interpret), and that the marker travels as exactly
+`{"resume":{}}`. It also runs the pinned client against a fake transport and reads the frame that
+comes out, so the claim is checked on the wire and not only in the library's own method objects. A
+dependency bump that changes any of those fails the test instead of quietly invalidating this note.
+
+**The version cannot be read off the wire, and that is worth knowing before anyone writes a probe.**
+The v1 and v2 resume payloads are wire-identical: v1 sends
+`{sessionId, cwd, mcpServers, additionalDirectories?, _meta?}` and v2 sends
+`{sessionId, cwd, additionalDirectories, mcpServers, replayFrom?, _meta?}` — but v2's
+`additionalDirectories` is `@EncodeDefault(NEVER)` and its `replayFrom` is null, and the SDK's JSON
+omits nulls (`ACPJson`: `encodeDefaults = true`, `explicitNulls = false`), so both encode to
+`{sessionId, cwd, mcpServers}`. The only observable difference is which request type the method
+object is bound to — which is why the test pins the version there and reads the wire separately.
 
 ### What the application does today
 
@@ -226,38 +246,65 @@ Three caveats that a reader of the table above must not miss:
    package resolves to *latest* at launch time. What a profile supports is a property of the
    installed bridge, not of this repository — the table is true as of the versions checked, and the
    capability must be read at runtime, not assumed.
-2. **Capability is not the same as usefulness.** `session/resume` resumes a session the *agent* still
-   holds — a live session inside the agent's own process. This application never connects to an agent
-   that is already running: every profile is *launched* as a child process
-   (`SubprocessAcpAgentLauncher`, `AcpAgentLauncher.kt:78-104`) and the protocol travels over that
-   child's standard input and output (`Subprocess.spawnDuplex`, `core/process/Subprocess.kt:295-309`).
-   A restarted app therefore launches a *new* child, which holds no session with the old id; and an
-   agent orphaned by a killed app cannot be reached either, even if it survives the kill — the pipes
-   died with the app that held them, and a new process cannot re-attach to a child it did not spawn.
-   An orderly close ends the tree outright as well (`AcpClient.close()`/`terminate()` →
-   `ProcessTree`, `AcpClient.kt:485-601`).
+2. **Capability is not the same as usefulness — and `resume` and `load` are not the same thing.**
+   The protocol has two ways to pick a conversation back up, and they differ in *which process*
+   must still be alive:
+
+   - **`session/resume`** reconnects to a session the **same live agent process** still holds,
+     without replaying the history. This application never connects to an agent that is already
+     running: every profile is *launched* as a child process (`SubprocessAcpAgentLauncher`,
+     `AcpAgentLauncher.kt:78-104`) and the protocol travels over that child's standard input and
+     output (`Subprocess.spawnDuplex`, `core/process/Subprocess.kt:295-309`). A restarted app
+     therefore launches a *new* child, and the session died with the old one — and an agent
+     orphaned by a killed app cannot be reached either, even if it survives the kill: the pipes
+     died with the app that held them, and a new process cannot re-attach to a child it did not
+     spawn. An orderly close ends the tree outright as well (`AcpClient.close()`/`terminate()` →
+     `ProcessTree`, `AcpClient.kt:485-601`). **So `session/resume` cannot carry a conversation
+     across an app restart**, whatever the agent keeps.
+   - **`session/load`** is the protocol's documented "persistence across restarts" path: the
+     **agent** stores the transcript, and a *newly connected* agent process reloads it by id and
+     replays the history as `session/update`s before it answers. The protocol documentation says
+     the `loadSession` capability "allow[s] Clients to resume previous conversations with history
+     replay. This feature enables persistence across restarts"
+     (`https://agentclientprotocol.com/protocol/v1/session-setup.md`, "Loading sessions";
+     `sessionCapabilities.resume` is the *other* thing — "reconnect to an existing session
+     **without replaying** the conversation history"). All three configured profiles advertise
+     `loadSession: true`, and **both bridges implement it**: claude-agent-acp 0.112.0 reads the
+     stored transcript and replays it (`dist/v1/acp-agent.js:879-897`, registered at `:9004`), and
+     codex-acp 2.12.0 does the same — its own comment calls the two the same operation: "Shared by
+     v1 `session/load` and v2 `session/resume` with `replayFrom: {type: "start"}`: reattach,
+     replay retained history as ordinary `session/update`s, then answer"
+     (`dist/index.js:54242-54270`, method map at `:5444`). **So the restart case is not ruled out by
+     the protocol or by the bridges — it is ruled out by this application**, which keeps no session
+     id and does not read the capability that promises it.
 3. **The pinned SDK cannot open these sessions at all** (see above): `auth.status` is a boolean in
-   SDK 0.34.0 and an object in the bridges. Whatever the resume design ends up being, it starts
-   after that mismatch is resolved.
+   SDK 0.34.0 and an object in the bridges. Whatever the session-restore design ends up being, it
+   starts after that mismatch is resolved.
 
-### Verdict: **no-go** for building ACP resume now
+### Verdict: **no-go** for building ACP session restore now
 
-Not because the SDK lacks it — the pinned client has it, in v1, with a documented capability gate —
-but because everything a resume needs is missing and none of it is cheap:
+Not because the SDK lacks it — the pinned client has both calls, in v1, with documented capability
+gates — but because everything a restore needs is missing and none of it is cheap:
 
-1. the app never reads capabilities, so it cannot know whether resume is on the table;
-2. the app never persists a session id, so it has nothing to resume;
-3. the app launches the agent itself, as a child process it speaks to over pipes, so no session
-   outlives the app: a restart spawns a new agent with no session to resume, and an orphaned agent
-   cannot be re-attached to;
-4. and, as the live probe shows, the pinned SDK 0.34.0 cannot decode the bridges' `initialize`
-   response at all (`$.status`), so there is no working session to resume in the first place.
+1. the app never reads capabilities, so it cannot know whether resume — or `session/load` — is on
+   the table;
+2. the app never persists a session id, so it has nothing to resume and nothing to load;
+3. `session/resume`, the call the pinned SDK exposes, needs the *same live agent process*, and this
+   application launches its agent as a child it speaks to over pipes — so that call cannot cross a
+   restart, whatever the agent keeps;
+4. `session/load`, the call that *can* cross a restart, replays the history **from the agent**,
+   which would put two transcripts in the picture — the agent's and this application's own — and
+   the recommendation below is that this application's own is the one that counts;
+5. and, as the live probe shows, the pinned SDK 0.34.0 cannot decode the bridges' `initialize`
+   response at all (`$.status`), so there is no working session to resume or to load in the first
+   place.
 
 The one thing that *is* cheap and worth doing later: read
-`agentInfo.capabilities.sessionCapabilities?.resume` right after `initialize`, and surface it in
-`AcpAgentInfo` (`AcpAgentSession.kt:55-60`). That is a two-line change with no persistence
-attached, and it turns "we do not know" into "we know" — the precondition for every later
-decision. It is deliberately **not** in this issue, which asks for no production change.
+`agentInfo.capabilities.sessionCapabilities?.resume` and `agentInfo.capabilities.loadSession` right
+after `initialize`, and surface them in `AcpAgentInfo` (`AcpAgentSession.kt:55-60`). That is a
+two-line change with no persistence attached, and it turns "we do not know" into "we know" — the
+precondition for every later decision. It is deliberately **not** in this issue, which asks for no
+production change.
 
 ## 3. Room conventions a conversation transcript must follow
 
@@ -298,20 +345,30 @@ persisting a rendered UI tree — a second format, a second table, and a schema 
 
 ## 4. Lifecycle semantics: what may be restored, and when
 
-| Situation | Transcript (text) | A live model/agent execution | An ACP session |
-|---|---|---|---|
-| Process death, app restarted | **Yes** — if the transcript is in Room | No — the model call is over; the next message starts a new call | No — the app launches the agent itself; a restart spawns a new agent, which holds no session |
-| Turn cancelled by the reader | **Yes** — the partial answer is a row | No | No — `session/cancel` stops the turn; the session survives only while the process does |
-| App killed, agent orphaned | **Yes** | No | No — the pipes died with the app, so the orphan cannot be reached |
-| Agent process died, app alive | **Yes** | No | No — `AgentUnavailable` (`AcpClient.kt:399`), and the id is dead |
-| A *separately* running agent, reachable over a socket | **Yes** | No | **Only here** — `session/load` or `session/resume`, if the agent advertises it — but the current launcher spawns its own child over pipes, so this shape does not exist today |
+| Situation | Transcript (text) | A live model/agent execution | ACP `session/resume` | ACP `session/load` |
+|---|---|---|---|---|
+| Process death, app restarted | **Yes** — if the transcript is in Room | No — the model call is over; the next message starts a new call | No — the session lived in the old child process, which died with the app | In principle **yes** — a new child reloads the agent's stored transcript by id and replays it — but the app keeps no id to ask with |
+| Turn cancelled by the reader | **Yes** — the partial answer is a row | No | No — `session/cancel` stops the turn; the session survives only while the process does | In principle yes — the agent still holds the session; the app still has no id |
+| App killed, agent orphaned | **Yes** | No | No — the pipes died with the app, so the orphan cannot be reached | The orphan's stored transcript survives on disk, and a *new* child could load it — if the app kept the id |
+| Agent process died, app alive | **Yes** | No | No — `AgentUnavailable` (`AcpClient.kt:399`), and the id is dead | The stored transcript may still be there; the app has no id, and the agent may not have finished writing it |
+| A *separately* running agent, reachable over a socket | **Yes** | No | **Yes** — if the agent advertises `sessionCapabilities.resume` | **Yes** — if the agent advertises `loadSession` |
 
 The rule the table states: **transcript restoration and execution resumption are different
 features.** The transcript is the application's own data and survives anything. Resuming an
-execution is a property of *someone else's* process — and this application does not run anyone
-else's long-lived process: it launches the agent itself and speaks to it over pipes, so the session
-lives and dies with the app (`Subprocess.spawnDuplex`, `core/process/Subprocess.kt:295-309`;
+*execution* is a property of *someone else's* live process — and `session/resume` needs exactly
+that: the same agent process, still holding the session. This application does not run anyone
+else's long-lived process: it launches the agent itself and speaks to it over pipes, so that
+session lives and dies with the app (`Subprocess.spawnDuplex`, `core/process/Subprocess.kt:295-309`;
 `ProcessTree`, `AcpClient.kt:485-601`).
+
+The second rule follows from the table's other half: **`session/load` promises something different,
+and this application cannot collect it either — yet.** There, the persistence is the *agent's*: the
+agent stores its transcript, and a fresh child reloads it by id. The application's own blockers are
+the ones from §2 (no capability read, no session id, a handshake the pinned SDK cannot complete)
+plus one that is a design question rather than a missing piece: the replayed history comes *from
+the agent*, so an application that also keeps its own transcript in Room would have two, and would
+have to say which one is the truth. The recommendation below answers that for the built-in chat —
+the application's own transcript — and leaves the ACP path as a later decision.
 
 A second rule follows from the current chat shape: **restoring a transcript does not restore the
 model's memory of it.** Today the model is re-told the last six turns as 200-character prose
@@ -352,9 +409,13 @@ chat.**
 2. The read path: the chat screen opens on the stored transcript.
 3. *Then* the question the transcript raises: should the model see the real turns instead of the
    200-character prose block?
-4. *Then, separately*: the ACP capability read (`sessionCapabilities?.resume`) — two lines, no
-   persistence — and, only if a profile turns out to be an agent the app can reach *across* restarts
-   (a separately-running daemon, not the child it spawns), the session-id store and the resume call.
+4. *Then, separately*: the ACP capability read (`sessionCapabilities?.resume` and `loadSession`) —
+   two lines, no persistence — and, with it, the session-id store. The call to look at first is
+   `session/load`, not `session/resume`: `resume` needs the same live agent process, which the
+   child-per-launch topology cannot give, while `load` is the protocol's documented
+   persistence-across-restarts path and both bridges implement it. Whether to use it at all is a
+   separate decision, and it carries one the transcript does not: the agent would replay its own
+   history, so the app must decide whose transcript is the truth.
 
 ## How to reproduce the findings
 
@@ -369,6 +430,10 @@ chat.**
   and `…/acp-jvm/0.34.0/*/acp-jvm-0.34.0-sources.jar commonMain/com/agentclientprotocol/client/Client.kt | sed -n '560,580p'`.
 - The bridge capabilities: `npm pack @agentclientprotocol/claude-agent-acp @agentclientprotocol/codex-acp @google/gemini-cli`,
   then read the `initialize` handler in each package's bundle.
+- The bridges' `session/load` implementations:
+  `npm pack @agentclientprotocol/claude-agent-acp@0.112.0 @agentclientprotocol/codex-acp@2.12.0`,
+  then `grep -n "async loadSession" claude/package/dist/v1/acp-agent.js` (→ `:879`) and
+  `grep -n "session/load" codex/package/dist/index.js` (→ `:5444`).
 - A live handshake against a real bridge: `scripts/acp-bridge-probe.sh npx -y @agentclientprotocol/claude-agent-acp`
   (the probe prints the `initialize` frame, capabilities included; on 2026-11-25 it then failed with
   `$.status` — see above).
@@ -387,6 +452,12 @@ chat.**
   (`~/.cache/pompano-tmp/acp-bridge-probe.7t7HgO.log`).
 - Whether a bridge's `session/resume` **works** end to end — that needs a live agent with a live
   session, and it is not what this issue asks for.
+- Whether a bridge's `session/load` **works** end to end. The implementations were read from the
+  packages (claude-agent-acp 0.112.0, codex-acp 2.12.0) and both replay a stored transcript by
+  session id, but no load was performed: it needs a live agent that already has a stored session,
+  and under the pinned SDK 0.34.0 the handshake does not complete at all (see above).
+- Whether the bridges' stored transcripts survive a restart **in practice**. That is the agents' own
+  storage, not this repository's, and it is not covered by anything here.
 - Gemini CLI was checked at 0.71.1 only; the flag the profile uses (`--experimental-acp`) still
   exists there, and the current documentation prefers `--acp`. That is a separate, small follow-up.
 - The ACP path is **desktop-only** today (`shared/src/jvmMain/.../feature/ai/acp/`). Any durable

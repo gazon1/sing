@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.ai
 
+import com.singularity.todo.arch.SourceScan
 import com.singularity.todo.core.ai.ToolCallLoop
 import com.singularity.todo.core.llm.TextGenPort
 import com.singularity.todo.feature.ai.chat.ChatTurn
@@ -8,6 +9,8 @@ import java.io.File
 import java.util.jar.JarFile
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -25,7 +28,8 @@ import kotlin.test.assertTrue
  * executable:
  *
  * - the checkpoint API is defined in terms of a Koog `AIAgent`, so it can only restore a graph;
- * - the chat holds no Koog agent at all — neither in the loop, nor in the port it turns through;
+ * - the chat holds no Koog agent at all — neither in the loop, nor in the port it turns through,
+ *   nor in the implementation that actually runs the chat;
  * - the memory feature ships exactly one history provider, and it is in-memory.
  *
  * If somebody rewires the chat onto a Koog agent graph, or adds a durable provider to the memory
@@ -85,6 +89,64 @@ class KoogCheckpointApplicabilityTest {
             emptyList<String>(),
             koogTypes,
             "the chat turns through a project-owned port; plugging a Koog agent into it would change the decision",
+        )
+    }
+
+    /**
+     * The chat's production path, read from the source.
+     *
+     * The two tests above look at *interfaces* — the loop's fields, the turn's fields, the port's
+     * signatures. That is one layer up from the code that actually runs the chat, and a Koog agent
+     * could be introduced inside `KoogAgentService.streamChat()` without changing any of them: the
+     * port would still be project-owned, the turn would still hold no agent, and the loop would
+     * still be agent-free — while the chat had already moved onto a Koog graph, which is exactly
+     * the change that would make Koog's checkpointing applicable.
+     *
+     * So the tripwire sits on the implementation itself: the streaming chat must run the
+     * hand-written loop, and must not build or run a Koog agent.
+     *
+     * The source is read through [SourceScan], the repository's one source-reading helper, because
+     * the braces of a Kotlin body have to be matched by a lexer that knows about strings and
+     * comments — and because a second copy of that matcher would be a second set of bugs in it.
+     */
+    @Test
+    fun `the streaming chat runs the tool call loop, not a koog agent`() {
+        val source = SourceScan.file("feature/ai/KoogAgentService.kt").readText()
+
+        val declaration = source.indexOf("override fun streamChat(")
+        assertTrue(
+            declaration >= 0,
+            "the streaming chat must still live in KoogAgentService — the note's call chain depends on it",
+        )
+        val closeParen = SourceScan.closingParen(source, source.indexOf('(', declaration))
+        assertTrue(closeParen > 0, "the streaming chat's parameter list must close")
+
+        val flowStart = source.indexOf("flow {", closeParen)
+        assertTrue(
+            flowStart > 0,
+            "the streaming chat must still build its answer through a flow { ... } block",
+        )
+        val body =
+            assertNotNull(
+                SourceScan.bodyOf(source, flowStart + "flow {".length - 1),
+                "the streaming chat's body must be readable",
+            )
+
+        assertTrue(
+            body.contains("ToolCallLoop"),
+            "the chat runs the hand-written loop; moving it onto a Koog graph would change the decision",
+        )
+        assertTrue(
+            body.contains("streamingExecutor.executeStreaming"),
+            "the chat answers through the project-owned executor, not through a Koog agent",
+        )
+        assertFalse(
+            body.contains("AIAgent"),
+            "the chat must not build a Koog agent — that is what would make the checkpointing applicable",
+        )
+        assertFalse(
+            body.contains("createAgent"),
+            "the chat must not go through the Koog agent builder that the non-chat path uses",
         )
     }
 
