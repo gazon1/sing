@@ -307,7 +307,7 @@ WHERE td.task_id = :taskId AND t.user_id = :userId
 - **Третий запрос той же формы — `getTagIdsForUser`.** Он не входил в
   измерение этого выпуска (в нём другой вопрос и другая таблица), и
   трогать его без замера — значит переписать по аналогии. Это следующий
-  кандидат в тот же замер.
+  кандидат в тот же замер, отдельная задача [#3176].
 - **Стоимость обвязки вызова** (0.3–2.1 ms на чтение: Flow Room и
   наблюдатель инвалидации) — не измерялась отдельно и не трогалась. После
   правки это единственная заметная часть цены чтения.
@@ -322,6 +322,7 @@ WHERE td.task_id = :taskId AND t.user_id = :userId
 - [#2981] — производительность пикера связанных задач
 - [#3148] — наблюдение связей на большой профиль
 - [#3090] — генератор синтетических датасетов
+- [#3176] — замер `getTagIdsForUser`, следующий за этим выпуском
 - ADR: `docs/decisions/2026-11-24-user-scoped-dependency-queries-join-read.md`
 - Отчёт по предыдущему замеру: `docs/architecture/related-task-picker-performance.md`
 
@@ -329,3 +330,4 @@ WHERE td.task_id = :taskId AND t.user_id = :userId
 [#2981]: https://github.com/gazon1/sing/issues/2981
 [#3148]: https://github.com/gazon1/sing/issues/3148
 [#3090]: https://github.com/gazon1/sing/issues/3090
+[#3176]: https://github.com/gazon1/sing/issues/3176
