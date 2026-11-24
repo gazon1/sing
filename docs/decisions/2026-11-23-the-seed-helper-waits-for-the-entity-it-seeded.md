@@ -288,6 +288,35 @@ titles its rows after the query it was given, and two chunks with the same
 base title would write the same rows twice. The cost of a row is the seeder's
 business and is tracked separately (issue #3135).
 
+**A chunk that is only waited for after the last chunk.** The chunks are
+written one after another, and the seed queue runs them one at a time. A flow
+that waits for the section only after the last chunk therefore asserts on a
+count the flow has not yet seen: the wait after the last chunk proves that the
+last chunk landed, and nothing else — the earlier chunks are behind it in the
+queue, and the flow's own assertion is made against a number it never
+observed. A wait after the last chunk is not a wait for the seed the flow
+asserts on; it is a wait for the *last* seed, with the rest of the seed
+assumed.
+
+So each chunk carries a wait of its own, and the wait names what that chunk
+changed: the count the section shows. The section's badge is the app's own
+report of how many rows it holds, so a wait for the count that follows the
+chunk is a wait for the chunk — the row count is the section's, and the
+section's count changes only when the rows are in. The count is read from the
+section's own id (`agenda_section_overdue`) together with the number, so the
+wait names the section and the number it must have reached; the section is
+rendered whether it is expanded or collapsed, and its header carries the
+count. Each wait is bounded by the item budget (8 s), and a chunk of a
+hundred rows costs about three seconds to write, so the wait is given room
+for the write and not for the whole bulk.
+
+The alternative — one wait for the total count after the last chunk — was
+rejected: it needs a budget far past the item kind (a minute, against the
+layer's largest budget of 30 s for a shell wait) and it still proves nothing
+about the chunks before the last one. The alternative of a text-only wait was
+rejected as well: a wait on the count alone is a text wait, and the corpus
+holds a fixed floor of text waits (27), so each chunk would add one.
+
 **What the rule is held against.** `SeedHelperWaitTest` holds the rule to
 fixtures as well as to the tree: flows written to break it — a wait that
 precedes the seed, two seeds of one row with a wait that covers only the first
@@ -433,11 +462,12 @@ profile therefore behaves exactly as it did before.
   belongs to the seeder. `SeedHelperQueryTest` holds it to that: the query is
   forwarded whole in the deep link, and a helper that names the query anywhere
   else in its body is rejected.
-- `agenda/07-large-overdue` seeds a thousand rows in five chunks of ~200, each
-  chunk a seed of its own with a base title of its own, so that every chunk
-  fits inside the shell wait (30 s). The chunks name no entity to wait for —
-  the wait for the section that holds the rows comes after the last chunk, and
-  that section is the container of every chunk's rows.
+- `agenda/07-large-overdue` seeds a thousand rows in ten chunks of a hundred
+  rows and one chunk of a single row, each chunk a seed of its own with a base
+  title of its own, so that every chunk fits inside the shell wait (30 s).
+  Every chunk carries a wait of its own, and the wait names the count the
+  section shows after that chunk (`agenda_section_overdue` together with the
+  number), so the flow never asserts on a count it has not observed.
 - A wait covers one entity. A seed that writes N rows writes N entities, and
   the assertions on the rows of such a seed are covered by the wait that
   names the row, the name, or the container — not by a wait that named one
@@ -520,6 +550,15 @@ profile therefore behaves exactly as it did before.
   — writing a thousand rows takes ~30 s, which is longer than the helper's
   shell wait (30 s). The row cost itself (~30 ms a row) is the seeder's
   business and is tracked in issue #3135.
+
+Android emulator (`emulator-5554`), 2026-11-24 — the per-chunk waits:
+
+- `agenda/07-large-overdue` — **green** (exit 0). The bulk seed was split into
+  ten chunks of a hundred rows and one chunk of a single row, and every chunk
+  carries a wait of its own: the trace shows the section's count reaching
+  `100`, `200`, … `1000`, `1001` in order, each wait `COMPLETED` within the
+  item budget (8 s). The last chunk lands, `task_item_todayreachable` is
+  visible, and the expanded overdue list shows `task_item_bigoverdue_1`.
 
 ## Links
 

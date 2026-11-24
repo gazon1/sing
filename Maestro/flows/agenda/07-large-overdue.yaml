@@ -5,7 +5,7 @@
 # the overdue section is auto-collapsed with an accurate count and an explicit
 # expand affordance, and the full Overdue destination contains all overdue tasks.
 #
-# прогнан на устройстве: да (2026-11-12) — realme RMX3938, 0O65321F32204DD5
+# прогнан на устройстве: да (2026-11-24) — эмулятор Android, emulator-5554
 appId: com.singularity.todo
 name: agenda-large-overdue
 tags:
@@ -14,49 +14,140 @@ tags:
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 
+# The count the flow waits for lives on the Today tab, so the tab is opened
+# before the first chunk is written.
+- tapOn:
+    id: nav_tab_today
+
 # The big seed writes a thousand rows, and a row costs the seeder about 30 ms —
 # so a thousand rows take about half a minute, and that is longer than any wait
-# the Maestro layer is given (the shell budget is 30 s, and every other kind is
-# smaller). A seed that outlasts the budget cannot be waited for at all, so the
-# rows are written in chunks: each chunk is a seed of its own, each chunk fits
-# inside the shell wait, and the section that holds the rows is waited for
-# below, once the last chunk is in. The chunks add up to the thousand rows the
-# regression is about.
+# the Maestro layer is given for a row (the item budget is 8 s, and every other
+# kind is smaller). A seed that outlasts the budget cannot be waited for at
+# all, so the rows are written in chunks: each chunk is a seed of its own, each
+# chunk fits inside the wait that follows it, and the chunks add up to the
+# thousand rows the regression is about.
 #
-# The rows of a chunk are titled after the chunk ("BigOverdue-1"…"BigOverdue-201",
+# The rows of a chunk are titled after the chunk ("BigOverdue-1"…"BigOverdue-100",
 # "BigOverdue2-1"…), because a seed titles its rows after the query it was
 # given — two chunks with the same base title would write the same rows twice.
+#
+# Every chunk is waited for, and the wait names the count the app itself
+# renders: the header of the section carries the number of rows the section
+# holds ("Overdue  ·  137"), so the count can only reach the chunk's total once
+# the chunk's rows are in the database. A chunk still being written would leave
+# the count short, and the wait would time out on it — the flow fails on the
+# chunk that did not land, and not on the aggregate assertion at the end.
+#
+# A chunk is a hundred rows: a row costs the seeder about 30 ms, so the chunk
+# takes about 3 s, and the wait for a row is budgeted at 8 s — the chunk leaves
+# a loaded runner room inside the budget the kind promises. The last chunk is
+# a single row: the thousand and one rows the flow is about.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue&due=-1d&count=201&id=bigoverdue"
+      QUERY: "task=BigOverdue&due=-1d&count=100&id=bigoverdue"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: ".*Overdue.*100$"
+    timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue2&due=-1d&count=200&id=bigoverdue2"
+      QUERY: "task=BigOverdue2&due=-1d&count=100&id=bigoverdue2"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: ".*Overdue.*200$"
+    timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue3&due=-1d&count=200&id=bigoverdue3"
+      QUERY: "task=BigOverdue3&due=-1d&count=100&id=bigoverdue3"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: ".*Overdue.*300$"
+    timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue4&due=-1d&count=200&id=bigoverdue4"
+      QUERY: "task=BigOverdue4&due=-1d&count=100&id=bigoverdue4"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: ".*Overdue.*400$"
+    timeout: 8000
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BigOverdue5&due=-1d&count=200&id=bigoverdue5"
+      QUERY: "task=BigOverdue5&due=-1d&count=100&id=bigoverdue5"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: ".*Overdue.*500$"
+    timeout: 8000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue6&due=-1d&count=100&id=bigoverdue6"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: ".*Overdue.*600$"
+    timeout: 8000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue7&due=-1d&count=100&id=bigoverdue7"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: ".*Overdue.*700$"
+    timeout: 8000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue8&due=-1d&count=100&id=bigoverdue8"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: ".*Overdue.*800$"
+    timeout: 8000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue9&due=-1d&count=100&id=bigoverdue9"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: ".*Overdue.*900$"
+    timeout: 8000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue10&due=-1d&count=100&id=bigoverdue10"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: ".*Overdue.*1000$"
+    timeout: 8000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=BigOverdue11&due=-1d&count=1&id=bigoverdue11"
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+      text: ".*Overdue.*1001$"
+    timeout: 8000
+
+# The task for today. It is seeded last, so every chunk above is in the
+# database by the time it is written.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=TodayReachable&due=today&id=todayreachable"
-
-- tapOn:
-    id: nav_tab_today
-- extendedWaitUntil:
-    visible:
-      id: agenda_section_overdue
-    timeout: 8000
 
 # Today is reachable immediately (overdue history collapsed, not a scroll wall).
 # Container rule: the Today section renders only because the seeded
