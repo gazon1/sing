@@ -117,7 +117,7 @@ class SyncEngineStorageFailureTest {
         val outboxService =
             OutboxService(
                 outboxDao = outbox,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 scopeProvider = FakeSyncScopeProvider(SyncScope("owner-storage", "profile-1")),
                 engineState = stateHolder,
                 monoNow = { clock.now().toEpochMilliseconds() },
@@ -129,7 +129,7 @@ class SyncEngineStorageFailureTest {
             idGenerator = SequentialIdGenerator(),
             stateRepository = state,
             shadowDao = shadow,
-            patchBuilder = fakeSyncPatchBuilder(shadow),
+            patchBuilder = productionPatchBuilder(shadow),
             outboxService = outboxService,
             _outboxDao = outbox,
             _deadLetterDao = FakeSyncDeadLetterDao(),

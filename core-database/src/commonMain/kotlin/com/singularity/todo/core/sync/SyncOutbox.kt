@@ -158,6 +158,17 @@ interface SyncOutboxDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: SyncOutboxEntity)
 
+    /**
+     * Inserts many patches at once.
+     *
+     * The list form of [insert]: Room runs one statement per row inside **one**
+     * transaction, so a profile wipe pays for the transaction once instead of once per
+     * removed task. The rows are the same rows [insert] would have written — the only
+     * difference is how many times the transaction opens.
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<SyncOutboxEntity>)
+
     /** Delete a patch by ID */
     @Query("DELETE FROM sync_outbox WHERE patch_id = :id")
     suspend fun delete(id: String)
@@ -199,6 +210,24 @@ interface SyncOutboxDao {
         profileId: String,
         entityId: String,
     )
+
+    /**
+     * Deletes the queued patches of **many** entities at once — the batched form of
+     * [deleteByEntity], with the same owner scope.
+     *
+     * The scope is the same for the same reason: coalescing must not reach across
+     * accounts, and the batch deletes exactly the rows the per-entity delete would have
+     * deleted, in one statement instead of one per entity.
+     */
+    @Query(
+        "DELETE FROM sync_outbox WHERE owner_id = :ownerId AND profile_id = :profileId " +
+            "AND entity_id IN (:entityIds)",
+    )
+    suspend fun deleteByEntities(
+        ownerId: String,
+        profileId: String,
+        entityIds: List<String>,
+    ): Int
 
     /** Clear the entire outbox */
     @Query("DELETE FROM sync_outbox")

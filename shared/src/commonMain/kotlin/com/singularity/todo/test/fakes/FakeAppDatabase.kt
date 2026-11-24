@@ -1974,6 +1974,10 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
         store.update { it + (entity.patchId to entity) }
     }
 
+    override suspend fun insertAll(entities: List<SyncOutboxEntity>) {
+        store.update { current -> entities.fold(current) { acc, e -> acc + (e.patchId to e) } }
+    }
+
     override suspend fun delete(id: String) {
         store.update { it - id }
     }
@@ -2035,6 +2039,23 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
                 e.ownerId != ownerId || e.profileId != profileId || e.entityId != entityId
             }
         }
+    }
+
+    override suspend fun deleteByEntities(
+        ownerId: String,
+        profileId: String,
+        entityIds: List<String>,
+    ): Int {
+        val doomed =
+            store.value.values.count {
+                it.ownerId == ownerId && it.profileId == profileId && it.entityId in entityIds
+            }
+        store.update {
+            it.filterValues { e ->
+                e.ownerId != ownerId || e.profileId != profileId || e.entityId !in entityIds
+            }
+        }
+        return doomed
     }
 
     /** `DELETE FROM sync_outbox WHERE owner_id = :ownerId` — every profile's patches of that owner. */
@@ -2217,6 +2238,22 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
     override suspend fun upsert(entity: SyncShadowEntity) {
         val k = key(entity.ownerId, entity.profileId, entity.entityType, entity.entityId)
         store.value = store.value + (k to entity)
+    }
+
+    override suspend fun getAll(
+        ownerId: String,
+        profileId: String,
+        entityIds: List<String>,
+    ): List<SyncShadowEntity> =
+        store.value.values.filter {
+            it.ownerId == ownerId && it.profileId == profileId && it.entityId in entityIds
+        }
+
+    override suspend fun upsertAll(entities: List<SyncShadowEntity>) {
+        store.value =
+            entities.fold(store.value) { acc, e ->
+                acc + (key(e.ownerId, e.profileId, e.entityType, e.entityId) to e)
+            }
     }
 
     override suspend fun updateConfirmed(

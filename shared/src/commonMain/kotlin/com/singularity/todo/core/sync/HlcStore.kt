@@ -45,7 +45,29 @@ class DataStoreHlcStore(private val dataStore: DataStore<Preferences>) : HlcStor
             .first()[LAST_HLC]
             ?.let { runCatchingCancellable { Hlc.parse(it) }.getOrNull() }
 
+    /**
+     * Writes the clock, unless the stored one is newer.
+     *
+     * The stored clock is the device's promise that it will never mint a clock older
+     * than this one, so a write that carries an *older* clock would undo that promise:
+     * after a restart the device would restore a clock older than one it already
+     * issued, and the next patch could carry a timestamp older than a timestamp the
+     * server already holds. The write is therefore dropped rather than applied.
+     *
+     * The check is inside the `edit` block, so the read and the write are one
+     * transaction: two overlapping writes cannot both see the old value and both
+     * believe they are the newer one.
+     *
+     * A stored value that is not a clock comes back as a degenerate clock at zero (see
+     * [load]), and any real clock is newer than that — so a corrupted file does not
+     * hold the clock back.
+     */
     override suspend fun save(hlc: Hlc) {
-        dataStore.edit { it[LAST_HLC] = hlc.encoded }
+        dataStore.edit { preferences ->
+            val current = preferences[LAST_HLC]?.let { Hlc.parse(it) }
+            if (current == null || hlc > current) {
+                preferences[LAST_HLC] = hlc.encoded
+            }
+        }
     }
 }

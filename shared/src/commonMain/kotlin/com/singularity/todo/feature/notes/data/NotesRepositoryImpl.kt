@@ -13,6 +13,7 @@ import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.core.sync.SyncRepository
+import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
 import com.singularity.todo.feature.notes.NoteId
@@ -151,10 +152,14 @@ class NotesRepositoryImpl(
                 val doomed = noteDao.listAllForUser(uid)
                 val now = clock.now()
                 val removed = noteDao.deleteAllForUser(uid)
-                doomed.forEach { row ->
-                    val note = row.toNote()
-                    syncRepository.enqueue(note.copy(deletedAt = note.deletedAt ?: now)).getOrThrow()
-                }
+                // One batch, one pass: the per-entity path wrote the sync clock to
+                // disk for every note it removed.
+                val tombstones: List<SyncableEntity> =
+                    doomed.map { row ->
+                        val note = row.toNote()
+                        note.copy(deletedAt = note.deletedAt ?: now)
+                    }
+                syncRepository.enqueue(tombstones).getOrThrow()
                 removed
             }
         }

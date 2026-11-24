@@ -1,0 +1,177 @@
+{
+  "status": "failed",
+  "phases": [
+    "device claimed",
+    "apk installed",
+    "archive generated",
+    "profile wiped",
+    "the two ways it can go wrong checked",
+    "dataset restored",
+    "counts compared"
+  ],
+  "device": {
+    "fingerprint": "04ab3fc382bf",
+    "model": "sdk_gphone64_x86_64",
+    "androidRelease": "16",
+    "sdk": "36",
+    "abi": "x86_64"
+  },
+  "apk": {
+    "path": "androidApp-debug.apk",
+    "package": "com.singularity.todo",
+    "version": "0.1.0+gd066810f72d0",
+    "variant": "debug",
+    "digest": "md5:8a0b7f6027e3fa0eb4539314b574a405"
+  },
+  "dataset": {
+    "profile": "10k",
+    "seed": 4242,
+    "archive": "synthetic-10k.zip",
+    "sidecar": "synthetic-10k.manifest.json",
+    "archiveBytes": 2160720,
+    "decompressedBytes": 13907055,
+    "counts": {
+      "tasks": 10000,
+      "projects": 100,
+      "tags": 100,
+      "notes": 1000,
+      "checklistItems": 20000,
+      "taskDependencies": 1500,
+      "taskTags": 15157
+    }
+  },
+  "tools": {
+    "maestro": "2.10.0",
+    "android": "16",
+    "adb": "Android Debug Bridge version 1.0.41",
+    "jdk": "openjdk version \"25.0.4.1\" 2026-08-18",
+    "commit": "d066810f72d08052df73dc9ac49a47a3bf170aec",
+    "dirty": "yes",
+    "uncommitted_diff": "trimmed: the diff of the tree the run was made on is not part of the evidence"
+  },
+  "wipe": {
+    "seconds": 5.0,
+    "counts": {
+      "tasks": 0,
+      "projects": 0,
+      "tags": 0,
+      "notes": 0,
+      "checklistItems": 0,
+      "taskDependencies": 0,
+      "taskTags": 0
+    }
+  },
+  "profile": {
+    "scope": "dae7f9c8-db47-43e5-a5cf-af67f7db669e/00000000-0000-0000-0000-000000000001",
+    "source": "the profile the run works in",
+    "testProfile": {
+      "id": "dae7f9c8-db47-43e5-a5cf-af67f7db669e",
+      "name": "verify-large-restore-3149",
+      "claimedBy": "files/verify-large-restore-3149.owner"
+    },
+    "homeProfile": {
+      "id": "c31ec58b-531e-4903-9529-ea03be1b4397",
+      "name": "verify-frame-time-emu"
+    },
+    "homeProfileRows": {
+      "before": {
+        "tasks": 0,
+        "projects": 0,
+        "tags": 0,
+        "notes": 0,
+        "checklistItems": 0,
+        "taskDependencies": 0,
+        "taskTags": 0
+      },
+      "after": {
+        "tasks": 0,
+        "projects": 0,
+        "tags": 0,
+        "notes": 0,
+        "checklistItems": 0,
+        "taskDependencies": 0,
+        "taskTags": 0
+      }
+    }
+  },
+  "negative": {
+    "over-budget": {
+      "outcome": {
+        "flowSeconds": 41.1,
+        "durationSeconds": 2.6,
+        "measured": "confirm-to-error-dialog",
+        "confirmedAt": 38.5,
+        "reportedBySnackbar": false,
+        "flowOverlappedWithWatch": false,
+        "errorDialog": true,
+        "errorDialogText": "        Ошибка backup archive entry exceeds remaining byte budget  OK ",
+        "log": "over-budget-flow.log"
+      },
+      "counts": {
+        "tasks": 0,
+        "projects": 0,
+        "tags": 0,
+        "notes": 0,
+        "checklistItems": 0,
+        "taskDependencies": 0,
+        "taskTags": 0
+      },
+      "problems": [],
+      "verdict": "the archive was refused for its size and nothing was written"
+    },
+    "interrupted": {
+      "interrupted": true,
+      "importStarted": true,
+      "evidence": "the app's own working indicator was on the screen",
+      "counts": {
+        "tasks": 0,
+        "projects": 0,
+        "tags": 0,
+        "notes": 0,
+        "checklistItems": 0,
+        "taskDependencies": 0,
+        "taskTags": 0
+      },
+      "problems": [],
+      "verdict": "the interrupted import left the profile empty"
+    }
+  },
+  "import": {
+    "flowSeconds": 51.2,
+    "durationSeconds": 5.9,
+    "measured": "confirm-to-snackbar",
+    "confirmedAt": 45.3,
+    "reportedBySnackbar": true,
+    "flowOverlappedWithWatch": false,
+    "errorDialog": false,
+    "errorDialogText": "",
+    "log": "restore-flow.log",
+    "memory": "TOTAL PSS:   281840            TOTAL RSS:   380328       TOTAL SWAP PSS:      259"
+  },
+  "database": {
+    "bytes": 79024392,
+    "scope": "dae7f9c8-db47-43e5-a5cf-af67f7db669e/00000000-0000-0000-0000-000000000001",
+    "counts": {
+      "tasks": 10000,
+      "projects": 100,
+      "tags": 100,
+      "notes": 1000,
+      "checklistItems": 20000,
+      "taskDependencies": 1500,
+      "taskTags": 15157
+    },
+    "countProblems": [],
+    "linkProblems": [],
+    "linkIdentityProblems": [],
+    "subtasks": {
+      "expected": 2500,
+      "actual": 2500
+    }
+  },
+  "failure": "verification",
+  "error": "no task in the database carries the tag task_item_bigoverdue_1",
+  "profileLeftBehind": {
+    "profile": "verify-frame-time-emu",
+    "restored": true
+  }
+}

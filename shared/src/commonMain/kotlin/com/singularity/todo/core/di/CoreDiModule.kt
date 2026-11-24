@@ -215,6 +215,10 @@ fun coreModule(): org.koin.core.module.Module =
                         calendarImportEventDao = get(),
                         calendarSyncTaskMapDao = get(),
                         googleEventShadowDao = get(),
+                        // The reset runs in one transaction, so that a failure in the
+                        // middle of it leaves the profile whole rather than half
+                        // deleted. The repositories' own writes join it.
+                        unitOfWork = get(),
                     ),
                 draftStore = get(),
                 currentUser = get(),
