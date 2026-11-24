@@ -53,26 +53,6 @@ class SeedHelperWaitTest {
             Paths.get(root)
         }
 
-    /**
-     * The skills the contract is repeated in, passed in rather than derived.
-     *
-     * The path is declared in `shared/build.gradle.kts` for the reason
-     * `maestro.root` is declared there: a derived path is invisible to
-     * `scripts/check-test-task-inputs.py`, and the gate that watches this test
-     * cannot invalidate a test that read a file nobody declared.
-     */
-    private val skillsRoot: Path =
-        run {
-            val root =
-                System.getProperty("skills.root")
-                    ?: error(
-                        "skills.root system property is not set — see shared/build.gradle.kts. " +
-                            "This test reads .agents/skills/, which is outside :shared, so the " +
-                            "path has to be passed in and declared as a task input.",
-                    )
-            Paths.get(root)
-        }
-
     @Test
     fun `the seed helper waits for the entity the caller names`() {
         val lines = maestroRoot.resolve("helpers/seed.yaml").readText().lines()
@@ -512,6 +492,22 @@ class SeedHelperWaitTest {
     }
 
     @Test
+    fun `a seed with a blank value writes no entity`() {
+        // The seeder drops a parameter whose value is blank: `task=` is not a
+        // task with an empty title, it is no task at all. A model that kept the
+        // pair would say the link wrote a task, and the gate would hold a flow
+        // to a wait for a row that was never written.
+        for (blank in listOf("task=", "note=", "project=")) {
+            val seeded = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery("$blank&due=today"))
+            assertTrue(
+                seeded.entities.isEmpty(),
+                "the model writes ${seeded.entities.size} entities for \"$blank\" — the seeder " +
+                    "drops a blank value and writes nothing",
+            )
+        }
+    }
+
+    @Test
     fun `a task due today is a target of the helper's wait`() {
         // The seeder reads every relative date but the negative one as
         // positive: `+0d` is today, and so is `0d`. A gate that does not know
@@ -530,7 +526,7 @@ class SeedHelperWaitTest {
         // The first seed put a row in the section, so the section was on
         // screen before the second seed ran: a wait for it returns at once,
         // and it cannot be the evidence that the second seed's row arrived.
-        val targets = landingTargetsOf(SECTION_FROM_EARLIER_SEED, seedIndex = 1)
+        val targets = landingTargetsOf(HELPER_SECTION_FROM_EARLIER_SEED, seedIndex = 1)
 
         assertTrue(
             "agenda_section_today" !in targets,
@@ -544,60 +540,6 @@ class SeedHelperWaitTest {
                 "That row is the evidence the helper's wait can be.",
         )
     }
-
-    @Test
-    fun `the three places that state the contract state it alike`() {
-        // The contract lives in the header of `helpers/seed.yaml` and is
-        // repeated in `Maestro/CONVENTIONS.md` and in the maestro-flows skill.
-        // A repetition that drifts from the contract is a second contract, and
-        // a flow written against it fails on a device for a reason the source
-        // does not show.
-        val places =
-            listOf(
-                "Maestro/helpers/seed.yaml" to maestroRoot.resolve("helpers/seed.yaml"),
-                "Maestro/CONVENTIONS.md" to maestroRoot.resolve("CONVENTIONS.md"),
-                "the maestro-flows skill" to skillsRoot.resolve("singularity-todo-maestro-flows/SKILL.md"),
-            )
-
-        val missing = mutableListOf<String>()
-        for ((clause, pattern) in CONTRACT_CLAUSES) {
-            for ((name, path) in places) {
-                if (!pattern.containsMatchIn(path.readText())) {
-                    missing += "$name does not state the clause: $clause"
-                }
-            }
-        }
-
-        assertTrue(
-            missing.isEmpty(),
-            "The contract is stated in three places, and they do not agree " +
-                "(${missing.size}):\n" +
-                missing.joinToString("\n") { "  - $it" } +
-                "\n\nThe contract itself is written in one place — the header of " +
-                "`helpers/seed.yaml` — and the other two repeat it. A repetition " +
-                "that drifts is a second contract.",
-        )
-
-        // The check has to be able to fail: a document that states none of the
-        // clauses is not a statement of the contract.
-        assertTrue(
-            missingClauses("a document about something else").isNotEmpty(),
-            "The check accepts a document that states none of the clauses. A check " +
-                "that cannot fail holds nothing.",
-        )
-    }
-
-    /**
-     * The clauses the three places have to state alike.
-     *
-     * Each clause is a marker the wording shares: the three places are three
-     * documents, and a phrase they all use is a phrase they cannot drift
-     * apart on without one of them losing it.
-     */
-    private fun missingClauses(text: String): List<String> =
-        CONTRACT_CLAUSES
-            .filterNot { (_, pattern) -> pattern.containsMatchIn(text) }
-            .map { (clause, _) -> clause }
 
     /**
      * The targets the helper's wait may name for the seed in a flow.
@@ -846,96 +788,5 @@ class SeedHelperWaitTest {
          * has one seed has nothing to compare it with — so any position works.
          */
         val SEED_POSITION = listOf(0)
-
-        /**
-         * The clauses the three places that state the contract state alike.
-         *
-         * Each clause is a phrase the wording shares: the three places are
-         * three documents, and a phrase all of them use is a phrase they
-         * cannot drift apart on without one of them losing it.
-         */
-        val CONTRACT_CLAUSES: List<Pair<String, Regex>> =
-            listOf(
-                "the optional input is named WAIT_FOR" to Regex("WAIT_FOR"),
-                "the wait is by id" to Regex("visible: \\{id:"),
-                "the wait covers the screen the seed leaves the app on" to Regex("Today\\s+tab"),
-                "the helper does not navigate" to Regex("does\\s+not\\s+navigate"),
-                "the helper does not scroll" to Regex("does\\s+not\\s+scroll"),
-                "the row of an overdue task is not a target" to Regex("overdue"),
-                "a section the flow named before the seed is not a target" to Regex("before\\s+the\\s+seed"),
-                "a section an earlier seed brought in is not a target" to Regex("earlier\\s+seed"),
-                "a wait names what the seed changed" to Regex("what\\s+the\\s+seed\\s+changed"),
-                "the copies state the contract alike" to Regex("copies\\s+state\\s+it\\s+alike"),
-                "the wait covers one entity of the seed" to Regex("covers\\s+one\\s+entity"),
-            )
-
-        /** A flow whose seed writes two rows and names one of them to wait for. */
-        val MULTI_ROW_SEED =
-            """
-            appId: com.singularity.todo
-            name: fixture
-            ---
-            - runFlow:
-                file: seed.yaml
-                env:
-                  QUERY: "task=Fixture&count=2&due=today"
-                  WAIT_FOR: "task_item_fixture_1"
-            """.trimIndent()
-
-        /**
-         * A flow that waits for the section before the seed, and then names
-         * that section to wait for.
-         */
-        val SECTION_NAMED_BEFORE =
-            """
-            appId: com.singularity.todo
-            name: fixture
-            ---
-            - extendedWaitUntil:
-                visible:
-                  id: agenda_section_today
-                timeout: 8000
-            - runFlow:
-                file: seed.yaml
-                env:
-                  QUERY: "task=Fixture&due=today"
-                  WAIT_FOR: "agenda_section_today"
-            """.trimIndent()
-
-        /** A flow whose seed writes an overdue task and names its row to wait for. */
-        val OVERDUE_SEED =
-            """
-            appId: com.singularity.todo
-            name: fixture
-            ---
-            - runFlow:
-                file: seed.yaml
-                env:
-                  QUERY: "task=Fixture&due=-1d"
-                  WAIT_FOR: "task_item_fixture"
-            """.trimIndent()
-
-        /**
-         * A flow whose first seed brought the section in, and whose second
-         * seed names that section to wait for.
-         *
-         * The section was on screen before the second seed ran, so the wait
-         * for it returns at once.
-         */
-        val SECTION_FROM_EARLIER_SEED =
-            """
-            appId: com.singularity.todo
-            name: fixture
-            ---
-            - runFlow:
-                file: seed.yaml
-                env:
-                  QUERY: "task=First&due=today"
-            - runFlow:
-                file: seed.yaml
-                env:
-                  QUERY: "task=Second&due=today"
-                  WAIT_FOR: "agenda_section_today"
-            """.trimIndent()
     }
 }

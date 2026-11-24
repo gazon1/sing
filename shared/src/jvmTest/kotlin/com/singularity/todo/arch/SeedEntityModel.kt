@@ -14,14 +14,22 @@ import java.nio.charset.StandardCharsets
  * them the helper may wait for.
  */
 internal object SeedEntityModel {
-    /** The parameters of a seed query. */
+    /**
+     * The parameters of a seed query.
+     *
+     * A parameter with a blank key or a blank value is dropped, the way the
+     * seeder drops it: the seeder answers a link with `task=` by writing
+     * nothing, and a model that kept the pair would say the link wrote a task
+     * with an empty title — and the gate would hold a flow to a wait for a
+     * row that was never written.
+     */
     fun parseQuery(query: String): Map<String, String> =
         query
             .split("&")
             .filter { it.contains("=") }
-            .associate { pair ->
-                pair.substringBefore("=").trim() to decode(pair.substringAfter("="))
-            }
+            .map { pair -> pair.substringBefore("=").trim() to decode(pair.substringAfter("=")) }
+            .filter { (key, value) -> key.isNotBlank() && value.isNotBlank() }
+            .toMap()
 
     /**
      * Decodes a query value the way the seeder reads it.

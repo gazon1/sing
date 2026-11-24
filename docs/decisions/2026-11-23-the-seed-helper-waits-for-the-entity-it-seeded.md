@@ -128,6 +128,13 @@ all for a row that is on the device.
 a count in `1..10000` and refuses anything else, and the seeder then writes
 no row at all. Such a seed creates no entity, so it names none to wait for.
 
+**What a blank parameter writes.** Nothing. The seeder drops a pair whose key or
+whose value is blank (`DebugSeedActivity.parseParams`), so a link that says
+`task=` writes no task at all. The gate's model drops the same pairs: a model
+that kept them would say the link wrote a task with an empty title, and the
+gate would hold the flow to a wait for a row that was never written — a flow
+that waits for nothing it cannot have.
+
 **What the helper may name as a target of its wait.** A row of the screen
 the seed leaves the app on, and the section that holds it. Three things are
 not: a row of a *multi-row* seed (the list the seed filled is longer than the
@@ -168,6 +175,14 @@ holds it. The containers belong to the entity as well — the section a task is
 in is a wait for that task, and not for another entity the same link wrote — so
 the gate keeps the section with the rows it holds rather than with the seed as
 a whole.
+
+**The same rule for the flow's own wait.** A container belongs to the entity,
+not to the seed that wrote it, and the flow's wait is held to the same rule as
+the helper's. A link that names a profile and a task puts the task in a section
+and writes the profile into another screen; a wait for that section says
+nothing about the profile, and the gate rejects the flow. A gate that gives the
+containers of a seed to the seed as a whole lets a wait for one entity's
+section stand in for another entity's arrival.
 
 **What the helper may name as a target of its wait.** The elements the seed
 brings onto the screen the app is left on: the row of a task that is due
@@ -325,6 +340,14 @@ block: the seed may never have run, so an assertion outside the block is not
 about it. A gate that loses the scope on the way into the helper holds the
 assertion outside the block to a seed that may not exist.
 
+The scope follows a file the block runs, too. A `runFlow` that carries a `when:`
+condition of its own runs only when the condition holds, so the file it pulls in
+belongs to that block — a seed in the file and an assertion next to it are held
+to each other, and an assertion outside the block is not held to a seed that may
+never have run. The block's scope reaches the file the same way it reaches a
+helper: a file that runs under a `when:` of its own is a file that may not have
+run at all.
+
 ## Rationale
 
 The 2026-11-05 entry's real point was that a helper must not guess. Guessing
@@ -424,6 +447,15 @@ profile therefore behaves exactly as it did before.
 - The scope of a conditional block reaches a seed that runs inside it through a
   helper: an assertion outside the block is not held to a seed that may never
   have run, whatever files the seed was reached through.
+- The scope of a conditional block reaches the file the block runs as well: a
+  `runFlow` with a `when:` of its own pulls the file into that block, so an
+  assertion outside the block is not held to a seed in the file.
+- A container belongs to the entity and not to the seed: a wait for the section
+  of a task covers that task and says nothing about another entity of the same
+  link. The flow's own wait is held to the same rule as the helper's.
+- A link with a blank parameter writes nothing: the gate's model drops the same
+  pairs the seeder drops, so a flow is not held to a wait for a row that was
+  never written.
 - A link that names a profile writes that profile, whatever else its query
   says: the seeder creates the profile and switches to it before it answers a
   reset, a cleanup or a session link. The profile is on another screen, so the

@@ -83,15 +83,17 @@ internal object SeedWaitTree {
                 // The containers of this entity: the sections its row is in. A
                 // seed that writes several kinds of entity has containers of
                 // its own, and a wait for one of them is a wait for the rows
-                // in it and for nothing else — the helper's wait for the row of
-                // a task says nothing about the profile the same link named.
-                val landingContainers =
-                    entity.containers.filter { it in LANDING_CONTAINERS && it in containers }
+                // in it and for nothing else — the wait for the row of a task
+                // says nothing about the profile the same link named, and the
+                // wait for the section of that task says nothing about it
+                // either.
+                val entityContainers = entity.containers.filter { it in containers }
+                val landingContainers = entityContainers.filter { it in LANDING_CONTAINERS }
                 // The ids of the entity: what the helper's own wait names, and
                 // what a wait for the row or the container names. The names are
                 // what a wait by text names — the helper's wait is always by
                 // id, so the names are not among its targets.
-                val ids = (entity.rows + containers).toSet()
+                val ids = (entity.rows + entityContainers).toSet()
                 val handles = (ids + entity.names).toSet()
                 for (assert in asserts) {
                     // A seed in a conditional block runs only when the
@@ -125,7 +127,7 @@ internal object SeedWaitTree {
                                 "$label: asserts ${subjectOf(assert)} without waiting for it — " +
                                 "wait for the row (${entity.rows.joinToString()}), for the " +
                                 "name it is called (${entity.names.joinToString()}) or for " +
-                                "the container it is in (${containers.joinToString()})"
+                                "the container it is in (${entityContainers.joinToString()})"
                         }
                     }
                 }
@@ -470,7 +472,13 @@ internal object SeedWaitTree {
             val at = prefix + index
             val target = command.file?.let { file.parent.resolve(it).normalize() }
             if (command.name == "runFlow" && target != null) {
-                collectRunFlow(target, command, env, at, events, seen, scope)
+                // A `runFlow` with a `when:` of its own runs only when the
+                // condition holds, so the file it pulls in belongs to that
+                // block: a seed in the file and an assertion next to it are
+                // held to each other, and an assertion outside the block is
+                // not held to a seed that may never have run.
+                val fileScope = if (command.conditional) at else scope
+                collectRunFlow(target, command, env, at, events, seen, fileScope)
                 continue
             }
             // The commands a `runFlow` carries run inside it, so they come
@@ -511,7 +519,8 @@ internal object SeedWaitTree {
             val at = at + index
             val target = nested.file?.let { file.parent.resolve(it).normalize() }
             if (nested.name == "runFlow" && target != null) {
-                collectRunFlow(target, nested, inner, at, events, seen, scope)
+                val fileScope = if (nested.conditional) at else scope
+                collectRunFlow(target, nested, inner, at, events, seen, fileScope)
                 continue
             }
             if (nested.nested.isNotEmpty()) {
