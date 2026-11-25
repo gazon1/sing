@@ -11,6 +11,11 @@ Everything below was checked against the pinned versions in this checkout: Koog 
 Room `3.0.3` (`gradle/libs.versions.toml:35`). The SDK claims below are read out of the pinned
 jars in the Gradle cache, not out of upstream documentation.
 
+The low-level evidence — the exact sources read, the commands that reproduce the reading, the
+captured bridge frames and the rationale behind each proof test — is in the companion
+[investigation appendix](3160-koog-persistence-and-acp-resume-appendix.md). This note carries only
+the decisions and the evidence they rest on.
+
 ## The answer in one screen
 
 | Question | Answer | Where |
@@ -46,75 +51,45 @@ them apart, because they need different processes to be alive.
 
 ## What the built-in chat is today
 
-The chat screen does **not** run on Koog's agent runtime. The call chain of one user message:
+The chat screen does **not** run on Koog's agent runtime. One user message travels
+`ChatViewModel.send()` → `ChatTurn.run()` → `TextGenPort.streamChat()` →
+`KoogAgentService.streamChat` → `ToolCallLoop.run` (`core/ai/ToolCallLoop.kt:111`) →
+`PromptExecutorPort.executeStreaming` — a **hand-written loop**, not Koog's graph. The full call
+chain and the facts that decide the question are in the
+[appendix](3160-koog-persistence-and-acp-resume-appendix.md#the-chat-execution-path):
 
-```
-ChatScreen → ChatViewModel.send()                      chat/ChatViewModel.kt:150
-  → ChatViewModel.turn()                               chat/ChatViewModel.kt:179
-      history = historyRecords()                       chat/ChatViewModel.kt:236   (in-memory messages)
-      → ChatTurn(agent, surface, history).run(prompt)  chat/ChatTurn.kt:41,56
-          request = historyBlock() + prompt            chat/ChatTurn.kt:61
-          → agent.streamChat(request)                  chat/ChatTurn.kt:72
-              → UsageRecordingTextGen.streamChat       chat/UsageRecordingTextGen.kt:69
-                  → KoogAgentService.streamChat        KoogAgentService.kt:170
-                      → ToolCallLoop.run(prompt)       core/ai/ToolCallLoop.kt:111
-                          → PromptExecutorPort.executeStreaming(prompt, model, tools)
-```
-
-Facts that decide the question:
-
-- **`ToolCallLoop` is a hand-written loop, not Koog's graph.** Its whole API is
-  `run(initialPrompt, stream)` (`core/ai/ToolCallLoop.kt:111`); the conversation lives in a local
-  variable (`:116`) and is thrown away when the turn ends. The class says why
-  (`:33-37`): Koog's agent runtime is written against the JVM's reflection and its own event
-  pipeline, and this project runs the same code on Android and on the desktop. That decision is
-  ADR `docs/decisions/2026-10-22-the-chat-can-call-tools.md`.
-- **`AIAgent` is used in exactly one place**, `KoogAgentService.generate()` (`KoogAgentService.kt:131`),
-  whose only production caller is the API-key "ping" in AI settings
-  (`feature/ai/data/AiSettingsStore.kt:164`). The chat never touches it.
-- **The conversation the model sees is prose, not messages.** `ChatTurn.historyBlock()`
-  (`chat/ChatTurn.kt:114-134`) renders the last `MAX_HISTORY = 6` turns as
-  `"user: …\nassistant: …"`, each side clipped to `REPLY_EXCERPT = 200` characters, and a screen
-  collapses to `"(showed a screen)"`. The full `Prompt` (with tool calls and tool results) exists
-  only inside the loop's local variable.
-- **Nothing about a conversation is persisted today.** The UI list
-  (`ChatViewModel.State.messages`, `chat/ChatViewModel.kt:57`) is ViewModel-scoped. The tool-call
-  log is a file, but it is shape-only by design — no arguments, no results, no text
-  (`core/observability/ToolCallLog.kt:31-40`). The usage ledger stores token counts, not content.
-- **GenUI surfaces are in-memory.** `SurfaceController` holds them in a `MutableStateFlow`
-  (`feature/genui/surface/SurfaceController.kt:35`), and each turn gets a fresh `SurfaceId`
-  (`chat/ChatViewModel.kt:191`). A restored conversation therefore has no screen to restore unless
-  the surface tree is persisted too.
+- `ToolCallLoop` keeps the conversation in a local variable and throws it away when the turn ends;
+  the class says why (ADR `docs/decisions/2026-10-22-the-chat-can-call-tools.md`).
+- `AIAgent` is used in exactly one place — `KoogAgentService.generate()`, whose only production
+  caller is the API-key "ping" in AI settings. The chat never touches it.
+- The conversation the model sees is **prose, not messages**: the last six turns, each side clipped
+  to 200 characters. The full `Prompt` (with tool calls and tool results) exists only inside the
+  loop's local variable.
+- **Nothing about a conversation is persisted today**: the UI list is ViewModel-scoped, the
+  tool-call log is shape-only by design, and GenUI surfaces live in memory — so a restored
+  conversation has no screen to restore unless the surface tree is persisted too.
 
 ## 1. Koog persistence: **not applicable** to the chat path
 
-Koog 1.3.0 does ship checkpointing, and **it is on this project's classpath** — transitively, which
-is easy to miss when reading the dependency declarations:
-`ai.koog:koog-agents:1.3.0` declares
-`ai.koog:agents-features-snapshot:1.3.0` and `ai.koog:agents-features-memory:1.3.0` as **runtime**
-dependencies, so both arrive transitively through `libs.koog.agents`
-(`gradle/libs.versions.toml:371-376`; confirmed by `./gw :shared:dependencyInsight --configuration
-jvmTestRuntimeClasspath --dependency agents-features-snapshot`, which shows
-`koog-agents → koog-agents-jvm → agents-features-snapshot`). Availability is therefore *not* the
-reason to reject it. The reason is what the feature can checkpoint:
+Koog 1.3.0 does ship checkpointing, and **it is on this project's classpath** — transitively:
+`ai.koog:koog-agents:1.3.0` declares `ai.koog:agents-features-snapshot:1.3.0` and
+`ai.koog:agents-features-memory:1.3.0` as **runtime** dependencies
+(`gradle/libs.versions.toml:371-376`). Availability is therefore *not* the reason to reject it. The
+reason is what the feature can checkpoint:
 
 - Checkpointing is an **agent-pipeline feature**. `Persistence.Feature` implements
   `AIAgentGraphFeature` / `AIAgentPlannerFeature` and installs itself by casting the running
   strategy: `val strategy = ctx.strategy as AIAgentGraphStrategy<*, *>`
-  (`agents-features-snapshot: Persistence.kt:130`). The cast only holds inside a Koog *graph*
-  run. The built-in chat never enters a Koog agent at all — `KoogAgentService.streamChat`
-  drives the app-owned `ToolCallLoop` — so there is no strategy to cast and nothing for the
-  feature to install into. Even the one place the app does run a Koog agent,
-  `KoogAgentService.generate()` → `createAgent(...)` → `agent.run(prompt)`, builds a
-  `FunctionalAIAgent` (`AIAgent.builder().build()` → `FunctionalAIAgent`), whose strategy is
-  functional rather than `AIAgentGraphStrategy`.
+  (`agents-features-snapshot: Persistence.kt:130`). The cast only holds inside a Koog *graph* run.
+  The built-in chat never enters a Koog agent at all — `KoogAgentService.streamChat` drives the
+  app-owned `ToolCallLoop` — so there is no strategy to cast and nothing for the feature to install
+  into. (The one place the app does run a Koog agent, `KoogAgentService.generate()` →
+  `createAgent(...)` → `agent.run(prompt)`, builds a `FunctionalAIAgent`, whose strategy is
+  functional rather than `AIAgentGraphStrategy`.)
 - Restoring is an **agent-graph operation**: `runFromCheckpoint(agent: AIAgent<Input, Output>, input,
   checkpoint, …)` (`Persistence.kt:267`) writes the checkpoint into an `AIAgentRunSession`'s
   *graph* context (`Persistence.kt:290-299`). There is no `AIAgent` and no graph session in the
   chat path to restore into.
-- The checkpoint payload (`AgentCheckpointData`) does contain `messageHistory: List<Message>`,
-  `llmModel`, `tools` and the node `storage` — but that payload is *produced by* the graph feature
-  while a Koog graph runs. The chat path never creates one, so there is nothing to read back.
 
 So the two candidate readings of "Koog persistence" both fail for the chat:
 
@@ -122,93 +97,81 @@ So the two candidate readings of "Koog persistence" both fail for the chat:
   the chat onto `AIAgent.run()`, which is exactly the move ADR `2026-10-22` rejected, and it would
   cost the streaming and multiplatform properties the loop was written for.
 - **Transcript/history persistence** — `agents-features-memory` does ship (`ChatMemory`,
-  `ChatHistoryProvider`, `InMemoryChatHistoryProvider`), but 1.3.0's only provider is in-memory:
-  the artifact contains four source files and one provider implementation, whose own KDoc says it is
-  "useful for testing, prototyping, and short-lived applications where persistence across process
-  restarts is not required". Using it would mean writing a durable provider — a new persistence
-  format for something this project can write to Room in one table.
+  `ChatHistoryProvider`, `InMemoryChatHistoryProvider`), but 1.3.0's only provider is in-memory, and
+  its own KDoc says it is "useful for testing, prototyping, and short-lived applications where
+  persistence across process restarts is not required". Using it would mean writing a durable
+  provider — a new persistence format for something this project can write to Room in one table.
 
 **Verdict: do not adopt.** The tripwire is `KoogCheckpointApplicabilityTest`
 (`shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/KoogCheckpointApplicabilityTest.kt`): it
-pins the facts the decision rests on — the checkpoint API is defined in terms of a Koog `AIAgent`,
-the feature itself installs into a **graph** pipeline only (`AIAgentGraphFeature`, and *not*
-`AIAgentFunctionalFeature`), and the chat holds no Koog agent at all: neither in the loop, nor in
-the project-owned port it turns through (`TextGenPort`, `ChatTurn`), nor in the streaming
-implementation that actually runs the chat (`KoogAgentService.streamChat`).
+pins the facts the decision rests on — the feature itself installs into a **graph** pipeline only
+(`AIAgentGraphFeature`, and *not* `AIAgentFunctionalFeature`), and the chat holds no Koog agent at
+all: neither in the loop, nor in the project-owned port it turns through (`TextGenPort`, `ChatTurn`),
+nor in the streaming implementation that actually runs the chat (`KoogAgentService.streamChat`).
 
-The applicability conclusion rests on the *contract* assertions — the feature's interfaces, the
+The applicability conclusion rests on those *contract* assertions — the feature's interfaces, the
 pipeline it installs into, and the production path the chat actually takes. The API-shape assertion
 (`runFromCheckpoint` takes an `AIAgent`) is a **compatibility tripwire**: it says the dependency is
 still there and still shaped the same way, not that the feature is applicable. A Koog release could
 keep the signature and change the runtime behaviour; the contract assertions are what would catch
-that.
+that. The full inventory of Koog sources read is in the
+[appendix](3160-koog-persistence-and-acp-resume-appendix.md#the-pinned-sources-that-were-read).
 
 ## 2. ACP session restore: the SDK can do it; the profiles and the lifecycle do not yet justify it
 
 ### What the pinned client offers
 
-Verified in `acp-jvm-0.34.0-sources.jar` and `acp-model-jvm-0.34.0-sources.jar`:
+Verified in `acp-jvm-0.34.0-sources.jar` and `acp-model-jvm-0.34.0-sources.jar` (the full
+inventory of sources read is in the
+[appendix](3160-koog-persistence-and-acp-resume-appendix.md#the-pinned-sources-that-were-read)):
 
 - `Client.resumeSession(sessionId, sessionParameters, operationsFactory)` —
   `commonMain/com/agentclientprotocol/client/Client.kt:576`, and the operations overload at `:604`.
-  Both are `@UnstableApi`.
+  Both are `@UnstableApi`. The SDK's own contract for it says what the app would have to honour:
+  *"This method is only available if the agent advertises the `session.resume` capability."*
+  (`Client.kt:564`), and resume is a **marker** capability —
+  `SessionCapabilities.resume: SessionResumeCapabilities?`, presence means supported
+  (`Capabilities.kt:198`).
 - `Client.loadSession(sessionId, sessionParameters, operationsFactory)` — the same file, `:445`,
   and the operations overload at `:475`. It is **not** marked unstable, and it is gated by the
-  separate boolean `AgentCapabilities.loadSession`, not by `sessionCapabilities.resume`: *"Only
-  available if the agent supports the `loadSession` capability"*
-  (`commonMain/com/agentclientprotocol/model/Requests.kt:399-408`). It is the call the protocol
-  documents as the persistence-across-restarts path, and the one §4 keeps apart from
+  separate boolean `AgentCapabilities.loadSession` (`Capabilities.kt:266`), not by
+  `sessionCapabilities.resume`: *"Only available if the agent supports the `loadSession`
+  capability"* (`commonMain/com/agentclientprotocol/model/Requests.kt:399-408`). It is the call the
+  protocol documents as the persistence-across-restarts path, and the one §4 keeps apart from
   `session/resume`.
 - The wire method exists in protocol **v1**, not only in the draft v2:
   `AcpMethod.AgentMethods.V1.SessionResume` → `"session/resume"`
   (`commonMain/com/agentclientprotocol/model/Methods.kt:205-206`). The app speaks v1
   (`SUPPORTED_PROTOCOL_VERSION = 1`, `AcpClient.kt:638`), and `session/load` sits next to it at
   `Methods.kt:152`.
-- Capability negotiation: `SessionCapabilities.resume: SessionResumeCapabilities?` — a **marker**,
-  presence means supported (`Capabilities.kt:198`). The v1 `session/load` gate is a separate
-  boolean, `AgentCapabilities.loadSession` (`Capabilities.kt:266`).
-- The SDK's own contract for `resumeSession` says exactly what the app would have to honour:
-  *"This method is only available if the agent advertises the `session.resume` capability."*
-  (`Client.kt:564`). It is also documented as unstable and not part of the spec yet.
 
 So the client side is not the blocker: **no SDK bump is needed to issue `session/resume`.**
 
 The claim is pinned by `AcpResumeCapabilityTest`
-(`shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/AcpResumeCapabilityTest.kt`): it
-asserts that the pinned client exposes the resume call, that the call travels as **v1** (the v1 and
-the v2 resume method share the wire name `session/resume` and are told apart by their request type
-— `com.agentclientprotocol.model.ResumeSessionRequest` against
-`com.agentclientprotocol.model.v2.ResumeSessionRequest`), that the client's own request builder
-produces the v1 type, that resume is a *marker* capability (`sessionCapabilities.resume` is
-present or absent — no payload to interpret), and that the marker travels as exactly
-`{"resume":{}}`. It also runs the pinned client against a fake transport and reads the frames that
-come out — one for `session/resume`, one for the restart-capable `session/load` — so both claims
-are checked on the wire and not only in the library's own method objects, and it decodes
-representative v1 `initialize` responses to pin the **inbound** path: `sessionCapabilities.resume`
-read back as a present-or-absent marker and the separate boolean `loadSession`. A dependency bump
-that changes any of those fails the test instead of quietly invalidating this note.
+(`shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/AcpResumeCapabilityTest.kt`): the
+pinned client exposes the resume call and it travels as **v1** (v1 and v2 resume share the wire name
+`session/resume` and are told apart by their request type —
+`com.agentclientprotocol.model.ResumeSessionRequest` against
+`com.agentclientprotocol.model.v2.ResumeSessionRequest`); the client's own request builder produces
+the v1 type; resume is a *marker* capability (present or absent — no payload to interpret) whose
+wire form is exactly `{"resume":{}}`; and a fake transport captures the outgoing frames, one for
+`session/resume` and one for the restart-capable `session/load`. A dependency bump that changes any
+of that fails the test instead of quietly invalidating this note.
 
-It also carries the **captured** frames the configured agents actually sent on 2026-11-25
-(`build/diagnostics/acp-probe-claude.log`, `build/diagnostics/acp-probe-codex.log`,
-`build/diagnostics/acp-probe-gemini.log`) and pins the facts the practical no-go rests on: the
-pinned SDK cannot decode the two bridge frames (`auth.status` is an object where the SDK expects
-`Boolean?`), it *does* decode the default Gemini CLI's frame, and the capabilities the agents
-advertise (`loadSession: true` everywhere, `sessionCapabilities.resume: {}` on the two bridges
-only, at versions 0.112.0, 2.12.0 and 0.71.1) are the ones the profile table above lists. A final
-test pins the profiles the registry actually holds to the packages those frames came from, so a
-changed executable cannot leave the table stale while the suite stays green. The frames are an
-observation of a specific package version — the agents are launched through unpinned packages, so
-capabilities still have to be negotiated at runtime — but the *SDK side*, which this repository
-does pin, is protected.
+The same class carries the **captured** frames the configured agents actually sent on 2026-11-25
+and pins the facts the practical no-go rests on: the pinned SDK cannot decode the two bridge frames
+(`auth.status` is an object where the SDK expects `Boolean?`), it *does* decode the default Gemini
+CLI's frame, and the capabilities the agents advertise are the ones the profile table above lists.
+The frames are an observation of a specific package version — the agents are launched through
+unpinned packages, so capabilities still have to be negotiated at runtime — but the *SDK side*,
+which this repository does pin, is protected. The frames themselves, and what each probe did next,
+are in the [appendix](3160-koog-persistence-and-acp-resume-appendix.md#the-captured-bridge-frames-of-2026-11-25).
 
-**The version cannot be read off the wire, and that is worth knowing before anyone writes a probe.**
-The v1 and v2 resume payloads are wire-identical: v1 sends
-`{sessionId, cwd, mcpServers, additionalDirectories?, _meta?}` and v2 sends
-`{sessionId, cwd, additionalDirectories, mcpServers, replayFrom?, _meta?}` — but v2's
-`additionalDirectories` is `@EncodeDefault(NEVER)` and its `replayFrom` is null, and the SDK's JSON
-omits nulls (`ACPJson`: `encodeDefaults = true`, `explicitNulls = false`), so both encode to
-`{sessionId, cwd, mcpServers}`. The only observable difference is which request type the method
-object is bound to — which is why the test pins the version there and reads the wire separately.
+**The version cannot be read off the wire.** The v1 and v2 resume payloads are wire-identical, so
+no wire-level test can tell the versions apart — the only observable difference is which request
+type the method object is bound to, which is why the test pins the version there and reads the wire
+separately. Why the two encodings coincide:
+[appendix](3160-koog-persistence-and-acp-resume-appendix.md#why-the-wire-cannot-tell-v1-from-v2-resume).
 
 ### What the application does today
 
@@ -234,22 +197,15 @@ The registry is hard-coded Kotlin, not a config file
 | `claude-code` | `npx @agentclientprotocol/claude-agent-acp` | 0.112.0 | `loadSession: true`, `sessionCapabilities.resume: {}` |
 | `codex` | `npx @agentclientprotocol/codex-acp` | 2.12.0 | `loadSession: true`, `sessionCapabilities.resume: {}` |
 
-- **Gemini CLI** answers `initialize` with `agentCapabilities: { loadSession: true, promptCapabilities,
-  mcpCapabilities }` and no `sessionCapabilities`
-  (`@google/gemini-cli@0.71.1`, bundle `gemini-7FHLRHNN.js:18745-18760`; and the **captured**
-  frame of 2026-11-25, `build/diagnostics/acp-probe-gemini.log`). Its dispatcher answers
-  `session/resume` with *method not found*, because the agent object has no
-  `unstable_resumeSession` (`:15742-15748`). So the **default profile cannot resume**.
-- **The Claude bridge** advertises `sessionCapabilities: { …, resume: {} }` and registers a handler
-  for `session/resume` (`@agentclientprotocol/claude-agent-acp@0.112.0`,
-  `dist/v1/acp-agent.js:558-606, 9004`).
-- **The Codex bridge** advertises `sessionCapabilities: { resume: {}, … }` and maps
-  `session_resume → "session/resume"` (`@agentclientprotocol/codex-acp@2.12.0`,
-  `dist/index.js:53273-53285, 5444-5458`).
-- A **live handshake against the real Claude bridge** (the repository's own probe,
-  `scripts/acp-bridge-probe.sh`, run on 2026-10-25 against 0.95.0) returned
-  `"loadSession": true, "sessionCapabilities": {…, "resume": {}}` — the same shape the package
-  source shows for 0.112.0.
+Two facts the table does not carry: Gemini's dispatcher answers `session/resume` with *method not
+found*, because the agent object has no `unstable_resumeSession` — so the **default profile cannot
+resume**; and a **live handshake against the real Claude bridge** (the repository's own probe,
+`scripts/acp-bridge-probe.sh`, run on 2026-10-25 against 0.95.0) returned
+`"loadSession": true, "sessionCapabilities": {…, "resume": {}}` — the same shape the package source
+shows for 0.112.0.
+
+Source line references for the three packages:
+[appendix](3160-koog-persistence-and-acp-resume-appendix.md#the-bridge-packages-read-offline-from-the-npm-cache).
 
 ### The live probes of 2026-11-25: the pinned SDK cannot even decode the bridges' `initialize`
 
@@ -279,8 +235,8 @@ Three caveats that a reader of the table above must not miss:
    transcript comes from*:
 
    - **`session/resume`** reconnects to an **existing** session *without replaying* the history.
-     That is all the protocol promises about it: the protocol documentation describes it as
-     "reconnect to an existing session **without replaying** the conversation history"
+     That is all the protocol promises about it: the documentation describes it as "reconnect to
+     an existing session **without replaying** the conversation history"
      (`https://agentclientprotocol.com/protocol/v1/session-setup.md`, "Resuming sessions"). The
      protocol does **not** state which process must still be alive — whether a session outlives
      the agent process that created it is the agent's own business, and the note did not verify it
@@ -288,13 +244,13 @@ Three caveats that a reader of the table above must not miss:
      application's transport: it never connects to an agent that is already running. Every profile
      is *launched* as a child process (`SubprocessAcpAgentLauncher`, `AcpAgentLauncher.kt:78-104`)
      and the protocol travels over that child's standard input and output (`Subprocess.spawnDuplex`,
-     `core/process/Subprocess.kt:295-309`). A restarted app therefore launches a *new* child, and
-     this app has no way to reach an agent it did not spawn — an agent orphaned by a killed app
-     cannot be reached either, even if it survives the kill: the pipes died with the app that held
-     them. An orderly close ends the tree outright as well (`AcpClient.close()`/`terminate()` →
-     `ProcessTree`, `AcpClient.kt:485-601`). **So with this application's transport,
-     `session/resume` cannot carry a conversation across an app restart** — not because the
-     protocol forbids it, but because there is no surviving agent for this app to talk to.
+     `core/process/Subprocess.kt:295-309`), so a restarted app launches a *new* child and has no
+     way to reach the old one — an agent orphaned by a killed app cannot be reached either, even
+     if it survives the kill, because the pipes died with the app that held them. An orderly close
+     ends the tree outright as well (`AcpClient.close()`/`terminate()` → `ProcessTree`,
+     `AcpClient.kt:485-601`). **So with this application's transport, `session/resume` cannot carry
+     a conversation across an app restart** — not because the protocol forbids it, but because
+     there is no surviving agent for this app to talk to.
    - **`session/load`** is the protocol's documented "persistence across restarts" path: the
      **agent** stores the transcript, and a *newly connected* agent process reloads it by id and
      replays the history as `session/update`s before it answers. The protocol documentation says
@@ -304,14 +260,13 @@ Three caveats that a reader of the table above must not miss:
      `sessionCapabilities.resume` is the *other* thing — "reconnect to an existing session
      **without replaying** the conversation history"). All three configured profiles advertise
      `loadSession: true`, and **both bridges implement it**: claude-agent-acp 0.112.0 reads the
-     stored transcript and replays it (`dist/v1/acp-agent.js:879-897`, registered at `:9004`), and
-     codex-acp 2.12.0 does the same — its own comment calls the two the same operation: "Shared by
-     v1 `session/load` and v2 `session/resume` with `replayFrom: {type: "start"}`: reattach,
-     replay retained history as ordinary `session/update`s, then answer"
-     (`dist/index.js:54242-54270`, method map at `:5444`). **So the restart case is not ruled out by
-     the protocol, and it is not ruled out by the bridges either** — it is ruled out by *this
-     application*, whose transport cannot reach an agent it did not spawn, and which keeps no
-     session id and does not read the capability that promises it.
+     stored transcript and replays it, and codex-acp 2.12.0 does the same — its own comment calls
+     the two the same operation: reattach, replay retained history as ordinary `session/update`s,
+     then answer (sources in the
+     [appendix](3160-koog-persistence-and-acp-resume-appendix.md#the-bridge-packages-read-offline-from-the-npm-cache)).
+     **So the restart case is not ruled out by the protocol, and it is not ruled out by the bridges
+     either** — it is ruled out by *this application*, whose transport cannot reach an agent it did
+     not spawn, and which keeps no session id and does not read the capability that promises it.
 3. **The pinned SDK cannot open the two bridges' sessions at all** (see above): `auth.status` is a
    boolean in SDK 0.34.0 and an object in the Claude and Codex bridges. Whatever the session-restore
    design ends up being, it starts after that mismatch is resolved. The default Gemini profile is
@@ -319,38 +274,29 @@ Three caveats that a reader of the table above must not miss:
 
 ### The default profile is a different case: Gemini decodes, and then fails for another reason
 
-The same probe was run against the **default** profile on 2026-11-25
-(`build/diagnostics/acp-probe-gemini.log`, `@google/gemini-cli@0.71.1`, launched as the registry
-launches it). Its `initialize` result, captured verbatim:
-
-```
-{"protocolVersion":1,"authMethods":[{"id":"oauth-personal","name":"Log in with Google","description":"Log in with your Google account"},{"id":"gemini-api-key","name":"Gemini API key","description":"Use an API key with Gemini Developer API","_meta":{"api-key":{"provider":"google"}}},{"id":"vertex-ai","name":"Vertex AI","description":"Use an API key with Vertex AI GenAI API"},{"id":"gateway","name":"AI API Gateway","description":"Use a custom AI API Gateway","_meta":{"gateway":{"protocol":"google","restartRequired":"false"}}}],"agentInfo":{"name":"gemini-cli","title":"Gemini CLI","version":"0.71.1"},"agentCapabilities":{"loadSession":true,"promptCapabilities":{"image":true,"audio":true,"embeddedContext":true},"mcpCapabilities":{"http":true,"sse":true}}}
-```
-
-Three things follow, and they must not be merged with the bridges' case:
+The same probe was run against the **default** profile on 2026-11-25, launched as the registry
+launches it. Its `initialize` result is carried verbatim as a test fixture, so the frame is
+readable in `AcpResumeCapabilityTest` rather than duplicated here. Four things follow, and they
+must not be merged with the bridges' case:
 
 1. **The frame carries no `auth` block at all**, so the pinned SDK 0.34.0 **decodes it** — the
    `$.status` mismatch above is a property of the two bridges, not of the protocol version and not
    of the SDK.
 2. **It confirms the table's Gemini row on the wire**: `loadSession: true` and **no
-   `sessionCapabilities`**, so no resume. The default profile cannot resume — now an observation,
-   not only a reading of the bundle.
+   `sessionCapabilities`**, so no resume — now an observation, not only a reading of the bundle.
 3. **The handshake still failed**, but later and for an unrelated reason: the client got past
    `initialize` and the probe's `session/new` was refused with
    `Gemini API key is missing or not configured.` That is this host's configuration, not a protocol
    or SDK defect, and it is why no session was opened against any of the three agents.
-
-This matters for this issue in two separate ways:
-
-1. **The connection fails before resume is reachable.** With the pinned SDK 0.34.0, the resume
-   capability these two bridges advertise is currently unusable in practice — not because resume
-   is wrong, but because the session cannot even be opened. Any future ACP-resume work with them
+4. **So the connection fails before resume is reachable.** With the pinned SDK 0.34.0, the resume
+   capability the two bridges advertise is currently unusable in practice — not because resume is
+   wrong, but because the session cannot even be opened. Any future ACP-resume work with them
    starts by fixing this shape mismatch (or by moving to an SDK version whose
-   `AgentAuthCapabilities.status` accepts the object form). The default profile is not in this
-   case — see the next section.
-2. **It confirms the table above is a source-level statement, not a runtime one.** The capability
-   advertisement was read from the wire frame, so the *advertisement* is real; what is not real is
-   any end-to-end session with these bridges under the pinned SDK.
+   `AgentAuthCapabilities.status` accepts the object form). The default profile is not in this case.
+
+One caveat the table still carries: the capability advertisement was read from the wire frame, so
+the *advertisement* is real; what is not real is any end-to-end session with these bridges under
+the pinned SDK.
 
 ### Verdict: **no-go** for building ACP session restore now
 
@@ -427,33 +373,32 @@ persisting a rendered UI tree — a second format, a second table, and a schema 
 | Agent process died, app alive | **Yes** | No | No — `AgentUnavailable` (`AcpClient.kt:399`), and the id is dead | The stored transcript may still be there; the app has no id, and the agent may not have finished writing it |
 | A *separately* running agent, reachable over a socket | **Yes** | No | **Yes** — if the agent advertises `sessionCapabilities.resume` | **Yes** — if the agent advertises `loadSession` |
 
-The rule the table states: **transcript restoration and execution resumption are different
-features.** The transcript is the application's own data, and it survives the process and
-agent-session events in the table — provided the Room database itself remains intact. Nothing here
-promises durability against a deleted or corrupted database, cleared application data, or an
-uninstall. Resuming an
-*execution* is a property of *someone else's* live process: `session/resume` reconnects to a
-session that process still holds, so it needs a reachable agent that kept that session — the last
-table row is the case where the agent is reachable (a separately running agent over a socket).
-This application does not run anyone else's long-lived process: it launches the agent itself and
-speaks to it over pipes, so the session lives and dies with the app
-(`Subprocess.spawnDuplex`, `core/process/Subprocess.kt:295-309`; `ProcessTree`,
-`AcpClient.kt:485-601`) — and the app cannot re-attach to a process it did not spawn.
+Three rules follow from the table:
 
-The second rule follows from the table's other half: **`session/load` promises something different,
-and this application cannot collect it either — yet.** There, the persistence is the *agent's*: the
-agent stores its transcript, and a fresh child reloads it by id. The application's own blockers are
-the ones from §2 (no capability read, no session id, a handshake the pinned SDK cannot complete)
-plus one that is a design question rather than a missing piece: the replayed history comes *from
-the agent*, so an application that also keeps its own transcript in Room would have two, and would
-have to say which one is the truth. The recommendation below answers that for the built-in chat —
-the application's own transcript — and leaves the ACP path as a later decision.
-
-A second rule follows from the current chat shape: **restoring a transcript does not restore the
-model's memory of it.** Today the model is re-told the last six turns as 200-character prose
-(`ChatTurn.kt:114-134`). If the transcript becomes durable, the same lossy block is still what the
-model sees — and a durable transcript invites the question "why does the model not remember what I
-can see?", whose honest answer is a separate decision (feed the real turns, and pay for the tokens).
+1. **Transcript restoration and execution resumption are different features.** The transcript is the
+   application's own data, and it survives the process and agent-session events in the table —
+   provided the Room database itself remains intact. Nothing here promises durability against a
+   deleted or corrupted database, cleared application data, or an uninstall.
+2. **Resuming an *execution* is a property of *someone else's* live process.** `session/resume`
+   reconnects to a session that process still holds, so it needs a reachable agent that kept that
+   session — the last table row is the case where the agent is reachable (a separately running
+   agent over a socket). This application does not run anyone else's long-lived process: it launches
+   the agent itself and speaks to it over pipes, so the session lives and dies with the app
+   (`Subprocess.spawnDuplex`, `core/process/Subprocess.kt:295-309`; `ProcessTree`,
+   `AcpClient.kt:485-601`) — and the app cannot re-attach to a process it did not spawn.
+   **`session/load` promises something different, and this application cannot collect it either —
+   yet.** There, the persistence is the *agent's*: the agent stores its transcript, and a fresh child
+   reloads it by id. The application's own blockers are the ones from §2 (no capability read, no
+   session id, a handshake the pinned SDK cannot complete) plus one that is a design question rather
+   than a missing piece: the replayed history comes *from the agent*, so an application that also
+   keeps its own transcript in Room would have two, and would have to say which one is the truth.
+   The recommendation below answers that for the built-in chat — the application's own transcript —
+   and leaves the ACP path as a later decision.
+3. **Restoring a transcript does not restore the model's memory of it.** Today the model is re-told
+   the last six turns as 200-character prose (`ChatTurn.kt:114-134`). If the transcript becomes
+   durable, the same lossy block is still what the model sees — and a durable transcript invites the
+   question "why does the model not remember what I can see?", whose honest answer is a separate
+   decision (feed the real turns, and pay for the tokens).
 
 ## Recommendation: the smallest viable design
 
@@ -490,36 +435,17 @@ chat.**
    200-character prose block?
 4. *Then, separately*: the ACP capability read (`sessionCapabilities?.resume` and `loadSession`) —
    two lines, no persistence — and, with it, the session-id store. The call to look at first is
-   `session/load`, not `session/resume`: `resume` reconnects to an existing session without
-   replaying it, and the child-per-launch topology gives this app no surviving agent to reconnect
-   to after a restart, while `load` is the protocol's documented persistence-across-restarts path
-   and both bridges implement it. Whether to use it at all is a separate decision, and it carries
-   one the transcript does not: the agent would replay its own history, so the app must decide
-   whose transcript is the truth.
+   `session/load`, not `session/resume` (the child-per-launch topology gives this app no surviving
+   agent to reconnect to after a restart, while `load` is the protocol's documented
+   persistence-across-restarts path and both bridges implement it) — but it carries a question the
+   transcript does not: the agent would replay its own history, so the app must decide whose
+   transcript is the truth.
 
 ## How to reproduce the findings
 
-- Koog checkpointing **is** on the classpath, transitively:
-  `./gw :shared:dependencyInsight --configuration jvmTestRuntimeClasspath --dependency agents-features-snapshot`
-  — `koog-agents → koog-agents-jvm → agents-features-snapshot` (runtime scope in the POM).
-- The checkpoint feature is graph-only:
-  `unzip -p ~/.gradle/caches/modules-2/files-2.1/ai.koog/agents-features-snapshot-jvm/1.3.0/*/agents-features-snapshot-jvm-1.3.0-sources.jar commonMain/ai/koog/agents/snapshot/feature/Persistence.kt | sed -n '120,135p'`
-  — the `as AIAgentGraphStrategy<*, *>` cast.
-- ACP resume exists in v1:
-  `unzip -p ~/.gradle/caches/modules-2/files-2.1/com.agentclientprotocol/acp-model-jvm/0.34.0/*/acp-model-jvm-0.34.0-sources.jar commonMain/com/agentclientprotocol/model/Methods.kt | sed -n '200,210p'`
-  and `…/acp-jvm/0.34.0/*/acp-jvm-0.34.0-sources.jar commonMain/com/agentclientprotocol/client/Client.kt | sed -n '560,580p'`.
-- The bridge capabilities: `npm pack @agentclientprotocol/claude-agent-acp @agentclientprotocol/codex-acp @google/gemini-cli`,
-  then read the `initialize` handler in each package's bundle.
-- The bridges' `session/load` implementations:
-  `npm pack @agentclientprotocol/claude-agent-acp@0.112.0 @agentclientprotocol/codex-acp@2.12.0`,
-  then `grep -n "async loadSession" claude/package/dist/v1/acp-agent.js` (→ `:879`) and
-  `grep -n "session/load" codex/package/dist/index.js` (→ `:5444`).
-- A live handshake against a real bridge: `scripts/acp-bridge-probe.sh npx -y @agentclientprotocol/claude-agent-acp`
-  (the probe prints the `initialize` frame, capabilities included; on 2026-11-25 it then failed with
-  `$.status` — see above).
-- The SDK/bridge shape mismatch:
-  `unzip -p ~/.gradle/caches/modules-2/files-2.1/com.agentclientprotocol/acp-model-jvm/0.34.0/*/acp-model-jvm-0.34.0-sources.jar commonMain/com/agentclientprotocol/model/Capabilities.kt | sed -n '233,238p'`
-  — `status: Boolean? = null` against the bridges' `"status": {}`.
+Every command that produced the evidence above — the dependency lookups, the pinned-source reads,
+the bridge-package reads and the live handshake probe — is listed in the
+[appendix](3160-koog-persistence-and-acp-resume-appendix.md#how-to-reproduce-the-findings).
 
 ## What was not verified
 
