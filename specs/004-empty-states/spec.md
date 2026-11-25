@@ -59,19 +59,19 @@ scenarios:
     area: feature.negative
     priority: P1
     status: confirmed
-    targets: [android]
+    targets: [desktop]
   - id: NEGATIVE-03
     title: The projects list shows an empty state with no projects
     area: feature.negative
     priority: P1
     status: confirmed
-    targets: [android]
+    targets: [desktop]
   - id: NEGATIVE-04
     title: The Archive screen shows an empty state
     area: feature.negative
     priority: P1
     status: confirmed
-    targets: [android]
+    targets: [desktop]
   - id: NEGATIVE-05
     title: Search distinguishes an idle prompt from no matches
     area: feature.negative
@@ -102,7 +102,7 @@ scenarios:
 ## Out of Scope
 
 - Empty states on screens that cannot be empty (Pomodoro's timer, a running sync indicator).
-- The copy itself. These scenarios assert that a message is present and distinct, not what it says — that is a design review, not a test.
+- The copy itself. These scenarios assert that a message is present and distinct, not what it says — that is a design review, not a test. The exceptions are the three scenarios whose retired Maestro flows asserted the exact strings, so the desktop owners keep them and the copy stays contractual: `NEGATIVE-02` ("No notes yet" and "Create note"), `NEGATIVE-03` ("No projects yet") and `NEGATIVE-04` ("Archive is empty").
 
 ## Risks
 

@@ -33,6 +33,9 @@ import kotlin.time.Instant
  * pins the replacement: the action is an overflow item, the confirmation names the
  * count, Cancel writes nothing, and Confirm performs the sweep exactly once.
  *
+ * The last case is the owner of scenario `NEGATIVE-04` (see
+ * `scripts/src/traceability/scenarios/negative/NEGATIVE-04.yaml`).
+ *
  * The write is never asserted through the UI alone. A row moving into the archive
  * list means the observation re-emitted; the repository read says whether the row
  * actually changed, which is the fact a cancel has to leave alone.
@@ -111,8 +114,18 @@ class ArchiveBulkActionFlowTest {
             awaitTagGone(TestTags.Dialog.CONFIRM)
         }
 
+    /**
+     * The owner of `NEGATIVE-04`.
+     *
+     * The Android flow that used to carry it (`Maestro/flows/negative/04-empty-archive.yaml`)
+     * was retired: the empty state and the discoverable-but-disabled bulk action
+     * are asserted here, and the flow's device-only residue — the Archive is a
+     * menu destination on Android and a tab on desktop — is carried by
+     * `Maestro/flows/archive/01-restore.yaml`, which opens the screen through
+     * the menu sheet.
+     */
     @Test
-    @DisplayName("the bulk archive is unavailable when no completed task is eligible")
+    @DisplayName("NEGATIVE-04 the archive shows an empty state and the bulk action stays disabled")
     fun the_action_is_disabled_without_eligible_tasks() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
             // An active task is not eligible; the archive list is empty, and the
@@ -121,8 +134,15 @@ class ArchiveBulkActionFlowTest {
 
             tapTab("Archive")
             assertTagDisplayed(TestTags.ARCHIVE_EMPTY)
+            // The tag rides on the title node, so the tag alone would not notice
+            // the copy changing; the flow asserted the visible string.
+            assertTextDisplayed("Archive is empty")
 
             clickTag(TestTags.ARCHIVE_OVERFLOW)
+            // Discoverable first: the retired flow waited for the item to be
+            // visible, and an item that is composed but off screen would still
+            // pass a state check while the user cannot find it.
+            assertTagDisplayed(TestTags.ARCHIVE_BULK_ACTION)
             assertTagNotEnabled(TestTags.ARCHIVE_BULK_ACTION)
         }
 
