@@ -102,7 +102,7 @@ scenarios:
 ## Out of Scope
 
 - Empty states on screens that cannot be empty (Pomodoro's timer, a running sync indicator).
-- The copy itself. These scenarios assert that a message is present and distinct, not what it says — that is a design review, not a test. The one exception is `NEGATIVE-04`: the Maestro flow that used to carry it asserted the exact string "Archive is empty", and the desktop owner keeps that assertion so the guarantee does not weaken on the way over.
+- The copy itself. These scenarios assert that a message is present and distinct, not what it says — that is a design review, not a test. The exceptions are the three scenarios whose retired Maestro flows asserted the exact strings, so the desktop owners keep them and the copy stays contractual: `NEGATIVE-02` ("No notes yet" and "Create note"), `NEGATIVE-03` ("No projects yet") and `NEGATIVE-04` ("Archive is empty").
 
 ## Risks
 
