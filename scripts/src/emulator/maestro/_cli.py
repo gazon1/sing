@@ -22,7 +22,7 @@ from emulator.maestro._engine import (
     engine_available,
     runner_version,
 )
-from emulator.maestro._fixtures import reset_session
+from emulator.maestro._fixtures import reset_orientation, reset_session
 from emulator.maestro._flow import collect_flows, filter_flows_by_tag, filter_flows_excluding_tags
 from emulator.maestro._lock import DeviceLock, DeviceLocked
 from emulator.maestro._policy import PolicyError, load_policy
@@ -624,6 +624,11 @@ def main(
             # The wipe is the whole scope: it needs no list of titles, which is
             # why the narrow scope is gone.
             deps.cleanup_run_fixtures(serial, maestro_cleanup, deps)
+
+        # The orientation is a fixture too: a flow that rotates the device and
+        # fails leaves it rotated, and the next flow is then measured against a
+        # screen Maestro cannot reason about. It is put back before the flow.
+        reset_orientation(serial, deps)
 
         # The session is reset before the flow, not after it: a flow that ends
         # signed out must not decide the session of the flow after it, and the

@@ -46,6 +46,27 @@ def reset_session(serial: str, deps: "DeviceDeps") -> None:
     deps.wait_for_app_resumed(serial)
 
 
+def reset_orientation(serial: str, deps: "DeviceDeps") -> None:
+    """Put the device back in portrait. Best-effort.
+
+    A flow that rotates the device and then fails leaves it rotated, and the
+    next flow is measured against that: Maestro keeps the screen size it read
+    before the rotation, so every visibility check on the wide landscape layout
+    is computed against the portrait width — a row that is on the screen comes
+    out as "not visible", and every flow after the rotation fails on it. The
+    suite then reports one defect as forty (measured 2026-11-25, API 36
+    emulator: `lifecycle/03-rotate-in-editor` failed, and the eight flows
+    after it failed on the rotation it left behind).
+
+    The orientation is a fixture like any other: it is part of what a flow
+    leaves on the device, and it is put back before the next flow runs.
+    """
+    if not deps.device_alive(serial):
+        return
+    deps.adb_on(serial, "shell", "settings", "put", "system", "accelerometer_rotation", "0")
+    deps.adb_on(serial, "shell", "settings", "put", "system", "user_rotation", "0")
+
+
 def cleanup_run_fixtures(
     serial: str, mode: str, deps: "DeviceDeps",
 ) -> None:

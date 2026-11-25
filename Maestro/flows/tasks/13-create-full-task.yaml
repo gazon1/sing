@@ -17,6 +17,24 @@ tags:
 - runFlow: ../../helpers/launch-clean.yaml
 - tapOn:
     id: tasks_fab
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 8000
+
+# The FAB opens the capture path: the title takes the focus and the keyboard
+# comes up with it. The keyboard takes half the editor's height, the rows below
+# the fold are then not on the screen at all, and the swipe a scroll does lands
+# on the save bar rather than on the editor — so the scroll cannot reach them.
+# Closing the keyboard gives the editor its full height back.
+#
+# The keyboard is closed after a tap on the field it belongs to, so it is
+# certainly up when the back press that hides it arrives: a hideKeyboard with
+# nothing to hide is a BACK keypress, and the editor reads that as "dismiss
+# me" (docs/decisions/2026-10-28-the-keyboard-was-already-down.md).
+- tapOn:
+    id: task_editor_title_input
+- hideKeyboard
 
 # The editor is open. The editor restores its draft — and with it the place it
 # was left — so the title input can start below the fold. Scrolling up to it
