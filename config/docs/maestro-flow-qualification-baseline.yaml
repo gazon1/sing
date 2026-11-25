@@ -17,7 +17,7 @@ flows:
   Maestro/flows/agenda/08-persistence-restart.yaml: sha256:fbcd5ac6d4cd0fb7637cf13c99ab8fb1dbe2f5aa7d8512ee20483f25204696f8
   Maestro/flows/agenda/10-overflow-menu.yaml: sha256:bea9c5c656c3cde85b867c3b2e3e82cb49885d7740a1efb4d8afd881cc32725c
   Maestro/flows/archive/01-restore.yaml: sha256:d3dee1db47bb754d5582021a82f3d9aff8c8132fc95c7c0d5d6399ca8f7df3ee
-  Maestro/flows/archive/02-bulk-archive-confirm.yaml: sha256:983bf1e7423f7eef32a6db0773af2779f313d0ffa9c339dca8a5343451a3f010
+  Maestro/flows/archive/02-bulk-archive-confirm.yaml: sha256:ee7c8e181097ac7568ff6588529336176974f76c017d0538826bbaa39fc77be7
   Maestro/flows/attachments/01-add-url.yaml: sha256:89d30a7725a7d78780b19077445a8e71a9e20cb84f9081c7adc29b390a2244c3
   Maestro/flows/attachments/02-delete.yaml: sha256:3f8484ebbdf88877a281b84ced70f6f879d12f3e6aac5f2468f3231327bb999a
   Maestro/flows/attachments/03-empty-url-rejected.yaml: sha256:d0f61aaa950aacc87c19adae655aa6e2de543f7c28e6fe66e83d2990b055e9d6

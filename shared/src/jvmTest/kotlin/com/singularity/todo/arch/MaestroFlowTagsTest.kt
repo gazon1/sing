@@ -808,6 +808,7 @@ class MaestroFlowTagsTest {
                 "scrollUntilVisible",
                 "setAirplaneMode",
                 "setOrientation",
+                "setPermissions",
                 "startRecording",
                 "stopApp",
                 "stopRecording",

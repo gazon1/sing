@@ -20,10 +20,13 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=YesterdayTask&due=-1d"
+# TodayTask lands in today's section of the Today agenda — the screen the seed
+# leaves the app on — so the helper can wait for the row itself (the row rule).
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=TodayTask&due=today"
+      WAIT_FOR: "task_item_todaytask"
 - runFlow:
     file: ../../helpers/seed.yaml
     env:

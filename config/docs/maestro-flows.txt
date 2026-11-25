@@ -117,6 +117,7 @@ Maestro/flows/smoke/02-menu-settings.yaml
 Maestro/flows/smoke/03-account-tab.yaml
 Maestro/flows/smoke/03-health-drilldown.yaml
 Maestro/flows/smoke/06-session-anonymous.yaml
+Maestro/flows/smoke/07-seed-helper-contract.yaml
 Maestro/flows/sync/01-change-sync-interval.yaml
 Maestro/flows/sync/01-offline-create-survives-reconnect.yaml
 Maestro/flows/system/search-finds-task.yaml

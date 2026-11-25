@@ -45,6 +45,12 @@ tags:
 - assertVisible:
     id: project_detail_children_chip
 # The project's own task list: a screen with no task on it is not the shot.
+# Row rule: the task belongs to no section of the agenda timeline, so the row
+# itself is what is waited for.
+- extendedWaitUntil:
+    visible:
+      id: task_item_send_the_deposit_invoice
+    timeout: 8000
 - assertVisible:
     id: task_item_send_the_deposit_invoice
 - waitForAnimationToEnd

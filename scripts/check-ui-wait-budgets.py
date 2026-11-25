@@ -398,22 +398,44 @@ def maestro_waits(root: pathlib.Path | None = None) -> list[dict]:
             if not isinstance(document, list):
                 continue
             for command in document:
-                if not isinstance(command, dict):
-                    continue
-                for name, body in command.items():
-                    if name not in WAIT_COMMANDS or not isinstance(body, dict):
-                        continue
-                    elements, text = _wait_target(body)
-                    waits.append(
-                        {
-                            "file": str(path.relative_to(base)),
-                            "command": name,
-                            "elements": elements,
-                            "text": text,
-                            "timeout": body.get("timeout"),
-                        }
-                    )
+                waits.extend(_waits_of(command, path, base))
     return waits
+
+
+def _waits_of(command: dict, path: pathlib.Path, base: pathlib.Path) -> list[dict]:
+    """The waits one command makes — and the waits its nested commands make.
+
+    A conditional `runFlow` carries its commands under `commands:`, and a wait
+    in there is a wait the flow makes: the seed helper waits for the entity the
+    caller named inside exactly such a block. Only the commands were walked
+    before, so such a wait was invisible to this gate — a budget nobody keeps
+    in step. The *condition* of a `when:` is not counted: it names an element
+    the block waits for, but Maestro gives it no timeout of its own, and a
+    condition is not a command that waits.
+    """
+    records: list[dict] = []
+    if not isinstance(command, dict):
+        return records
+    for name, body in command.items():
+        if name == "runFlow":
+            nested = body.get("commands") if isinstance(body, dict) else None
+            if isinstance(nested, list):
+                for nested_command in nested:
+                    records.extend(_waits_of(nested_command, path, base))
+            continue
+        if name not in WAIT_COMMANDS or not isinstance(body, dict):
+            continue
+        elements, text = _wait_target(body)
+        records.append(
+            {
+                "file": str(path.relative_to(base)),
+                "command": name,
+                "elements": elements,
+                "text": text,
+                "timeout": body.get("timeout"),
+            }
+        )
+    return records
 
 
 def _wait_target(body: dict) -> tuple[list[str], str | None]:

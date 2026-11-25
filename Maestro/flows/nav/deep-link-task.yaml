@@ -8,6 +8,16 @@
 # The fixture is seeded rather than typed: a deep link names an id, and the id
 # the app generates is not one a flow can know. The seed names the id, so the
 # link can address it.
+#
+# The link arrives while the seed is still writing, so the flow waits for the
+# row before it sends the link: the seed helper waits for the entity the
+# caller names, and the row is named here. Without the wait the link could
+# reach the app before the row it names exists, and the app would open
+# whatever it had — the flow would then assert on a task it never addressed.
+#
+# The task is due today, so its row is on the Today tab — the screen the
+# helper waits on. A task without a date would be in the Inbox, and the
+# helper could not wait for it there.
 appId: com.singularity.todo
 name: nav-deep-link-task
 tags:
@@ -20,16 +30,20 @@ tags:
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=Deep%20link%20target&id=deeplinktarget01"
+      QUERY: "task=Deep%20link%20target&due=today&id=deeplinktarget01"
+      WAIT_FOR: task_item_deep_link_target
 # The link arrives as an intent. Maestro has no `launchApp: intent:` in 2.10 —
 # `openLink` is the command that sends one: it asks the system to handle the URL
 # with `android.intent.action.VIEW`, which is exactly the intent a link from a
 # mail or a messenger produces, and the app receives it in `onNewIntent`.
 - openLink: "singularity://task/deeplinktarget01"
-# The task's editor is what the task screen is.
+# The task's editor is what the task screen is, and the wait names the task it
+# opened: the field carries the title, so waiting for the field *and* the title
+# is waiting for this task and not for whichever task the editor would show.
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
+      text: "Deep link target"
     timeout: 5000
 # The title proves the link led to *this* task and not merely that an editor
 # opened.

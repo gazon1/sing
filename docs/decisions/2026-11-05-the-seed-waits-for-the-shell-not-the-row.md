@@ -1,7 +1,8 @@
 ---
 title: "The seed waits for the shell, and the flow waits for the entity it seeded"
 date: 2026-11-05
-status: accepted
+status: superseded
+superseded-by: 2026-11-23-the-seed-helper-waits-for-the-entity-it-seeded
 tags: [maestro, e2e, testing, contracts]
 ---
 

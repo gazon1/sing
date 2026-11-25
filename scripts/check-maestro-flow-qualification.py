@@ -58,6 +58,16 @@ The gate reads the flow and its helpers to compute the fingerprint, so a
 change to a helper requalifies every flow that runs it. It never rewrites the
 baseline, the frozen set or the qualification file.
 
+The currency of a record is the fingerprint. The build the attempts ran is
+the *program* the record is about -- the gate refuses a record whose two
+build values name two different programs -- but a change to the application
+code does not invalidate a record: the admitted flow keeps running in the
+blocking suite, where an application regression is caught. The gate is an
+admission rule, not a regression detector, and it does not compare the
+recorded build with the checkout it runs in. ADR
+``docs/decisions/2026-11-25-qualification-currency-is-the-flow-not-the-build.md``
+records the decision and its cost.
+
 Usage:
     python3 scripts/check-maestro-flow-qualification.py [--json] [--check]
         [--root DIR] [--catalogue FILE] [--baseline FILE] [--evidence FILE]
@@ -129,7 +139,7 @@ FROZEN_SET_DIGEST = "sha256:863ed25a7db9a260fba93474102645baa27359399e94f8665e95
 #: changed — a source change, reviewed as one, that says in the diff that
 #: flows are admitted without being qualified. Print the current digest with
 #: ``--print-baseline-digest``.
-BASELINE_DIGEST = "sha256:5acb16be3a9d4674c9faf416d862a7361682585b3973457ba7a32e1d2ed55bae"
+BASELINE_DIGEST = "sha256:abe44c4760eda44981f240a99386d88cde256066a019e28b5d8180a9e7be4d2e"
 
 #: A reference inside a flow/helper: `file: path`, `- runFlow: path` or
 #: `- runScript: path`. The extension is not restricted to YAML: a flow can run
@@ -608,6 +618,13 @@ def attempt_admission_issues(attempt: dict, index: int) -> list[str]:
     # qualification that names two different builds certifies a program
     # the checkout does not hold. The check is on the recorded values, so
     # it holds whatever produced them.
+    #
+    # It is a check on the *record*, not on the checkout the gate runs in:
+    # the recorded build names the program the attempts certified. Whether
+    # that program is still the one the repository holds is not this
+    # gate's question -- the flow keeps running in the blocking suite,
+    # where an application regression shows up as a red suite. ADR
+    # ``docs/decisions/2026-11-25-qualification-currency-is-the-flow-not-the-build.md``.
     checkout_sha = attempt.get("commit")
     apk_sha = attempt.get("apk_commit_sha")
     if not checkout_sha or not apk_sha:
@@ -779,6 +796,9 @@ def scan(
             continue
         if flow in initial_set and baseline.get(flow) == fp:
             counts["baselined"] += 1
+            stale = stale_exception_reason(exceptions.get(flow), fp) if flow in exceptions else None
+            if stale is not None:
+                findings.append(Finding(flow, "stale exception", stale))
             continue
 
         # Recovery for a changed/non-matching flow happens via qualification or
@@ -791,6 +811,9 @@ def scan(
             ok, reason = is_qualified(qualifications[flow], fp, required)
             if ok:
                 counts["qualified"] += 1
+                stale = stale_exception_reason(exceptions.get(flow), fp) if flow in exceptions else None
+                if stale is not None:
+                    findings.append(Finding(flow, "stale exception", stale))
                 continue
             qualification_reason = reason
         exception_reason = None
@@ -831,7 +854,29 @@ def scan(
                     "new or unadmitted flow in a blocking automated scope; qualify it (bounded repeated run) or add an evidence-backed exception",
                 )
             )
+
     return findings, counts
+
+
+def stale_exception_reason(record: dict, current_fp: str) -> str | None:
+    """Why an exception that admitted nothing is a finding, if it is one.
+
+    An exception is read as a reason a flow is admitted *instead* of being
+    qualified. When the flow is admitted by something else, an exception that
+    names a fingerprint the flow has left behind is a record about a flow that
+    no longer exists: it says the flow was never qualified on a device while
+    the file elsewhere says it was qualified three times. The record has to be
+    reissued against the current fingerprint or deleted.
+    """
+    if not isinstance(record, dict):
+        return "the exception record is not a mapping"
+    recorded = record.get("fingerprint")
+    if recorded == current_fp:
+        return None
+    return (
+        f"the exception is for fingerprint {recorded}, current is {current_fp} "
+        f"(reissue it for the changed flow, or delete it if the flow is qualified)"
+    )
 
 
 def build_baseline(root: pathlib.Path, catalogue_path: pathlib.Path, initial_names: list[str]) -> dict:
