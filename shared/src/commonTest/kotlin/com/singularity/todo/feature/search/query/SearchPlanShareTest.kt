@@ -83,10 +83,10 @@ class SearchPlanShareTest {
             Corpus("cafe", "FtsMatcherAgreementTest"),
             Corpus("quarterly numbers", "FtsMatcherAgreementTest"),
             Corpus("zzzznomatchzzzz999999", "the search tests — a query that matches nothing"),
+            Corpus("arch", "SearchContainsModeTest"),
             // The queries the flows type.
             Corpus("Pokupki", "Maestro/flows/search"),
-            Corpus("arch", "Maestro/flows/search/08-word-prefix.yaml"),
-            Corpus("port", "Maestro/flows/search/08-word-prefix.yaml"),
+            Corpus("port", "Maestro/flows/search/09-contains-mode.yaml"),
             Corpus("Task2026", "Maestro/flows/search"),
             Corpus("Saved2026", "Maestro/flows/search/07-saved-search.yaml"),
             // The filters the filter sheet produces — a query of filters only.

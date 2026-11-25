@@ -2056,60 +2056,6 @@ qualifications:
       apk_commit_sha: 38f87de9b959
       maestro_version: 2.10.0
       return_code: 0
-  Maestro/flows/search/08-word-prefix.yaml:
-    fingerprint: sha256:22962705eebe0cd64049cb15b0fa5f0ade0a59f20737d3b882e486d562145ee9
-    qualified_at: '2026-11-24'
-    environment:
-      kind: emulator
-      api: 36
-      device: sdk_gphone64_x86_64
-      serial: emulator-5562
-    commit: 38f87de9b959
-    apk_commit_sha: 38f87de9b959
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-1/08-word-prefix.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5562
-      commit: 38f87de9b959
-      apk_commit_sha: 38f87de9b959
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-2/08-word-prefix.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5562
-      commit: 38f87de9b959
-      apk_commit_sha: 38f87de9b959
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-3/08-word-prefix.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5562
-      commit: 38f87de9b959
-      apk_commit_sha: 38f87de9b959
-      maestro_version: 2.10.0
-      return_code: 0
   Maestro/flows/smoke/06-session-anonymous.yaml:
     fingerprint: sha256:416a6b83ae385d78437137a673cd28b6fedb8d7d6ff3164ebfe2762f0324eba7
     qualified_at: '2026-11-24'

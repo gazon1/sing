@@ -151,6 +151,38 @@ class SearchUseCaseFtsTest {
             )
         }
 
+    /**
+     * The word-prefix rule against the **real** index, in both answers.
+     *
+     * The fakes answer with the in-memory rule, and the in-memory rule is the
+     * half the index cannot answer: this is the half where the query becomes
+     * an FTS expression, and an expression that lost its star would ask for
+     * the word itself and find nothing at all. "arch" finds "architecture";
+     * "port" does not find "airport".
+     */
+    @Test
+    fun `the index finds the beginning of a word and not its middle`() =
+        runTest {
+            seed(
+                task(id = "t1", title = "Architecture of the house"),
+                task(id = "t2", title = "Airport run"),
+            )
+
+            val beginning = search("arch")
+            val middle = search("port")
+
+            assertEquals(
+                listOf("t1"),
+                beginning.tasks.map { it.record.id.value },
+                "the term is the beginning of the word, and the index answers the word by its beginning",
+            )
+            assertEquals(
+                emptyList(),
+                middle.tasks.map { it.record.id.value },
+                "the term is the middle of the word, and the index does not look past the beginning",
+            )
+        }
+
     // ── the machinery ────────────────────────────────────────────────────────
 
     private suspend fun search(query: String): SearchResults =
