@@ -248,6 +248,167 @@ class ChatTranscriptPersistenceTest {
             )
         }
 
+    @Test
+    fun `aRestoredTranscriptIsNotReplayedAndANewTurnIsAskedOnce`() =
+        runTest {
+            val conversation = ChatConversation(ChatConversationId.fromString("c1"), "u1", 1L, 2L)
+            val repo =
+                FakeChatConversationRepository(
+                    initialConversations = listOf(conversation),
+                    initialMessages =
+                        listOf(
+                            restoredMessage(
+                                conversation.id,
+                                PersistedChatRole.User,
+                                "question 0",
+                                ChatMessageStatus.Completed,
+                                0,
+                                1,
+                                1,
+                            ),
+                            restoredMessage(
+                                conversation.id,
+                                PersistedChatRole.Assistant,
+                                "answer 0",
+                                ChatMessageStatus.Completed,
+                                1,
+                                2,
+                                2,
+                            ),
+                            restoredMessage(
+                                conversation.id,
+                                PersistedChatRole.User,
+                                "question 1",
+                                ChatMessageStatus.Completed,
+                                2,
+                                3,
+                                3,
+                            ),
+                            restoredMessage(
+                                conversation.id,
+                                PersistedChatRole.Assistant,
+                                "answer 1",
+                                ChatMessageStatus.Completed,
+                                3,
+                                4,
+                                4,
+                            ),
+                        ),
+                )
+            val agent = RecordingTextGen(flowOf(AgentEvent.TextDelta("answer"), AgentEvent.TurnCompleted))
+            val vm = vm(this, repo, agent)
+            advanceUntilIdle()
+
+            // Restoration reconciles and reads the transcript; it starts no generation of its own.
+            assertTrue(agent.requests.isEmpty(), "Restoration reads the transcript; it never generates")
+
+            vm.onIntent(ChatViewModel.Intent.InputChanged("question 2"))
+            vm.onIntent(ChatViewModel.Intent.Send)
+            advanceUntilIdle()
+
+            assertEquals(1, agent.requests.size, "The restored turns are context, not a replay of the answer")
+            val request: String = agent.requests.single()
+            assertTrue("question 0" in request, "The conversation before the new turn reaches the model: $request")
+            assertTrue("Now answer this:" in request, request)
+        }
+
+    @Test
+    fun `aFollowUpAfterARestoredHistoryKeepsOnlyTheRecentTurnsInContext`() =
+        runTest {
+            val conversation = ChatConversation(ChatConversationId.fromString("c1"), "u1", 1L, 2L)
+            val fullAnswer = "answer 7" + "y".repeat(300)
+            val messages =
+                (0 until 8).flatMap { index: Int ->
+                    val userPosition = index * 2
+                    listOf(
+                        ChatMessageRecord(
+                            id = ChatMessageId.fromString("m${userPosition + 1}"),
+                            conversationId = conversation.id,
+                            userId = "u1",
+                            role = PersistedChatRole.User,
+                            content = "question $index",
+                            status = ChatMessageStatus.Completed,
+                            position = userPosition,
+                            createdAt = (userPosition + 1).toLong(),
+                            updatedAt = (userPosition + 1).toLong(),
+                        ),
+                        ChatMessageRecord(
+                            id = ChatMessageId.fromString("m${userPosition + 2}"),
+                            conversationId = conversation.id,
+                            userId = "u1",
+                            role = PersistedChatRole.Assistant,
+                            content = if (index == 7) fullAnswer else "answer $index",
+                            status = ChatMessageStatus.Completed,
+                            position = userPosition + 1,
+                            createdAt = (userPosition + 2).toLong(),
+                            updatedAt = (userPosition + 2).toLong(),
+                        ),
+                    )
+                }
+            val repo =
+                FakeChatConversationRepository(initialConversations = listOf(conversation), initialMessages = messages)
+            val agent = RecordingTextGen(flowOf(AgentEvent.TextDelta("answer"), AgentEvent.TurnCompleted))
+            val vm = vm(this, repo, agent)
+            advanceUntilIdle()
+
+            vm.onIntent(ChatViewModel.Intent.InputChanged("question 8"))
+            vm.onIntent(ChatViewModel.Intent.Send)
+            advanceUntilIdle()
+
+            assertEquals(1, agent.requests.size, "One ask for the new turn, over the restored history")
+            val request: String = agent.requests.single()
+            assertTrue("question 2" in request, "Only the most recent turns are in context: $request")
+            assertTrue("question 7" in request, "The newest restored turn is kept: $request")
+            assertTrue("question 0" !in request, "The oldest turns fell out of the context: $request")
+            assertTrue("question 1" !in request, "The context stays bounded: $request")
+            assertTrue(fullAnswer.take(200) in request, "The answer is excerpted to the context: $request")
+            assertTrue(fullAnswer !in request, "The answer is excerpted, not replayed whole: $request")
+        }
+
+    private fun restoredMessage(
+        conversationId: ChatConversationId,
+        role: PersistedChatRole,
+        content: String,
+        status: ChatMessageStatus,
+        position: Int,
+        createdAt: Long,
+        updatedAt: Long,
+    ): ChatMessageRecord =
+        ChatMessageRecord(
+            id = ChatMessageId.fromString("m${position + 1}"),
+            conversationId = conversationId,
+            userId = "u1",
+            role = role,
+            content = content,
+            status = status,
+            position = position,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+        )
+
+    private class RecordingTextGen(private val scripted: Flow<AgentEvent>) : TextGenPort {
+        val requests: MutableList<String> = mutableListOf()
+
+        override suspend fun generate(
+            prompt: String,
+            systemPrompt: String?,
+            model: String?,
+        ): Result<String> = Result.success("unused")
+
+        override fun streamChat(
+            message: String,
+            instructions: String,
+        ): Flow<AgentEvent> {
+            requests += message
+            return scripted
+        }
+
+        override suspend fun listModels(
+            baseUrl: String,
+            apiKey: String,
+        ): Result<List<String>> = Result.success(emptyList())
+    }
+
     private class ScriptedTextGen(private val scripted: Flow<AgentEvent>) : TextGenPort {
         override suspend fun generate(
             prompt: String,
