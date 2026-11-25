@@ -7,6 +7,8 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -25,6 +27,16 @@ private val testLogger = Logger.withTag("DraftMviViewModelTest")
 @Immutable
 private data class TestDraft(val title: String = "")
 
+/**
+ * Overrides for the base class's extension points, grouped so the test VM keeps
+ * a parameter list detekt accepts.
+ */
+private class TestHooks(
+    val onSaved: (suspend () -> Unit)? = null,
+    val onAutosaveError: ((Throwable) -> Unit)? = null,
+    val clearAutosave: (suspend () -> Unit)? = null,
+)
+
 /** Concrete implementation under test */
 private class TestDraftVm(
     initialDraft: TestDraft,
@@ -32,7 +44,7 @@ private class TestDraftVm(
     restoreBlock: suspend () -> TestDraft?,
     validateBlock: (TestDraft) -> String?,
     persistBlock: suspend (TestDraft) -> Either<AppError, Unit>,
-    onSavedBlock: (suspend () -> Unit)?,
+    private val hooks: TestHooks,
     autosaveDebounceMs: Long = 10L,
     scope: AutoCloseableCoroutineScope,
 ) : DraftMviViewModel<TestDraft, TestIntent, TestEvent>(
@@ -45,14 +57,21 @@ private class TestDraftVm(
     ) {
     private val validateImpl: (TestDraft) -> String? = validateBlock
     private val persistImpl: suspend (TestDraft) -> Either<AppError, Unit> = persistBlock
-    private val onSavedImpl: (suspend () -> Unit)? = onSavedBlock
 
     override fun validate(draft: TestDraft): String? = validateImpl(draft)
 
     override suspend fun persist(draft: TestDraft): Either<AppError, Unit> = persistImpl(draft)
 
     override suspend fun onSaved() {
-        onSavedImpl?.invoke()
+        hooks.onSaved?.invoke()
+    }
+
+    override fun onAutosaveError(e: Throwable) {
+        hooks.onAutosaveError?.invoke(e)
+    }
+
+    override suspend fun clearAutosave() {
+        hooks.clearAutosave?.invoke()
     }
 
     override fun onIntent(intent: TestIntent) { /* no-op for tests */ }
@@ -89,7 +108,7 @@ private fun TestScope.testVm(
     restoreBlock: suspend () -> TestDraft? = { null },
     validateBlock: (TestDraft) -> String? = { null },
     persistBlock: suspend (TestDraft) -> Either<AppError, Unit> = { Either.Right(Unit) },
-    onSavedBlock: (suspend () -> Unit)? = null,
+    hooks: TestHooks = TestHooks(),
     autosaveDebounceMs: Long = 10L,
 ): TestDraftVm =
     TestDraftVm(
@@ -98,11 +117,51 @@ private fun TestScope.testVm(
         restoreBlock = restoreBlock,
         validateBlock = validateBlock,
         persistBlock = persistBlock,
-        onSavedBlock = onSavedBlock,
+        hooks = hooks,
         autosaveDebounceMs = autosaveDebounceMs,
         scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
     )
 
+/**
+ * The behavior matrix of the draft editor — one row per guarantee the editor makes,
+ * and the test that holds it.
+ *
+ * The base class owns the contract; the subclasses (TaskCreate, NoteEditor) only
+ * override the extension points, and their own rows live next to them:
+ * `TaskCreateViewModelTest` and `NoteEditorTest`.
+ *
+ * | Row                          | Test                                                       |
+ * |------------------------------|------------------------------------------------------------|
+ * | initial draft                | `initial state has draft and save disabled when invalid`    |
+ * | restore replaces the initial | `restore with persisted draft replaces initial`             |
+ * | no persisted draft           | `restore when no persisted draft keeps initial`            |
+ * | restore settles first        | `autosave does not start before the restore settles`       |
+ * | seed-if-empty restore        | `restore does not overwrite a draft the user edited while it was loading` |
+ * | live validation              | `edit enables save when draft becomes valid`               |
+ * | debounced autosave           | `a burst of edits autosaves once with the latest value`    |
+ * | autosave ≠ checkpoint        | `a successful autosave does not move the save checkpoint`  |
+ * | autosave failure             | `a failed autosave reports the failure and keeps the draft dirty` |
+ * | autosave stays silent        | `autosave failure does not emit Saved event`               |
+ * | explicit save                | `save validates then persists and calls onSaved`           |
+ * | save moves the checkpoint    | `a successful save moves the checkpoint`                   |
+ * | save → subclass callback     | `a subclass that edits the draft in onSaved leaves it clean` |
+ * | failed save                  | `save surfaces persist failure as error`                   |
+ * | save clears the autosave     | `a successful save clears the autosave store and a failed one does not` |
+ * | discard → last checkpoint    | `discard resets to baseline`                               |
+ * | entity switch                | `switching entities autosaves the new draft, not the old one` |
+ * | duplicate save               | `save blocked when already saving`                         |
+ * | keyed effect                 | `launchDraftEffect cancels prior with same key`            |
+ *
+ * The subclass rows of the same matrix:
+ *
+ * | Row                          | Test                                                       |
+ * |------------------------------|------------------------------------------------------------|
+ * | TaskCreate: save → navigate  | `TaskCreateViewModelTest.a successful save emits the Saved event` |
+ * | TaskCreate: scoped restore   | `TaskCreateViewModelTest.a draft is restored only into the scope it was saved in` |
+ * | TaskCreate: failed autosave  | `TaskCreateViewModelTest.a failed autosave leaves the editor usable` |
+ * | NoteEditor: autosave failure | `NoteEditorTest.a failed autosave tells the user`          |
+ * | NoteEditor: save is a checkpoint | `NoteEditorTest.after an explicit save, closing the editor keeps the saved text` |
+ */
 @Tag("fast")
 class DraftMviViewModelTest {
     @Test
@@ -204,7 +263,7 @@ class DraftMviViewModelTest {
                 testVm(
                     initialDraft = TestDraft(title = "Hello"),
                     validateBlock = { if (it.title.isBlank()) "Title required" else null },
-                    onSavedBlock = { onSavedCalled = true },
+                    hooks = TestHooks(onSaved = { onSavedCalled = true }),
                 )
             advanceTimeBy(20L)
             runCurrent()
@@ -254,12 +313,284 @@ class DraftMviViewModelTest {
             advanceTimeBy(20L)
             runCurrent()
 
+            vm.updateDraft { it.copy(title = "typed") }
             vm.save()
             advanceTimeBy(50L)
             runCurrent()
 
             assertNotNull(vm.stateFlow.value.error)
             assertFalse(vm.stateFlow.value.isSaving)
+            // A refused save is not a checkpoint: the text the user typed is still
+            // theirs, and the editor still knows it differs from what is stored.
+            assertEquals("typed", vm.stateFlow.value.draft.title, "a refused save must not lose the user's text")
+            assertTrue(vm.stateFlow.value.isDirty)
+        }
+
+    /**
+     * The restore runs to completion before the autosave loop starts. A restore
+     * that raced the first keystroke could lose the draft the user was already
+     * writing — or write the restored draft over it.
+     */
+    @Test
+    fun `autosave does not start before the restore settles`() =
+        testVm {
+            var restored = false
+            var autosaved = false
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "initial"),
+                    restoreBlock = {
+                        delay(100L)
+                        restored = true
+                        TestDraft(title = "restored")
+                    },
+                    autosaveBlock = { autosaved = true },
+                    autosaveDebounceMs = 10L,
+                )
+            advanceTimeBy(50L)
+            runCurrent()
+            assertFalse(restored, "the restore has not answered yet")
+            assertFalse(autosaved, "no autosave may run while the restore is in flight")
+
+            advanceTimeBy(100L)
+            runCurrent()
+            assertTrue(restored, "the restore has answered")
+            assertFalse(autosaved, "the restored draft is the collector's first value — it is dropped, not written")
+
+            // The collector is live now: an edit autosaves.
+            vm.updateDraft { it.copy(title = "typed") }
+            advanceTimeBy(50L)
+            runCurrent()
+            assertTrue(autosaved)
+        }
+
+    /**
+     * Restore is seed-if-empty: it fills an empty draft, it does not overwrite
+     * one the user has already started writing.
+     */
+    @Test
+    fun `restore does not overwrite a draft the user edited while it was loading`() =
+        testVm {
+            val restoreGate = CompletableDeferred<TestDraft?>()
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "initial"),
+                    restoreBlock = { restoreGate.await() },
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            // The user types before the store answers.
+            vm.updateDraft { it.copy(title = "typed") }
+            restoreGate.complete(TestDraft(title = "restored"))
+            advanceTimeBy(20L)
+            runCurrent()
+
+            assertEquals(
+                "typed",
+                vm.stateFlow.value.draft.title,
+                "a restore must not overwrite what the user already typed",
+            )
+        }
+
+    @Test
+    fun `a burst of edits autosaves once with the latest value`() =
+        testVm {
+            val saved = mutableListOf<TestDraft>()
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "initial"),
+                    autosaveBlock = { saved += it },
+                    autosaveDebounceMs = 50L,
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "a") }
+            runCurrent()
+            advanceTimeBy(10L)
+            vm.updateDraft { it.copy(title = "ab") }
+            runCurrent()
+            advanceTimeBy(10L)
+            vm.updateDraft { it.copy(title = "abc") }
+            runCurrent()
+            advanceTimeBy(200L)
+            runCurrent()
+
+            assertEquals(
+                listOf(TestDraft(title = "abc")),
+                saved,
+                "the debounce window collapses the burst into one write of the latest value",
+            )
+        }
+
+    /**
+     * Autosave is a safety net, not a checkpoint. Only an explicit save moves the
+     * checkpoint — otherwise `discard` would revert to a value the user never
+     * chose to keep, and `isDirty` would lie about what is stored.
+     */
+    @Test
+    fun `a successful autosave does not move the save checkpoint`() =
+        testVm {
+            var autosaveCount = 0
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "original"),
+                    autosaveBlock = { autosaveCount++ },
+                    autosaveDebounceMs = 10L,
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "edited") }
+            advanceTimeBy(50L)
+            runCurrent()
+            assertEquals(1, autosaveCount, "the autosave ran")
+
+            assertTrue(
+                vm.stateFlow.value.isDirty,
+                "an autosaved draft is still dirty — only an explicit save is a checkpoint",
+            )
+            vm.discard()
+            assertEquals(
+                "original",
+                vm.stateFlow.value.draft.title,
+                "discard reverts to the last explicit checkpoint, not to the autosaved value",
+            )
+        }
+
+    @Test
+    fun `a failed autosave reports the failure and keeps the draft dirty`() =
+        testVm {
+            val failures = mutableListOf<Throwable>()
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "original"),
+                    autosaveBlock = { throw IllegalStateException("store is down") },
+                    hooks = TestHooks(onAutosaveError = { failures += it }),
+                    autosaveDebounceMs = 10L,
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "edited") }
+            advanceTimeBy(50L)
+            runCurrent()
+
+            assertEquals(1, failures.size, "a failed autosave has to reach the editor")
+            assertTrue(vm.stateFlow.value.isDirty, "a failed autosave is not a checkpoint")
+            vm.discard()
+            assertEquals("original", vm.stateFlow.value.draft.title)
+        }
+
+    @Test
+    fun `a successful save moves the checkpoint`() =
+        testVm {
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "original"),
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "saved") }
+            vm.save()
+            advanceTimeBy(50L)
+            runCurrent()
+
+            assertFalse(vm.stateFlow.value.isDirty, "a saved draft is not dirty")
+            vm.updateDraft { it.copy(title = "written after the save") }
+            vm.discard()
+            assertEquals(
+                "saved",
+                vm.stateFlow.value.draft.title,
+                "discard reverts to the last explicit save, not to the initial draft",
+            )
+        }
+
+    /**
+     * A subclass may adjust the draft in `onSaved` — NoteEditor clears its own
+     * dirty flag there. The checkpoint is taken again afterwards, so the saved
+     * draft does not read as dirty and the editor does not offer to discard text
+     * it has just written.
+     */
+    @Test
+    fun `a subclass that edits the draft in onSaved leaves it clean`() =
+        testVm {
+            lateinit var vm: TestDraftVm
+            vm =
+                testVm(
+                    initialDraft = TestDraft(title = "original"),
+                    hooks = TestHooks(onSaved = { vm.updateDraft { it.copy(title = "saved-and-normalized") } }),
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "typed") }
+            vm.save()
+            advanceTimeBy(50L)
+            runCurrent()
+
+            assertEquals("saved-and-normalized", vm.stateFlow.value.draft.title)
+            assertFalse(vm.stateFlow.value.isDirty, "the checkpoint is taken again after onSaved")
+        }
+
+    @Test
+    fun `a successful save clears the autosave store and a failed one does not`() =
+        testVm {
+            var cleared = 0
+            var refuse = true
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "Hello"),
+                    persistBlock = {
+                        if (refuse) Either.Left(AppError.Persistence("db error")) else Either.Right(Unit)
+                    },
+                    hooks = TestHooks(clearAutosave = { cleared++ }),
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.save()
+            advanceTimeBy(50L)
+            runCurrent()
+            assertEquals(0, cleared, "a refused save must not drop the stored draft")
+
+            refuse = false
+            vm.save()
+            advanceTimeBy(50L)
+            runCurrent()
+            assertEquals(1, cleared, "a successful save drops the stored draft")
+        }
+
+    /**
+     * Switching to another entity must not leave the old entity's draft behind
+     * in the autosave store.
+     */
+    @Test
+    fun `switching entities autosaves the new draft, not the old one`() =
+        testVm {
+            val saved = mutableListOf<TestDraft>()
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "first"),
+                    autosaveBlock = { saved += it },
+                    autosaveDebounceMs = 10L,
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "first-edited") }
+            runCurrent()
+            vm.open(TestDraft(title = "second"))
+            advanceTimeBy(50L)
+            runCurrent()
+
+            assertEquals(
+                listOf(TestDraft(title = "second")),
+                saved,
+                "the pending autosave must not write the entity the editor left",
+            )
         }
 
     /**

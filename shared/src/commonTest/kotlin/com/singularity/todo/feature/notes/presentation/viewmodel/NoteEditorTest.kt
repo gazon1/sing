@@ -491,4 +491,75 @@ class NoteEditorTest {
             // not learn anything it did not already know.
             assertEquals(0L, state.title.revision)
         }
+
+    // ─── The note editor's rows of the draft behavior matrix ─────────────────
+    //
+    // The base class owns the contract; the editor overrides three extension
+    // points — `onAutosaved`, `onSaved` and `onAutosaveError` — and each
+    // override has to keep its promise.
+
+    /**
+     * A failed autosave must reach the user. The base class only logs it; a note
+     * whose write failed looks exactly like a note that saved, so the editor
+     * overrides the hook and emits an event.
+     */
+    @Test
+    fun `a failed autosave tells the user`() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            notesRepo.seed(testNote)
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+            val failures = mutableListOf<NotesUiEvent.SaveFailed>()
+            val job =
+                launch {
+                    vm.events
+                        .filterIsInstance<NotesUiEvent.SaveFailed>()
+                        .collect { failures += it }
+                }
+            runCurrent()
+
+            vm.openEditor(testNote.id.value)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            notesRepo.updateContentOverride = Result.failure(IllegalStateException("db is down"))
+            vm.onIntent(NotesEditorIntent.EditBody("<p>Updated content</p>"))
+            advanceTimeBy(600L)
+            runCurrent()
+
+            assertEquals(1, failures.size, "a failed autosave must reach the user")
+            job.cancel()
+        }
+
+    /**
+     * An explicit save is the checkpoint. Closing the editor discards back to it —
+     * so the text that was saved stays, and the text the editor was opened with
+     * does not come back over it.
+     */
+    @Test
+    fun `after an explicit save, closing the editor keeps the saved text`() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            notesRepo.seed(testNote)
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+            vm.openEditor(testNote.id.value)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.onIntent(NotesEditorIntent.EditBody("<p>Saved content</p>"))
+            runCurrent()
+            vm.onIntent(NotesEditorIntent.SaveNow)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.closeEditor()
+            runCurrent()
+
+            val state = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(state)
+            assertEquals("<p>Saved content</p>", state.html.value)
+            assertEquals("<p>Saved content</p>", notesRepo.notes[testNote.id.value]?.bodyHtml)
+        }
 }
