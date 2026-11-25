@@ -154,18 +154,22 @@ The check lives in two forms — `KnowledgeArticle.SQL_MARKER` for the statement
 `KnowledgeArticle.carriesSources` for the code that holds a note in memory — and a test
 runs both over the same bodies, so the statement cannot start answering a different
 question than the code. SQLite has no regular expressions, so the statement expresses
-the same rule by normalizing the body (whitespace runs collapse to one space, the
-spaces next to a tag or a heading mark are dropped), collapsing a run of heading hashes
-and looking for the marker between two line feeds.
+the same rule by marking the word, dropping the whitespace, collapsing a run of heading
+hashes and looking for the marker between two line feeds.
 
-The body is **normalized, not stripped**: `<h2> Sources </h2>` and `<h2>Sources</h2>` are
-the same heading, while `<h2>Source s</h2>` is not the heading `Sources` — a rule that
-deleted the whitespace would call it one, and an invented article is worse than a missed
-one. The closing tag is matched **whole** too: `</h1>`–`</h6>`, `</b>` and `</strong>` close
-a heading and a bold element, while `</header>` and `</blockquote>` only start like one.
-Every form the previous rule accepted is still accepted: the bold paragraph
-(`<p><strong>Sources</strong></p>`), `<b>Sources</b>`, a heading whose text sits on the
-next line, and the Markdown `#\nSources`. A brief that used to be found is still found.
+The word is **marked before the whitespace is dropped**: the word `Sources` is pinned with
+a control character, and the mark is what the rule looks for. The whitespace around the
+label is padding of any length — `<h2> Sources </h2>` and a heading with a thousand spaces
+in it are the same heading, and no run of spaces outruns the rule — while
+`<h2>Source s</h2>` is not the heading `Sources`, because the split word is never marked.
+An invented article is worse than a missed one. The closing tag is matched **whole** too:
+`</h1>`–`</h6>`, `</b>` and `</strong>` close a heading and a bold element, while
+`</header>` and `</blockquote>` only start like one. The Markdown body keeps its lines —
+a label is a line of its own — while the HTML body has no line structure the rule needs
+and loses all of its whitespace. Every form the previous rule accepted is still accepted:
+the bold paragraph (`<p><strong>Sources</strong></p>`), `<b>Sources</b>`, a heading whose
+text sits on the next line, and the Markdown `#\nSources`. A brief that used to be found is
+still found.
 
 ## A brief is a plain note
 

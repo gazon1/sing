@@ -319,6 +319,17 @@ class KnowledgeArticleRepositoryTest {
                     Body(null, "Sources\n", false),
                     Body(null, "## Sources and notes\n", false),
                     Body(null, "potential sources include the docs\n", false),
+                    // A run of spaces is padding of any length: the rule deletes the
+                    // whitespace inside a line, so how long the run is does not
+                    // matter, and the statement and the code answer the same.
+                    Body("<h2>" + " ".repeat(100) + "Sources</h2>", null, true),
+                    Body("<h2>" + " ".repeat(1_000) + "Sources</h2>", null, true),
+                    Body(null, "##" + " ".repeat(100) + "Sources\n", true),
+                    Body(null, "##" + " ".repeat(1_000) + "Sources\n", true),
+                    // The Markdown body keeps its lines, so a label is a line of its
+                    // own and the text around it stays text.
+                    Body(null, "intro\n## Sources\n- url\n", true),
+                    Body(null, "intro\n## Sources\n", true),
                 )
             bodies.forEachIndexed { index, body ->
                 seed(
@@ -335,7 +346,10 @@ class KnowledgeArticleRepositoryTest {
                 )
             }
 
-            val articles = repo.watchKnowledgeArticlesForProject(project, 20).first()
+            // The page is asked for more bodies than it holds: this question is
+            // about the classification, and a page that cut the list would hide
+            // the bodies the two forms of the rule disagree about.
+            val articles = repo.watchKnowledgeArticlesForProject(project, bodies.size + 1).first()
 
             assertEquals(
                 bodies.indices

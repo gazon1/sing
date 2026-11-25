@@ -100,12 +100,22 @@ collapses a run of hashes into one, and looks for the marker between two line fe
 same normalisation happens in Kotlin, and the test that runs both over the same bodies is
 what keeps them the same rule.
 
-**The body is normalized, not stripped.** The rule first folds the body's whitespace runs
-into one space and drops the spaces that sit next to a tag or a heading mark; it does
-*not* delete the whitespace. So `<h2> Sources </h2>` and `<h2>Sources</h2>` are the same
-heading, while `<h2>Source s</h2>` is not the heading `Sources` at all — a rule that
-deleted the whitespace would call it one, and a false positive is worse than a missed
-article because it invents an article the user never wrote.
+**The word is marked, and only then is the whitespace dropped.** The rule pins the word
+`Sources` with a control character *before* it removes the whitespace, and looks for the
+mark rather than for the word. The whitespace around the label is therefore padding of
+any length: `<h2> Sources </h2>` and a heading with a thousand spaces in it are the same
+heading, and there is no run of spaces the statement cannot fold, because a run is deleted
+rather than folded — one `replace` covers every length, and the code deletes the same
+characters in one pass. `<h2>Source s</h2>` is not the heading `Sources` at all: the word
+is split, so it is never marked, and the rule does not find it. Marking before stripping
+is what makes the deletion safe — a false positive is worse than a missed article,
+because it invents an article the user never wrote.
+
+**The Markdown body keeps its lines.** The HTML body has no line structure the rule needs,
+so all of its whitespace goes. The Markdown body is a line-oriented form — a label is a
+*line* of its own — so the line feed is kept and only the whitespace inside a line is
+removed. That is what keeps `**Sources**` in the middle of a sentence prose, while a line
+of its own is a label.
 
 **The old accepted forms stay accepted.** The rule is the same *section*, expressed as a
 rule the statement can run, and it accepts every form the previous `KnowledgeBriefShape`
