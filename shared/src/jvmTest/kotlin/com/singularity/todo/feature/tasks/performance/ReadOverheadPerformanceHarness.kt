@@ -5,27 +5,14 @@
 
 package com.singularity.todo.feature.tasks.performance
 
-import androidx.room3.util.performSuspending
-import androidx.sqlite.SQLiteStatement
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.DatabaseTestFixture
-import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.ids.UserId
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
 
 /**
  * The price of a read that is not the statement — measured on its own.
@@ -40,51 +27,49 @@ import kotlin.time.TimeSource
  * of. This program answers the second question and asks the same read four
  * ways:
  *
- * - **statement** — the SQL alone, on a connection that is already held. This
- *   is the statement's own price: the query, the binding, and the mapping of
- *   the rows into the list a DAO would hand back.
+ * - **statement** — the SQL on a reader connection that the call takes for
+ *   itself: the query, the binding, and the mapping of the rows into the list
+ *   a DAO would hand back.
  * - **one-shot** — the same SQL as a suspend call: Room's call path
  *   (`performSuspending` — the very call a suspend DAO method is compiled
  *   into), without a Flow and without an observer.
+ * - **flow without observer** — the Flow's own machinery around the call: the
+ *   same pipeline the DAO's Flow is, with the invalidation observer replaced
+ *   by a single emission.
  * - **flow** — the DAO's Flow, collected once (`first()`): the read as the app
  *   makes it — observer registration, Flow plumbing, and the statement.
- * - **tracker** — the invalidation observer alone: the tracker registers the
- *   observer and emits, without running a query.
  *
- * A fifth measurement prices the connection itself: taking a connection from
- * the pool and giving it back, with no query. The statement form holds its
- * connection for the whole measurement, so the price of taking one is not in
- * it — every other form pays it, and it is therefore measured on its own.
+ * All four take their connection from the same pool — the readers' — and every
+ * one of them takes a connection of its own. No form is measured on a
+ * connection another form holds, so no part of a difference between two forms
+ * is the difference between two pools.
  *
- * Every form that runs the query maps its rows into a list and keeps it, the
- * way a DAO does. The forms therefore differ only in the machinery around the
- * query, and the difference between two of them is never the price of
- * building the result.
- *
- * The overhead of a read is `flow − statement`, and it splits into two parts
+ * The overhead of a read is `flow − statement`, and it splits into three parts
  * that add up in every iteration:
  *
  * | part | what it is | how it is priced |
  * |---|---|---|
- * | call path | the coroutine hop and the connection the call takes | `one-shot − statement` |
- * | Flow machinery | the observer's registration and the rest of the Flow machinery | `flow − one-shot` |
+ * | call path | the hop to the database's dispatcher and the call around the statement | `one-shot − statement` |
+ * | Flow plumbing | the Flow's own machinery around the call | `flow without observer − one-shot` |
+ * | invalidation | the observer: its registration, the trigger sync and the emission | `flow − flow without observer` |
+ *
+ * The invalidation part is priced *in place*: the two forms differ only in
+ * the observer, both run the same pipeline on the same pool, and the observer
+ * is what the difference is. An observer measured on its own would not answer
+ * the question — it pays for a connection and a collector of its own, and it
+ * is published separately, as the price of one registration.
  *
  * The parts are priced per iteration, not as the difference of two medians:
- * the three forms run in one loop, so the difference between two of them is
- * the difference between the calls. The difference of two medians of two
- * separate passes is not that — under load it can come out negative.
+ * the forms run in one loop, so the difference between two of them is the
+ * difference between the calls. The difference of two medians of two separate
+ * passes is not that — under load it can come out negative.
  *
- * The observer is measured on its own as well, and it is published as a lower
- * bound of the Flow machinery rather than subtracted from it: measured apart
- * it pays for a connection and a collector of its own, which the Flow path
- * pays for as well.
+ * A sixth measurement prices the connection itself: taking a reader from the
+ * pool and giving it back, with no query. Every form pays it inside its
+ * statement, and the report says how much of a read it is.
  *
- * The overhead of a read does not include the connection: the statement form
- * holds one. A read that pays for its connection costs `overhead` plus the
- * price of the connection, and the report prints both.
- *
- * A fifth number prices the observer on a *change* rather than on an opening:
- * a live collector, a write, and the wait for the re-read the observer
+ * A seventh number prices the observer on a *change* rather than on an
+ * opening: a live collector, a write, and the wait for the re-read the observer
  * triggers. The observer's latency — the time from the end of the write to the
  * re-read — is priced on its own: a screen waits for that, and it is a
  * quantity that cannot come out negative.
@@ -95,12 +80,12 @@ import kotlin.time.TimeSource
  *
  * What the program does check is that the forms of a read answer the same
  * question — the same rows. Before the clock starts, the statement, the
- * one-shot call and the Flow are each asked for the same task, and their
- * answers are compared. A comparison of a statement with a Flow that answers
- * something else would be a comparison of two different reads, and the SQL
- * here is a copy of the DAO's — a copy that has drifted would be exactly such
- * a pair. The comparison is a `check`, so a drift fails the run instead of
- * publishing a number.
+ * one-shot call, the Flow without the observer and the Flow are each asked for
+ * the same task, and their answers are compared. A comparison of a statement
+ * with a Flow that answers something else would be a comparison of two
+ * different reads, and the SQL here is a copy of the DAO's — a copy that has
+ * drifted would be exactly such a pair. The comparison is a `check`, so a
+ * drift fails the run instead of publishing a number.
  *
  * ## How to run it
  *
@@ -133,7 +118,7 @@ fun main(args: Array<String>) {
 }
 
 /** What to measure, and how often. */
-private data class ReadOverheadConfig(
+internal data class ReadOverheadConfig(
     val dataset: PerfDataset,
     val iterations: Int,
     val warmup: Int,
@@ -142,15 +127,22 @@ private data class ReadOverheadConfig(
     companion object {
         fun parse(args: Array<String>): ReadOverheadConfig {
             val values = perfArgs(args)
+            val iterations = (values["iterations"] ?: "10").toInt()
+            val warmup = (values["warmup"] ?: "3").toInt()
+            require(iterations > 0) { "a measurement needs at least one iteration, got $iterations" }
+            require(warmup >= 0) { "the warmup cannot be negative, got $warmup" }
             return ReadOverheadConfig(
                 dataset = PerfDataset.parse(values),
-                iterations = (values["iterations"] ?: "10").toInt(),
-                warmup = (values["warmup"] ?: "3").toInt(),
+                iterations = iterations,
+                warmup = warmup,
                 owner = UserId(values["owner"] ?: "perf-owner"),
             )
         }
     }
 }
+
+/** The verb the blocking read is asked for. */
+private const val BLOCKING_VERB = "BLOCKS"
 
 /**
  * The reads under measurement.
@@ -158,9 +150,15 @@ private data class ReadOverheadConfig(
  * [sql] is the SQL the DAO runs, verbatim; [tables] are the tables the DAO's
  * Flow observes — the same names the generated code hands to the invalidation
  * tracker. [relation] is where the probe tasks come from: the tasks that
- * carry rows of the relation this read asks about.
+ * carry rows of the relation this read asks about, and [probeSql] picks them.
  */
-private enum class Read(val label: String, val sql: String, val tables: List<String>, val relation: String) {
+internal enum class Read(
+    val label: String,
+    val sql: String,
+    val tables: List<String>,
+    val relation: String,
+    val probeSql: String,
+) {
     BlockingEdges(
         "getBlockingEdgeIdsForUser",
         """
@@ -170,6 +168,7 @@ private enum class Read(val label: String, val sql: String, val tables: List<Str
         """.trimIndent(),
         listOf("task_dependencies", "tasks"),
         "task_dependencies",
+        "SELECT DISTINCT task_id FROM task_dependencies WHERE verb = '$BLOCKING_VERB' ORDER BY task_id LIMIT 10",
     ),
     TypedDependencies(
         "observeTypedDependenciesForUser",
@@ -180,6 +179,7 @@ private enum class Read(val label: String, val sql: String, val tables: List<Str
         """.trimIndent(),
         listOf("task_dependencies", "tasks"),
         "task_dependencies",
+        "SELECT DISTINCT task_id FROM task_dependencies ORDER BY task_id LIMIT 10",
     ),
     TagIds(
         "getTagIdsForUser",
@@ -190,14 +190,12 @@ private enum class Read(val label: String, val sql: String, val tables: List<Str
         """.trimIndent(),
         listOf("task_tags", "tasks"),
         "task_tags",
+        "SELECT DISTINCT task_id FROM task_tags ORDER BY task_id LIMIT 10",
     ),
 }
 
-/** The verb the blocking read is asked for. */
-private const val BLOCKING_VERB = "BLOCKS"
-
 /** One priced read. */
-private data class OverheadMeasurement(
+internal data class OverheadMeasurement(
     val read: Read,
     val form: String,
     val p50: Duration,
@@ -215,9 +213,10 @@ private data class OverheadMeasurement(
  * machine the latter can come out negative, and a negative part is not a
  * price.
  */
-private data class FormTimings(
+internal data class FormTimings(
     val statement: List<Duration>,
     val oneShot: List<Duration>,
+    val plumbing: List<Duration>,
     val flow: List<Duration>,
     val tracker: List<Duration>,
 ) {
@@ -227,26 +226,26 @@ private data class FormTimings(
     /** The path a call takes around the statement. */
     val callPath: List<Duration> get() = oneShot.zip(statement) { oneShot, statement -> oneShot - statement }
 
+    /** The Flow's own machinery around the call, without the observer. */
+    val flowPlumbing: List<Duration> get() = plumbing.zip(oneShot) { plumbing, oneShot -> plumbing - oneShot }
+
     /**
-     * The Flow machinery around the query: the observer's registration and
-     * everything the Flow adds around the call path.
+     * The observer's share of the Flow's price, measured in place.
      *
-     * The observer is *not* subtracted from this. The observer measured on its
-     * own pays for a connection of its own and for a collector of its own,
-     * and the Flow path pays for those as well — subtracting the isolated
-     * number would count the observer twice, and the remainder would go
-     * negative on a loaded machine. The isolated observer is therefore
-     * published as its own measurement and read as a lower bound of this part.
+     * The two forms differ only in the observer: the same pipeline, the same
+     * pool, the same call — and the difference is what the observer costs
+     * where the Flow really uses it.
      */
-    val flowMachinery: List<Duration> get() = flow.zip(oneShot) { flow, oneShot -> flow - oneShot }
+    val invalidation: List<Duration> get() = flow.zip(plumbing) { flow, plumbing -> flow - plumbing }
 
     /**
      * The observer's price, measured on its own.
      *
-     * The observer is the same for every iteration of a read, so its median is
-     * the price of one registration.
+     * This is the price of one registration, in a pass of its own: it pays for
+     * a connection and a collector that the Flow path shares with the rest of
+     * the machinery. It is published, not subtracted.
      */
-    val observer: Duration get() = percentile(tracker, 0.5)
+    val observer: Duration get() = nearestRank(tracker, 0.5)
 }
 
 /**
@@ -255,7 +254,7 @@ private data class FormTimings(
  * The forms are compared on these, so the comparison asks whether they
  * answered the same question — not whether they counted the same rows.
  */
-private sealed interface ReadRows {
+internal sealed interface ReadRows {
     /** Tag ids and blocking edge ids: the DAO hands back plain strings. */
     data class Texts(val values: List<String>) : ReadRows
 
@@ -264,7 +263,7 @@ private sealed interface ReadRows {
 }
 
 /** One priced change: a write, and the re-read the observer triggers. */
-private data class ChangeMeasurement(
+internal data class ChangeMeasurement(
     val read: Read,
     val writeAlone: Duration,
     val writeAndObserve: Duration,
@@ -286,7 +285,7 @@ private suspend fun measure(config: ReadOverheadConfig): String {
         val changes = mutableListOf<ChangeMeasurement>()
         val connection = measureConnection(db, config)
         for (read in Read.entries) {
-            val probes = probeTasks(db, read.relation)
+            val probes = probeTasks(db, read)
             check(probes.isNotEmpty()) {
                 "the dataset holds no rows of ${read.relation} — there is nothing to read"
             }
@@ -294,10 +293,12 @@ private suspend fun measure(config: ReadOverheadConfig): String {
             val timings = measureForms(db, read, probes, config)
             measurements += priced(read, "statement", timings.statement)
             measurements += priced(read, "one-shot", timings.oneShot)
+            measurements += priced(read, "flow without observer", timings.plumbing)
             measurements += priced(read, "flow", timings.flow)
-            measurements += priced(read, "tracker", timings.tracker)
+            measurements += priced(read, "observer alone", timings.tracker)
             measurements += priced(read, "call path", timings.callPath)
-            measurements += priced(read, "Flow machinery", timings.flowMachinery)
+            measurements += priced(read, "Flow plumbing", timings.flowPlumbing)
+            measurements += priced(read, "invalidation", timings.invalidation)
             measurements += priced(read, "overhead", timings.overhead)
             changes += measureChange(db, read, probes.first(), config)
         }
@@ -314,11 +315,11 @@ private suspend fun measure(config: ReadOverheadConfig): String {
  */
 private suspend fun probeTasks(
     db: AppDatabase,
-    relation: String,
-): List<String> = db.texts("SELECT DISTINCT task_id FROM $relation ORDER BY task_id LIMIT 10")
+    read: Read,
+): List<String> = db.texts(read.probeSql)
 
 /**
- * The rows the three query forms answer with, and the check that they agree.
+ * The rows the query forms answer with, and the check that they agree.
  *
  * The SQL of a read is a copy of the DAO's. A copy that has drifted would
  * compare a statement with a Flow that answers something else, and the
@@ -334,9 +335,14 @@ private suspend fun collectRows(
     for (taskId in probes) {
         val fromStatement = statementRows(db, read, taskId, owner)
         val fromOneShot = oneShotRows(db, read, taskId, owner)
+        val fromPlumbing = plumbingRows(db, read, taskId, owner)
         val fromFlow = flowRows(db, read, taskId, owner)
         check(fromOneShot == fromStatement) {
             "the one-shot form answers a different question than the statement for $taskId — " +
+                "the SQL of ${read.label} has drifted from the DAO"
+        }
+        check(fromPlumbing == fromStatement) {
+            "the Flow without the observer answers a different question than the statement for $taskId — " +
                 "the SQL of ${read.label} has drifted from the DAO"
         }
         check(fromFlow == fromStatement) {
@@ -346,394 +352,8 @@ private suspend fun collectRows(
     }
 }
 
-/** The read as the statement alone: the SQL on a connection that is already held. */
-private suspend fun statementRows(
-    db: AppDatabase,
-    read: Read,
-    taskId: String,
-    owner: UserId,
-): ReadRows =
-    db.useConnection(isReadOnly = false) { transactor ->
-        transactor.usePrepared(read.sql) { statement ->
-            read.bind(statement, taskId, owner)
-            read.mapRows(statement)
-        }
-    }
-
-/**
- * Times the four forms of one read, side by side.
- *
- * The connection of the statement form is taken once and held for the whole
- * measurement, so that the statement pays for the query alone and not for
- * taking a connection. The other forms take their connections from the pool
- * while it is held — the pool opens as many connections as are asked for.
- *
- * Every form runs the same warmup, the same iteration count and the same
- * clock, in the same loop: the difference between two forms is then the
- * difference between the calls, not between the runs.
- */
-private suspend fun measureForms(
-    db: AppDatabase,
-    read: Read,
-    probes: List<String>,
-    config: ReadOverheadConfig,
-): FormTimings {
-    val tracker = measureTracker(db, read, probes.size, config)
-    val statement = mutableListOf<Duration>()
-    val oneShot = mutableListOf<Duration>()
-    val flow = mutableListOf<Duration>()
-    db.useConnection(isReadOnly = false) { transactor ->
-        for (index in 0 until config.warmup) {
-            for (taskId in probes) {
-                transactor.usePrepared(read.sql) { prepared ->
-                    read.bind(prepared, taskId, config.owner)
-                    read.mapRows(prepared)
-                }
-                oneShotRows(db, read, taskId, config.owner)
-                flowRows(db, read, taskId, config.owner)
-            }
-        }
-        for (index in 0 until config.iterations) {
-            for (taskId in probes) {
-                var mark = TimeSource.Monotonic.markNow()
-                transactor.usePrepared(read.sql) { prepared ->
-                    read.bind(prepared, taskId, config.owner)
-                    read.mapRows(prepared)
-                }
-                statement += mark.elapsedNow()
-
-                mark = TimeSource.Monotonic.markNow()
-                oneShotRows(db, read, taskId, config.owner)
-                oneShot += mark.elapsedNow()
-
-                mark = TimeSource.Monotonic.markNow()
-                flowRows(db, read, taskId, config.owner)
-                flow += mark.elapsedNow()
-            }
-        }
-    }
-    return FormTimings(statement = statement, oneShot = oneShot, flow = flow, tracker = tracker)
-}
-
-/**
- * Times the invalidation observer alone.
- *
- * The observer registers itself and emits, without running a query. It is
- * measured in its own pass, because registering the observer makes the
- * tracker write its triggers, and a write cannot happen while a read
- * connection is held.
- *
- * The observer does not depend on the task a read is about, so it is priced
- * once per probe to keep the sample count of every form the same.
- */
-private suspend fun measureTracker(
-    db: AppDatabase,
-    read: Read,
-    probes: Int,
-    config: ReadOverheadConfig,
-): List<Duration> {
-    for (index in 0 until config.warmup) {
-        repeat(probes) { trackerRows(db, read) }
-    }
-    val durations = mutableListOf<Duration>()
-    for (index in 0 until config.iterations) {
-        repeat(probes) {
-            val mark = TimeSource.Monotonic.markNow()
-            trackerRows(db, read)
-            durations += mark.elapsedNow()
-        }
-    }
-    return durations
-}
-
-/**
- * The same SQL as a suspend call.
- *
- * `performSuspending` is the call a suspend DAO method is compiled into: the
- * coroutine hop, the connection, and the statement — without a Flow and
- * without an observer. The rows are mapped into a list the way the DAO maps
- * them, so the two forms do the same work and only the call around it
- * differs.
- */
-private suspend fun oneShotRows(
-    db: AppDatabase,
-    read: Read,
-    taskId: String,
-    owner: UserId,
-): ReadRows =
-    performSuspending(db, isReadOnly = true, inTransaction = false) { connection ->
-        val statement = connection.prepare(read.sql)
-        try {
-            read.bind(statement, taskId, owner)
-            read.mapRows(statement)
-        } finally {
-            statement.close()
-        }
-    }
-
-/** The read as the app makes it: the DAO's Flow, collected once. */
-private suspend fun flowRows(
-    db: AppDatabase,
-    read: Read,
-    taskId: String,
-    owner: UserId,
-): ReadRows {
-    val dao = db.taskDao()
-    return when (read) {
-        Read.BlockingEdges -> {
-            ReadRows.Texts(dao.getBlockingEdgeIdsForUser(taskId, owner.value, BLOCKING_VERB).first())
-        }
-
-        Read.TypedDependencies -> {
-            ReadRows.Dependencies(dao.observeTypedDependenciesForUser(taskId, owner.value).first())
-        }
-
-        Read.TagIds -> {
-            ReadRows.Texts(dao.getTagIdsForUser(taskId, owner.value).first())
-        }
-    }
-}
-
-/**
- * The invalidation observer alone: the tracker registers the observer and
- * emits, without running a query.
- *
- * This is the price of the observer's registration — the part of a Flow read
- * that has nothing to do with the statement.
- */
-private suspend fun trackerRows(
-    db: AppDatabase,
-    read: Read,
-) {
-    db.invalidationTracker.createFlow(*read.tables.toTypedArray()).first()
-}
-
-/** The parameters of a statement, in the order they are written. */
-private fun Read.bind(
-    statement: SQLiteStatement,
-    taskId: String,
-    owner: UserId,
-) {
-    statement.bindText(1, taskId)
-    when (this) {
-        Read.BlockingEdges -> {
-            statement.bindText(2, BLOCKING_VERB)
-            statement.bindText(3, owner.value)
-        }
-
-        Read.TypedDependencies, Read.TagIds -> {
-            statement.bindText(2, owner.value)
-        }
-    }
-}
-
-/**
- * The rows a statement returns, mapped into a list the way a DAO maps them.
- *
- * The mapping is part of the price of a read, so it is here and not a row
- * count: the forms have to do the same work for the comparison to mean
- * anything, and the result list is work a real read pays too.
- */
-private fun Read.mapRows(statement: SQLiteStatement): ReadRows =
-    when (this) {
-        Read.BlockingEdges, Read.TagIds -> {
-            ReadRows.Texts(
-                buildList {
-                    while (statement.step()) {
-                        add(statement.getText(0))
-                    }
-                },
-            )
-        }
-
-        Read.TypedDependencies -> {
-            ReadRows.Dependencies(
-                buildList {
-                    while (statement.step()) {
-                        add(
-                            TaskDependencyCrossRef(
-                                taskId = statement.getText(0),
-                                dependsOnTaskId = statement.getText(1),
-                                verb = statement.getText(2),
-                            ),
-                        )
-                    }
-                },
-            )
-        }
-    }
-
-/**
- * The observer on a change: a live collector, a write, and the re-read.
- *
- * Three numbers are priced: the write alone — no collector is alive, so
- * nothing is notified; the same write with a collector alive, which waits for
- * the re-read the observer triggers; and the **observer's latency**: the time
- * from the end of the write to the emission the observer triggers.
- *
- * The observer's latency is priced on its own rather than as the difference
- * of two medians. The difference of the two writes would count the observer's
- * share, but on a shared machine that difference comes out negative: the
- * write alone is charged for the background work the tracker of the previous
- * iteration left behind, and a negative price is not a price. The latency is
- * a quantity in its own right — how long a screen waits for the re-read — and
- * it cannot be negative.
- *
- * The write is idempotent — the same row, written again — so the rows of the
- * relation do not change and the two measurements stay comparable.
- */
-private suspend fun measureChange(
-    db: AppDatabase,
-    read: Read,
-    taskId: String,
-    config: ReadOverheadConfig,
-): ChangeMeasurement {
-    val write =
-        changeWriter(db, read, taskId, config.owner)
-            ?: return ChangeMeasurement(
-                read = read,
-                writeAlone = Duration.ZERO,
-                writeAndObserve = Duration.ZERO,
-                observerLatency = Duration.ZERO,
-                reEmissions = 0,
-            )
-
-    for (index in 0 until config.warmup) {
-        write()
-    }
-
-    val alone = mutableListOf<Duration>()
-    for (index in 0 until config.iterations) {
-        val mark = TimeSource.Monotonic.markNow()
-        write()
-        alone += mark.elapsedNow()
-    }
-
-    val observed = mutableListOf<Duration>()
-    val latencies = mutableListOf<Duration>()
-    var reEmissions = 0
-    for (index in 0 until config.iterations) {
-        val emissions = Channel<Unit>(Channel.UNLIMITED)
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        val collector =
-            scope.launch {
-                collectEmissions(db, read, taskId, config.owner) { emissions.send(Unit) }
-            }
-        try {
-            // A write that did not reach the observer is a fact of the run, not
-            // a crash: the report says how many re-reads were seen. The timeout
-            // is asked for with `withTimeoutOrNull`, so nothing is swallowed to
-            // get here — a cancelled measurement still fails the run.
-            val opened = withTimeoutOrNull(30.seconds) { emissions.receive() }
-            if (opened != null) {
-                val mark = TimeSource.Monotonic.markNow()
-                write()
-                val written = mark.elapsedNow()
-                val reRead = withTimeoutOrNull(30.seconds) { emissions.receive() }
-                if (reRead != null) {
-                    val total = written + mark.elapsedNow()
-                    observed += total
-                    latencies += total - written
-                    reEmissions++
-                }
-            }
-        } finally {
-            collector.cancel()
-            scope.cancel()
-            emissions.close()
-        }
-    }
-    return ChangeMeasurement(
-        read = read,
-        writeAlone = percentile(alone, 0.5),
-        writeAndObserve = if (observed.isEmpty()) Duration.ZERO else percentile(observed, 0.5),
-        observerLatency = if (latencies.isEmpty()) Duration.ZERO else percentile(latencies, 0.5),
-        reEmissions = reEmissions,
-    )
-}
-
-/** The DAO's Flow of the read, collected for as long as the scope lives. */
-private suspend fun collectEmissions(
-    db: AppDatabase,
-    read: Read,
-    taskId: String,
-    owner: UserId,
-    onEmission: suspend () -> Unit,
-) {
-    val dao: TaskDao = db.taskDao()
-    when (read) {
-        Read.BlockingEdges -> {
-            dao.getBlockingEdgeIdsForUser(taskId, owner.value, BLOCKING_VERB).collect { onEmission() }
-        }
-
-        Read.TypedDependencies -> {
-            dao.observeTypedDependenciesForUser(taskId, owner.value).collect { onEmission() }
-        }
-
-        Read.TagIds -> {
-            dao.getTagIdsForUser(taskId, owner.value).collect { onEmission() }
-        }
-    }
-}
-
-/**
- * The write that invalidates the tables the read observes.
- *
- * It writes a row the relation already holds — the same edge, the same tag —
- * so the write is idempotent and the rows of the relation do not change: the
- * only thing the observer has to react to is the write itself.
- */
-private suspend fun changeWriter(
-    db: AppDatabase,
-    read: Read,
-    taskId: String,
-    owner: UserId,
-): (suspend () -> Unit)? =
-    when (read) {
-        Read.BlockingEdges, Read.TypedDependencies -> {
-            val depId = db.texts("SELECT id FROM tasks WHERE id != ? ORDER BY id LIMIT 1", taskId).firstOrNull()
-            if (depId == null) {
-                null
-            } else {
-                suspend { db.taskDao().upsertDependencyForUser(taskId, depId, BLOCKING_VERB, owner.value) }
-            }
-        }
-
-        Read.TagIds -> {
-            val tagId = db.texts("SELECT id FROM tags ORDER BY id LIMIT 1").firstOrNull()
-            if (tagId == null) {
-                null
-            } else {
-                suspend { db.taskDao().upsertTagCrossRefForUser(taskId, tagId, owner.value) }
-            }
-        }
-    }
-
-/**
- * The price of taking a connection from the pool and giving it back.
- *
- * No query runs here: this is the cost every read pays before it can run
- * its statement. It is measured before anything else, while no connection is
- * held and none has been taken yet.
- */
-private suspend fun measureConnection(
-    db: AppDatabase,
-    config: ReadOverheadConfig,
-): List<Duration> {
-    for (index in 0 until config.warmup) {
-        db.useConnection(isReadOnly = false) { }
-    }
-    val durations = mutableListOf<Duration>()
-    for (index in 0 until config.iterations) {
-        val mark = TimeSource.Monotonic.markNow()
-        db.useConnection(isReadOnly = false) { }
-        durations += mark.elapsedNow()
-    }
-    return durations
-}
-
 /** One priced form of one read. */
-private fun priced(
+internal fun priced(
     read: Read,
     form: String,
     durations: List<Duration>,
@@ -741,24 +361,10 @@ private fun priced(
     OverheadMeasurement(
         read = read,
         form = form,
-        p50 = percentile(durations, 0.5),
-        p95 = percentile(durations, 0.95),
+        p50 = nearestRank(durations, 0.5),
+        p95 = nearestRank(durations, 0.95),
         samples = durations.size,
     )
-
-/**
- * The nearest-rank percentile of a set of durations: the value at rank
- * `ceil(fraction × n)` of the sorted sample.
- */
-private fun percentile(
-    values: List<Duration>,
-    fraction: Double,
-): Duration {
-    check(values.isNotEmpty()) { "a percentile of an empty sample is not a number" }
-    val sorted = values.sorted()
-    val rank = ceil(fraction * sorted.size).toInt().coerceIn(1, sorted.size)
-    return sorted[rank - 1]
-}
 
 /** The report. */
 private suspend fun render(
@@ -780,7 +386,10 @@ private suspend fun render(
         appendLine("- owner: `${config.owner.value}`")
         appendLine("- jvm: ${System.getProperty("java.version")} (${System.getProperty("java.vm.name")})")
         appendLine("- machine: ${Runtime.getRuntime().availableProcessors()} cores, load ${loadAverage()}")
-        appendLine("- rows checked: the statement, the one-shot call and the Flow answered the same rows")
+        appendLine(
+            "- rows checked: the statement, the one-shot call, the Flow without the observer and " +
+                "the Flow answered the same rows",
+        )
         appendLine()
         appendLine("| read | form | p50 ms | p95 ms | samples |")
         appendLine("|---|---|---|---|---|")
@@ -789,36 +398,41 @@ private suspend fun render(
         }
         appendLine()
         appendLine(
-            "| read | statement | one-shot | flow | call path | Flow machinery | overhead | observer alone |",
+            "| read | statement | one-shot | flow w/o observer | flow | call path | Flow plumbing | " +
+                "invalidation | overhead | observer alone |",
         )
-        appendLine("|---|---|---|---|---|---|---|---|")
+        appendLine("|---|---|---|---|---|---|---|---|---|---|")
         for (read in Read.entries) {
             val statement = measurements.median(read, "statement")
             val oneShot = measurements.median(read, "one-shot")
+            val plumbing = measurements.median(read, "flow without observer")
             val flow = measurements.median(read, "flow")
-            val tracker = measurements.median(read, "tracker")
+            val tracker = measurements.median(read, "observer alone")
             val callPath = measurements.median(read, "call path")
-            val machinery = measurements.median(read, "Flow machinery")
+            val machinery = measurements.median(read, "Flow plumbing")
+            val invalidation = measurements.median(read, "invalidation")
             val overhead = measurements.median(read, "overhead")
             appendLine(
-                "| ${read.label} | ${millis(statement)} | ${millis(oneShot)} | ${millis(flow)} | " +
-                    "${millis(callPath)} | ${millis(machinery)} | ${millis(overhead)} | ${millis(tracker)} |",
+                "| ${read.label} | ${millis(statement)} | ${millis(oneShot)} | ${millis(plumbing)} | " +
+                    "${millis(flow)} | ${millis(callPath)} | ${millis(machinery)} | ${millis(invalidation)} | " +
+                    "${millis(overhead)} | ${millis(tracker)} |",
             )
         }
         appendLine()
         appendLine(
-            "The overhead is the call path plus the Flow machinery, in every iteration. " +
-                "The observer is published on its own: measured apart it pays for a connection and a " +
-                "collector of its own, so it is not subtracted from the Flow machinery — it is a lower " +
-                "bound of it.",
+            "The overhead is the call path plus the Flow plumbing plus the invalidation, in every " +
+                "iteration. All four forms take their connection from the readers' pool, so no part of " +
+                "a difference is a difference of pools. The invalidation is priced in place: the Flow " +
+                "and the Flow without the observer differ only in the observer. The observer alone is " +
+                "published, not subtracted: it is the price of one registration, in a pass of its own.",
         )
         appendLine()
-        appendLine("### The connection the query forms do not pay for")
+        appendLine("### The connection every form pays")
         appendLine()
         appendLine(
-            "The statement form holds its connection, so the price of taking one is not in it. " +
-                "Every other form pays it: p50 ${millis(percentile(connection, 0.5))} ms, " +
-                "p95 ${millis(percentile(connection, 0.95))} ms, ${connection.size} samples.",
+            "Every form takes a reader connection of its own, so the price of taking one is inside " +
+                "the statement: p50 ${millis(nearestRank(connection, 0.5))} ms, " +
+                "p95 ${millis(nearestRank(connection, 0.95))} ms, ${connection.size} samples.",
         )
         appendLine()
         appendLine("### The observer on a change")
@@ -861,26 +475,24 @@ private fun loadAverage(): String =
             .trim()
     }.getOrDefault("unknown")
 
+/**
+ * The nearest-rank percentile of a set of durations: the value at rank
+ * `ceil(fraction × n)` of the sorted sample.
+ */
+internal fun nearestRank(
+    values: List<Duration>,
+    fraction: Double,
+): Duration {
+    check(values.isNotEmpty()) { "a percentile of an empty sample is not a number" }
+    val sorted = values.sorted()
+    val rank = ceil(fraction * sorted.size).toInt().coerceIn(1, sorted.size)
+    return sorted[rank - 1]
+}
+
 /** One column of text per row. */
 private suspend fun AppDatabase.texts(sql: String): List<String> =
     useConnection(isReadOnly = true) { transactor ->
         transactor.usePrepared(sql) { statement ->
-            buildList {
-                while (statement.step()) {
-                    add(statement.getText(0))
-                }
-            }
-        }
-    }
-
-/** One column of text per row, with one text parameter. */
-private suspend fun AppDatabase.texts(
-    sql: String,
-    value: String,
-): List<String> =
-    useConnection(isReadOnly = true) { transactor ->
-        transactor.usePrepared(sql) { statement ->
-            statement.bindText(1, value)
             buildList {
                 while (statement.step()) {
                     add(statement.getText(0))
