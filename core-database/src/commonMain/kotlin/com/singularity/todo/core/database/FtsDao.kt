@@ -52,10 +52,10 @@ import kotlinx.coroutines.flow.flowOf
  *
  * ## One door answers without the position
  *
- * The door that offers a title for a link — [searchTaskTitlesByMatch] — answers
- * with the tasks alone. The position of the match inside a title is not among
- * the things its readers read, and asking for it is not free: FTS4 can report
- * the position only while it is answering a `MATCH`, so a door that carries the
+ * The door that offers a title for a link — [searchTaskTitles] — answers with
+ * the tasks alone. The position of the match inside a title is not among the
+ * things its readers read, and asking for it is not free: FTS4 can report the
+ * position only while it is answering a `MATCH`, so a door that carries the
  * position through the ordering has to carry the whole matched row through it
  * as well. The measurement that decided this is in
  * `docs/architecture/fts-ordering-performance.md`.
@@ -146,7 +146,15 @@ interface FtsDao {
      * row — and the position of the match inside it — through that ordering
      * pays for the row of every matched task, not only for the ones that
      * survive the limit. The rows of the survivors are read afterwards, by
-     * their ids.
+     * their ids — [searchTasksByIds].
+     *
+     * The position of the match inside the title is not read here at all: the
+     * callers of this door offer a title for a link, and the position is not
+     * among the things they read. Asking the index for it is not free either —
+     * FTS4 can only report it while it is answering a `MATCH`, so a door that
+     * carries the position through the ordering carries the whole matched row
+     * through it as well. The measurement that decided this is in
+     * `docs/architecture/fts-ordering-performance.md`.
      *
      * The ordering carries a tiebreaker on purpose. Two tasks updated at the
      * same moment have no order between them, and the order SQLite's sorter
@@ -195,29 +203,6 @@ interface FtsDao {
         userId: String,
         ids: List<String>,
     ): List<TaskEntity>
-
-    /**
-     * The tasks whose title matches the index — the first [limit], most recently
-     * updated first. Used to offer a title for a link.
-     *
-     * The door answers with the tasks and not with the position of the match:
-     * the callers of this door offer a title for a link, and the position of
-     * the match inside the title is not among the things they read. Asking the
-     * index for the position is not free either — FTS4 can only report it
-     * while it is answering a `MATCH`, so a second read of the position is a
-     * second pass over every row the term matches. The measurement that
-     * decided this is in `docs/architecture/fts-ordering-performance.md`.
-     */
-    suspend fun searchTaskTitlesByMatch(
-        userId: String,
-        match: String,
-        limit: Int,
-    ): List<TaskEntity> {
-        val ids = searchTaskTitleIdsByMatch(userId, match, limit)
-        if (ids.isEmpty()) return emptyList()
-        val tasks = searchTasksByIds(userId, ids).associateBy { it.id }
-        return ids.mapNotNull { tasks[it] }
-    }
 
     /**
      * The notes whose title matches the index — the first twenty, most recently
@@ -299,16 +284,23 @@ interface FtsDao {
     /**
      * The tasks whose title matches [query] — the first [limit], most recently
      * updated first.
+     *
+     * The door reads in two steps: first the ids of the matched tasks, in
+     * order, then the rows of the ones that survived the limit. The sorter of
+     * the first step carries an id — not a row, and not the position of the
+     * match — and the second step reads the rows by their id.
      */
     suspend fun searchTaskTitles(
         userId: String,
         query: TextMatchQuery,
         limit: Int,
-    ): List<TaskEntity> =
-        FtsMatchQuery
-            .expression(query)
-            ?.let { match -> searchTaskTitlesByMatch(userId, match, limit) }
-            ?: emptyList()
+    ): List<TaskEntity> {
+        val match = FtsMatchQuery.expression(query) ?: return emptyList()
+        val ids = searchTaskTitleIdsByMatch(userId, match, limit)
+        if (ids.isEmpty()) return emptyList()
+        val tasks = searchTasksByIds(userId, ids).associateBy { it.id }
+        return ids.mapNotNull { tasks[it] }
+    }
 
     /**
      * The notes whose title matches [query] — the first [limit], most recently

@@ -75,7 +75,7 @@ class FtsTaskTitleOrderingTest {
         runTest {
             seed(count = 40, distinctTimestamps = true)
 
-            val throughTheDoor = db.ftsDao().searchTaskTitlesByMatch("u1", MATCH, limit = 10)
+            val throughTheDoor = db.ftsDao().searchTaskTitles("u1", QUERY, limit = 10)
             val throughOneStatement = oneStatementIds(limit = 10)
 
             assertEquals(
@@ -101,7 +101,7 @@ class FtsTaskTitleOrderingTest {
                 db.taskDao().upsert(task(id = id, title = "A record that carries the needle", updatedAt = 1_000L))
             }
 
-            val ids = db.ftsDao().searchTaskTitlesByMatch("u1", MATCH, limit = 10).map { it.id }
+            val ids = db.ftsDao().searchTaskTitles("u1", QUERY, limit = 10).map { it.id }
 
             assertEquals(
                 listOf("t3", "t2", "t1"),
@@ -120,7 +120,7 @@ class FtsTaskTitleOrderingTest {
 
             val answers =
                 (1..5).map {
-                    db.ftsDao().searchTaskTitlesByMatch("u1", MATCH, limit = 10).map { task -> task.id }
+                    db.ftsDao().searchTaskTitles("u1", QUERY, limit = 10).map { task -> task.id }
                 }
 
             assertEquals(1, answers.distinct().size, "the door has to answer the same order every time")
@@ -175,7 +175,7 @@ class FtsTaskTitleOrderingTest {
                     .copy(archivedAt = 1_000L),
             )
 
-            val ids = db.ftsDao().searchTaskTitlesByMatch("u1", MATCH, limit = 10).map { it.id }
+            val ids = db.ftsDao().searchTaskTitles("u1", QUERY, limit = 10).map { it.id }
 
             assertEquals(listOf("mine"), ids)
         }
@@ -268,9 +268,12 @@ class FtsTaskTitleOrderingTest {
         ).readText()
 
     private companion object {
-        /** The expression the production code builds for the word "needle". */
+        /** The query the caller means: the word "needle". */
+        val QUERY: TextMatchQuery = TextMatchQuery(listOf("needle"))
+
+        /** The expression the production code builds for that word. */
         val MATCH: String =
-            requireNotNull(FtsMatchQuery.expression(TextMatchQuery(listOf("needle")))) {
+            requireNotNull(FtsMatchQuery.expression(QUERY)) {
                 "the expression of a word with a letter in it is never empty"
             }
 

@@ -33,7 +33,7 @@ import kotlin.time.TimeSource
  *
  * ## Why this exists
  *
- * `FtsDao.searchTaskTitlesByMatch` joined `tasks_fts` to `tasks` and ended with
+ * `FtsDao.searchTaskTitles` joined `tasks_fts` to `tasks` and ended with
  * `ORDER BY t.updated_at DESC LIMIT :limit`. On a broad match the FTS hit set
  * can be most of the table; the question is whether SQLite pays a material sort
  * for that hit set at supported database sizes.
@@ -735,9 +735,8 @@ private fun rowsByIdsSql(ids: Int): String =
  * The second statement of the two-phase candidate that keeps the match offsets.
  *
  * The rows are read by their id, and the index is joined again to get the
- * offsets back — the offsets are what `FtsDao.searchTaskTitlesByMatch` returns
- * today, so this is the candidate that does not change the contract of the
- * door.
+ * offsets back — the offsets are what the title door used to return, so this is
+ * the candidate that does not change the contract of the door.
  */
 private fun rowsWithOffsetsSql(ids: Int): String =
     """
@@ -928,95 +927,106 @@ private fun render(
     runs: List<ModeRun>,
 ): String =
     buildString {
-        appendLine("## FTS task-title ordering — measurement")
-        appendLine()
-        appendLine("- dataset: `${archive.absolutePath}` (${archive.length() / 1024} KiB)")
-        appendLine("- iterations: ${config.iterations}, warmup: ${config.warmup}, owner: ${config.owner.value}")
-        appendLine("- the rounds are interleaved: every round runs every variant once, in a rotating order, so a")
-        appendLine("  machine that gets busy in the middle of the sweep slows every variant down the same way.")
-        appendLine(
-            "- query shape under test: `tasks_fts MATCH ? JOIN tasks ON rowid WHERE user_id=? AND archived_at IS NULL ORDER BY updated_at DESC LIMIT ?`",
-        )
-        appendLine("- the statement the DAO runs now: the same join and the same order, but over the ids")
-        appendLine("  alone (`ORDER BY t.updated_at DESC, t.rowid DESC`), and then the rows of the survivors")
-        appendLine("  are read by their ids.")
-        appendLine()
-        appendLine("Variants, each one the previous one plus one thing:")
-        appendLine()
-        appendLine("- `fts_match_count` — the FTS table alone: the matching cost.")
-        appendLine("- `match_count` — the same count over the join with the ownership filter.")
-        appendLine("- `match_limit_no_order` — the joined rows with the production LIMIT, no ordering.")
-        appendLine("- `match_order` — the same statement with `ORDER BY updated_at DESC`.")
-        appendLine("- `current_ids` — the production statement with the id alone.")
-        appendLine("- `current_no_offsets` — the production statement with the offsets replaced by a constant.")
-        appendLine("- `current_offsets_only` — the production statement with the task row replaced by the id.")
-        appendLine("- `current` — the production statement verbatim: the whole task row and the match offsets.")
-        appendLine()
-        appendLine("`current` is the statement the DAO ran before the change this measurement decided,")
-        appendLine("and `two_phase_tiebreak` is the statement it runs now. Both are measured as they are,")
-        appendLine("so the difference between them is a difference between two statements.")
-        appendLine()
-        appendLine("`match_limit_no_order` and `match_order` are stated with a CROSS JOIN, which pins the")
-        appendLine("join order, so the difference between them prices the sort and nothing else.")
-        appendLine("`current_no_order` is the production statement without its ORDER BY: it is recorded as a")
-        appendLine("plan only, and never executed — the shape the planner picks when it is allowed to.")
-        appendLine()
-        appendLine("Candidates, measured after the baseline:")
-        appendLine()
-        appendLine("- `two_phase` — order by the ids, then read the rows of the survivors.")
-        appendLine("- `two_phase_tiebreak` — the same, with the tiebreaker the DAO adds to the order.")
-        appendLine("- `two_phase_offsets` — the same, with the match offsets read back from the index.")
-        appendLine("- `subquery_candidate` — the same in one statement: the ordering in a subquery.")
-        appendLine(
-            "- `current_with_index` — the production statement on a schema with `INDEX tasks(user_id, updated_at DESC)`.",
-        )
-        appendLine(
-            "- `index_candidate` — the production statement rewritten with the FTS hit set as a subquery, on the same schema.",
-        )
+        appendHeader(archive, config)
         for (run in runs) {
-            appendLine()
-            appendLine("### ${run.mode.label}")
-            appendLine()
-            appendLine("- tasks: ${run.taskCount}")
-            appendLine()
-            appendLine("| scenario | variant | p50 ms | p95 ms | rows | match count | temp B-tree |")
-            appendLine("|---|---|---:|---:|---:|---:|---|")
-            for (m in run.measurements) {
-                val plan = run.plans.firstOrNull { it.scenario == m.scenario && it.variant == m.variant }
-                appendLine(
-                    "| ${m.scenario} | ${m.variant} | ${millis(m.p50)} | ${millis(m.p95)} | " +
-                        "${m.rows} | ${m.matchCount} | ${if (plan?.usesTempBTree == true) "yes" else "no"} |",
-                )
-            }
-            appendLine()
-            appendLine("Cost per variant (p50, milliseconds):")
-            appendLine()
-            for (phase in Phase.entries) {
-                val timed = Variant.entries.filter { it.timed && it.phase == phase }
-                if (timed.isEmpty()) continue
-                appendLine("Phase: ${phase.label}")
-                appendLine()
-                appendLine("| scenario | " + timed.joinToString(" | ") { it.label } + " |")
-                appendLine("|---|" + timed.joinToString("|") { "---:" } + "|")
-                for (scenario in run.measurements.map { it.scenario }.distinct()) {
-                    val cells =
-                        timed.map { variant ->
-                            millis(
-                                run.measurements.first { it.scenario == scenario && it.variant == variant.label }.p50,
-                            )
-                        }
-                    appendLine("| $scenario | " + cells.joinToString(" | ") + " |")
-                }
-                appendLine()
-            }
-            appendLine("Query plans:")
-            for (plan in run.plans) {
-                appendLine()
-                appendLine("- `${plan.scenario}` / `${plan.variant}` tempBTree=${plan.usesTempBTree}")
-                plan.steps.forEach { appendLine("  - $it") }
-            }
+            appendRun(run)
         }
     }
+
+private fun StringBuilder.appendHeader(
+    archive: File,
+    config: FtsPerfConfig,
+) {
+    appendLine("## FTS task-title ordering — measurement")
+    appendLine()
+    appendLine("- dataset: `${archive.absolutePath}` (${archive.length() / 1024} KiB)")
+    appendLine("- iterations: ${config.iterations}, warmup: ${config.warmup}, owner: ${config.owner.value}")
+    appendLine("- the rounds are interleaved: every round runs every variant once, in a rotating order, so a")
+    appendLine("  machine that gets busy in the middle of the sweep slows every variant down the same way.")
+    appendLine(
+        "- query shape under test: `tasks_fts MATCH ? JOIN tasks ON rowid WHERE user_id=? AND archived_at IS NULL ORDER BY updated_at DESC LIMIT ?`",
+    )
+    appendLine("- the statement the DAO runs now: the same join and the same order, but over the ids")
+    appendLine("  alone (`ORDER BY t.updated_at DESC, t.rowid DESC`), and then the rows of the survivors")
+    appendLine("  are read by their ids.")
+    appendLine()
+    appendLine("Variants, each one the previous one plus one thing:")
+    appendLine()
+    appendLine("- `fts_match_count` — the FTS table alone: the matching cost.")
+    appendLine("- `match_count` — the same count over the join with the ownership filter.")
+    appendLine("- `match_limit_no_order` — the joined rows with the production LIMIT, no ordering.")
+    appendLine("- `match_order` — the same statement with `ORDER BY updated_at DESC`.")
+    appendLine("- `current_ids` — the production statement with the id alone.")
+    appendLine("- `current_no_offsets` — the production statement with the offsets replaced by a constant.")
+    appendLine("- `current_offsets_only` — the production statement with the task row replaced by the id.")
+    appendLine("- `current` — the production statement verbatim: the whole task row and the match offsets.")
+    appendLine()
+    appendLine("`current` is the statement the DAO ran before the change this measurement decided,")
+    appendLine("and `two_phase_tiebreak` is the statement it runs now. Both are measured as they are,")
+    appendLine("so the difference between them is a difference between two statements.")
+    appendLine()
+    appendLine("`match_limit_no_order` and `match_order` are stated with a CROSS JOIN, which pins the")
+    appendLine("join order, so the difference between them prices the sort and nothing else.")
+    appendLine("`current_no_order` is the production statement without its ORDER BY: it is recorded as a")
+    appendLine("plan only, and never executed — the shape the planner picks when it is allowed to.")
+    appendLine()
+    appendLine("Candidates, measured after the baseline:")
+    appendLine()
+    appendLine("- `two_phase` — order by the ids, then read the rows of the survivors.")
+    appendLine("- `two_phase_tiebreak` — the same, with the tiebreaker the DAO adds to the order.")
+    appendLine("- `two_phase_offsets` — the same, with the match offsets read back from the index.")
+    appendLine("- `subquery_candidate` — the same in one statement: the ordering in a subquery.")
+    appendLine(
+        "- `current_with_index` — the production statement on a schema with `INDEX tasks(user_id, updated_at DESC)`.",
+    )
+    appendLine(
+        "- `index_candidate` — the production statement rewritten with the FTS hit set as a subquery, on the same schema.",
+    )
+}
+
+private fun StringBuilder.appendRun(run: ModeRun) {
+    appendLine()
+    appendLine("### ${run.mode.label}")
+    appendLine()
+    appendLine("- tasks: ${run.taskCount}")
+    appendLine()
+    appendLine("| scenario | variant | p50 ms | p95 ms | rows | match count | temp B-tree |")
+    appendLine("|---|---|---:|---:|---:|---:|---|")
+    for (m in run.measurements) {
+        val plan = run.plans.firstOrNull { it.scenario == m.scenario && it.variant == m.variant }
+        appendLine(
+            "| ${m.scenario} | ${m.variant} | ${millis(m.p50)} | ${millis(m.p95)} | " +
+                "${m.rows} | ${m.matchCount} | ${if (plan?.usesTempBTree == true) "yes" else "no"} |",
+        )
+    }
+    appendLine()
+    appendLine("Cost per variant (p50, milliseconds):")
+    appendLine()
+    for (phase in Phase.entries) {
+        val timed = Variant.entries.filter { it.timed && it.phase == phase }
+        if (timed.isEmpty()) continue
+        appendLine("Phase: ${phase.label}")
+        appendLine()
+        appendLine("| scenario | " + timed.joinToString(" | ") { it.label } + " |")
+        appendLine("|---|" + timed.joinToString("|") { "---:" } + "|")
+        for (scenario in run.measurements.map { it.scenario }.distinct()) {
+            val cells =
+                timed.map { variant ->
+                    millis(
+                        run.measurements.first { it.scenario == scenario && it.variant == variant.label }.p50,
+                    )
+                }
+            appendLine("| $scenario | " + cells.joinToString(" | ") + " |")
+        }
+        appendLine()
+    }
+    appendLine("Query plans:")
+    for (plan in run.plans) {
+        appendLine()
+        appendLine("- `${plan.scenario}` / `${plan.variant}` tempBTree=${plan.usesTempBTree}")
+        plan.steps.forEach { appendLine("  - $it") }
+    }
+}
 
 // The FTS table alone: what the term matches, without the join and without
 // materializing a row.

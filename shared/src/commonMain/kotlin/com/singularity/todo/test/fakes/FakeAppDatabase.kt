@@ -584,12 +584,6 @@ private class FakeFtsDao(
         match: String,
     ): Flow<List<TagMatchRow>> = noExpression("watchTagsByMatch")
 
-    override suspend fun searchTaskTitlesByMatch(
-        userId: String,
-        match: String,
-        limit: Int,
-    ): List<TaskEntity> = noExpression("searchTaskTitlesByMatch")
-
     override suspend fun searchTaskTitleIdsByMatch(
         userId: String,
         match: String,

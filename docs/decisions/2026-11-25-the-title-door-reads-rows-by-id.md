@@ -14,10 +14,11 @@ databases: what does the title door of the search index cost on 10k / 50k /
 ordering and materialising the matching set, and which query plans and which
 indexes are involved.
 
-The door is `FtsDao.searchTaskTitlesByMatch` — the tasks whose title matches
-the index, the first twenty, most recently updated first. It is read by the
-Related Tasks picker (`SearchTextIndexImpl.recentTaskTitles`) and by the
-internal-link suggestions. Before the change it was one statement:
+The door is `FtsDao.searchTaskTitles` — the tasks whose title matches the
+index, the first twenty, most recently updated first. Behind it sat the raw
+door `searchTaskTitlesByMatch`, which took the `MATCH` expression Room runs.
+It is read by the Related Tasks picker (`SearchTextIndexImpl.recentTaskTitles`)
+and by the internal-link suggestions. Before the change it was one statement:
 
 ```sql
 SELECT t.*, offsets(tasks_fts) AS match_offsets FROM tasks t
@@ -65,8 +66,8 @@ Order the ids, read the rows of the survivors afterwards.
 
 ## Decision
 
-`FtsDao.searchTaskTitlesByMatch` is now two statements behind a default
-interface method:
+`FtsDao.searchTaskTitles` is now two statements — `searchTaskTitleIdsByMatch`
+and `searchTasksByIds` — behind one default interface method:
 
 ```sql
 -- phase A: the order
@@ -150,10 +151,14 @@ shape of the cost was local: one statement, one door, one sorter.
   content, while its place in the order is the one phase A decided. A task
   archived between the two phases is dropped, because phase B states the
   archive filter again.
-- `FtsDao.searchTaskTitles` and `searchTaskTitlesByMatch` answer with
-  `List<TaskEntity>` instead of `List<TaskMatchRow>`: the door no longer
-  carries the position of the match. `SearchTextIndexImpl.recentTaskTitles`
-  maps the tasks it gets, and no reader of this door read the position.
+- `FtsDao.searchTaskTitles` answers with `List<TaskEntity>` instead of
+  `List<TaskMatchRow>`: the door no longer carries the position of the match.
+  `SearchTextIndexImpl.recentTaskTitles` maps the tasks it gets, and no reader
+  of this door read the position. The raw door behind it is now
+  `searchTaskTitleIdsByMatch` — the ids, in the order the door decided — and
+  `searchTasksByIds` reads the rows of the survivors. The old raw door, which
+  answered with the row and the position, is gone from the interface: the only
+  thing it could add to the ordering was the payload the measurement priced.
 - On a working database the cost of the door on 100 000 tasks falls from
   485.6 ms to 89.7 ms for a term that matches every task; on a restored
   database — where every `updated_at` is the same — it rises from 63.3 ms to
