@@ -6,7 +6,9 @@ tags:
   - attachments
   - scenario:ATTACH-04
 ---
-# Seed a task and add an attachment.
+# Seed a task and add an attachment. The task is undated, so it lands in
+# Inbox — not on the Today screen the seed leaves the app on. The seed helper
+# cannot WAIT_FOR it; seed-and-open-task waits after navigating to Inbox.
 - runFlow:
     file: ../../helpers/seed-and-open-task.yaml
     env:

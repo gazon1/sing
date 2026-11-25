@@ -29,6 +29,10 @@ tags:
 # dates the task, so a leftover copy would have been dated too and would have
 # broken the "not on Today" assertion below; with a replacing seed the leftover is
 # the same row.
+#
+# The task is undated, so it lands in Inbox — not on the Today screen the seed
+# leaves the app on. The helper cannot wait for it; the flow waits for the row
+# below, after navigating to Inbox and scrolling it into view.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:

@@ -16,10 +16,16 @@ tags:
 ---
 # Seed three tasks with different due dates. The titles are fixed and the seed
 # replaces, so each run asserts on the same three rows.
+#
+# YesterdayTask is overdue: its row sits in the Overdue section, which the Today
+# tab collapses once the profile holds enough overdue tasks. The helper cannot
+# wait for the row, but the section header is rendered either way — so the
+# helper waits for the section (the container rule).
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=YesterdayTask&due=-1d"
+      WAIT_FOR: "agenda_section_overdue"
 # TodayTask lands in today's section of the Today agenda — the screen the seed
 # leaves the app on — so the helper can wait for the row itself (the row rule).
 - runFlow:
@@ -27,6 +33,9 @@ tags:
     env:
       QUERY: "task=TodayTask&due=today"
       WAIT_FOR: "task_item_todaytask"
+# TomorrowTask lands in the Upcoming tab, not on the Today screen the seed
+# leaves the app on. The helper cannot wait for it; the flow waits for the
+# Tomorrow section below, after navigating to Upcoming.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
@@ -36,11 +45,10 @@ tags:
 - tapOn:
     id: nav_tab_today
 
-# Overdue section should contain YesterdayTask.
-- extendedWaitUntil:
-    visible:
-      id: agenda_section_overdue
-    timeout: 8000
+# Overdue section should contain YesterdayTask. The helper waited for the
+# section; the flow asserts the section and the row it holds.
+- assertVisible:
+    id: agenda_section_overdue
 - assertVisible:
     id: task_item_yesterdaytask
 
