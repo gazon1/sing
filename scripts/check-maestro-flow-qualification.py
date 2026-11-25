@@ -47,7 +47,8 @@ flows tagged ``manual`` or ``auth-live`` (the automated ``full`` suite and the
    scope when the rule was introduced, and a name without a file behind it
    qualifies nothing. The baseline map drops the fingerprint: the map only
    shrinks, and a flow that comes back to the catalogue is qualified instead
-   of admitted by a fingerprint nobody re-ran. ADR
+   of admitted by a fingerprint nobody re-ran. The map therefore holds a
+   fingerprint for every flow that is in the catalogue. ADR
    ``docs/decisions/2026-11-25-a-retired-flow-leaves-the-baseline-map.md``.
 2. **Qualified.** ``config/docs/maestro-flow-qualification.yaml`` records a
    qualification run for the flow's current fingerprint: at least
@@ -147,7 +148,7 @@ FROZEN_SET_DIGEST = "sha256:863ed25a7db9a260fba93474102645baa27359399e94f8665e95
 #: changed — a source change, reviewed as one, that says in the diff that
 #: flows are admitted without being qualified. Print the current digest with
 #: ``--print-baseline-digest``.
-BASELINE_DIGEST = "sha256:9e9fe6fffeae18306e2bc84a9c0c0cc3d9c8cadfdd95d9f517110d73eb225ca7"
+BASELINE_DIGEST = "sha256:f5175fed03662a5fecbc79a686fd34ed6183015da1b7c445b59b6065c054b9dd"
 
 #: A reference inside a flow/helper: `file: path`, `- runFlow: path` or
 #: `- runScript: path`. The extension is not restricted to YAML: a flow can run

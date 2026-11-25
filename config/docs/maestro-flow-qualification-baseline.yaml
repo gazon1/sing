@@ -6,7 +6,8 @@
 # The frozen set itself lives in maestro-flow-qualification-initial.yaml and is
 # pinned by a digest in scripts/check-maestro-flow-qualification.py. The frozen
 # set is the record of the flows that were in a blocking scope when the rule
-# was introduced, so it keeps a retired flow's name.
+# was introduced, so it keeps a retired flow's name. This map therefore holds a
+# fingerprint for the flows that are still in the catalogue.
 schema: 1
 policy: flows in automated blocking scopes at rule introduction; a matching fingerprint
   admits the flow, a change requires qualification
@@ -57,7 +58,6 @@ flows:
   Maestro/flows/menu/09-attach-account-entry.yaml: sha256:1673b9f7fe281b6c14367af94a5ffc9ef8fa0ac92fef2b5a613c0fba15ee4397
   Maestro/flows/menu/10-large-projects.yaml: sha256:b1c70ad8f265ccb81eb8555c0305772aa4bffdd1296592bc4aeabcdfd8a99fa5
   Maestro/flows/nav/01-no-calendar-tab.yaml: sha256:22c77e4c3a94d1f9f82a04aed3ea68a36e6e7a73c733c1e509fd32dfb719ad3d
-  Maestro/flows/nav/02-menu-parity.yaml: sha256:3dc5caf5ced79999a87be3af34cdbac474dbd63974da7461401ca1a7cd0f6192
   Maestro/flows/nav/bottom-nav-tabs.yaml: sha256:26d7e374af8e3c354d5230b21e40a7c5a7b59849230a993e85b5c67718aaccb1
   Maestro/flows/nav/deep-link-task.yaml: sha256:713a02f964ee99ff7f39c59f0feb901b6937ae73f81b55c2f3185139831d14bc
   Maestro/flows/negative/01-empty-inbox.yaml: sha256:bcfe2120936b566f35319dae7885e6a82870a9fa11ea96f4770d7c1c230f8ea5
@@ -79,7 +79,6 @@ flows:
   Maestro/flows/projects/04-pick-emoji.yaml: sha256:9d0c54531bafc4bd7ff845efde54b3819fdf07bb0c5e4a77d49b7205b1366193
   Maestro/flows/projects/05-custom-emoji.yaml: sha256:846a1f7580793c4e0c73c861bc63c2e5732700500149adea43d34c8ce24731cd
   Maestro/flows/search/02-cyrillic.yaml: sha256:2985dbd3930b1fc88817b0b6b6526c58dcb85c46755d6200deded4085612ed85
-  Maestro/flows/search/03-clear.yaml: sha256:342585e5ab196d1fc3eee609047a6a89f6cc37f0e160fadf086150780d5eb9d7
   Maestro/flows/search/04-filter-description.yaml: sha256:212d47b45dfc56edcf46dc37fd569009041ffac2fe7850a9fb7cc4d78ce6031f
   Maestro/flows/search/05-filter-pinned.yaml: sha256:77edb5ea5b266373a6ed9297ca25eaec875f26f9f7f78b07d6447fe0f6722bbc
   Maestro/flows/search/06-no-results.yaml: sha256:a509240106d40c2bd725cfb2c2edd1ab6a7748ba06b6699bbba52c6d62670253

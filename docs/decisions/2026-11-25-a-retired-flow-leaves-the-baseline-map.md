@@ -62,6 +62,10 @@ back with the same content would be admitted without anybody qualifying it.
   from the catalogue, and `BASELINE_DIGEST` is refreshed to match the map.
 - A flow that comes back to the catalogue is therefore qualified (or excepted)
   — never admitted by a fingerprint that was taken before the flow was retired.
+- The rule applies to the map for **every** retired flow, not only the ones
+  retired from here on: the two entries earlier retirements left behind are
+  dropped as well, so the map holds a fingerprint for exactly the flows that
+  are in the catalogue.
 
 ## Rationale
 
@@ -102,11 +106,11 @@ fingerprint".
   record of the change it decided, and their artifacts are history too. The
   rule applies from here on; a future retirement that wants the frozen set to
   shrink says so in its own change.
-- `search/03-clear.yaml`, retired by #3142, keeps its baseline fingerprint: it
-  was retired by a change that touched neither artifact. Nothing depends on
-  it — the flow is not in the catalogue, so the gate never reads its entry —
-  but it is a leftover, and a future change that drops it is a shrink of the
-  map like any other.
+- The two leftovers of earlier retirements — `nav/02-menu-parity.yaml` (#3119)
+  and `search/03-clear.yaml` (#3142), both retired without touching the
+  artifacts — leave the map in the same change that settled the rule, so the
+  map no longer admits a flow that does not exist. Their names stay in the
+  frozen set, which is what the frozen set is for.
 
 ## Links
 
