@@ -622,6 +622,34 @@ These are limits of the check, not of the contract: the flows in the tree
 assert their seeded entities by id or by name, and the helper's wait is what
 the contract asks of them.
 
+## What the smoke flow proves, and what it does not
+
+`Maestro/flows/smoke/07-seed-helper-contract.yaml` is the runtime half of the
+contract: it seeds with a named entity and asserts on it right after the
+helper returns, with no wait of its own.
+
+What it proves: the helper's contract works on a device — the entity the
+caller named is waited for, the assertion that follows it needs no wait of
+its own, a seed that writes no entity waits for nothing, and the app still
+comes up.
+
+What it does not prove: that the wait *blocked* rather than the assertion
+polling. Maestro's assertions retry on their own — "if the element is not
+visible when the command is first called, Maestro will not immediately fail
+the test; instead it will automatically wait and retry for up to 7 seconds"
+(the Maestro docs on `assertVisible`) — so an assertion that follows the
+helper cannot tell a blocked wait from a fast render.
+
+Telling the two apart needs an arrival the flow can reproduce as slow, and a
+slow arrival is application behaviour: this change touches no application
+code, and delaying the seeder to prove that the helper waits would change
+the product to serve a test. The property is therefore held where it can be
+held deterministically — by the source-level gate (`SeedHelperWaitTest` holds
+that the wait is there, that it is guarded, that it stands after the seed,
+and `scripts/check-ui-wait-budgets.py` holds its budget) and by the
+qualification (three passes of the flow on one device, against the build the
+record names).
+
 ## Verified on device
 
 `realme RMX3938 (0O65321F32204DD5)`, the E2E build:
