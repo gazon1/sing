@@ -176,6 +176,13 @@ private fun testDataLayerModule(): Module =
         // frame: an endless redraw that reads as a hang rather than as a missing binding.
         // `FakeAppDatabase` already implements the DAO.
         single { get<AppDatabase>().annotationDao() }
+        // The built-in chat transcript. `platformModule` binds both DAOs beside the
+        // other per-feature ones; without them here the mirror is incomplete and a
+        // graph resolving `ChatViewModel` throws `NoDefinitionFoundException` — the
+        // production parity test reports it, and a real chat screen would too.
+        // `FakeAppDatabase` implements both.
+        single { get<AppDatabase>().chatConversationDao() }
+        single { get<AppDatabase>().chatMessageDao() }
     }
 
 /**
