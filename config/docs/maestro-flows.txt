@@ -102,7 +102,6 @@ Maestro/flows/search/04-filter-description.yaml
 Maestro/flows/search/05-filter-pinned.yaml
 Maestro/flows/search/06-no-results.yaml
 Maestro/flows/search/07-saved-search.yaml
-Maestro/flows/search/09-contains-mode.yaml
 Maestro/flows/search/10-task-card-actions.yaml
 Maestro/flows/search/11-filter-sheet-reachability.yaml
 Maestro/flows/search/12-no-results-recovery.yaml
