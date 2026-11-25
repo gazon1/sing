@@ -1,7 +1,10 @@
 # Task editor: clearing the title and attempting to save is rejected (title stays unchanged).
 #
-# The TaskDomain rejects empty titles at the repository level. The editor remains open
-# so the user can type a valid title. The task is NOT renamed to "Untitled" or similar.
+# The draft refuses a blank title: the keystrokes that empty the field are
+# reverted by the draft (TaskDraftSlot reverts a blank title to the title the
+# repository last accepted), and a back press with a blank draft writes
+# nothing. The editor stays open, the task is NOT renamed to "Untitled" or
+# similar, and the row keeps the id its title gives it.
 #
 # Covers: task rename → empty title → validation prevents save → original title intact.
 appId: com.singularity.todo
@@ -23,22 +26,52 @@ tags:
     id: nav_tab_today
 - tapOn:
     id: task_item_renameme
-
-# Clear the title field: longPress selects all text; eraseText with no arg erases it.
-- tapOn:
-    id: task_editor_title_input
-- longPressOn:
-    id: task_editor_title_input
-- eraseText
-
-# The editor stays open with an empty title field.
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
     timeout: 5000
 
-# Navigate back — task should still exist with its original title. The helper
-# already waited for the row after the seed; this is a post-navigation check.
+# Clear the title field.
+#
+# The caret goes past the text first: a plain tap lands where the tap is — in
+# the middle of the title — and `eraseText` erases only what is in front of
+# the caret, which leaves half a title behind. This is the same pattern the
+# saved-agenda flow uses on its pre-filled name field.
+#
+# The count is the title's length (8 characters). `eraseText` without a count
+# erases 50 characters, and the surplus deletions take the reverted title apart
+# again — the field ends up holding "Rename" and the task really is renamed.
+- tapOn:
+    id: task_editor_title_input
+    point: "95%,50%"
+- eraseText: 8
+
+# The empty title is refused. The draft reverts to the title the repository
+# last accepted, so the field shows "RenameMe" again and the editor is still
+# open. The field publishes its value as the node's text, so the wait reads
+# the title itself and not merely the presence of the field.
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+      text: "RenameMe"
+    timeout: 5000
+
+# Navigate back — task should still exist with its original title.
+#
+# The soft keyboard is up over the title field, and it eats the first back
+# press: the keyboard goes down and the editor stays open. The second back is
+# what closes the editor — sent only when the editor is still there, so the
+# flow also works when the keyboard was down already.
 - back
+- runFlow:
+    when:
+      visible:
+        id: task_editor_title_input
+    commands:
+      - back
+- extendedWaitUntil:
+    visible:
+      id: task_item_renameme
+    timeout: 8000
 - assertVisible:
     id: task_item_renameme

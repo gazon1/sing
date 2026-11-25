@@ -33,10 +33,10 @@ name: reveal-attachments-section
     element:
       id: attachments_add_file_row
     direction: DOWN
-    # The sheet's last row can be "visible" while sitting on the
-    # gesture-navigation strip: its bounds are on screen and a tap there is a
-    # home gesture. Centering moves it to the middle of the screen, which also
-    # brings the tiles above it into view — the same measurement that made
-    # `open-menu-item.yaml` center its row.
-    centerElement: true
+    # No `centerElement` here: Maestro's centering keeps scrolling until the row
+    # sits in the middle of the screen, and the "+ Add file" row is the last
+    # thing in the sheet — the content below it cannot scroll further, so the
+    # loop never settles and the step times out on a row that is already on the
+    # screen (measured 2026-11-25, API 36 emulator). The plain scroll stops as
+    # soon as the row is visible, which is all this helper promises.
     timeout: 8000
