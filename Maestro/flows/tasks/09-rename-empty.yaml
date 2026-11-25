@@ -10,19 +10,17 @@ tags:
   - tasks
   - smoke
 ---
-# Seed a task with a known title.
+# Seed a task with a known title. The task is due today, so the helper can
+# wait for the row on the Today screen (the row rule).
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=RenameMe&due=today"
+      WAIT_FOR: "task_item_renameme"
 
 # Open the task in the editor.
 - tapOn:
     id: nav_tab_today
-- extendedWaitUntil:
-    visible:
-      id: task_item_renameme
-    timeout: 8000
 - tapOn:
     id: task_item_renameme
 
@@ -39,11 +37,8 @@ tags:
       id: task_editor_title_input
     timeout: 5000
 
-# Navigate back — task should still exist with its original title.
+# Navigate back — task should still exist with its original title. The helper
+# already waited for the row after the seed; this is a post-navigation check.
 - back
-- extendedWaitUntil:
-    visible:
-      id: task_item_renameme
-    timeout: 8000
 - assertVisible:
     id: task_item_renameme

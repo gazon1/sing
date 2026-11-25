@@ -121,6 +121,14 @@ refreshed in the same change, and the diff of the change is what says
   the map is caught instead of waiting for the next review to find it. The
   check is covered by a positive-control test in
   `scripts/tests/test_check_maestro_flow_qualification.py`.
+- The rule reaches retirements that land on `main` from another branch. When
+  `main` merged #3202/#3207 (`search/08-word-prefix.yaml` retired on 2026-11-25)
+  into this branch, the map still carried that flow's fingerprint; the new
+  orphan check refused the gate until the fingerprint was dropped and
+  `BASELINE_DIGEST` refreshed. Nothing about #3202 changes here — the entry
+  leaves the map because the rule says a retired flow leaves it, and the
+  fingerprint it carried would otherwise admit a returning flow without
+  anybody qualifying it.
 
 ## Links
 

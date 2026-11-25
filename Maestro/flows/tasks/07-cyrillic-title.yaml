@@ -16,14 +16,12 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=%D0%9A%D1%83%D0%BF%D0%B8%D1%82%D1%8C%20%D0%BC%D0%BE%D0%BB%D0%BE%D0%BA%D0%BE&due=today"
-# The task must appear in Today with its Cyrillic title intact.
-- extendedWaitUntil:
-    visible:
-      text: "Купить молоко"
-    timeout: 8000
+      WAIT_FOR: "task_item_купить_молоко"
+# The task must appear in Today with its Cyrillic title intact. The helper
+# waited for the row; this assertion checks the title rendered, not the arrival.
+- assertVisible:
+    text: "Купить молоко"
 # Verify it is in the task list. It is dated today, so it lives in the Today
 # tab: the three agenda tabs are disjoint, and a dated task is not in the inbox.
-- extendedWaitUntil:
-    visible:
-      id: task_item_купить_молоко
-    timeout: 8000
+- assertVisible:
+    id: task_item_купить_молоко

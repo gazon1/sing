@@ -1295,10 +1295,10 @@ Steps:
 
 Steps:
 
-1. Open the quick search from the menu sheet.
+1. Open the search screen.
 2. Type "arch".
 3. Observe the results.
-4. Clear the query and type "port".
+4. Replace the query with "port".
 5. Observe the results.
 
 **Expected:** The first search finds the task titled "architecture": a term matches the beginning of a word. The second does not find the task titled "airport": the term matches the beginning of a word and not its middle. The search answers one question — "which records carry this word" — and the index answers it.

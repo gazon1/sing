@@ -113,6 +113,40 @@ class SearchContainsModeTest {
             assertEquals(listOf(AIRPORT), results.tags.map { it.record.name })
         }
 
+    /**
+     * The rule the search grammar calls F2a, in the two answers a user sees.
+     *
+     * "arch" finds "architecture" — a term matches the **beginning** of a word;
+     * "port" does not find "airport" — it matches neither its middle nor its end.
+     * The pair is the whole rule: one answer alone could be a search that finds
+     * everything, and the other alone a search that finds nothing.
+     *
+     * The records are seeded here rather than in [seed] because this test is
+     * about one pair of titles, and the fixture the class shares is about the
+     * four kinds of record.
+     */
+    @Test
+    fun `the word mode finds the beginning of a word and not its middle`() =
+        runTest {
+            taskRepo.seed(
+                task(id = "t-architecture", title = ARCHITECTURE),
+                task(id = "t-airport-run", title = AIRPORT_RUN),
+            )
+
+            val beginning = search("arch", SearchMode.Word)
+            val middle = search("port", SearchMode.Word)
+
+            assertEquals(
+                listOf(ARCHITECTURE),
+                beginning.tasks.map { it.record.title },
+                "\"arch\" is the beginning of \"architecture\", and the word mode finds it",
+            )
+            assertTrue(
+                middle.tasks.isEmpty(),
+                "\"port\" is the middle of \"airport\", and the word mode does not look past the beginning",
+            )
+        }
+
     // ─── The contains mode — the escape-hatch ───────────────────────────────────
 
     @Test
@@ -306,6 +340,10 @@ class SearchContainsModeTest {
         const val AIRPORT = "Airport transfer"
         const val MILK = "Buy milk"
         const val TRIP = "Trip"
+
+        /** The two titles of the word-prefix pair — see the test that uses them. */
+        const val ARCHITECTURE = "Architecture of the house"
+        const val AIRPORT_RUN = "Airport run"
 
         /** No tag and no project exist under these names, so every lookup misses. */
         val NO_TAGS =

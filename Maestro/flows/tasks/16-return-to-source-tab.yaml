@@ -21,18 +21,19 @@ tags:
   - tasks
 ---
 # ── Case 1: Today → FAB → save → task appears in agenda ───────────────
-# Seed an overdue task (yesterday). It lands in the Overdue section, but
-# opening it from Today and saving verifies the Today-tab return path.
-# The overdue task is visible in the Today tab's Overdue section.
+# Seed an overdue task (yesterday). It lands in the Overdue section. The helper
+# cannot wait for the overdue row (the Today tab collapses the overdue section
+# once the profile holds enough overdue tasks), but the section header is
+# rendered either way — so the helper waits for the section (the container
+# rule).
 - runFlow: ../../helpers/launch-clean.yaml
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Return%20to%20Today&due=-1d"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+      WAIT_FOR: "agenda_section_overdue"
+- tapOn:
+    id: nav_tab_today
 # The seeded task appears in the Overdue section of the Today tab.
 # Scroll to make it visible in case it arrived below the fold.
 - scrollUntilVisible:
@@ -57,16 +58,13 @@ tags:
     timeout: 8000
 
 # ── Case 2: Inbox → FAB → save → task appears in Inbox ────────────────
-# Seed a no-date task (lands in Inbox). Open it from Inbox and save —
-# the save-navigation returns to the Inbox tab.
+# Seed a no-date task (lands in Inbox). The Inbox row is not on the Today
+# screen the seed leaves the app on; the helper cannot wait for it. The flow
+# waits for the row below, after navigating to Inbox and scrolling it into view.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Return%20to%20Inbox"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
 - tapOn:
     id: nav_tab_inbox
 - scrollUntilVisible:
