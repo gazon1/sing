@@ -51,8 +51,11 @@ import kotlin.time.Duration.Companion.minutes
  * most of what a task can hold — children, tags, dependencies, notes and
  * checklist items — because the first row of a sorted list is usually the
  * emptiest one, and a detail screen that shows a title and nothing else
- * measures nothing. It is the same rule the Android run uses, and the
- * relations of the task it opened travel into the report.
+ * measures nothing. The kinds of the relations decide before their amount
+ * does: the row that holds all five kinds is the row whose screen draws all
+ * five sections, so every kind the report counts is a kind the run can check.
+ * The timeline of ten thousand rows is scrolled to that row before it is
+ * opened, and the relations of the task it opened travel into the report.
  *
  * The gesture is a controlled drag: a fixed distance, released without
  * velocity. A quick flick flings the list to its end, and a gesture that

@@ -4,7 +4,10 @@ package com.singularity.todo.feature.flows.desktop
 
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.backup.ArchiveImporter
 import com.singularity.todo.core.backup.BackupCodec
@@ -31,6 +34,9 @@ import com.singularity.todo.importer.SyntheticBackupGenerator
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.buildDesktopAppKoin
 import com.singularity.todo.test.helpers.clickTagScrolled
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import java.io.File
@@ -58,6 +64,26 @@ internal const val DATASET_SEED = 42L
  */
 internal val DATASET_NOW: Instant = Instant.parse("2025-01-01T10:00:00Z")
 
+/**
+ * The day the timeline of the dataset starts at.
+ *
+ * The agenda reads its "today" from the clock of the app and the time zone of
+ * the machine, so the day is read the same way here: the future of the
+ * dataset is what is due after this day.
+ */
+internal val DATASET_TODAY: LocalDate =
+    DATASET_NOW.toLocalDateTime(TimeZone.currentSystemDefault()).date
+
+/**
+ * How many kinds of relations a task can hold.
+ *
+ * Children, tags, dependencies, notes and checklist items - the five kinds
+ * the detail screen draws a section for. A task that holds all of them draws
+ * all of them, and a run that checks the relations of such a task checks every
+ * section the screen can show.
+ */
+internal const val MAX_RELATION_KINDS = 5
+
 /** What the run opened, and what the report says about it. */
 internal class FrameTimeSubject(
     val report: Map<String, Any>,
@@ -82,8 +108,21 @@ internal class FrameTimeRelations(
     val dependencies: Int,
     val notes: Int,
     val checklist: Int,
+    val childTitles: List<String> = emptyList(),
+    val noteTitles: List<String> = emptyList(),
 ) {
     val total: Int get() = children + tags + dependencies + notes + checklist
+
+    /**
+     * How many kinds of relations the task holds.
+     *
+     * The kinds are what the run can check on the screen: a relation the
+     * screen does not draw is a relation the run cannot promise anything
+     * about. The row the run opens is the one with the most kinds, so the
+     * kinds that are counted are the kinds that are drawn.
+     */
+    val kinds: Int
+        get() = listOf(children, tags, dependencies, notes, checklist).count { it > 0 }
 
     /** The relations as the report carries them. */
     fun asReport(): Map<String, Any> =
@@ -117,6 +156,7 @@ internal class FrameTimeDataset(
     val projectTaskCounts: Map<String, Int>,
     val taskTagsByProject: Map<String, List<String>>,
     val dependenciesByTask: Map<String, List<String>>,
+    val richestTimelineTask: TaskDto?,
 ) {
     /**
      * The project with the most tasks of the dataset.
@@ -207,9 +247,10 @@ internal suspend fun restoreFrameTimeDataset(): FrameTimeDataset {
     )
 
     val payload = written.dataset.payload
+    val relations = frameTimeRelationsOf(payload)
     return FrameTimeDataset(
         archive = written,
-        relations = frameTimeRelationsOf(payload),
+        relations = relations,
         tasksByTag = payload.tasks.associateBy { TestTags.taskItem(it.title) },
         projectsByTag = payload.projects.associate { TestTags.projectCard(it.name) to it.name },
         checklistByTask = payload.checklistItems.groupBy { it.taskId },
@@ -217,8 +258,45 @@ internal suspend fun restoreFrameTimeDataset(): FrameTimeDataset {
         projectTaskCounts = frameTimeProjectTaskCounts(payload),
         taskTagsByProject = frameTimeTaskTagsByProject(payload),
         dependenciesByTask = frameTimeDependenciesByTask(payload),
+        richestTimelineTask = frameTimeRichestTimelineTask(payload, relations, DATASET_TODAY),
     )
 }
+
+/**
+ * The task of the timeline that holds the most kinds of relations.
+ *
+ * The timeline of the app shows the tasks that are still ahead: the ones that
+ * are due after today and are not finished. The run opens the one of them
+ * that holds the most kinds of relations - children, tags, dependencies, notes
+ * and checklist items - because the kinds are what the detail screen draws a
+ * section for. A task that holds three of the five kinds draws three
+ * sections, and the baseline of such a task is the baseline of a screen
+ * without the other two.
+ *
+ * The amount breaks the tie: a task with three kinds and nine rows of them
+ * draws more than a task with three kinds and three rows. The title breaks
+ * the last tie, so every machine of every run chooses the same task.
+ *
+ * A task that is a child of another task is not a row of the timeline - it
+ * lives under its parent - so it is not a candidate.
+ */
+internal fun frameTimeRichestTimelineTask(
+    payload: BackupPayload,
+    relations: Map<String, FrameTimeRelations>,
+    today: LocalDate,
+): TaskDto? =
+    payload.tasks
+        .filter { task ->
+            val dueDate = task.dueDate ?: return@filter false
+            dueDate > today.toString() &&
+                task.completedAt == null &&
+                task.archivedAt == null &&
+                task.parentTaskId == null
+        }.sortedWith(
+            compareByDescending<TaskDto> { relations.getValue(it.id).kinds }
+                .thenByDescending { relations.getValue(it.id).total }
+                .thenBy { it.title },
+        ).firstOrNull()
 
 /**
  * How many tasks every project of the dataset holds.
@@ -344,9 +422,11 @@ internal fun frameTimeDatasetModule(database: AppDatabase): Module =
  */
 internal fun frameTimeRelationsOf(payload: BackupPayload): Map<String, FrameTimeRelations> {
     val children = HashMap<String, Int>()
+    val childTitles = HashMap<String, MutableList<String>>()
     payload.tasks.forEach { task ->
         task.parentTaskId?.let { parent ->
             children[parent] = (children[parent] ?: 0) + 1
+            childTitles.getOrPut(parent) { mutableListOf() }.add(task.title)
         }
     }
     val tags = payload.taskTags.groupingBy { it.taskId }.eachCount()
@@ -356,6 +436,10 @@ internal fun frameTimeRelationsOf(payload: BackupPayload): Map<String, FrameTime
             .mapNotNull { it.taskId }
             .groupingBy { it }
             .eachCount()
+    val noteTitles =
+        payload.notes
+            .mapNotNull { note -> note.taskId?.let { it to note.title } }
+            .groupBy({ it.first }, { it.second })
     val checklist = payload.checklistItems.groupingBy { it.taskId }.eachCount()
     return payload.tasks.associate { task ->
         task.id to
@@ -365,6 +449,8 @@ internal fun frameTimeRelationsOf(payload: BackupPayload): Map<String, FrameTime
                 dependencies = dependencies[task.id] ?: 0,
                 notes = notes[task.id] ?: 0,
                 checklist = checklist[task.id] ?: 0,
+                childTitles = childTitles[task.id].orEmpty(),
+                noteTitles = noteTitles[task.id].orEmpty(),
             )
     }
 }
@@ -373,22 +459,46 @@ internal fun frameTimeRelationsOf(payload: BackupPayload): Map<String, FrameTime
  * The row of the timeline the detail screen opens.
  *
  * The row with the most of what a task can hold wins, because the first
- * row of a sorted list is usually the emptiest one. The relations of the
- * row that wins travel into the report, so the number of the screen can
- * be read next to the task it was measured on.
+ * row of a sorted list is usually the emptiest one. The kinds of the
+ * relations decide before their amount does: the run opens the row that
+ * holds the most kinds of relations, so every kind that is counted for the
+ * measured task is also a kind that is drawn on its screen and can be
+ * checked. The amount breaks the tie.
+ *
+ * The richest row of the timeline is deep in the list - the timeline holds
+ * thousands of rows - so the list is asked to scroll to it before it is
+ * opened. The scroll is not part of the measurement: the run measures the
+ * opening of the screen, not the way to its row.
+ *
+ * The relations of the row that wins travel into the report, so the number
+ * of the screen can be read next to the task it was measured on.
  */
 internal fun DesktopComposeUiTest.frameTimeSubjectOfTheRichestRow(dataset: FrameTimeDataset): FrameTimeSubject {
+    val richest = dataset.richestTimelineTask
+    if (richest != null) {
+        scrollTimelineToRow(TestTags.taskItem(richest.title))
+    }
     val visible = taskRows()
     check(visible.isNotEmpty()) { "the agenda showed no task row to open" }
     val candidates = visible.mapNotNull { dataset.tasksByTag[it] }
     check(candidates.isNotEmpty()) {
         "none of the ${visible.size} visible rows belongs to the dataset: $visible"
     }
-    val chosen = candidates.maxBy { dataset.relations.getValue(it.id).total }
+    val chosen =
+        candidates.firstOrNull { it.id == richest?.id }
+            ?: candidates.maxWith(
+                compareBy({ dataset.relations.getValue(it.id).kinds }, { dataset.relations.getValue(it.id).total }),
+            )
     val relations = dataset.relations.getValue(chosen.id)
     check(relations.total > 0) {
         "the task '${chosen.title}' the run opened holds nothing at all: a detail " +
             "screen that shows a title and nothing else measures nothing"
+    }
+    check(relations.kinds == MAX_RELATION_KINDS) {
+        "the task '${chosen.title}' the run opened holds ${relations.kinds} kinds of " +
+            "relations of the $MAX_RELATION_KINDS the detail screen draws a section for: " +
+            "the baseline of a task that carries only some of them is the baseline of a " +
+            "screen without the others"
     }
     return FrameTimeSubject(
         report =
@@ -405,6 +515,49 @@ internal fun DesktopComposeUiTest.frameTimeSubjectOfTheRichestRow(dataset: Frame
                 relatedTaskIds = dataset.dependenciesByTask[chosen.id].orEmpty(),
             ),
     )
+}
+
+/**
+ * Brings the row of a task on the screen of the timeline.
+ *
+ * The list is asked to scroll to the row instead of being dragged towards it:
+ * a drag moves the list by a distance that depends on the window and on the
+ * row heights, and the row the run needs can be thousands of rows deep. A row
+ * the timeline does not hold cannot be scrolled to - the answer is then false,
+ * and the caller falls back to the rows it can see.
+ */
+private fun DesktopComposeUiTest.scrollTimelineToRow(tag: String): Boolean =
+    try {
+        val index = scrollableHolding(TASK_ROW_PREFIX)
+        onAllNodes(hasScrollAction(), useUnmergedTree = true)[index]
+            .performScrollToNode(hasTestTag(tag))
+        waitForIdle()
+        tagExists(tag)
+    } catch (_: Throwable) {
+        false
+    }
+
+/**
+ * Opens a section until its rows are on the screen.
+ *
+ * The header of a section is a toggle: a click opens a closed section and
+ * closes an open one. The rows are therefore looked for after the first
+ * click and after a second one, and a section that was open when the run
+ * found it is left open.
+ */
+private fun DesktopComposeUiTest.openSectionWithRows(
+    sectionTag: String,
+    rows: List<String>,
+    rowTag: (String) -> String,
+) {
+    if (rows.isEmpty()) return
+    if (rows.all { tagExists(rowTag(it)) }) return
+    clickTagScrolled(sectionTag)
+    waitForIdle()
+    if (rows.all { tagExists(rowTag(it)) }) return
+    // The click closed a section that was open: open it again.
+    clickTagScrolled(sectionTag)
+    waitForIdle()
 }
 
 /**
@@ -458,7 +611,10 @@ internal fun DesktopComposeUiTest.verifyFrameTimeProject(subject: FrameTimeSubje
  *
  * The header of the related tasks is not enough: the rows of the related
  * tasks are the content of the section, and a screen that draws the header
- * and none of the rows has drawn the promise and not the thing.
+ * and none of the rows has drawn the promise and not the thing. The same
+ * holds for the subtasks and for the notes: every kind of relation the
+ * report counts for the task is checked on the screen, so a relation that
+ * stopped being drawn cannot hide behind a count.
  */
 internal fun DesktopComposeUiTest.verifyFrameTimeRelations(subject: FrameTimeSubject) {
     val task = subject.task ?: return
@@ -488,6 +644,48 @@ internal fun DesktopComposeUiTest.verifyFrameTimeRelations(subject: FrameTimeSub
         check(label.contains(task.relations.tags.toString())) {
             "the task '${task.title}' carries ${task.relations.tags} tags, but the tags " +
                 "row of the detail screen says '$label'"
+        }
+    }
+    if (task.relations.children > 0) {
+        check(tagExists(TestTags.SUBTASKS_SECTION)) {
+            "the task '${task.title}' holds ${task.relations.children} subtasks, but the " +
+                "detail screen draws no subtasks section"
+        }
+        // The subtasks live under their own header, and a long list keeps
+        // its tail behind a "show all" - both are opened before the rows are
+        // looked for.
+        openSectionWithRows(
+            sectionTag = TestTags.SUBTASKS_SECTION,
+            rows = task.relations.childTitles,
+            rowTag = TestTags::subtaskItem,
+        )
+        if (task.relations.childTitles.any { !tagExists(TestTags.subtaskItem(it)) } &&
+            tagExists(TestTags.SUBTASKS_SHOW_ALL)
+        ) {
+            clickTagScrolled(TestTags.SUBTASKS_SHOW_ALL)
+            waitForIdle()
+        }
+        task.relations.childTitles.forEach { title ->
+            check(tagExists(TestTags.subtaskItem(title))) {
+                "the subtask '$title' of '${task.title}' is not on the screen"
+            }
+        }
+    }
+    if (task.relations.notes > 0) {
+        check(tagExists(TestTags.LOGBOOK_SECTION)) {
+            "the task '${task.title}' holds ${task.relations.notes} notes, but the detail " +
+                "screen draws no logbook section"
+        }
+        // The logbook keeps its notes under its header until it is opened.
+        openSectionWithRows(
+            sectionTag = TestTags.LOGBOOK_SECTION,
+            rows = task.relations.noteTitles,
+            rowTag = TestTags::logbookNoteByTitle,
+        )
+        task.relations.noteTitles.forEach { title ->
+            check(tagExists(TestTags.logbookNoteByTitle(title))) {
+                "the note '$title' of '${task.title}' is not on the screen"
+            }
         }
     }
     if (task.checklistItems.isEmpty()) return
