@@ -372,6 +372,23 @@ A flow waits for the entity it seeded before it asserts on it, and a bare
   view. A seed that writes no entity (`session=anonymous`, `cleanup=`,
   `reset=`) names no entity, and the helper waits for the shell alone.
 
+The five cases, and which side each wait lives on:
+
+- **A single named entity.** One seed, one entity the flow can name: the
+  helper waits for it. The flow names it in `WAIT_FOR` and drops its own wait
+  for it.
+- **A title-named entity.** A task, a note or a project whose title the query
+  fixes is named by the element that title produces (`TestTags.slug`), and the
+  helper waits for that element.
+- **An anonymous session.** `session=anonymous` writes no entity at all: the
+  flow names no entity, and the helper waits for the shell alone.
+- **Several rows in one seed.** `count=`, `projects=` write rows the flow
+  cannot name one by one: the flow keeps its own wait and says why in a
+  comment.
+- **An entity that is not on the screen the seed leaves the app on.** A note,
+  a project, a profile, a task in another tab: the flow waits for it after it
+  navigates, and says why in a comment.
+
 Two rules make such a wait mean something:
 
 - **After the seed.** A wait that precedes the seed says nothing about the

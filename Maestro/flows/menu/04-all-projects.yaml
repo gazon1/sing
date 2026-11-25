@@ -9,6 +9,10 @@ tags:
   - scenario:MENU-06
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+# The project's card is on the Projects screen — not on the Today screen the
+# seed leaves the app on — so the helper cannot wait for it: it does not
+# navigate and does not scroll. The flow waits for the card below, after it
+# opens the menu and walks into the list.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:

@@ -20,10 +20,14 @@ tags:
 # `due=today`: a task without a due date lands in the "No Date" bucket,
 # which the Today tab does not show — the flow would assert against a task
 # it had seeded and could not see.
+#
+# The task is due today, so it is on the Today screen the seed leaves the app
+# on: the helper waits for its row (the row rule).
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Airport%20run&due=today"
+      WAIT_FOR: "task_item_airport_run"
 
 # Open quick search.
 - runFlow: ../../helpers/open-app-menu.yaml
@@ -51,6 +55,10 @@ tags:
     timeout: 8000
 
 # The contains mode: the same query, and the task is found.
+#
+# The helper waited for the row on the Today screen; this wait is for the
+# result row on the Search screen, which is rendered only after the query is
+# typed — the helper does not navigate there.
 - tapOn:
     id: search_mode_contains
 - extendedWaitUntil:

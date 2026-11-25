@@ -213,6 +213,19 @@ class SeedContractCopiesTest {
                 "the wait is the entity wait" to Regex("entity\\s+wait"),
                 "a seed that writes no entity waits for the shell alone" to Regex("names\\s+no\\s+entity"),
                 "a title-named entity is named by the id the app renders" to Regex("TestTags"),
+                // The five cases the contract states one by one: a flow author
+                // looks up "where does my wait go" and finds the case they are
+                // in. A copy that drops one of them sends the author to the
+                // wrong side of the contract.
+                "a single named entity is waited for by the helper" to Regex("single\\s+named\\s+entity"),
+                "a title-named entity is a case of its own" to Regex("title-named\\s+entity"),
+                "an anonymous session writes no entity" to Regex("anonymous\\s+session"),
+                "several rows in one seed are the flow's to wait for" to
+                    Regex("[Ss]everal\\s+rows\\s+in\\s+one\\s+seed"),
+                "an entity that is not on the screen is the flow's to wait for" to
+                    Regex("not\\s+on\\s+the\\s+screen"),
+                "a flow that keeps a wait says why in a comment" to
+                    Regex("says\\s+why\\s+in\\s+a\\s+comment"),
             )
 
         /**
@@ -257,6 +270,12 @@ class SeedContractCopiesTest {
             and the entity wait absorbs the arrival.
             A seed that writes no entity names no entity to wait for, and waits for the shell alone.
             A title-named entity is named by the id the app renders — the slug of TestTags.
+            The five cases, one by one: a single named entity is waited for by the helper;
+            a title-named entity is named by the element its title produces;
+            an anonymous session writes no entity at all;
+            several rows in one seed are the flow's to wait for;
+            an entity that is not on the screen the seed leaves the app on is the flow's to wait for;
+            a flow that keeps a wait says why in a comment.
             The helper navigates to the section it waits for.
             """
     }

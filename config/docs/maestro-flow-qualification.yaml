@@ -3027,154 +3027,266 @@ qualifications:
       return_code: 0
 exceptions:
   Maestro/flows/agenda/01-smart-lists.yaml:
-    fingerprint: sha256:d1512b912516c2fdea04598a6e419b93bba027dd4bc42feff222791391c9cd5f
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:2208996237a0e815bbf9749b9c1058bf5288b661f74a17d270fcd88e10a91010
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/agenda/07-large-overdue.yaml:
-    fingerprint: sha256:3a539b1dd9c178900f26e6e624aa5d371ad5c3f889c34d17f656cd7f81962383
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:608e3237de33f9b40c6e163c88e1aaabb3a48f73c2871b789d3891a20bcac474
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/archive/01-restore.yaml:
-    fingerprint: sha256:c4e11617b0761ce44a7a8052a9036b5dafb585d24887b52fd1efc92b220fbe36
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:42ca8fa63736023491d083b2b7c81dec4c054bb528db2bf11ba8189f51a9ad2f
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/archive/02-bulk-archive-confirm.yaml:
-    fingerprint: sha256:ba5f64ce7e70c6d48103eb4ae5732c817f70532daf1e194c44f8bdb0ddbe7967
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:87e057a3ef5f9af228fb208044d5873e9ea8656480a259de6bd1a8dce5831c30
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/attachments/01-add-url.yaml:
-    fingerprint: sha256:5c8d6d01d883ab98ddf717e47454533061e218b070bed9136e6ef4cdacf33384
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:fb21cae916ebfa9ca07449c3d7ee75e18e434d6de6644631571416cb79a408d1
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/attachments/02-delete.yaml:
-    fingerprint: sha256:2a69d38e6417bede31797067f82184f63ca06cbba0c77b702c9e6e070277b76a
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:2c3ee25644e01b403ecb4343cb3e39a6e8aeaabe03767b1a40f5c64e92222d24
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/attachments/03-empty-url-rejected.yaml:
-    fingerprint: sha256:97e69cd4811a94a91243c34920d6fdebf36df0ba1a3887d8c94f987453f6c443
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:805219ca0c40c513bd3ede3691b22ffc228a77fe3e5f81711132eba765b577d2
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/attachments/04-persistence.yaml:
-    fingerprint: sha256:3b8572134a449b387c6fcaaa9f8b9fac5af3fe7d68bce32bfc7f4f5b93cd8b30
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:3b4a1f8a357d72e2404d3b4ba7aeb71e231baac838197ef75931f1daa8cd8547
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/attachments/05-renders-correctly.yaml:
-    fingerprint: sha256:1aa1447e038e26d44121c69a7b3791de73d98b5d0a08116dd1e97f59797d91e5
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:b6b3fa3e6bb0a31ec1b1a2ba0cb41609f4835f293ac4a8dd2f74bba2524ee281
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/auth/01-first-run-anonymous.yaml:
+    fingerprint: sha256:a11dc6b2332c7e521bede469a227eb238f62c61b3e95ad9d2ba8b2ff34a246f6
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/auth/04-signin-with-seeded-data.yaml:
+    fingerprint: sha256:c176cb16371902da5d8094c897bb53481b17ecd9fe90c98f3fe0ba813b9856ea
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/auth/05-session-invalidation.yaml:
+    fingerprint: sha256:33b4d308532144c6c741876e9d94d6739a1b343274b859eeb688c1ba1af81151
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/auth/07-account-attach.yaml:
+    fingerprint: sha256:adf9fff823967004b078d94a996bf644e0722413d540c40792e0739e90aeeb56
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/auth/10-attach-account-validation-error.yaml:
+    fingerprint: sha256:9508bb54b1f8f632a7f45b1b4088003eed3c58a5d5da69b1d546a8801332cbbe
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/backup/01-round-trip.yaml:
+    fingerprint: sha256:654f50ac0991c75da330a7b4e09382a61f53f3cee3ffa9965416b48ed58f38be
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/lifecycle/01-kill-restart-persist.yaml:
-    fingerprint: sha256:1d721f5a7b5c27bea96b1aa5af80d94df83867b7d4c56a19412c9cf43c07872e
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:6267afddd856fce540071dfb7902407a08d899ca35185e8ed963db4cb86a2d44
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/lifecycle/03-rotate-in-editor.yaml:
-    fingerprint: sha256:fa51446cea8ec9dfa04c57f35830b2a87ec5493c396f0dacd9ee6972b4f49249
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:b907503fa9e98efe8b25f5cc6390516771122ad07bd276690eb10eccf80139dc
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/menu/01-projects-roots.yaml:
+    fingerprint: sha256:e373e7672c5933dca6769dc322f55a631e326bff21bdd7d995023cdbfdacddf6
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/menu/03-open-project.yaml:
+    fingerprint: sha256:49a7f82f6362e862d10b682888ee28da025c1a2944eee08b08be382982446290
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/menu/04-all-projects.yaml:
+    fingerprint: sha256:0148cb97a91471caa1f5ddd35f26cb6a9ad95aec6ae8a0db923f798cd349bae3
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/menu/05-tree-contents.yaml:
+    fingerprint: sha256:2412c4f8d05f40d30c59f1e03934d0652e545dbc21c5e9247c3f097c7d8acc22
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/menu/06-tree-live.yaml:
+    fingerprint: sha256:0644be0d2762fa0031216d49f03cf401a6a5ddfb46ab4843923f265e17b73204
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/menu/09-attach-account-entry.yaml:
+    fingerprint: sha256:7cf79ed2efaab88adc318866070b9948364aa85a936320bb4a7c7987977127ee
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/menu/10-large-projects.yaml:
+    fingerprint: sha256:b62ff5efd0a0116e2dab47c07e3e18e790e1314c90595eb29981f8269b519d27
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/nav/deep-link-task.yaml:
+    fingerprint: sha256:a2921ef399e75cb9751508ec482a0cc08cc5fb461ab16dcc1320667c77a5cef0
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/notes/03-internal-link-navigation.yaml:
+    fingerprint: sha256:899471380855a4ff9f6f5dd6bc45710e5d39d948f87e026101b0765dc647e90b
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/pomodoro/02-start-focus-task.yaml:
-    fingerprint: sha256:7a63864c5013e420498cc8189be411b67eb2b371f33419adaeb12a5e8d1fe90f
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:39b653209906259b17b50e44f2b4c3bc6606e20bc3dd2f509f6b45f440ad8f50
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/pomodoro/03-pause-resume.yaml:
-    fingerprint: sha256:1046d802de1b5f859783403681b52815cea1785f05beaf2d85b727baf61fd417
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:03ea8384caa52015ec71e5c0770eda7b441eb66107350b4c9e834e60ca5cd063
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/pomodoro/04-skip-to-break.yaml:
-    fingerprint: sha256:a5d7d3eddb9c28720b662c4a24867879a82864dbdd11b8db56a897f94a3b3524
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:854a978a405528d43aed188117f91ba38c05f97f9ede995d0c9afe72be7ca7ee
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/pomodoro/05-stop-resets.yaml:
-    fingerprint: sha256:850681f840f854899ed3f131f49d90f4eb5a082f4c0f3865c18d774b079571eb
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:c206ae0792ebb6cc10707d520c1b18a0d61988e833fba1e0bd00424bed38dbfd
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/profile/02-isolation.yaml:
+    fingerprint: sha256:f072b6b774d951f600fec09181335bf3afb7d67b038153836827878de660ca56
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/search/02-cyrillic.yaml:
+    fingerprint: sha256:233588d58d446d02c59598b810adf63232826f95f4acf4e66e596e30b6d24468
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/search/04-filter-description.yaml:
+    fingerprint: sha256:4aeb2042b7f63e22fb0413b728a7d66b18fe7b3d2add39f2162b3e8dbad5c1e9
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/search/05-filter-pinned.yaml:
-    fingerprint: sha256:8439e2d92e75ac31144ed52fc7eb815a0d54bae60cc2c32c9397f112d2141cd7
-    reason: 'The flow fails on the editor''s pin row: `task_editor_pin_row` is not on the screen, so the flow never reaches the pin it asserts on. The flow itself was not changed by PR #3130 — what changed is the fingerprint its baseline entry was written against, because the flow runs the seed helper the PR changed. The requalification of 2026-11-25 failed on all three attempts with this message; it is a cause of its own, tracked by the requalification issue.'
-    evidence: gazon1/sing#3191
+    fingerprint: sha256:087a39a25b0cba234f462b16e3b9da6489dc21813c35371248752169b9f98e7a
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/search/07-saved-search.yaml:
+    fingerprint: sha256:974e6fe492bd095a3821ac7d69cf1774d49252f0eec4fab743f1a199ca335ef3
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/search/09-contains-mode.yaml:
+    fingerprint: sha256:8b66277777970c59203699e0f9cf3e28e6bf8b63266feb7544a55413e5e32ec3
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/search/10-task-card-actions.yaml:
+    fingerprint: sha256:4cdaf4e336c05157bb72e7cb5bef306363a18e15b649b41dc99b40dc57f95748
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/search/12-no-results-recovery.yaml:
-    fingerprint: sha256:6d66678d2222e8dca6a9aebb1081e0fdd729b0e58f5cfbd2ea1cbf84d96e69af
-    reason: 'The flow fails on the way out of the empty state: `search_clear_query_button` is on the screen but not visible, so the flow never reaches the way out it asserts on. The flow itself was not changed by PR #3130 — what changed is the fingerprint its baseline entry was written against, because the flow runs the seed helper the PR changed. The requalification of 2026-11-25 failed on all three attempts with this message; it is a cause of its own, tracked by the requalification issue.'
-    evidence: gazon1/sing#3191
+    fingerprint: sha256:597b88ba8ebd4428f50d87f94929c7e606022fc06a53b9caa827c0abd86958c8
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/search/13-suggestion-dismissal.yaml:
+    fingerprint: sha256:3b85194770782f137e4d7c1e26790d076387827c2c220bebde5f993a32da84cf
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/smoke/03-health-drilldown.yaml:
+    fingerprint: sha256:3fe3a42e103eff00efb9ca67932d96cc8eacb837f055727746ea916790226ba8
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/smoke/06-session-anonymous.yaml:
+    fingerprint: sha256:0b68d10687ed9aa6edfe5629e3412dd8a345abeb65581e49a4098b54e8b1c2c3
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/smoke/07-seed-helper-contract.yaml:
+    fingerprint: sha256:8a70ffacfba2655f66e010e7016e742109c53f0854702edd1ab96afa58aeb198
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/sync/01-offline-create-survives-reconnect.yaml:
+    fingerprint: sha256:2e4bfaf6e2b869df119faf44865e7df56c217af5b8f69a8ab4ddae61578ad5f7
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/system/search-finds-task.yaml:
+    fingerprint: sha256:83429ef8226dc439e2bbca217718a587160ed92124e4ecef4dd266bc91753a18
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
+  Maestro/flows/system/seed-unknown-key.yaml:
+    fingerprint: sha256:f3328e5e2ed338f0a91c5b6aee2ad27d0a52b9470e70f2bc4f7fd204d1a0c80d
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/01-set-priority.yaml:
-    fingerprint: sha256:2cc1c12680e41f57a904572fefa1922be8b41fd21257b04585f59aa8d712985e
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:650949c51f7b18b86d536e1b687fa7e8e3bc05414526f9c3a24e1f9ce50d2ccc
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/02-set-due-date.yaml:
-    fingerprint: sha256:984cfff40d6673e4dd6948ae198b77072cb32953483b2071deba9d56eeb57b54
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:edc3b8e137e0d4eda51ab9ef6c311727cd0ab21a7490ab367595bc89ef9ec579
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/03-due-date-cancel.yaml:
-    fingerprint: sha256:8a677ead7b2cec10a3c82e5b2b882436c02bbfa323b3ad7173cc12d8c17a2dce
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:c4b85318874c4e24048b7ae53c4f4e827762cc04a5d49150983f05bd39fb9c8c
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/04-delete.yaml:
-    fingerprint: sha256:52df597e2acab9aefa0d329e7baa8b619a55bfceae437cfe9a13f47d4ec59099
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:cf77bc6ae9567d0a53331f6920b24f0438b971331d882fcd0fd21a11ba4c0d80
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/05-archive-via-menu.yaml:
-    fingerprint: sha256:ba34d07507fa6ad63d22027cd0e2bb0192483b8006040a775e83f566ea009b90
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:0ebf485e7ea61969a0f83b2ce4f03a87794c281e13d074bb57ba0363b2afcf67
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/06-delete-undo.yaml:
-    fingerprint: sha256:8a1b5ac9fcb98f1f74a206716a5d40715b7a72bbf8b3e63bd60ce10198728eba
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:4b96f5b46370511de4254d599d613ee5b6424fb78e5b36e56676de551d336f59
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/07-cyrillic-title.yaml:
-    fingerprint: sha256:04cab6ab884891f3edd9ca55740d97fd6d47716a64383697e0d96f04fb572c23
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:77865982d4a248ec815186881074ddf6978c3958a30b7ecf2a3f7ee62a8abc6e
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/08-date-buckets.yaml:
-    fingerprint: sha256:5923eacf772639cb07d696d5b9bfecc03a8812836141b6fd859f777a5ccc5809
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:0f89fb00482068d93a9d814cb4c4a79ec799a1f47eb984d9dc9caf112269a186
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/09-rename-empty.yaml:
-    fingerprint: sha256:e252ba9295f93d8bb86f314d4e413798a617366afcfc4672f4bc27a8533486db
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:2ac83a5e9053938228e48e593247bb6e457143a89f2bb8c154c0ee85e7f0117d
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/10-swipe-delete-undo.yaml:
-    fingerprint: sha256:b5f260b4d008e825f1ca1abb998ecf3ba316fefcddb04f9d8ce7f6ec42fcd59e
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:1eab74e5cb9925f28b6606dc69b884e594a0a56265aa0264b52e326bf3ba6434
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/13-create-full-task.yaml:
     fingerprint: sha256:ace54426abd9fd7bec3e2ffaf3ed9e6eb2bc11de9ad2a88533db09e9ab08529c
     reason: 'The flow fails on the editor''s due row: `task_editor_due_row` is not on the screen, so the flow never reaches the due date it asserts on. The flow itself was not changed by PR #3130 — what changed is the fingerprint its baseline entry was written against, because the flow runs the seed helper the PR changed. The requalification of 2026-11-25 failed on all three attempts with this message; it is a cause of its own, tracked by the requalification issue.'
     evidence: gazon1/sing#3191
   Maestro/flows/tasks/16-return-to-source-tab.yaml:
-    fingerprint: sha256:183c1396247064776f34616e957e7770442a490a2952aa8af008bb5795afef26
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:2b79b3a9201f564e042b8fbd2d14a23a89d5caa2e101e39711218108113baa4e
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/18-time-tracking-start-stop.yaml:
-    fingerprint: sha256:a702f1e24b56d7af976841424bb13d555f794d2179675ab8b2aa6d5cc4dfad21
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:b0d3125b87d31baf7328187358b4a1ec4b959f0e2e574b5981aa030da1e49847
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/20-planning-deadline.yaml:
-    fingerprint: sha256:6233336ce63d65f2659f4a440e50282b9e6ba8acdb6555148fff49376b4e6465
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:37ffe2ff46176bb2d6a390f14f071d82045b27e931de9249691990d6b94e6179
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/21-planning-reminder.yaml:
-    fingerprint: sha256:7e9431df0a318e8faa55d1fd63661b3c7a98f324da42dd40d3188dd63af42b7c
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:a79c0c8e791bc9df527753108a899f65c15adccff1a0716758feaea30dd0a79f
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/22-planning-someday.yaml:
-    fingerprint: sha256:e2b82c8b69874a13e1f4a2240023959c05c8409badd1d22e8e8c77f86a8c6fb0
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:7ced77f2755f6ac863307ad8ebc8545ddf9674e3714688780e8af3620551fd71
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/logbook/TASK-LOG-01.yaml:
-    fingerprint: sha256:90e30f570a0f6486c0d6fe7dbe20d7435b138a47eeea3f47ca60c1fc332f390f
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:9c9401d9e99e5deb78a82cdb2f38ff3bc70c60b96acc32ce2d5f38a7cec9eac9
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/logbook/TASK-LOG-02.yaml:
-    fingerprint: sha256:c22b8f4e297fb3957c745c142d720956c38e57c7de502dae7062107303502494
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:5ad382a71fd982f31f157cb8501b47466545ffaf7e9957167ab6297bfdb5e16e
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/open-task-detail.yaml:
-    fingerprint: sha256:31e8eb1a237fc06e00043104bfc79b2830abdfd05717d114362a52e7d441a348
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:83ce8586b1ab43aa224def548829c2cba3f07d0dbe1347d7e55c1220025ffaed
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/subtasks/TASK-SUB-01.yaml:
-    fingerprint: sha256:e219e71fcece6cfbe145c92f887cbbd5f9e9221452c1996e4f97ea6dce8cdca6
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:95daa80ef1e3ee8e7b500e8298e29a3c1a2191a8eb91486ed5c66fd1667a958c
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/tasks/toggle-task-complete.yaml:
-    fingerprint: sha256:f0561a7c53dc1c86564fa49fa14e866a34b3ee4fbac80197d59d7ea98b63e9ef
-    reason: 'Fingerprint changed by #2554 (migrate task-shaped seeding flows to the helper''s wait): WAIT_FOR delegation and/or a caller-side-wait comment was added; redundant flow-side waits were removed or simplified where the helper now owns arrival (including replacing post-seed extendedWaitUntil with assertVisible in some flows). Selectors, navigation, and seeded data are unchanged. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the migration only.'
-    evidence: gazon1/sing#2554
+    fingerprint: sha256:8e56b76fc3a16739573e2d5b19e42ac8772884c311a5f5e6c67b404c6d97ba99
+    reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases): the flow itself is unchanged — only the helper''s comment text changed, so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
+    evidence: gazon1/sing#2555, gazon1/sing#2556

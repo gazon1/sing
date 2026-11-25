@@ -13,6 +13,11 @@ tags:
 - runFlow: ../../helpers/launch-clean.yaml
 
 # ── Seed all fixtures (app ends on Today tab) ──────────────────────────────
+# This flow seeds four rows, and the waits that follow are the flow's own:
+# three of the tasks are undated and land in Inbox, and the fourth is overdue —
+# neither is on the screen the seed leaves the app on, and the helper does not
+# navigate or scroll. The helper's wait covers one entity of one seed, so it
+# cannot stand in for waits on four rows the flow drills into one by one.
 # Blocker + blocked task (dependency by title).
 - runFlow:
     file: ../../helpers/seed.yaml

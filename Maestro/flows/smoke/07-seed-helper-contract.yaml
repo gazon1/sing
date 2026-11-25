@@ -36,6 +36,9 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=HelperOptionalInput&due=today"
+# The wait below is the flow's on purpose: this seed is the runtime proof that
+# the input is optional, so it must exercise the branch where no entity is named
+# and the helper waits for the shell alone.
 - extendedWaitUntil:
     visible:
       id: task_item_helperoptionalinput
@@ -59,6 +62,8 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "session=anonymous"
+# `session=anonymous` writes no entity: the flow names no entity, and the
+# helper waits for the shell alone.
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
