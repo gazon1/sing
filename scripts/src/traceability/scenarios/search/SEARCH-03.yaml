@@ -1,11 +1,19 @@
 # Scenario specification for SEARCH-03.
+#
+# The Maestro flow `Maestro/flows/search/03-clear.yaml` that carried this on
+# Android was retired (#3142): the shared behaviour is owned by the desktop
+# carrier below, which drives the field's own clear button — the same affordance
+# the flow drove, not the keyboard's erase action — and asserts the same three
+# outcomes. The flow's Android-only residue is not this guarantee: the
+# quick-search entry path (`menu_quick_search` → `search_input`) and the real
+# IME typing are exercised by the other search flows in this area.
 
 id: SEARCH-03
 title: Clearing the search query returns to the idle prompt
 area: feature.search
 priority: P1
 status: confirmed
-targets: [android]
+targets: [desktop]
 preconditions: >-
   The search screen is open with a non-empty query that produced results.
 steps:

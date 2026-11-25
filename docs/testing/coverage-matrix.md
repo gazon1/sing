@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**141 scenarios · 90/160 claimed cells automated · 70 holes**
+**141 scenarios · 91/160 claimed cells automated · 69 holes**
 
 ## feature.agenda
 
@@ -185,7 +185,7 @@ the table carries the one-line version so a row is readable in a diff.
 |---|---|---|---|---|
 | `SEARCH-01` | Searching for a task's title finds the task | ● | — | The seeded task appears in the results, so the user can get back to something they stopped thinking about weeks ago… |
 | `SEARCH-02` | Cyrillic query text is rendered and matched correctly | ● | — | The task with the Cyrillic title appears correctly in the results with its Cyrillic characters rendered as Cyrillic,… |
-| `SEARCH-03` | Clearing the search query returns to the idle prompt | ● | — | The results disappear and the idle prompt "Enter a search query" returns. The idle prompt is shown when the query is… |
+| `SEARCH-03` | Clearing the search query returns to the idle prompt | — | ● | The results disappear and the idle prompt "Enter a search query" returns. The idle prompt is shown when the query is… |
 | `SEARCH-04` | Filter by has-description toggles task results | ● | — | Only the task that has a description is shown; the task without a description is filtered out. Toggling the filter off… |
 | `SEARCH-05` | Filter by pinned toggles task results | ● | — | Only the pinned task is shown; the unpinned task is filtered out. Toggling the filter off restores all results. |
 | `SEARCH-06` | A query with no matches shows an explicit no-results state | ● | — | An explicit "No results found" state is shown. This is distinct from the idle prompt (which is shown when the query is… |
@@ -234,7 +234,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `TASK-09` | Cancelling the date picker leaves the task undated | ○ | — | The row label stays as "Add date". No date is saved and the task remains undated. |
 | `TASK-10` | Empty title is rejected; original title remains intact | ○ | — | The editor stays open with the title field empty. The task retains its original title and reappears in the list with… |
 | `TASK-11` | Cyrillic task title is created, saved, and displayed correctly | ○ | — | The task appears with its Cyrillic title intact (no mojibake or replacement character) and in the correct agenda… |
-| `TASK-12` | Create a task with all attribute fields filled | ○ | — | The task appears in the Today section with the correct title and the high-priority badge. All attribute rows are… |
+| `TASK-12` | Create a task with all attribute fields filled | ● | — | The task appears in the Today section with the correct title and the high-priority badge. All attribute rows are… |
 | `TASK-13` | Tasks appear in the correct agenda date-bucket sections | ○ | — | The Overdue section contains the yesterday task, the Today section contains today's task, and the Upcoming section… |
 | `TASK-14` | FAB from Today tab pre-fills the due date to Today | ○ | — | The task is saved with today's date and appears in the Today section. After saving, the user is returned to the Today… |
 | `TASK-15` | FAB from Inbox tab does NOT pre-fill a due date | ○ | — | The task is saved with no due date and appears in the No Date section. After saving, the user is returned to the Inbox… |
@@ -324,7 +324,6 @@ Claimed but not automated:
 - `TASK-09` / android
 - `TASK-10` / android
 - `TASK-11` / android
-- `TASK-12` / android
 - `TASK-13` / android
 - `TASK-14` / android
 - `TASK-15` / android
