@@ -212,7 +212,7 @@ class <Feature>ViewModel(
 ```kotlin
 @Composable
 fun <Feature>Screen(viewModel: <Feature>ViewModel = koinViewModel()) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     when (val s = state) {
         is <Feature>UiState.Loading -> LoadingIndicator()
         is <Feature>UiState.Content -> <Feature>List(items = s.items)
