@@ -130,7 +130,7 @@ class ProjectEditorViewModel(
     }
 
     private fun save() {
-        val current = _state.value
+        val current = currentState
         val name = current.name.text
         val description = current.description.text
         val validationError = ProjectsDomain.validateName(name)?.message

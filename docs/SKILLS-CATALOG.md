@@ -56,13 +56,13 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-koog-agent` | 249 | KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, expect/actual PromptExecutor, ToolRegistry, and Koin auto-registration. |
 | `singularity-todo-kotlin-idioms` | 457 | Kotlin boilerplate-reduction catalog for Kotlin 2.4. |
 | `singularity-todo-llm-usage-tracking` | 332 | LLM token usage tracking in Singularity Todo KMP. |
-| `singularity-todo-maestro-flows` | 494 | Author and run Maestro UI flows for the Android app. |
+| `singularity-todo-maestro-flows` | 513 | Author and run Maestro UI flows for the Android app. |
 | `singularity-todo-mcp-dogfooding` | 284 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 276 | MCP init command pattern for Singularity Todo KMP. |
 | `singularity-todo-monthly-doc-audit` | 113 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |
 | `singularity-todo-multi-profile` | 423 | Namespace-based multi-profile pattern for Singularity Todo KMP. |
 | `singularity-todo-multi-select` | 327 | Long-press multi-selection pattern for Compose Multiplatform list screens. |
-| `singularity-todo-mvi-framework` | 264 | Local MVI framework for Singularity Todo KMP. |
+| `singularity-todo-mvi-framework` | 275 | Local MVI framework for Singularity Todo KMP. |
 | `singularity-todo-nav3-decorators` | 68 | Nav3 entry decorators — ViewModelStore vs SaveableStateHolder scoping. |
 | `singularity-todo-nav3-nested-graphs` | 493 | Full architecture of Nav3 two-level nested navigation in this KMP project: the common *NavGraph pattern with three platform seams (rememberAppNavBackStack, SystemBackHandler, rememberAppEntryDecorators), sealed Route hierarchies, Local*Navigator providers, per-feature entry contributors, and how the outer shell integrates nested graphs. |
 | `singularity-todo-nav3-savedstate` | 153 | Nav3 back stack persistence in this KMP project. |

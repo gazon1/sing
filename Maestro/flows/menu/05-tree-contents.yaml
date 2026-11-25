@@ -14,6 +14,10 @@ tags:
   - scenario:MENU-05
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+# The project's row is in the menu sheet — not on the Today screen the seed
+# leaves the app on — so the helper cannot wait for it: it does not navigate
+# and does not scroll. The flow waits for the row below, after it opens the
+# menu and unfolds the section.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:

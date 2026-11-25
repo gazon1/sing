@@ -15,14 +15,19 @@ tags:
 # `due=today`: a task without a due date lands in the "No Date" bucket,
 # which the Today tab does not show — the flow would assert against a task
 # it had seeded and could not see.
+#
+# Both tasks are due today, so both are on the Today screen the seed leaves
+# the app on: the helper waits for each row (the row rule).
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=TaskWithDesc2026&desc=HasDescription&due=today"
+      WAIT_FOR: "task_item_taskwithdesc2026"
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=TaskNoDesc2026&due=today"
+      WAIT_FOR: "task_item_tasknodesc2026"
 
 # Open quick search.
 - runFlow: ../../helpers/open-app-menu.yaml
@@ -52,6 +57,9 @@ tags:
 - tapOn:
     id: search_input
 - inputText: "Task"
+# The helper waited for both rows on the Today screen; these waits are for the
+# result rows on the Search screen, which are rendered only after the query is
+# typed — the helper does not navigate there.
 - extendedWaitUntil:
     visible:
       id: task_item_taskwithdesc2026

@@ -41,6 +41,19 @@ flows tagged ``manual`` or ``auth-live`` (the automated ``full`` suite and the
    The baseline map is pinned the same way: its digest is kept here, so an
    edited fingerprint -- a changed flow nobody qualified -- is a source
    change and not a data change.
+
+   Retiring a flow splits the two artifacts in opposite directions. The frozen
+   set keeps the name: it is the record of the flows that were in a blocking
+   scope when the rule was introduced, and a name without a file behind it
+   qualifies nothing. The baseline map drops the fingerprint: the map only
+   shrinks, and a flow that comes back to the catalogue is qualified instead
+   of admitted by a fingerprint nobody re-ran. Every entry in the map points
+   at a flow that is still in the catalogue; the gate reports an entry that
+   points at a flow the catalogue no longer names, so a retirement that
+   forgets to shrink the map is caught here. A catalogue flow that was
+   introduced after the rule is not in the map and has to be qualified or
+   excepted like any other new flow. ADR
+   ``docs/decisions/2026-11-25-a-retired-flow-leaves-the-baseline-map.md``.
 2. **Qualified.** ``config/docs/maestro-flow-qualification.yaml`` records a
    qualification run for the flow's current fingerprint: at least
    ``required_attempts`` consecutive attempts, every attempt represented,
@@ -139,7 +152,7 @@ FROZEN_SET_DIGEST = "sha256:863ed25a7db9a260fba93474102645baa27359399e94f8665e95
 #: changed — a source change, reviewed as one, that says in the diff that
 #: flows are admitted without being qualified. Print the current digest with
 #: ``--print-baseline-digest``.
-BASELINE_DIGEST = "sha256:abe44c4760eda44981f240a99386d88cde256066a019e28b5d8180a9e7be4d2e"
+BASELINE_DIGEST = "sha256:25d73ce746b8b630a83406816569518cfd7e318b64dde4dce4242cb1c0614c86"
 
 #: A reference inside a flow/helper: `file: path`, `- runFlow: path` or
 #: `- runScript: path`. The extension is not restricted to YAML: a flow can run
@@ -776,6 +789,23 @@ def scan(
 
     flows, findings = blocking_scope_flows(catalogue, root)
     counts = {"flows": len(flows), "baselined": 0, "qualified": 0, "excepted": 0}
+
+    # Every entry in the map must point at a flow that is still in the
+    # catalogue. A fingerprint of a flow that was retired answers nothing
+    # while the flow is gone, and admits it again — without a
+    # qualification run — the moment it comes back with the same content.
+    # Retiring a flow therefore drops its fingerprint in the same change
+    # that removes it from the catalogue.
+    for flow in sorted(set(baseline) - set(catalogue)):
+        findings.append(
+            Finding(
+                flow,
+                "orphaned baseline entry",
+                f"{flow} — the baseline map holds a fingerprint for a flow that is not in the "
+                "catalogue; a retired flow leaves the map, and BASELINE_DIGEST is refreshed "
+                "in that change",
+            )
+        )
 
     for flow in flows:
         fp = fingerprint(flow, root)

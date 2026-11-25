@@ -126,9 +126,9 @@ the table carries the one-line version so a row is readable in a diff.
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
 | `NEGATIVE-01` | The Inbox empty state names what is missing | ● | — | An empty state is shown saying what the screen is empty of, rather than a blank list that is indistinguishable from a… |
-| `NEGATIVE-02` | The notes list shows an empty state | ● | — | The list shows its empty state instead of rendering as an empty area with no message. |
-| `NEGATIVE-03` | The projects list shows an empty state with no projects | ● | — | The list shows its empty state rather than an unexplained blank area — a list with nothing to show still has to say so. |
-| `NEGATIVE-04` | The Archive screen shows an empty state | ● | — | The screen shows an empty state rather than being blank, so a user who arrives there by accident is told the archive… |
+| `NEGATIVE-02` | The notes list shows an empty state | — | ● | The list shows its empty state instead of rendering as an empty area with no message. |
+| `NEGATIVE-03` | The projects list shows an empty state with no projects | — | ● | The list shows its empty state rather than an unexplained blank area — a list with nothing to show still has to say so. |
+| `NEGATIVE-04` | The Archive screen shows an empty state | — | ● | The screen shows an empty state rather than being blank, so a user who arrives there by accident is told the archive… |
 | `NEGATIVE-05` | Search distinguishes an idle prompt from no matches | ● | — | The empty query shows a prompt asking the user to search, and the failed search says that nothing matched — so the… |
 | `NEGATIVE-06` | The Tags tab shows an empty state | ● | — | The tab shows its empty state. The assertion is on the screen rather than on the list container, because the… |
 
@@ -192,7 +192,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `SEARCH-07` | A saved search persists and can be loaded | ● | — | The saved search persists across navigation. Tapping it restores the query text and the matching results, so the user… |
 | `SEARCH-08` | A term matches the beginning of a word, and not its middle | — | ● | The first search finds the task titled "architecture": a term matches the beginning of a word. The second does not… |
 | `SEARCH-09` | The result shows the word that was matched | — | ● | The result shows the word in the title as the match: the index says where the word is, and the search draws it there.… |
-| `SEARCH-10` | The contains mode finds the term in the middle of a word | ● | — | The word mode does not find the task: a term matches the beginning of a word and not its middle. The contains mode… |
+| `SEARCH-10` | The contains mode finds the term in the middle of a word | — | ● | The word mode does not find the task: a term matches the beginning of a word and not its middle. The contains mode… |
 | `SEARCH-11` | A pending search is not an empty answer | — | ● | While the search is in flight the screen shows the pending indicator, does not claim that nothing was found, and does… |
 | `SEARCH-12` | The filter sheet's actions can be reached | ● | — | The Apply and Cancel actions are on screen above the system navigation once the body is scrolled to the end, and… |
 | `SEARCH-13` | A search that matched nothing offers a way out | ● | — | The empty result says that nothing matched and offers the way out that fits: the query can be cleared when there is no… |

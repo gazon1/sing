@@ -1,14 +1,19 @@
 # Scenario specification for NEGATIVE-02.
 #
-# Claimed on `android`, carried by Maestro flow
-# `Maestro/flows/negative/02-empty-notes.yaml` (`scenario:NEGATIVE-02`).
+# The Maestro flow `Maestro/flows/negative/02-empty-notes.yaml` that carried
+# this on Android was retired (#3143): the shared behaviour — the empty state
+# and the way in — is owned by the desktop carrier below, which asserts the
+# same empty message and the create action. The flow's Android-only residue is
+# not this guarantee: the menu route to Notes and the quick-add field it typed
+# into are exercised by `Maestro/flows/notes/create-note.yaml`, which waits for
+# `notes_quick_add_input` before it types.
 
 id: NEGATIVE-02
 title: "The notes list shows an empty state"
 area: feature.negative
 priority: P1
 status: confirmed
-targets: [android]
+targets: [desktop]
 preconditions: >-
   No notes exist.
 steps:

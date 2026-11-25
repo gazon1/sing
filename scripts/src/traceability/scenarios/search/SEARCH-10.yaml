@@ -1,16 +1,39 @@
 # Scenario specification for SEARCH-10.
+#
+# The Maestro flow `Maestro/flows/search/09-contains-mode.yaml` that carried this
+# on Android was retired: the two answers are owned by the desktop carrier
+# below, which asks the search screen the same question the flow asked — "port"
+# does not find "airport" in the word mode, and the same query finds it once
+# the mode is switched to contains. The rule itself is owned by
+# `SearchContainsModeTest` in `shared/src/commonTest`, and the word-mode half of
+# it against a real SQLite index by `SearchUseCaseFtsTest` in `shared/src/jvmTest`.
+#
+# The flow's Android-only residue is not this guarantee: the quick-search entry
+# path (`menu_quick_search` → `search_input`) and the on-device Room index are
+# exercised by the other search flows in this area — `search/04-filter-description.yaml`
+# types a word-prefix query on the device and asserts the rows it finds, which
+# is the same index path the retired flow's word mode went through.
+#
+# The retired flow entered its text with Maestro's `inputText`, which injects
+# the text instead of typing it through the device's installed keyboard
+# (`search/02-cyrillic.yaml` records the measurement: the flow does not depend
+# on which IME is installed). So the flow never owned the IME either, and the
+# retirement gives up no IME coverage: the IME-driven typing in the search
+# field is owned by no test today — the device tests inject the text with the
+# shell's `input text` command, which does not go through the installed
+# keyboard either — and this retirement does not change that.
 
 id: SEARCH-10
 title: The contains mode finds the term in the middle of a word
 area: feature.search
 priority: P1
 status: confirmed
-targets: [android]
+targets: [desktop]
 preconditions: >-
   A task exists whose title holds the word "airport". Nothing else carries the
   word, so both answers are unambiguous.
 steps:
-  - Open the quick search from the menu sheet.
+  - Open the search screen.
   - Type "port".
   - Observe the results.
   - Choose the "Contains" mode on the switch under the search field.

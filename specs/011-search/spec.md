@@ -89,7 +89,7 @@ scenarios:
     area: feature.search
     priority: P1
     status: confirmed
-    targets: [android]
+    targets: [desktop]
 ```
 
 ## Requirements

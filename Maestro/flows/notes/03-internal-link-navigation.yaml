@@ -15,13 +15,18 @@ tags:
   - notes
 ---
 - runFlow: ../../helpers/launch-clean.yaml
-# The task the note links to.
+# The task the note links to. It is undated, so it lands in Inbox — not on the
+# Today screen the seed leaves the app on — and the helper cannot wait for it.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Buy%20milk"
 # The note that links to the task. The link target is named, not addressed by
 # id: the task was seeded a moment ago and the flow cannot know its id.
+#
+# The seed writes a note, and a note is on the Notes screen — not on the Today
+# screen the seed leaves the app on. The helper cannot wait for it (it does
+# not navigate), so the flow waits for the row below, after it opens Notes.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
