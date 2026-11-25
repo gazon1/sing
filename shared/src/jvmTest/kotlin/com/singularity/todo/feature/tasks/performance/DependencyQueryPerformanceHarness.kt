@@ -18,30 +18,33 @@ import kotlin.time.Duration
 import kotlin.time.TimeSource
 
 /**
- * The remaining user-scoped dependency reads, measured on a restored synthetic dataset.
+ * The user-scoped reads of one task's rows, measured on a restored synthetic dataset.
  *
  * ## What is measured
  *
- * Two DAO reads, each in three forms:
+ * Three DAO reads, each in three forms:
  *
- * - **dao** — the read the app makes: `TaskDao.getBlockingEdgeIdsForUser` and
- *   `TaskDao.observeTypedDependenciesForUser`.
+ * - **dao** — the read the app makes: `TaskDao.getBlockingEdgeIdsForUser`,
+ *   `TaskDao.observeTypedDependenciesForUser` and `TaskDao.getTagIdsForUser`.
  * - **sql** — the same SQL straight at the database. What the query costs without
  *   the call around it.
  * - **candidate** — the same question asked as a primary-key join on `tasks.id`,
  *   the shape the ordering-edge read already uses (#3153). The experiment: the
  *   production SQL is not changed by this program.
  *
- * Every read is priced on two groups of tasks: the tasks that carry edges and the
+ * Every read is priced on two groups of tasks: the tasks that carry rows and the
  * task that carries the most of them.
  *
  * ## What is asserted
  *
  * The rows, not the clock. A clock measures the machine and the machine is shared;
  * a row count does not move with it. The harness asserts that the candidate form
- * returns exactly the rows the current form returns, for every task it reads: a
- * disagreement fails the run with a non-zero exit status. It records the query
- * plans of both forms. The latencies are recorded, not asserted.
+ * returns exactly the rows the current form returns — for every task it reads, and
+ * over the whole relation of the profile, so that a row only an unprobed task
+ * carries cannot pass unnoticed — and that the scope holds: a foreign profile sees
+ * nothing, and a task that does not exist has nothing to show. A disagreement fails
+ * the run with a non-zero exit status. It records the query plans of both forms.
+ * The latencies are recorded, not asserted.
  *
  * ## How to run it
  *
@@ -96,11 +99,20 @@ private data class DependencyPerfConfig(val archive: String, val iterations: Int
     }
 }
 
-/** The two reads under measurement. */
-private enum class Query(val label: String, val columns: Int) {
-    Blocking("getBlockingEdgeIdsForUser", 1),
-    Typed("observeTypedDependenciesForUser", 3),
+/** The three reads under measurement. */
+private enum class Query(val label: String, val columns: Int, val relation: Relation) {
+    Blocking("getBlockingEdgeIdsForUser", 1, Relation("task_dependencies", "edges")),
+    Typed("observeTypedDependenciesForUser", 3, Relation("task_dependencies", "edges")),
+    TagIds("getTagIdsForUser", 1, Relation("task_tags", "tags")),
 }
+
+/**
+ * A read over a relation table: the table itself, and what its rows are called.
+ *
+ * The probe groups are asked per relation, not per read: the tasks that carry
+ * edges are not the tasks that carry tags.
+ */
+private data class Relation(val table: String, val noun: String)
 
 /** The three forms a read is priced in. */
 private enum class Form(val label: String) {
@@ -127,6 +139,14 @@ private fun Query.currentSql(): String =
             AND td.task_id IN (SELECT id FROM tasks WHERE user_id = ?)
             """.trimIndent()
         }
+
+        Query.TagIds -> {
+            """
+            SELECT tag_id FROM task_tags
+            WHERE task_id = ?
+            AND task_id IN (SELECT id FROM tasks WHERE user_id = ?)
+            """.trimIndent()
+        }
     }
 
 /** The same question asked as a primary-key join on `tasks.id`. */
@@ -147,10 +167,83 @@ private fun Query.candidateSql(): String =
             WHERE td.task_id = ? AND t.user_id = ?
             """.trimIndent()
         }
+
+        Query.TagIds -> {
+            """
+            SELECT tt.tag_id FROM task_tags tt
+            JOIN tasks t ON t.id = tt.task_id
+            WHERE tt.task_id = ? AND t.user_id = ?
+            """.trimIndent()
+        }
+    }
+
+/**
+ * The current form asked over the whole relation of one profile.
+ *
+ * The per-task forms above answer one task; these answer every row the profile
+ * owns. They are what the whole-relation comparison below compares.
+ */
+private fun Query.currentScopeSql(): String =
+    when (this) {
+        Query.Blocking -> {
+            """
+            SELECT d.task_id, d.depends_on_task_id FROM task_dependencies d
+            WHERE d.verb = 'BLOCKS'
+            AND d.task_id IN (SELECT id FROM tasks WHERE user_id = ?1)
+            """.trimIndent()
+        }
+
+        Query.Typed -> {
+            """
+            SELECT td.task_id, td.depends_on_task_id, td.verb FROM task_dependencies td
+            WHERE td.task_id IN (SELECT id FROM tasks WHERE user_id = ?1)
+            """.trimIndent()
+        }
+
+        Query.TagIds -> {
+            """
+            SELECT tt.task_id, tt.tag_id FROM task_tags tt
+            WHERE tt.task_id IN (SELECT id FROM tasks WHERE user_id = ?1)
+            """.trimIndent()
+        }
+    }
+
+/** The candidate form asked over the whole relation of one profile. */
+private fun Query.candidateScopeSql(): String =
+    when (this) {
+        Query.Blocking -> {
+            """
+            SELECT d.task_id, d.depends_on_task_id FROM task_dependencies d
+            JOIN tasks t ON t.id = d.task_id
+            WHERE d.verb = 'BLOCKS' AND t.user_id = ?1
+            """.trimIndent()
+        }
+
+        Query.Typed -> {
+            """
+            SELECT td.task_id, td.depends_on_task_id, td.verb FROM task_dependencies td
+            JOIN tasks t ON t.id = td.task_id
+            WHERE t.user_id = ?1
+            """.trimIndent()
+        }
+
+        Query.TagIds -> {
+            """
+            SELECT tt.task_id, tt.tag_id FROM task_tags tt
+            JOIN tasks t ON t.id = tt.task_id
+            WHERE t.user_id = ?1
+            """.trimIndent()
+        }
     }
 
 /** The verb the blocking read is asked for. */
 private const val BLOCKING_VERB = "BLOCKS"
+
+/** A profile that owns nothing in the restored dataset. */
+private val FOREIGN_USER = UserId("perf-foreign-user")
+
+/** A task that is not in the restored dataset. */
+private const val UNKNOWN_TASK = "perf-unknown-task"
 
 /** One group of tasks a read is priced on. */
 private data class ProbeGroup(val name: String, val taskIds: List<String>)
@@ -178,20 +271,26 @@ private suspend fun measure(config: DependencyPerfConfig): RunOutcome {
         restore(db, fixture, archive.absolutePath, config.owner)
         val tasks = db.scalarInt("SELECT count(*) FROM tasks")
         val edges = db.scalarInt("SELECT count(*) FROM task_dependencies")
-        val groups = probeGroups(db)
-        check(groups.isNotEmpty()) { "the dataset holds no tasks — there is nothing to read" }
+        val tags = db.scalarInt("SELECT count(*) FROM task_tags")
+        check(tasks > 0) { "the dataset holds no tasks — there is nothing to read" }
 
         val measurements = mutableListOf<ReadMeasurement>()
+        val groups = mutableMapOf<Query, List<ProbeGroup>>()
         for (query in Query.entries) {
-            for (group in groups) {
+            val queryGroups = probeGroups(db, query.relation)
+            groups[query] = queryGroups
+            for (group in queryGroups) {
                 for (form in Form.entries) {
                     measurements += measureOne(db, query, group, form, config)
                 }
             }
         }
         val plans = plans(db, config.owner)
-        val mismatch = equivalence(db, groups, config.owner)
-        val report = render(archive, tasks, edges, groups, measurements, plans, mismatch)
+        val mismatch =
+            equivalence(db, groups, config.owner)
+                ?: relationEquivalence(db, config.owner)
+                ?: isolation(db, groups, config.owner)
+        val report = render(archive, tasks, edges, tags, groups, measurements, plans, mismatch)
         return RunOutcome(report = report, mismatch = mismatch)
     } finally {
         fixture.close()
@@ -201,25 +300,28 @@ private suspend fun measure(config: DependencyPerfConfig): RunOutcome {
 /**
  * The tasks a read is priced on.
  *
- * The first group holds the tasks that carry edges — the reads that return rows.
- * The second holds the task that carries the most of them: the read that returns
- * the most rows. A dataset without edges has no first group, and the second group
- * falls back to the tasks themselves: the read still costs what it costs when it
- * answers nothing.
+ * The first group holds the tasks that carry rows of the relation — the reads
+ * that return rows. The second holds the task that carries the most of them: the
+ * read that returns the most rows. A relation without rows has no first group,
+ * and the second group falls back to the tasks themselves: the read still costs
+ * what it costs when it answers nothing.
  */
-private suspend fun probeGroups(db: AppDatabase): List<ProbeGroup> {
-    val withEdges = db.texts("SELECT DISTINCT task_id FROM task_dependencies ORDER BY task_id LIMIT 10")
-    val hub = db.texts("SELECT task_id FROM task_dependencies GROUP BY task_id ORDER BY count(*) DESC LIMIT 1")
+private suspend fun probeGroups(
+    db: AppDatabase,
+    relation: Relation,
+): List<ProbeGroup> {
+    val withRows = db.texts("SELECT DISTINCT task_id FROM ${relation.table} ORDER BY task_id LIMIT 10")
+    val hub = db.texts("SELECT task_id FROM ${relation.table} GROUP BY task_id ORDER BY count(*) DESC LIMIT 1")
     val fallback = db.texts("SELECT id FROM tasks ORDER BY id LIMIT 10")
     return buildList {
-        if (withEdges.isNotEmpty()) {
-            add(ProbeGroup("with edges", withEdges))
+        if (withRows.isNotEmpty()) {
+            add(ProbeGroup("with ${relation.noun}", withRows))
         }
         val hubId = hub.firstOrNull()
         if (hubId != null) {
-            add(ProbeGroup("most edges", listOf(hubId)))
+            add(ProbeGroup("most ${relation.noun}", listOf(hubId)))
         } else if (fallback.isNotEmpty()) {
-            add(ProbeGroup("no edges", fallback))
+            add(ProbeGroup("no ${relation.noun}", fallback))
         }
     }
 }
@@ -281,6 +383,7 @@ private suspend fun daoRows(
     when (query) {
         Query.Blocking -> dao.getBlockingEdgeIdsForUser(taskId, owner.value, BLOCKING_VERB).first().size
         Query.Typed -> dao.observeTypedDependenciesForUser(taskId, owner.value).first().size
+        Query.TagIds -> dao.getTagIdsForUser(taskId, owner.value).first().size
     }
 
 /**
@@ -294,11 +397,11 @@ private suspend fun daoRows(
  */
 private suspend fun equivalence(
     db: AppDatabase,
-    groups: List<ProbeGroup>,
+    groups: Map<Query, List<ProbeGroup>>,
     owner: UserId,
 ): String? {
     for (query in Query.entries) {
-        for (group in groups) {
+        for (group in groups[query].orEmpty()) {
             for (taskId in group.taskIds) {
                 val current = db.rowTexts(query.currentSql(), taskId, owner, query.columns).sorted()
                 val candidate = db.rowTexts(query.candidateSql(), taskId, owner, query.columns).sorted()
@@ -306,6 +409,90 @@ private suspend fun equivalence(
                     return "${query.label}: $taskId — " +
                         "current ${current.size} row(s), candidate ${candidate.size} row(s)"
                 }
+            }
+        }
+    }
+    return null
+}
+
+/**
+ * The two forms asked over the whole relation, not over probed tasks.
+ *
+ * The per-task comparison above proves the two forms answer the same question
+ * for the tasks it reads. This one proves it for every row the profile owns: the
+ * two forms are asked over the whole relation, and neither may hold a row the
+ * other does not — neither as a set, nor in number. A profile that owns nothing
+ * must see nothing in either form.
+ *
+ * It costs four statements per read, so it is affordable on every dataset.
+ */
+private suspend fun relationEquivalence(
+    db: AppDatabase,
+    owner: UserId,
+): String? {
+    for (query in Query.entries) {
+        val current = query.currentScopeSql()
+        val candidate = query.candidateScopeSql()
+        val currentRows = db.countOf("SELECT count(*) FROM ($current)", owner.value)
+        val candidateRows = db.countOf("SELECT count(*) FROM ($candidate)", owner.value)
+        if (currentRows != candidateRows) {
+            return "${query.label}: the current form holds $currentRows row(s) of the relation, " +
+                "the candidate $candidateRows"
+        }
+        val onlyCurrent = db.countOf("SELECT count(*) FROM ($current EXCEPT $candidate)", owner.value)
+        if (onlyCurrent != 0) {
+            return "${query.label}: $onlyCurrent row(s) of the relation are in the current form " +
+                "and not in the candidate"
+        }
+        val onlyCandidate = db.countOf("SELECT count(*) FROM ($candidate EXCEPT $current)", owner.value)
+        if (onlyCandidate != 0) {
+            return "${query.label}: $onlyCandidate row(s) of the relation are in the candidate form " +
+                "and not in the current"
+        }
+        for ((form, sql) in listOf("current" to current, "candidate" to candidate)) {
+            val foreign = db.countOf("SELECT count(*) FROM ($sql)", FOREIGN_USER.value)
+            if (foreign != 0) {
+                return "${query.label}: the $form form shows $foreign row(s) of the relation to a foreign profile"
+            }
+        }
+    }
+    return null
+}
+
+/**
+ * The scope the rows have to respect.
+ *
+ * Two rules, on the first task each read touches: a foreign profile sees
+ * nothing, and a task that does not exist has nothing to show. The tag read has
+ * a third: the owner sees exactly the tag rows of its own task.
+ */
+private suspend fun isolation(
+    db: AppDatabase,
+    groups: Map<Query, List<ProbeGroup>>,
+    owner: UserId,
+): String? {
+    for (query in Query.entries) {
+        val taskId =
+            groups[query]
+                .orEmpty()
+                .firstOrNull()
+                ?.taskIds
+                ?.firstOrNull() ?: continue
+        for ((form, sql) in listOf("current" to query.currentSql(), "candidate" to query.candidateSql())) {
+            val foreign = db.rowTexts(sql, taskId, FOREIGN_USER, query.columns)
+            if (foreign.isNotEmpty()) {
+                return "${query.label}: the $form form shows ${foreign.size} row(s) of $taskId to a foreign profile"
+            }
+            val unknown = db.rowTexts(sql, UNKNOWN_TASK, owner, query.columns)
+            if (unknown.isNotEmpty()) {
+                return "${query.label}: the $form form shows ${unknown.size} row(s) of a task that does not exist"
+            }
+        }
+        if (query == Query.TagIds) {
+            val own = db.rowTexts(query.currentSql(), taskId, owner, query.columns).size
+            val stored = db.countOf("SELECT count(*) FROM task_tags WHERE task_id = ?", taskId)
+            if (own != stored) {
+                return "${query.label}: the owner sees $own row(s) of $taskId, the table holds $stored"
             }
         }
     }
@@ -375,6 +562,19 @@ private suspend fun AppDatabase.rowsOf(
     columns: Int,
 ): Int = rowTexts(sql, taskId, owner, columns).size
 
+/** The single number a counting statement returns, with one text parameter. */
+private suspend fun AppDatabase.countOf(
+    sql: String,
+    taskId: String,
+): Int =
+    useConnection(isReadOnly = true) { transactor ->
+        transactor.usePrepared(sql) { statement ->
+            statement.bindText(1, taskId)
+            check(statement.step()) { "the query has to answer: $sql" }
+            statement.getLong(0).toInt()
+        }
+    }
+
 /** The plan of a statement, one line per step. */
 private suspend fun AppDatabase.plan(
     sql: String,
@@ -424,17 +624,25 @@ private fun render(
     archive: File,
     tasks: Int,
     edges: Int,
-    groups: List<ProbeGroup>,
+    tags: Int,
+    groups: Map<Query, List<ProbeGroup>>,
     measurements: List<ReadMeasurement>,
     plans: List<Plan>,
     mismatch: String?,
 ): String =
     buildString {
-        appendLine("## User-scoped dependency reads — measurement")
+        appendLine("## User-scoped reads — measurement")
         appendLine()
         appendLine("- dataset: `${archive.absolutePath}` (${archive.length() / 1024} KiB)")
-        appendLine("- tasks: $tasks, dependency edges: $edges")
-        appendLine("- groups: ${groups.joinToString(", ") { "${it.name} (${it.taskIds.size} task(s))" }}")
+        appendLine("- tasks: $tasks, dependency edges: $edges, task-tag rows: $tags")
+        for (query in Query.entries) {
+            val queryGroups = groups[query].orEmpty()
+            appendLine(
+                "- groups for ${query.label}: ${queryGroups.joinToString(
+                    ", ",
+                ) { "${it.name} (${it.taskIds.size} task(s))" }}",
+            )
+        }
         appendLine()
         appendLine("| query | group | form | p50 ms | p95 ms | rows | samples |")
         appendLine("|---|---|---|---|---|---|---|")
@@ -454,11 +662,12 @@ private fun render(
             }
         }
         appendLine()
-        appendLine("### Row equivalence")
+        appendLine("### Row equivalence and scope")
         appendLine()
         appendLine(
             mismatch
-                ?: "the candidate form returned exactly the rows of the current form on every task read",
+                ?: "the candidate form returned exactly the rows of the current form on every task read and over the " +
+                "whole relation, a foreign profile saw nothing, and a task that does not exist showed nothing",
         )
         if (mismatch != null) {
             appendLine()

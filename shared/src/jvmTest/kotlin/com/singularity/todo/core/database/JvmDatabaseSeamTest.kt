@@ -526,6 +526,80 @@ class JvmDatabaseSeamTest {
             )
         }
 
+    /**
+     * The user-scoped tag read answers what it answered before its SQL was
+     * rewritten as a join (#3176).
+     *
+     * The old form filtered the cross-ref rows through
+     * `task_id IN (SELECT id FROM tasks WHERE user_id = :userId)`; the new form
+     * joins `tasks` on its primary key. The two are not obviously the same
+     * question — the subquery form drops a tag whose owning task no longer
+     * exists, and so does the join — so the test runs the old SQL next to the
+     * DAO and compares the rows.
+     */
+    @Test
+    fun `user-scoped tag reads answer as the subquery form did`() =
+        runTest {
+            val dao = db.taskDao()
+            val now = System.currentTimeMillis()
+
+            fun task(
+                id: String,
+                uid: String,
+            ) = TaskEntity(
+                id = id,
+                title = "Task $id",
+                description = null,
+                projectId = null,
+                dueDate = null,
+                dueTime = null,
+                startDate = null,
+                startTime = null,
+                endDate = null,
+                endTime = null,
+                accentColor = null,
+                emoji = null,
+                completedAt = null,
+                someday = false,
+                archivedAt = null,
+                isPinned = false,
+                createdAt = now,
+                updatedAt = now,
+                userId = uid,
+            )
+
+            dao.upsert(task("t1", "u1"))
+            dao.upsert(task("theirs", "u2"))
+
+            dao.upsertTagCrossRefForUser("t1", "tag1", "u1")
+            dao.upsertTagCrossRefForUser("t1", "tag2", "u1")
+            dao.upsertTagCrossRefForUser("theirs", "tag3", "u2")
+            // A cross-ref whose owning task does not exist: the backup-restore
+            // path can write one, and neither form may show it.
+            dao.upsertTagCrossRef(TaskTagCrossRef("ghost", "tag4"))
+
+            // The owner sees the tags of its own task.
+            assertEquals(listOf("tag1", "tag2"), dao.getTagIdsForUser("t1", "u1").first().sorted())
+            // The old form answered the same.
+            assertEquals(
+                dao.getTagIdsForUser("t1", "u1").first().sorted(),
+                rawRows(
+                    """
+                    SELECT tag_id FROM task_tags
+                    WHERE task_id = ? AND task_id IN (SELECT id FROM tasks WHERE user_id = ?)
+                    """.trimIndent(),
+                    listOf("t1", "u1"),
+                    columns = 1,
+                ).sorted(),
+            )
+            // Another profile sees none of them.
+            assertEquals(emptyList(), dao.getTagIdsForUser("t1", "u2").first())
+            assertEquals(listOf("tag3"), dao.getTagIdsForUser("theirs", "u2").first().sorted())
+            assertEquals(emptyList(), dao.getTagIdsForUser("theirs", "u1").first())
+            // The cross-ref of a task that does not exist belongs to nobody.
+            assertEquals(emptyList(), dao.getTagIdsForUser("ghost", "u1").first())
+        }
+
     /** The row of a dependency edge, as the query renders it. */
     private fun TaskDependencyCrossRef.row(): String = "$taskId|$dependsOnTaskId|$verb"
 
