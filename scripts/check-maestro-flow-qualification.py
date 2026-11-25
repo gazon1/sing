@@ -47,8 +47,10 @@ flows tagged ``manual`` or ``auth-live`` (the automated ``full`` suite and the
    scope when the rule was introduced, and a name without a file behind it
    qualifies nothing. The baseline map drops the fingerprint: the map only
    shrinks, and a flow that comes back to the catalogue is qualified instead
-   of admitted by a fingerprint nobody re-ran. The map therefore holds a
-   fingerprint for every flow that is in the catalogue. ADR
+   of admitted by a fingerprint nobody re-ran. Every entry in the map points
+   at a flow that is still in the catalogue; a catalogue flow that was
+   introduced after the rule is not in the map and has to be qualified or
+   excepted like any other new flow. ADR
    ``docs/decisions/2026-11-25-a-retired-flow-leaves-the-baseline-map.md``.
 2. **Qualified.** ``config/docs/maestro-flow-qualification.yaml`` records a
    qualification run for the flow's current fingerprint: at least

@@ -64,8 +64,10 @@ back with the same content would be admitted without anybody qualifying it.
   — never admitted by a fingerprint that was taken before the flow was retired.
 - The rule applies to the map for **every** retired flow, not only the ones
   retired from here on: the two entries earlier retirements left behind are
-  dropped as well, so the map holds a fingerprint for exactly the flows that
-  are in the catalogue.
+  dropped as well, so every entry left in the map points at a flow that is
+  still in the catalogue. The map is not the whole catalogue: a flow
+  introduced after the rule was introduced has no entry and enters through
+  qualification or an exception.
 
 ## Rationale
 

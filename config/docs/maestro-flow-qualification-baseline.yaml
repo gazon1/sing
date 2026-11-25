@@ -6,8 +6,9 @@
 # The frozen set itself lives in maestro-flow-qualification-initial.yaml and is
 # pinned by a digest in scripts/check-maestro-flow-qualification.py. The frozen
 # set is the record of the flows that were in a blocking scope when the rule
-# was introduced, so it keeps a retired flow's name. This map therefore holds a
-# fingerprint for the flows that are still in the catalogue.
+# was introduced, so it keeps a retired flow's name. Every entry below points
+# at a flow that is still in the catalogue; a flow introduced after the rule
+# has no entry here and enters through qualification or an exception.
 schema: 1
 policy: flows in automated blocking scopes at rule introduction; a matching fingerprint
   admits the flow, a change requires qualification
