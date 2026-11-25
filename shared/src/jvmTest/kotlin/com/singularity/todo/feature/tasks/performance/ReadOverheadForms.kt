@@ -24,6 +24,22 @@ import kotlin.time.TimeSource
 /** The verb the blocking read is asked for. */
 private const val BLOCKING_VERB = "BLOCKS"
 
+/** How long the observer gets to say something before the run is broken. */
+private val OBSERVER_TIMEOUT = 30.seconds
+
+/**
+ * The four forms of a read.
+ *
+ * The forms are named in the order they are published in, but they are **not**
+ * run in that order: see [rotatedForms].
+ */
+internal enum class ReadForm(val label: String) {
+    Statement("statement"),
+    OneShot("one-shot"),
+    Plumbing("flow without observer"),
+    Flow("flow"),
+}
+
 // The forms of a read, and the change the observer reacts to.
 //
 // Every form takes its connection from the readers' pool and gives it back
@@ -129,12 +145,55 @@ internal suspend fun trackerRows(
 }
 
 /**
+ * The order the forms are run in, rotated by the slot they belong to.
+ *
+ * The four forms used to run in one fixed order — statement, one-shot, Flow
+ * without observer, Flow — for every probe and every iteration. A fixed order
+ * is a systematic bias: the form that runs first pays for the cold pool, the
+ * cold caches and the cold code path, and the form that runs last is measured
+ * on everything the earlier forms warmed up. The differences between the forms
+ * would then be partly the differences between their **positions**, and the
+ * count of samples would not remove that — every sample carried the same bias.
+ *
+ * Rotating the order by the slot removes the bias: over 300 slots every form
+ * sits in every position the same number of times, so the position a form was
+ * measured in is not a property of the form. The forms still run one after
+ * another in the same slot, so the difference between two of them is still the
+ * difference between two calls in the same neighbourhood of the machine's
+ * state.
+ *
+ * The rotation is by slot and not by iteration, so the ten probes of one
+ * iteration do not all measure the forms in the same order either.
+ */
+internal fun rotatedForms(slot: Int): List<ReadForm> {
+    val offset = slot % ReadForm.entries.size
+    return ReadForm.entries.drop(offset) + ReadForm.entries.take(offset)
+}
+
+/** Runs one form of one read of one task. */
+private suspend fun runForm(
+    form: ReadForm,
+    db: AppDatabase,
+    read: Read,
+    taskId: String,
+    owner: UserId,
+): ReadRows =
+    when (form) {
+        ReadForm.Statement -> statementRows(db, read, taskId, owner)
+        ReadForm.OneShot -> oneShotRows(db, read, taskId, owner)
+        ReadForm.Plumbing -> plumbingRows(db, read, taskId, owner)
+        ReadForm.Flow -> flowRows(db, read, taskId, owner)
+    }
+
+/**
  * Times the four forms of one read, side by side.
  *
  * Every form runs the same warmup, the same iteration count and the same
- * clock, in the same loop: the difference between two forms is then the
+ * clock, in the same slot: the difference between two forms is then the
  * difference between the calls, not between the runs. No form holds a
- * connection while another one runs.
+ * connection while another one runs, and the order of the forms is rotated
+ * from slot to slot, so that no form is always the first one and no form is
+ * always the last one.
  */
 internal suspend fun measureForms(
     db: AppDatabase,
@@ -143,42 +202,32 @@ internal suspend fun measureForms(
     config: ReadOverheadConfig,
 ): FormTimings {
     val tracker = measureTracker(db, read, probes.size, config)
-    val statement = mutableListOf<Duration>()
-    val oneShot = mutableListOf<Duration>()
-    val plumbing = mutableListOf<Duration>()
-    val flow = mutableListOf<Duration>()
+    val samples = ReadForm.entries.associateWith { mutableListOf<Duration>() }
+    var slot = 0
     for (index in 0 until config.warmup) {
         for (taskId in probes) {
-            statementRows(db, read, taskId, config.owner)
-            oneShotRows(db, read, taskId, config.owner)
-            plumbingRows(db, read, taskId, config.owner)
-            flowRows(db, read, taskId, config.owner)
+            for (form in rotatedForms(slot)) {
+                runForm(form, db, read, taskId, config.owner)
+            }
+            slot++
         }
     }
     for (index in 0 until config.iterations) {
         for (taskId in probes) {
-            var mark = TimeSource.Monotonic.markNow()
-            statementRows(db, read, taskId, config.owner)
-            statement += mark.elapsedNow()
-
-            mark = TimeSource.Monotonic.markNow()
-            oneShotRows(db, read, taskId, config.owner)
-            oneShot += mark.elapsedNow()
-
-            mark = TimeSource.Monotonic.markNow()
-            plumbingRows(db, read, taskId, config.owner)
-            plumbing += mark.elapsedNow()
-
-            mark = TimeSource.Monotonic.markNow()
-            flowRows(db, read, taskId, config.owner)
-            flow += mark.elapsedNow()
+            for (form in rotatedForms(slot)) {
+                val mark = TimeSource.Monotonic.markNow()
+                runForm(form, db, read, taskId, config.owner)
+                val bucket = samples.getValue(form)
+                bucket += mark.elapsedNow()
+            }
+            slot++
         }
     }
     return FormTimings(
-        statement = statement,
-        oneShot = oneShot,
-        plumbing = plumbing,
-        flow = flow,
+        statement = samples.getValue(ReadForm.Statement).toList(),
+        oneShot = samples.getValue(ReadForm.OneShot).toList(),
+        plumbing = samples.getValue(ReadForm.Plumbing).toList(),
+        flow = samples.getValue(ReadForm.Flow).toList(),
         tracker = tracker,
     )
 }
@@ -232,6 +281,12 @@ internal suspend fun measureTracker(
  *
  * The write is idempotent — the same row, written again — so the rows of the
  * relation do not change and the two measurements stay comparable.
+ *
+ * A missing emission is not a slow machine, it is a broken measurement: the
+ * waits are bounded, and a wait that runs out **fails the run**. The count of
+ * the re-reads the observer really produced is checked against the number of
+ * iterations, so a run that saw fewer re-reads than it wrote cannot publish a
+ * number as if it had seen all of them.
  */
 internal suspend fun measureChange(
     db: AppDatabase,
@@ -239,15 +294,7 @@ internal suspend fun measureChange(
     taskId: String,
     config: ReadOverheadConfig,
 ): ChangeMeasurement {
-    val write =
-        changeWriter(db, read, taskId, config.owner)
-            ?: return ChangeMeasurement(
-                read = read,
-                writeAlone = Duration.ZERO,
-                writeAndObserve = Duration.ZERO,
-                observerLatency = Duration.ZERO,
-                reEmissions = 0,
-            )
+    val write = changeWriter(db, read, taskId, config.owner)
 
     for (index in 0 until config.warmup) {
         write()
@@ -271,39 +318,61 @@ internal suspend fun measureChange(
                 collectEmissions(db, read, taskId, config.owner) { emissions.send(Unit) }
             }
         try {
-            // A write that did not reach the observer is a fact of the run, not
-            // a crash: the report says how many re-reads were seen. The timeout
-            // is asked for with `withTimeoutOrNull`, so nothing is swallowed to
-            // get here — a cancelled measurement still fails the run.
-            val opened = withTimeoutOrNull(30.seconds) { emissions.receive() }
-            if (opened != null) {
-                // One mark for the whole iteration: it measures the write and
-                // then the wait for the emission, and the difference between
-                // the two is the wait alone.
-                val mark = TimeSource.Monotonic.markNow()
-                write()
-                val written = mark.elapsedNow()
-                val reRead = withTimeoutOrNull(30.seconds) { emissions.receive() }
-                if (reRead != null) {
-                    val total = mark.elapsedNow()
-                    observed += total
-                    latencies += total - written
-                    reEmissions++
-                }
-            }
+            // The collector has to open the Flow before the write, or the
+            // re-read the write triggers would have no observer to reach.
+            awaitEmission(emissions, read)
+            // One mark for the whole iteration: it measures the write and
+            // then the wait for the emission, and the difference between
+            // the two is the wait alone.
+            val mark = TimeSource.Monotonic.markNow()
+            write()
+            val written = mark.elapsedNow()
+            awaitEmission(emissions, read)
+            val total = mark.elapsedNow()
+            observed += total
+            latencies += total - written
+            reEmissions++
         } finally {
             collector.cancel()
             scope.cancel()
             emissions.close()
         }
     }
+    check(reEmissions == config.iterations) {
+        "the observer of ${read.label} saw $reEmissions re-reads of ${config.iterations} — " +
+            "the measurement of the observer is incomplete and cannot be published"
+    }
     return ChangeMeasurement(
         read = read,
         writeAlone = nearestRank(alone, 0.5),
-        writeAndObserve = if (observed.isEmpty()) Duration.ZERO else nearestRank(observed, 0.5),
-        observerLatency = if (latencies.isEmpty()) Duration.ZERO else nearestRank(latencies, 0.5),
+        writeAndObserve = nearestRank(observed, 0.5),
+        observerLatency = nearestRank(latencies, 0.5),
         reEmissions = reEmissions,
     )
+}
+
+/**
+ * Waits for one emission of the observer.
+ *
+ * The wait is bounded, and a wait that runs out is a failure of the run
+ * rather than a sample that is quietly left out: a timeout here means the
+ * observer did not see what it was supposed to see, and a benchmark that
+ * publishes a number in that case is publishing a number about nothing.
+ *
+ * The timeout is asked for with `withTimeoutOrNull` and the missing emission
+ * is turned into a `check` right after it: that way the run fails with a
+ * message that says what happened, and no cancellation is swallowed on the
+ * way out.
+ */
+private suspend fun awaitEmission(
+    emissions: Channel<Unit>,
+    read: Read,
+) {
+    val emission = withTimeoutOrNull(OBSERVER_TIMEOUT) { emissions.receive() }
+    check(emission != null) {
+        "the observer of ${read.label} did not emit within ${OBSERVER_TIMEOUT.inWholeSeconds} s — " +
+            "the measurement is broken, not slow"
+    }
 }
 
 /** The DAO's Flow of the read, collected for as long as the scope lives. */
@@ -338,32 +407,32 @@ private suspend fun collectEmissions(
  * only thing the observer has to react to is the write itself. A write of a
  * row the relation does not hold would add a row instead, and the read would
  * answer a different question afterwards.
+ *
+ * A probe task that carries no row of the relation has no write to make, and
+ * that is a failure of the measurement rather than a zero to be published: the
+ * probe tasks are picked **because** they carry rows.
  */
 internal suspend fun changeWriter(
     db: AppDatabase,
     read: Read,
     taskId: String,
     owner: UserId,
-): (suspend () -> Unit)? =
+): suspend () -> Unit =
     when (read) {
         Read.BlockingEdges, Read.TypedDependencies -> {
             val verb = if (read == Read.BlockingEdges) BLOCKING_VERB else null
-            val edge = db.dependencyRow(taskId, verb)
-            if (edge == null) {
-                null
-            } else {
-                val (depId, edgeVerb) = edge
-                suspend { db.taskDao().upsertDependencyForUser(taskId, depId, edgeVerb, owner.value) }
-            }
+            val edge =
+                db.dependencyRow(taskId, verb)
+                    ?: error("the probe task $taskId carries no row of ${read.relation} — there is nothing to write")
+            val (depId, edgeVerb) = edge
+            suspend { db.taskDao().upsertDependencyForUser(taskId, depId, edgeVerb, owner.value) }
         }
 
         Read.TagIds -> {
-            val tagId = db.tagRow(taskId)
-            if (tagId == null) {
-                null
-            } else {
-                suspend { db.taskDao().upsertTagCrossRefForUser(taskId, tagId, owner.value) }
-            }
+            val tagId =
+                db.tagRow(taskId)
+                    ?: error("the probe task $taskId carries no row of ${read.relation} — there is nothing to write")
+            suspend { db.taskDao().upsertTagCrossRefForUser(taskId, tagId, owner.value) }
         }
     }
 

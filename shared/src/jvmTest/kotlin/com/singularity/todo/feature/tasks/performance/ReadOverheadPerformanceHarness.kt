@@ -64,6 +64,14 @@ import kotlin.time.Duration
  * difference between the calls. The difference of two medians of two separate
  * passes is not that — under load it can come out negative.
  *
+ * The four forms are **not** run in one fixed order. The order is rotated from
+ * slot to slot, so that every form is measured in every position the same
+ * number of times: a fixed order would make the position part of the price —
+ * the first form of a slot would pay for the cold pool and the cold code path,
+ * and the last one would be measured on everything the earlier forms warmed
+ * up. The rotation removes that bias without changing anything else: the
+ * forms still run one after another in the same slot.
+ *
  * A sixth measurement prices the connection itself: taking a reader from the
  * pool and giving it back, with no query. Every form pays it inside its
  * statement, and the report says how much of a read it is.
@@ -86,6 +94,13 @@ import kotlin.time.Duration
  * different reads, and the SQL here is a copy of the DAO's — a copy that has
  * drifted would be exactly such a pair. The comparison is a `check`, so a
  * drift fails the run instead of publishing a number.
+ *
+ * The observer is checked as well. The waits for its emissions are bounded,
+ * and a wait that runs out **fails the run** — a timeout is not a slow
+ * machine, it is an observer that did not see what it was supposed to see. The
+ * number of the re-reads the observer really produced is checked against the
+ * number of iterations, so a run that saw fewer re-reads than it wrote cannot
+ * publish its numbers as if it had seen all of them.
  *
  * ## How to run it
  *
@@ -206,12 +221,13 @@ internal data class OverheadMeasurement(
 /**
  * The four forms of one read, timed side by side in one loop.
  *
- * The forms are timed in the same iteration, one after another, so that the
- * machine's noise falls on all of them alike. The parts are then measured
- * directly, as the difference of two forms of the *same* iteration, rather
- * than as the difference of two separately measured medians: on a shared
- * machine the latter can come out negative, and a negative part is not a
- * price.
+ * The forms are timed in the same slot, one after another, so that the
+ * machine's noise falls on all of them alike, and the order of the forms is
+ * rotated from slot to slot, so that the position a form was measured in is
+ * not a property of the form. The parts are then measured directly, as the
+ * difference of two forms of the *same* slot, rather than as the difference of
+ * two separately measured medians: on a shared machine the latter can come
+ * out negative, and a negative part is not a price.
  */
 internal data class FormTimings(
     val statement: List<Duration>,
@@ -221,13 +237,13 @@ internal data class FormTimings(
     val tracker: List<Duration>,
 ) {
     /** The overhead of a read: what the Flow costs over the statement alone. */
-    val overhead: List<Duration> get() = flow.zip(statement) { flow, statement -> flow - statement }
+    val overhead: List<Duration> get() = paired(flow, statement, "flow and statement")
 
     /** The path a call takes around the statement. */
-    val callPath: List<Duration> get() = oneShot.zip(statement) { oneShot, statement -> oneShot - statement }
+    val callPath: List<Duration> get() = paired(oneShot, statement, "one-shot and statement")
 
     /** The Flow's own machinery around the call, without the observer. */
-    val flowPlumbing: List<Duration> get() = plumbing.zip(oneShot) { plumbing, oneShot -> plumbing - oneShot }
+    val flowPlumbing: List<Duration> get() = paired(plumbing, oneShot, "flow plumbing and one-shot")
 
     /**
      * The observer's share of the Flow's price, measured in place.
@@ -236,7 +252,7 @@ internal data class FormTimings(
      * pool, the same call — and the difference is what the observer costs
      * where the Flow really uses it.
      */
-    val invalidation: List<Duration> get() = flow.zip(plumbing) { flow, plumbing -> flow - plumbing }
+    val invalidation: List<Duration> get() = paired(flow, plumbing, "flow and flow plumbing")
 
     /**
      * The observer's price, measured on its own.
@@ -246,6 +262,27 @@ internal data class FormTimings(
      * the machinery. It is published, not subtracted.
      */
     val observer: Duration get() = nearestRank(tracker, 0.5)
+}
+
+/**
+ * The difference of two forms of a read, paired slot by slot.
+ *
+ * The forms of one read are measured in the same slots, so their samples are
+ * paired: the first sample of one form belongs to the first slot, the second
+ * to the second slot, and so on. Two forms whose samples do not have the same
+ * count cannot be paired, and pairing them anyway would quietly compare
+ * different slots — so the mismatch fails instead.
+ */
+private fun paired(
+    left: List<Duration>,
+    right: List<Duration>,
+    what: String,
+): List<Duration> {
+    check(left.size == right.size) {
+        "the forms of one read have to be measured in the same slots: $what have " +
+            "${left.size} and ${right.size} samples"
+    }
+    return left.zip(right) { one, other -> one - other }
 }
 
 /**
@@ -291,10 +328,10 @@ private suspend fun measure(config: ReadOverheadConfig): String {
             }
             collectRows(db, read, probes, config.owner)
             val timings = measureForms(db, read, probes, config)
-            measurements += priced(read, "statement", timings.statement)
-            measurements += priced(read, "one-shot", timings.oneShot)
-            measurements += priced(read, "flow without observer", timings.plumbing)
-            measurements += priced(read, "flow", timings.flow)
+            measurements += priced(read, ReadForm.Statement.label, timings.statement)
+            measurements += priced(read, ReadForm.OneShot.label, timings.oneShot)
+            measurements += priced(read, ReadForm.Plumbing.label, timings.plumbing)
+            measurements += priced(read, ReadForm.Flow.label, timings.flow)
             measurements += priced(read, "observer alone", timings.tracker)
             measurements += priced(read, "call path", timings.callPath)
             measurements += priced(read, "Flow plumbing", timings.flowPlumbing)
@@ -403,10 +440,10 @@ private suspend fun render(
         )
         appendLine("|---|---|---|---|---|---|---|---|---|---|")
         for (read in Read.entries) {
-            val statement = measurements.median(read, "statement")
-            val oneShot = measurements.median(read, "one-shot")
-            val plumbing = measurements.median(read, "flow without observer")
-            val flow = measurements.median(read, "flow")
+            val statement = measurements.median(read, ReadForm.Statement.label)
+            val oneShot = measurements.median(read, ReadForm.OneShot.label)
+            val plumbing = measurements.median(read, ReadForm.Plumbing.label)
+            val flow = measurements.median(read, ReadForm.Flow.label)
             val tracker = measurements.median(read, "observer alone")
             val callPath = measurements.median(read, "call path")
             val machinery = measurements.median(read, "Flow plumbing")
@@ -422,7 +459,9 @@ private suspend fun render(
         appendLine(
             "The overhead is the call path plus the Flow plumbing plus the invalidation, in every " +
                 "iteration. All four forms take their connection from the readers' pool, so no part of " +
-                "a difference is a difference of pools. The invalidation is priced in place: the Flow " +
+                "a difference is a difference of pools. The order of the forms is rotated from slot to " +
+                "slot, so that no form is always measured first or always last: the position a form was " +
+                "measured in is not part of its price. The invalidation is priced in place: the Flow " +
                 "and the Flow without the observer differ only in the observer. The observer alone is " +
                 "published, not subtracted: it is the price of one registration, in a pass of its own.",
         )
@@ -448,7 +487,9 @@ private suspend fun render(
         appendLine()
         appendLine(
             "The observer's latency is the time from the end of the write to the emission the observer " +
-                "triggers — how long a screen waits for the re-read.",
+                "triggers — how long a screen waits for the re-read. The number of re-reads is checked " +
+                "against the number of iterations: a run that saw fewer re-reads than it wrote would " +
+                "fail instead of publishing its numbers.",
         )
     }
 
