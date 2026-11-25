@@ -28,6 +28,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -50,9 +51,12 @@ import kotlin.test.assertTrue
  * - the restart-capable counterpart `session/load` is available on the same client, and
  *   `loadSession` is negotiated as a plain **boolean** on the agent's capabilities.
  *
- * Both are facts about the library, not about the application: the application does not read
- * capabilities yet, and reading them is a later decision. So the test touches the library directly
- * and asserts nothing about the chat.
+ * Most of these are facts about the library, not about the application: the application does not
+ * read capabilities yet, and reading them is a later decision. So the test touches the library
+ * directly and asserts nothing about the chat.
+ *
+ * One is a fact about *this* application: the version it speaks. The note claims the app speaks
+ * v1, and the claim is pinned here as well — see `the application speaks protocol version 1`.
  */
 @Tag("fast")
 class AcpResumeCapabilityTest {
@@ -127,6 +131,63 @@ class AcpResumeCapabilityTest {
                 "(com.agentclientprotocol.model.ResumeSessionRequest). This is the request the " +
                 "client sends, not the return type of the public resumeSession().",
         )
+    }
+
+    /**
+     * The application itself speaks protocol version **1** — pinned, not assumed.
+     *
+     * The two tests above are facts about the *library*. This one is a fact about *this
+     * application*: the note says the app speaks v1 (`SUPPORTED_PROTOCOL_VERSION = 1`,
+     * `AcpClient.kt:638`), and a note that says so without a test behind it is exactly the kind of
+     * claim that goes stale quietly. If the app moved to v2 while the SDK still exposed its v1
+     * resume method, every other assertion in this class would stay green and the note would be
+     * wrong.
+     *
+     * ## Why the source is read instead of the constant
+     *
+     * The constant is `private` inside `AcpClient.kt`, and this is a research spike: making it
+     * `internal` would be a production change to a PR whose whole claim is that it changes no
+     * production code. So the tripwire reads the declaration instead.
+     *
+     * The behavioural proof already exists and is stronger — `AcpClientProcessTest` drives the real
+     * client against a fake agent: the agent that answers the handshake with version 1 is accepted
+     * and the conversation runs, and the agent that answers with another version is refused
+     * (`an agent that speaks another protocol version is refused`). That test lives with the
+     * production code it tests; this one keeps the *research's* own claim executable in the
+     * research's own suite, and the two together pin the value in both directions.
+     */
+    @Test
+    fun `the application speaks protocol version 1`() {
+        val source = appClientSource()
+
+        val declared =
+            Regex("""const val SUPPORTED_PROTOCOL_VERSION: Int = (\d+)""")
+                .find(source)
+        assertNotNull(
+            declared,
+            "the client must declare the protocol version it speaks — the note's v1 claim rests on it",
+        )
+        assertEquals(
+            "1",
+            declared.groupValues[1],
+            "this application speaks protocol version 1; if it moved, the note's v1 claim and " +
+                "the resume analysis in it must be revisited",
+        )
+        assertTrue(
+            source.contains("agentInfo.protocolVersion != SUPPORTED_PROTOCOL_VERSION"),
+            "the handshake must compare the agent's version against the declared one — " +
+                "otherwise the declared version is never used",
+        )
+    }
+
+    /** The application's own ACP client source, read from the jvmMain source root. */
+    private fun appClientSource(): String {
+        val root =
+            System.getProperty("jvmMain.root")
+                ?: error("jvmMain.root system property is not set — see the jvmTest task config")
+        val file = File(root, "com/singularity/todo/feature/ai/acp/AcpClient.kt")
+        assertTrue(file.isFile, "the application's ACP client must be readable at ${file.path}")
+        return file.readText()
     }
 
     /**

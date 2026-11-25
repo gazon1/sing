@@ -170,6 +170,11 @@ it.
 `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/AcpResumeCapabilityTest.kt`
 
 - The pinned client exposes the resume call, and the call travels as **v1** (see above).
+- The version **the application** speaks is pinned as well: the tripwire reads the declaration of
+  `SUPPORTED_PROTOCOL_VERSION` in `AcpClient.kt` and checks that the handshake compares against it.
+  The behavioural proof sits with the production code it tests — `AcpClientProcessTest` drives the
+  real client against a fake agent, which is accepted when it answers with version 1 and refused
+  when it answers with another one.
 - Resume is a *marker* capability — present or absent, no payload to interpret — and the marker
   travels as exactly `{"resume":{}}`.
 - The pinned client runs against a **fake transport**, and the outgoing frames are read back: one

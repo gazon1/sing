@@ -147,7 +147,10 @@ inventory of sources read is in the
 - The wire method exists in protocol **v1**, not only in the draft v2:
   `AcpMethod.AgentMethods.V1.SessionResume` → `"session/resume"`
   (`commonMain/com/agentclientprotocol/model/Methods.kt:205-206`). The app speaks v1
-  (`SUPPORTED_PROTOCOL_VERSION = 1`, `AcpClient.kt:638`), and `session/load` sits next to it at
+  (`SUPPORTED_PROTOCOL_VERSION = 1`, `AcpClient.kt:638`) — pinned by the tripwire below and, in
+  the behavioural direction, by `AcpClientProcessTest` (an agent that answers the handshake with
+  version 1 is accepted, an agent that answers with another version is refused) — and
+  `session/load` sits next to it at
   `Methods.kt:152`.
 
 So the client side is not the blocker: **no SDK bump is needed to issue `session/resume`.**
@@ -159,8 +162,10 @@ pinned client exposes the resume call and it travels as **v1** (v1 and v2 resume
 `com.agentclientprotocol.model.ResumeSessionRequest` against
 `com.agentclientprotocol.model.v2.ResumeSessionRequest`); the client's own request builder produces
 the v1 type; resume is a *marker* capability (present or absent — no payload to interpret) whose
-wire form is exactly `{"resume":{}}`; and a fake transport captures the outgoing frames, one for
-`session/resume` and one for the restart-capable `session/load`. A dependency bump that changes any
+wire form is exactly `{"resume":{}}`; a fake transport captures the outgoing frames, one for
+`session/resume` and one for the restart-capable `session/load`; and the version the *application*
+speaks is pinned too (`the application speaks protocol version 1`), so the note's v1 claim cannot
+go stale while the suite stays green. A dependency bump that changes any
 of that fails the test instead of quietly invalidating this note.
 
 The same class carries the **captured** frames the configured agents actually sent on 2026-11-25
