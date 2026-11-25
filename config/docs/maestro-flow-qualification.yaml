@@ -3125,7 +3125,7 @@ exceptions:
     reason: 'Fingerprint changed by #2555/#2556 (the seed helper''s contract header now states the five cases, and this flow''s seed invocations now name the seeded task''s row in WAIT_FOR): the change ADDS a landing-screen wait — the helper now waits for the seeded row on the Today screen the seed leaves the app on — and removes nothing: every wait the flow had stays in the flow, including the Search-screen waits for the result rows, which the helper cannot reach (it does not navigate). Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the added wait, not a device qualification.'
     evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/smoke/03-health-drilldown.yaml:
-    fingerprint: sha256:0543f45a35098fb24470be16c410e3cfaca96dd8aaa6a66a422a9f9534d9a18d
+    fingerprint: sha256:77850d6aa92c401f73db643241b25bd98017abcf234d8e970794e5811a82968e
     reason: 'Fingerprint changed by #2556 (the seed helper''s contract header now states the five cases, and this flow''s own comments changed): the flow''s behaviour is unchanged — only comments were added to it and to the helper''s contract header — so no selector, timing, navigation, assertion, or seeded data changed. Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the contract-text change only.'
     evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/smoke/06-session-anonymous.yaml:

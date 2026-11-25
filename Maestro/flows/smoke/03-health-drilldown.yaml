@@ -14,10 +14,13 @@ tags:
 
 # ── Seed all fixtures (app ends on Today tab) ──────────────────────────────
 # This flow seeds four rows, and the waits that follow are the flow's own:
-# three of the tasks are undated and land in Inbox, and the fourth is overdue —
-# neither is on the screen the seed leaves the app on, and the helper does not
-# navigate or scroll. The helper's wait covers one entity of one seed, so it
-# cannot stand in for waits on four rows the flow drills into one by one.
+# three of the tasks are undated and land in Inbox, which is not the screen the
+# seed leaves the app on, and the fourth is overdue — its row is not a target
+# of the helper's wait either (the Today tab collapses the overdue section
+# once the profile holds enough overdue tasks, and the helper neither expands
+# it nor scrolls), so the flow scrolls to the row itself and waits for it. The
+# helper's wait covers one entity of one seed, so it cannot stand in for waits
+# on four rows the flow drills into one by one.
 # Blocker + blocked task (dependency by title).
 - runFlow:
     file: ../../helpers/seed.yaml
