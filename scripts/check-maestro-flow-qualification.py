@@ -58,6 +58,16 @@ The gate reads the flow and its helpers to compute the fingerprint, so a
 change to a helper requalifies every flow that runs it. It never rewrites the
 baseline, the frozen set or the qualification file.
 
+The currency of a record is the fingerprint. The build the attempts ran is
+the *program* the record is about -- the gate refuses a record whose two
+build values name two different programs -- but a change to the application
+code does not invalidate a record: the admitted flow keeps running in the
+blocking suite, where an application regression is caught. The gate is an
+admission rule, not a regression detector, and it does not compare the
+recorded build with the checkout it runs in. ADR
+``docs/decisions/2026-11-25-qualification-currency-is-the-flow-not-the-build.md``
+records the decision and its cost.
+
 Usage:
     python3 scripts/check-maestro-flow-qualification.py [--json] [--check]
         [--root DIR] [--catalogue FILE] [--baseline FILE] [--evidence FILE]
@@ -608,6 +618,13 @@ def attempt_admission_issues(attempt: dict, index: int) -> list[str]:
     # qualification that names two different builds certifies a program
     # the checkout does not hold. The check is on the recorded values, so
     # it holds whatever produced them.
+    #
+    # It is a check on the *record*, not on the checkout the gate runs in:
+    # the recorded build names the program the attempts certified. Whether
+    # that program is still the one the repository holds is not this
+    # gate's question -- the flow keeps running in the blocking suite,
+    # where an application regression shows up as a red suite. ADR
+    # ``docs/decisions/2026-11-25-qualification-currency-is-the-flow-not-the-build.md``.
     checkout_sha = attempt.get("commit")
     apk_sha = attempt.get("apk_commit_sha")
     if not checkout_sha or not apk_sha:
