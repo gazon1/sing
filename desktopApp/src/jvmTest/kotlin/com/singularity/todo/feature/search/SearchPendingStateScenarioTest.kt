@@ -58,13 +58,16 @@ import kotlin.test.Test
 import kotlin.time.Instant
 
 /**
- * Desktop automation for scenario `SEARCH-11` — see
- * `scripts/src/traceability/scenarios/search/SEARCH-11.yaml` — and for the two
- * affordances the search field carries beside it.
+ * Desktop automation for two search scenarios — `SEARCH-11` (see
+ * `scripts/src/traceability/scenarios/search/SEARCH-11.yaml`) and `SEARCH-03`
+ * (see `scripts/src/traceability/scenarios/search/SEARCH-03.yaml`) — and for
+ * the affordances the search field carries beside them.
  *
  * The `@DisplayName` below is the linkage. The id is the **first token** of the
  * string, and that strictness is the contract: the traceability scanner rejects
- * an id anywhere else rather than guessing.
+ * an id anywhere else rather than guessing. Only the methods that carry an id
+ * claim a scenario; the rest of the class asserts affordances no scenario id
+ * owns.
  *
  * ## What these tests mount, and why not the whole app
  *
@@ -129,8 +132,14 @@ class SearchPendingStateScenarioTest {
      *
      * The button is the field's own: clearing a query used to mean long-press,
      * "Select all", delete.
+     *
+     * This is the owner of `SEARCH-03`: the Android flow that used to carry it
+     * (`Maestro/flows/search/03-clear.yaml`) was retired — the shared behaviour
+     * is asserted here, and the flow's Android-only residue (the quick-search
+     * entry path and the real IME) is carried by the other search flows.
      */
     @Test
+    @DisplayName("SEARCH-03 the clear button empties the query and the idle prompt returns")
     fun the_clear_button_empties_the_query_and_the_idle_prompt_returns() =
         runIsolatedComposeTest(width = 420, height = 900) {
             val fakes = SearchFakes()
@@ -145,6 +154,8 @@ class SearchPendingStateScenarioTest {
 
                 clickTag(TestTags.SEARCH_CLEAR_BUTTON)
 
+                // The query itself is empty — the field, not only the results.
+                awaitTagTextEquals(TestTags.SEARCH_INPUT, "")
                 assertTagDisplayed(TestTags.SEARCH_EMPTY_PLACEHOLDER)
                 awaitTagGone(TestTags.taskItem("Buy milk"))
                 // There is nothing left to clear, so the field no longer offers the

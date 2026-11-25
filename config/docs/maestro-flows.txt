@@ -98,7 +98,6 @@ Maestro/flows/projects/03-task-card-actions.yaml
 Maestro/flows/projects/04-pick-emoji.yaml
 Maestro/flows/projects/05-custom-emoji.yaml
 Maestro/flows/search/02-cyrillic.yaml
-Maestro/flows/search/03-clear.yaml
 Maestro/flows/search/04-filter-description.yaml
 Maestro/flows/search/05-filter-pinned.yaml
 Maestro/flows/search/06-no-results.yaml

@@ -47,7 +47,7 @@ scenarios:
     area: feature.search
     priority: P1
     status: confirmed
-    targets: [android]
+    targets: [desktop]
   - id: SEARCH-04
     title: Filter by has-description toggles task results
     area: feature.search

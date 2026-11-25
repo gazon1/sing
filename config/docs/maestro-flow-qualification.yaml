@@ -814,60 +814,6 @@ qualifications:
       apk_commit_sha: 52fe5b1d6660
       maestro_version: 2.10.0
       return_code: 0
-  Maestro/flows/search/03-clear.yaml:
-    fingerprint: sha256:2d6fb98e84bb3c0f2b5a5e2121f9a6e2b4187be89219fb45a4ba8a3a2938bca1
-    qualified_at: '2026-11-24'
-    environment:
-      kind: emulator
-      api: 36
-      device: sdk_gphone64_x86_64
-      serial: emulator-5566
-    commit: 52fe5b1d6660
-    apk_commit_sha: 52fe5b1d6660
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-1/03-clear.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5566
-      commit: 52fe5b1d6660
-      apk_commit_sha: 52fe5b1d6660
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-2/03-clear.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5566
-      commit: 52fe5b1d6660
-      apk_commit_sha: 52fe5b1d6660
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-3/03-clear.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5566
-      commit: 52fe5b1d6660
-      apk_commit_sha: 52fe5b1d6660
-      maestro_version: 2.10.0
-      return_code: 0
   Maestro/flows/search/10-task-card-actions.yaml:
     fingerprint: sha256:1a5a88b63c50c99077e6a815746a761cd7675a05dca5037a050bbacd51560d19
     qualified_at: '2026-11-24'
