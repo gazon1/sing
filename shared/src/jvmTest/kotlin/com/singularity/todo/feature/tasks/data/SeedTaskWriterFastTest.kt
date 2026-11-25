@@ -124,7 +124,11 @@ class SeedTaskWriterFastTest {
             // different behaviour than the one the guard is for.
             assertEquals(
                 setOf("t1"),
-                db.taskDao().listAllForUser(user.value).map { it.id }.toSet(),
+                db
+                    .taskDao()
+                    .listAllForUser(user.value)
+                    .map { it.id }
+                    .toSet(),
                 "the row before the refused one was written before the guard stopped the batch",
             )
             assertTrue(
