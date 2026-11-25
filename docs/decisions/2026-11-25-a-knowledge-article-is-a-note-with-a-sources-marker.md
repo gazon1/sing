@@ -84,10 +84,15 @@ question is a defect, and the test is what makes the difference a fact rather th
 hope.
 
 The rule is a **section**, not a mention: the body has to carry a heading whose text is
-exactly `Sources`. The HTML form is `>Sources</b` (an element whose text is exactly
+exactly `Sources`. The HTML form is `>Sources</b>` (an element whose text is exactly
 `Sources`, closed by a heading or a bold tag). The Markdown form is a **line** that is
 the heading — `## Sources` at any level, or the bold form `**Sources**`. A note whose
 prose merely mentions sources carries none of them and stays an ordinary note.
+
+The closing tag is matched **whole**: `</h1>`–`</h6>`, `</b>` and `</strong>` are the
+closing tags of a heading and of a bold element, while `</header>` and `</blockquote>`
+only start like one. A rule that matched the prefix would call `<header>Sources</header>`
+a section, and an invented article is worse than a missed one.
 
 Line-anchoring is what SQLite can evaluate. It has no regular expressions, so the
 statement cannot ask "does this line consist of hashes and then the word Sources"; it

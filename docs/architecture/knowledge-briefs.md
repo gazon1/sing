@@ -161,7 +161,9 @@ and looking for the marker between two line feeds.
 The body is **normalized, not stripped**: `<h2> Sources </h2>` and `<h2>Sources</h2>` are
 the same heading, while `<h2>Source s</h2>` is not the heading `Sources` — a rule that
 deleted the whitespace would call it one, and an invented article is worse than a missed
-one. Every form the previous rule accepted is still accepted: the bold paragraph
+one. The closing tag is matched **whole** too: `</h1>`–`</h6>`, `</b>` and `</strong>` close
+a heading and a bold element, while `</header>` and `</blockquote>` only start like one.
+Every form the previous rule accepted is still accepted: the bold paragraph
 (`<p><strong>Sources</strong></p>`), `<b>Sources</b>`, a heading whose text sits on the
 next line, and the Markdown `#\nSources`. A brief that used to be found is still found.
 

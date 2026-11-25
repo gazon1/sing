@@ -293,6 +293,13 @@ class KnowledgeArticleRepositoryTest {
                     Body("<p><strong>Sources</strong></p>", null, true),
                     Body("<b>Sources</b>", null, true),
                     Body("<h2>\nSources\n</h2>", null, true),
+                    // The closing tag has to be a whole one: `</header>` and
+                    // `</blockquote>` start like a heading and like a bold element,
+                    // and they are neither.
+                    Body("<h3>Sources</h3>", null, true),
+                    Body("<h6>Sources</h6>", null, true),
+                    Body("<header>Sources</header>", null, false),
+                    Body("<blockquote>Sources</blockquote>", null, false),
                     Body(null, "## Sources\n\n- https://example.com\n", true),
                     Body(null, "# Sources\n", true),
                     Body(null, "###### Sources\n", true),

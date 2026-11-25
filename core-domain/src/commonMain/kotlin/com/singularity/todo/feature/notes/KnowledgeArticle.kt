@@ -40,7 +40,7 @@ package com.singularity.todo.feature.notes
  * ordinary note. The rule is not a heading parser — SQLite has no regular
  * expressions, and a rule the statement cannot evaluate is a rule the statement
  * cannot use. It looks for the marker's text instead, anchored so that it can only
- * match a label: the HTML text sits between a `>` and a closing tag, and the
+ * match a label: the HTML text sits between a `>` and a whole closing tag, and the
  * Markdown text has to be a line of its own — `**Sources**` in the middle of a
  * sentence is prose, while a line of its own is a label.
  *
@@ -60,9 +60,12 @@ object KnowledgeArticle {
      * The marker as the HTML body carries it, after the body is normalized.
      *
      * The closing tag is normalized too — a heading and a bold element end the same
-     * way here — so the rule asks one question instead of three.
+     * way here — so the rule asks one question instead of three. The tag is matched
+     * whole: a heading that ends in `</h2>` and a bold that ends in `</b>` become the
+     * same `</b>`, while `</header>` and `</blockquote>` stay what they are, because
+     * they are not a heading and not a bold element.
      */
-    private const val HTML_MARKER = ">sources</b"
+    private const val HTML_MARKER = ">sources</b>"
 
     /** The marker as the Markdown body carries it, after the body is normalized. */
     private const val MARKDOWN_MARKER = "**sources**"
@@ -80,15 +83,19 @@ object KnowledgeArticle {
      *
      * The steps, in order: lower case; tab, line feed and carriage return become
      * spaces; three passes collapse the runs of spaces; a space after a `>` and a
-     * space before a `<` are dropped; `</strong` and `</h` both become `</b`.
+     * space before a `<` are dropped; the closing tags of a heading and of a bold
+     * element both become `</b>`.
      */
     private const val SQL_HTML_BODY: String =
         "replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(" +
+            "replace(replace(replace(replace(replace(" +
             "lower(COALESCE(body_html, '')), " +
             "char(9), ' '), char(10), ' '), char(13), ' '), " +
             "'  ', ' '), '  ', ' '), '  ', ' '), " +
             "'> ', '>'), ' <', '<'), " +
-            "'</strong', '</b'), '</h', '</b')"
+            "'</strong>', '</b>'), " +
+            "'</h1>', '</b>'), '</h2>', '</b>'), '</h3>', '</b>'), " +
+            "'</h4>', '</b>'), '</h5>', '</b>'), '</h6>', '</b>')"
 
     /**
      * The Markdown body, normalized so that the marker can be looked for in it, and
@@ -164,8 +171,13 @@ object KnowledgeArticle {
             .collapseSpaces()
             .replace("> ", ">")
             .replace(" <", "<")
-            .replace("</strong", "</b")
-            .replace("</h", "</b")
+            .replace("</strong>", "</b>")
+            .replace("</h1>", "</b>")
+            .replace("</h2>", "</b>")
+            .replace("</h3>", "</b>")
+            .replace("</h4>", "</b>")
+            .replace("</h5>", "</b>")
+            .replace("</h6>", "</b>")
             .contains(HTML_MARKER)
 
     /**
