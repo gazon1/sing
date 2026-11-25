@@ -89,23 +89,23 @@ class DesktopFrameTimeBaselineTest {
     private val projectWithMostTasks: String get() = dataset.projectWithMostTasks()
 
     @Test
-    @DisplayName("FRAME-TIME desktop baseline: the Upcoming timeline with the shared dataset")
+    @DisplayName("#2975 the desktop baseline: the Upcoming timeline with the shared dataset")
     fun agenda_upcoming_scroll() = measure(agendaScenario())
 
     @Test
-    @DisplayName("FRAME-TIME desktop baseline: the list of projects")
+    @DisplayName("#2975 the desktop baseline: the list of projects")
     fun projects_list_scroll() = measure(projectsScenario())
 
     @Test
-    @DisplayName("FRAME-TIME desktop baseline: the detail of a project")
+    @DisplayName("#2975 the desktop baseline: the detail of a project")
     fun project_detail_open() = measure(projectDetailScenario())
 
     @Test
-    @DisplayName("FRAME-TIME desktop baseline: the detail of a task")
+    @DisplayName("#2975 the desktop baseline: the detail of a task")
     fun task_detail_open() = measure(taskDetailScenario())
 
     @Test
-    @DisplayName("FRAME-TIME desktop baseline: the calendar and its periods")
+    @DisplayName("#2975 the desktop baseline: the calendar and its periods")
     fun calendar_periods() = measure(calendarScenario())
 
     /**
@@ -116,7 +116,7 @@ class DesktopFrameTimeBaselineTest {
      * so every reported number is a number that was measured.
      */
     @Test
-    @DisplayName("FRAME-TIME desktop baseline: the statistics of the report")
+    @DisplayName("#2975 the desktop baseline: the statistics of the report")
     fun the_statistics_of_the_report() {
         val even = listOf(10L, 20L, 30L, 40L).map { it * 1_000_000L }
         check(medianMs(even) == 25.0) {

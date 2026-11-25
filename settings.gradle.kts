@@ -407,7 +407,16 @@ kover {
     // nothing in the app depends on it. Its tests are build tooling, not
     // application behaviour, and they run in CI (the module was judged by
     // nobody until 2026-10-23).
-    skipProjects(":detekt-rules", ":adr-cli", ":tools:unwritten-properties")
+    // `:import-cli` is the backup CLI — a command line, like `:adr-cli` above.
+    // The desktop baseline (#2975) restores the synthetic archive it generates,
+    // so the coverage job builds the module now, and its classes
+    // (`com.singularity.todo.importer.*`) would enter the app's coverage
+    // denominator with no test task of theirs behind them: the report would
+    // score the CLI 0% while the reader assumes the app is measured. The CLI
+    // is tooling, not application code, so it is excluded from the scope —
+    // and its own suite still runs (`scripts/changed-modules.py` maps the
+    // module to `:import-cli:test`).
+    skipProjects(":detekt-rules", ":adr-cli", ":tools:unwritten-properties", ":import-cli")
     instrumentation {
         includedClasses.add("com.singularity.todo.*")
     }
