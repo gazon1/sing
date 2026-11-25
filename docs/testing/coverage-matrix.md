@@ -190,7 +190,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `SEARCH-05` | Filter by pinned toggles task results | ● | — | Only the pinned task is shown; the unpinned task is filtered out. Toggling the filter off restores all results. |
 | `SEARCH-06` | A query with no matches shows an explicit no-results state | ● | — | An explicit "No results found" state is shown. This is distinct from the idle prompt (which is shown when the query is… |
 | `SEARCH-07` | A saved search persists and can be loaded | ● | — | The saved search persists across navigation. Tapping it restores the query text and the matching results, so the user… |
-| `SEARCH-08` | A term matches the beginning of a word, and not its middle | ● | — | The first search finds the task titled "architecture": a term matches the beginning of a word. The second does not… |
+| `SEARCH-08` | A term matches the beginning of a word, and not its middle | — | ● | The first search finds the task titled "architecture": a term matches the beginning of a word. The second does not… |
 | `SEARCH-09` | The result shows the word that was matched | — | ● | The result shows the word in the title as the match: the index says where the word is, and the search draws it there.… |
 | `SEARCH-10` | The contains mode finds the term in the middle of a word | ● | — | The word mode does not find the task: a term matches the beginning of a word and not its middle. The contains mode… |
 | `SEARCH-11` | A pending search is not an empty answer | — | ● | While the search is in flight the screen shows the pending indicator, does not claim that nothing was found, and does… |
