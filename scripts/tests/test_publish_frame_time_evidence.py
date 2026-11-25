@@ -20,6 +20,7 @@ Run with: python3 -m unittest discover -s scripts/tests
 """
 
 import json
+import math
 import subprocess
 import sys
 import tempfile
@@ -109,6 +110,48 @@ def android_report(
     }
 
 
+def desktop_environment(
+    java_version: str = "21.0.8+9",
+    os_name: str = "Linux",
+    variant: str = "debug",
+    version: str = "0.1.0",
+    git_sha: str = "f159ec393cd8",
+) -> dict:
+    """The environment a desktop run names - the JVM, the OS and the build.
+
+    The publisher refuses a run that names no environment, so the fixture of
+    the tests has to name one. A field of None is a name that is missing, the
+    way a run of an old report names it.
+    """
+    return {
+        "runtime": {
+            "javaVersion": java_version,
+            "javaVendor": "Eclipse Adoptium",
+            "javaVmName": "OpenJDK 64-Bit Server VM",
+            "javaVmVersion": java_version,
+            "assertionsEnabled": True,
+        },
+        "os": {"name": os_name, "version": "6.15.4", "arch": "amd64"},
+        "build": {"variant": variant, "version": version, "gitSha": git_sha},
+    }
+
+
+def median_of(values: list[float]) -> float:
+    """The median by the rule of the document: the middle value, or the mean of the two."""
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if len(ordered) % 2 == 1:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / 2.0
+
+
+def percentile_of(values: list[float], fraction: float) -> float:
+    """The p-th percentile by the nearest-rank rule - the rule of the document."""
+    ordered = sorted(values)
+    rank = max(1, min(len(ordered), math.ceil(fraction * len(ordered))))
+    return ordered[rank - 1]
+
+
 def scenario_report(
     scenario: str = SCENARIO,
     open_median: float = 470.0,
@@ -121,18 +164,24 @@ def scenario_report(
     dataset: dict[str, object] | None = None,
     subject: dict[str, object] | None = None,
     host_load: float = 3.5,
+    environment: dict[str, object] | None = None,
     **overrides: object,
 ) -> dict:
     """The report the test prints for one scenario of one run.
 
     The report agrees with itself: every measured run holds one open of the
     screen and `gestures_per_run` gestures, so the number of samples is the
-    number the configuration claims. A report that does not agree with itself
-    is refused by the publisher, so the fixture of the tests has to be a
-    report the publisher accepts.
+    number the configuration claims - and the median and the percentile of the
+    report are the median and the percentile of its own samples. A report that
+    does not agree with itself is refused by the publisher, so the fixture of
+    the tests has to be a report the publisher accepts.
+
+    The medians are the numbers the samples are built around: an open is one
+    sample of its median, and a gesture is a pair of samples around it, so
+    the median of the pair is the median the report claims.
     """
-    opens = opens if opens is not None else [460.0]
-    gestures = gestures if gestures is not None else [70.0, 80.0]
+    opens = opens if opens is not None else [open_median]
+    gestures = gestures if gestures is not None else [gesture_median - 10.0, gesture_median + 10.0]
     report = {
         "target": "jvm-desktop",
         "scenario": scenario,
@@ -150,13 +199,14 @@ def scenario_report(
         "warmupRuns": 2,
         "percentileConvention": "nearest-rank",
         "hostLoadAverage": host_load,
+        "environment": environment if environment is not None else desktop_environment(),
         "measurements": [
             {
                 "name": "open",
                 "kind": "navigation",
                 "samples": len(opens),
-                "medianMs": open_median,
-                "p95Ms": max(opens),
+                "medianMs": median_of(opens),
+                "p95Ms": percentile_of(opens, 0.95),
                 "samplesMs": opens,
             },
             {
@@ -165,8 +215,8 @@ def scenario_report(
                 "gesturesPerRun": gestures_per_run,
                 "distancePx": distance_px,
                 "samples": len(gestures),
-                "medianMs": gesture_median,
-                "p95Ms": max(gestures),
+                "medianMs": median_of(gestures),
+                "p95Ms": percentile_of(gestures, 0.95),
                 "samplesMs": gestures,
             },
         ],
@@ -234,7 +284,7 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             self.assertEqual(len(runs), 2)
             self.assertEqual(runs[0]["ranAt"], "2026-11-24T15:36:47")
             self.assertEqual(runs[1]["ranAt"], "2026-11-24T15:37:35")
-            self.assertEqual(runs[0]["measurements"]["gesture"]["medianMs"], 80.0)
+            self.assertEqual(runs[0]["measurements"]["gesture"]["medianMs"], 75.0)
             self.assertEqual(runs[1]["measurements"]["gesture"]["samplesMs"], [60.0, 76.0])
 
     def test_the_published_median_is_the_median_of_the_published_samples(self):
@@ -454,6 +504,111 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("does not match its own configuration", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_run_that_names_no_environment_is_not_published(self):
+        """A number without the machine and the build behind it is not a number.
+
+        The desktop numbers move with the JVM, the operating system and the
+        build they were taken on, so a report that names none of them cannot
+        be compared with any other report.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series()
+            del report[0]["environment"]
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("names no environment", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_run_that_names_no_build_is_not_published(self):
+        """The environment of a run has to name the build it was measured on."""
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series()
+            del report[0]["environment"]["build"]["gitSha"]
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("build.gitSha", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_runs_of_different_environments_are_not_published_together(self):
+        """Two JVMs are two machines, and their samples are not one measurement."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(
+                tmp,
+                [
+                    ("2026-11-24T15:36:47", desktop_series()),
+                    (
+                        "2026-11-24T15:37:35",
+                        desktop_series(environment=desktop_environment(java_version="21.0.9+11")),
+                    ),
+                ],
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("environment", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_the_published_file_names_the_environment_of_the_runs(self):
+        """The published file says where its numbers come from."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(
+                tmp,
+                [
+                    ("2026-11-24T15:36:47", desktop_series()),
+                    ("2026-11-24T15:37:35", desktop_series()),
+                ],
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            environment = self._evidence(tmp)["environment"]
+            self.assertEqual(environment["build"]["variant"], "debug")
+            self.assertEqual(environment["build"]["version"], "0.1.0")
+            self.assertEqual(environment["runtime"]["javaVersion"], "21.0.8+9")
+            self.assertEqual(environment["os"]["name"], "Linux")
+
+    def test_a_run_with_fewer_raw_samples_than_it_claims_is_not_published(self):
+        """The count of the samples and the samples themselves are one claim."""
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series(gestures=[70.0, 80.0])
+            report[0]["measurements"][1]["samplesMs"] = [70.0]
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("raw samples", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_run_whose_median_is_not_the_median_of_its_samples_is_not_published(self):
+        """A median of another population is not the median of this one."""
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series(gestures=[70.0, 80.0])
+            report[0]["measurements"][1]["medianMs"] = 80.0
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("medianMs", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_run_whose_percentile_is_not_the_percentile_of_its_samples_is_not_published(self):
+        """A percentile that no sample has is not a number that was measured."""
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series(gestures=[70.0, 80.0])
+            report[0]["measurements"][1]["p95Ms"] = 99.0
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("p95Ms", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_run_with_two_reports_of_one_scenario_is_not_published(self):
+        """One execution measures a screen once.
+
+        The set of the scenarios would hide the second report, and the pooled
+        median would carry the samples of two measurements of one screen.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series()
+            result = self._publish(
+                tmp,
+                [("2026-11-24T15:36:47", report + [scenario_report(scenario=SCENARIO)])],
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("reports of the same scenario", result.stderr)
             self.assertFalse((Path(tmp) / "evidence.json").exists())
 
     def test_copies_of_one_run_are_not_published_as_three_runs(self):

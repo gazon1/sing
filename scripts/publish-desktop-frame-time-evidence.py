@@ -89,7 +89,26 @@ CONFIGURATION_KEYS = (
     "runs",
     "warmupRuns",
     "percentileConvention",
+    # The environment the numbers were measured in. Two runs of two
+    # different JVMs, or of two different builds, are two different
+    # experiments - their samples cannot be pooled into one median either.
+    "environment",
 )
+
+# The names the environment of a run has to carry. A number without them
+# describes a program nobody can point at: which JVM drew it, on which
+# operating system, out of which build.
+ENVIRONMENT_KEYS = {
+    "runtime": ("javaVersion", "javaVendor", "javaVmName", "javaVmVersion", "assertionsEnabled"),
+    "os": ("name", "version", "arch"),
+    "build": ("variant", "version", "gitSha"),
+}
+
+# The report prints its samples in milliseconds with three decimals - a
+# microsecond of resolution. The median of an even-sized sample is the mean
+# of two of them, so the median of the printed samples and the printed median
+# can differ by the rounding of three numbers.
+ROUNDING_TOLERANCE_MS = 0.002
 
 # The fields of a measurement that say what it measured. Two runs that
 # disagree about them measured different gestures.
@@ -138,8 +157,50 @@ def check_same_configuration(runs: list[dict]) -> None:
         )
 
 
+def check_the_environment_is_named(run: dict, index: int) -> None:
+    """Refuse a run that does not name the environment it was measured in.
+
+    The desktop numbers move with the machine they were taken on: a different
+    JVM, a different operating system or a different build measures a
+    different program. A report that names none of them cannot be compared
+    with any other report - and the issue asks for the target, the runtime,
+    the build and the method next to the numbers for exactly that reason.
+    """
+    environment = run.get("environment")
+    if not isinstance(environment, dict):
+        raise SystemExit(
+            f"run {index} names no environment. The published numbers have to say which "
+            "JVM, on which operating system and out of which build they were measured - "
+            "a number without them describes a program nobody can point at."
+        )
+    missing = []
+    for group, keys in ENVIRONMENT_KEYS.items():
+        section = environment.get(group)
+        if not isinstance(section, dict):
+            missing.append(group)
+            continue
+        for key in keys:
+            value = section.get(key)
+            if value is None or (isinstance(value, str) and not value.strip()):
+                missing.append(f"{group}.{key}")
+    if missing:
+        raise SystemExit(
+            f"run {index} names no {', '.join(missing)}. The published numbers have to say "
+            "which JVM, on which operating system and out of which build they were "
+            "measured - a number without them describes a program nobody can point at."
+        )
+
+
 def check_samples_match_the_configuration(run: dict, index: int) -> None:
-    """Refuse a run whose samples do not match what it claims to have measured."""
+    """Refuse a run whose samples do not match what it claims to have measured.
+
+    The count of the samples, the raw samples themselves and the numbers
+    computed from them are one claim about one run: five samples of a
+    measurement are five raw values and the median of those five values. A
+    run whose raw samples are fewer than it claims, or whose median is not
+    the median of its own samples, does not describe a measurement - it
+    describes numbers someone wrote down.
+    """
     runs = run.get("runs", 0)
     for measurement in run.get("measurements", []):
         name = measurement.get("name")
@@ -150,6 +211,39 @@ def check_samples_match_the_configuration(run: dict, index: int) -> None:
                 f"run {index} holds {measurement.get('samples')} samples of '{name}' but claims "
                 f"{runs} runs of {gestures or 1} gestures ({expected}). The report does not match "
                 "its own configuration."
+            )
+        raw = measurement.get("samplesMs")
+        if not isinstance(raw, list) or len(raw) != expected:
+            raise SystemExit(
+                f"run {index} holds {len(raw) if isinstance(raw, list) else 0} raw samples of "
+                f"'{name}' but claims {expected}. The report does not match its own "
+                "configuration."
+            )
+        check_the_numbers_match_the_samples(measurement, raw, name, index)
+
+
+def check_the_numbers_match_the_samples(
+    measurement: dict,
+    raw: list,
+    name: str,
+    index: int,
+) -> None:
+    """Refuse a run whose median or percentile is not the one of its samples."""
+    for key, computed in (
+        ("medianMs", median(raw)),
+        ("p95Ms", percentile(raw, 0.95)),
+    ):
+        reported = measurement.get(key)
+        if reported is None:
+            raise SystemExit(
+                f"run {index} holds no {key} of '{name}'. The numbers of a measurement are "
+                "the numbers of its own samples."
+            )
+        if abs(float(reported) - float(computed)) > ROUNDING_TOLERANCE_MS:
+            raise SystemExit(
+                f"run {index} holds a {key} of {reported} for '{name}', but the median and "
+                f"the percentile of its own {len(raw)} raw samples are {computed}. The numbers "
+                "of a measurement are the numbers of its own samples."
             )
 
 
@@ -181,6 +275,7 @@ def scenario_evidence(
     runs = [report for _, report in entries]
     check_same_configuration(runs)
     for index, run in enumerate(runs, start=1):
+        check_the_environment_is_named(run, index)
         check_samples_match_the_configuration(run, index)
     first = runs[0]
 
@@ -267,6 +362,23 @@ def main(argv: list[str]) -> int:
     # The scenarios of the runs have to be the same: a run that measured three
     # scenarios and a run that measured four are two different series.
     per_run = [reports_of(path) for path in paths]
+
+    # One run, one report of a scenario. Two reports of the same scenario in
+    # one execution are two measurements of one screen, and the set of the
+    # scenarios would hide the second one: the run would look like it
+    # measured the screen once, and the pooled median would carry the samples
+    # of both.
+    for index, reports in enumerate(per_run, start=1):
+        names = [report.get("scenario") for report in reports]
+        duplicates = sorted({name for name in names if names.count(name) > 1})
+        if duplicates:
+            raise SystemExit(
+                f"run {index} holds {len(duplicates)} reports of the same scenario "
+                f"({', '.join(duplicates)}). One execution measures a scenario once, and "
+                "the samples of two measurements of one screen cannot be published as "
+                "one measurement of it."
+            )
+
     scenario_sets = [set(report.get("scenario") for report in reports) for reports in per_run]
     if len({frozenset(scenarios) for scenarios in scenario_sets}) != 1:
         raise SystemExit(
@@ -300,8 +412,31 @@ def main(argv: list[str]) -> int:
         for scenario in sorted(grouped, key=scenario_order)
     }
 
+    # One environment for the whole file: the published numbers are the
+    # numbers of one program on one machine. Two runs of two different JVMs
+    # or of two different builds are two different series, and the file
+    # names one environment.
+    environments = {
+        json.dumps(report.get("environment"), sort_keys=True)
+        for reports in per_run
+        for report in reports
+    }
+    if len(environments) != 1:
+        raise SystemExit(
+            "the runs were measured in different environments: "
+            + "; ".join(
+                f"run {index} measured in {json.dumps(report.get('environment'), sort_keys=True)}"
+                for index, reports in enumerate(per_run, start=1)
+                for report in reports[:1]
+            )
+            + ". The published file names one environment, and its numbers are the "
+            "numbers of one program on one machine."
+        )
+    environment = json.loads(next(iter(environments)))
+
     evidence = {
         "target": per_run[0][0].get("target"),
+        "environment": environment,
         "scenarios": scenarios,
         "repeatRuns": len(paths),
         "runsAreDistinct": True,

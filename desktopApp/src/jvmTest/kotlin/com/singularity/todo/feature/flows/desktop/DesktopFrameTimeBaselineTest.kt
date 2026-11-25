@@ -141,6 +141,41 @@ class DesktopFrameTimeBaselineTest {
         }
     }
 
+    /**
+     * The report names the environment it was measured in.
+     *
+     * The names are read, not assumed, and the rules the report follows are
+     * checked here: every name of the environment is a name and not an empty
+     * string, and the variant of the build follows the mode of the JVM.
+     */
+    @Test
+    @DisplayName("#2975 the desktop baseline: the environment of the report")
+    fun the_environment_of_the_report() {
+        val environment = environment()
+        val runtime = environment["runtime"] as Map<*, *>
+        val os = environment["os"] as Map<*, *>
+        val build = environment["build"] as Map<*, *>
+        listOf(
+            runtime["javaVersion"],
+            runtime["javaVendor"],
+            runtime["javaVmName"],
+            runtime["javaVmVersion"],
+            os["name"],
+            os["version"],
+            os["arch"],
+            build["version"],
+            build["gitSha"],
+        ).forEach { value ->
+            check(!value.toString().isBlank()) {
+                "the environment of the report holds a name that is not a name: $value"
+            }
+        }
+        check(build["variant"] == if (assertionsEnabled()) "debug" else "release") {
+            "the report names the build variant '${build["variant"]}', but the JVM runs in " +
+                "the ${if (assertionsEnabled()) "debug" else "release"} mode"
+        }
+    }
+
     // ─── the scenarios ─────────────────────────────────────────────────────────
 
     /** The agenda's Upcoming timeline: the tasks of the shared dataset. */
@@ -393,6 +428,7 @@ class DesktopFrameTimeBaselineTest {
                         "percentileConvention" to
                             "nearest-rank; the median of an even-sized sample is the mean of its two middle values",
                         "hostLoadAverage" to hostLoadAverage(),
+                        "environment" to environment(),
                         "measurements" to measurements,
                     ),
                 )
@@ -488,6 +524,105 @@ class DesktopFrameTimeBaselineTest {
     )
 
     // ─── the numbers ──────────────────────────────────────────────────────────
+
+    /**
+     * The environment the measurement was taken in.
+     *
+     * The desktop numbers move with the machine they were taken on: a
+     * different JVM, a different operating system or a different build
+     * measures a different program. A report that says only "a number" cannot
+     * be compared with another report, and the issue asks for the target, the
+     * runtime, the build and the method next to the numbers for exactly that
+     * reason. The phone's report names its device and its build the same way.
+     *
+     * Every value here is read, not assumed: a property the JVM does not have
+     * stops the measurement instead of being written down as an empty string.
+     * A report that names no build is not a measurement of a known program,
+     * and a nameless number is worse than no number at all.
+     */
+    private fun environment(): Map<String, Any> {
+        val environment =
+            mapOf(
+                "runtime" to
+                    mapOf(
+                        "javaVersion" to systemProperty("java.version"),
+                        "javaVendor" to systemProperty("java.vendor"),
+                        "javaVmName" to systemProperty("java.vm.name"),
+                        "javaVmVersion" to systemProperty("java.vm.version"),
+                        "assertionsEnabled" to assertionsEnabled(),
+                    ),
+                "os" to
+                    mapOf(
+                        "name" to systemProperty("os.name"),
+                        "version" to systemProperty("os.version"),
+                        "arch" to systemProperty("os.arch"),
+                    ),
+                "build" to
+                    mapOf(
+                        "variant" to buildVariant(),
+                        "version" to systemProperty("singularity.build.version"),
+                        "gitSha" to systemProperty("singularity.build.gitSha"),
+                    ),
+            )
+        checkTheEnvironmentIsNamed(environment)
+        return environment
+    }
+
+    /**
+     * The environment of the report has to name the build it was measured on.
+     *
+     * The sha of the build is the one value that cannot be recovered
+     * afterwards: without it the numbers belong to no program that can be
+     * rebuilt, and a reader cannot tell a baseline from a measurement of
+     * something else. A checkout without git has no sha, and the measurement
+     * stops instead of publishing a number nobody can place.
+     */
+    private fun checkTheEnvironmentIsNamed(environment: Map<String, Any>) {
+        val build = environment["build"] as? Map<*, *> ?: emptyMap<String, Any>()
+        val sha = build["gitSha"]?.toString().orEmpty()
+        check(sha.isNotBlank() && sha != "unknown") {
+            "the report names no build: the sha of the checkout is '$sha'. A number " +
+                "without a build behind it describes nothing that can be rebuilt."
+        }
+        val variant = build["variant"]?.toString().orEmpty()
+        check(variant == "debug" || variant == "release") {
+            "the report names the build variant '$variant', which is neither debug nor release"
+        }
+    }
+
+    /**
+     * A property of the JVM, or a loud stop.
+     *
+     * A missing property is not an empty string in the report: it is a
+     * measurement that does not know what it measured on.
+     */
+    private fun systemProperty(name: String): String =
+        checkNotNull(System.getProperty(name)) {
+            "the JVM has no property '$name': the report cannot name the environment it measured in"
+        }
+
+    /**
+     * Whether the JVM runs in its debug mode - with the assertions on.
+     *
+     * The assertions are the JVM's own debug switch, and the JVM tells the
+     * process which mode it was started in.
+     */
+    private fun assertionsEnabled(): Boolean =
+        ManagementFactory
+            .getRuntimeMXBean()
+            .inputArguments
+            .any { it == "-ea" || it.startsWith("-ea:") || it.startsWith("-enableassertions") }
+
+    /**
+     * The variant of the build the measurement ran on.
+     *
+     * The desktop app has no product flavours - it is a JVM application, and
+     * the only thing that tells one build of it from another is the mode of
+     * the JVM it runs on. A JVM in its debug mode is the debug build, a plain
+     * JVM is the release one. The report carries the assertion mode next to
+     * the variant, so the rule is visible and not taken on faith.
+     */
+    private fun buildVariant(): String = if (assertionsEnabled()) "debug" else "release"
 
     /**
      * The load of the host that measured.
