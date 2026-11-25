@@ -28,6 +28,14 @@ import kotlin.test.assertTrue
  * clauses below are chosen for that: each of them is a rule that changes what
  * a flow has to write, not a wording.
  *
+ * The two halves of that guarantee are not equally strong, and the check does
+ * not pretend they are. A copy that LOSES a clause is caught by the marker
+ * and by the occurrence count, whatever the wording of the loss. A copy that
+ * DENIES a clause is caught only if it denies it in one of the wordings the
+ * contradiction list knows. The list below is what the check knows: a
+ * reversal worded in a way that is not on the list slips through, and the
+ * check claims no more than that.
+ *
  * A marker has to be as specific as the clause it holds. A marker that matches
  * a word the copy also uses elsewhere — "overdue" — is satisfied by a copy that
  * lost the rule and kept the word, and the drift is invisible. So every marker
@@ -195,6 +203,24 @@ class SeedContractCopiesTest {
                 "opposite of the anonymous-session rule. A marker that names the " +
                 "subject of a clause is kept by the copy that reverses it.",
         )
+
+        // And the same for the rule about what the helper may wait for: a
+        // copy that keeps every marker and says the helper waits for a note
+        // is a copy that sends a flow author to a wait that times out on the
+        // device.
+        assertTrue(
+            missingClauses(A_CONTRACT_THAT_CONTRADICTS_THE_TITLE_RULE).isEmpty(),
+            "The fixture that reverses the title rule does not state the clauses. " +
+                "The contradiction check would then be caught by the clause check, and " +
+                "it would prove nothing.",
+        )
+        assertTrue(
+            contradictionsIn(A_CONTRACT_THAT_CONTRADICTS_THE_TITLE_RULE)
+                .contains("the helper waits for an entity it cannot reach"),
+            "The check accepts a copy that keeps every marker and states the " +
+                "opposite of the title-named rule — that the helper waits for an " +
+                "entity it can never reach.",
+        )
     }
 
     /**
@@ -329,10 +355,17 @@ class SeedContractCopiesTest {
          *
          * Each of them is what a copy that drifted from the contract would say:
          * the helper navigates, the helper scrolls, one wait covers every
-         * entity, the wait covers the overdue row. A copy that says one of them
-         * says what the contract denies — and it may still keep every marker
-         * of the contract, which is why the markers alone do not hold the
-         * copies together.
+         * entity, the wait covers the overdue row, the helper waits for an
+         * entity it can never reach. A copy that says one of them says what
+         * the contract denies — and it may still keep every marker of the
+         * contract, which is why the markers alone do not hold the copies
+         * together.
+         *
+         * These are the wordings the check knows. A copy that denies a clause
+         * in other words is not caught here: the markers and the occurrence
+         * counts still hold it to stating the clause, but a reversal worded
+         * outside this list slips through. Adding a wording is cheap; the
+         * list grows with the clauses that change what a flow has to write.
          */
         val CONTRACT_CONTRADICTIONS: List<Pair<String, Regex>> =
             listOf(
@@ -343,6 +376,8 @@ class SeedContractCopiesTest {
                 "a wait waits for every entity" to Regex("waits?\\s+for\\s+every\\s+entit"),
                 "a wait waits for the overdue row" to Regex("waits?\\s+for\\s+the\\s+overdue\\s+row"),
                 "an anonymous session writes an entity" to Regex("writes\\s+an?\\s+entity"),
+                "the helper waits for an entity it cannot reach" to
+                    Regex("helper\\s+waits?\\s+for\\s+(a\\s+|the\\s+)?(note|project|profile)\\b"),
             )
 
         /**
@@ -392,6 +427,25 @@ class SeedContractCopiesTest {
             A_CONTRACT_THAT_CONTRADICTS +
                 """
                 An anonymous session writes an entity at all.
+                """
+
+        /**
+         * A document that states the whole contract and reverses the rule
+         * about what the helper may wait for.
+         *
+         * The contract names a title-named entity by the element its title
+         * produces and then says the helper waits for it. That is only true
+         * of an entity on the screen the seed leaves the app on: a note and a
+         * project are on other screens, and the helper neither navigates nor
+         * scrolls, so a copy that says the helper waits for a note sends a
+         * flow author to a wait that times out on the device. This fixture is
+         * that copy: it states every clause, keeps every marker, and adds a
+         * line that states the opposite.
+         */
+        const val A_CONTRACT_THAT_CONTRADICTS_THE_TITLE_RULE =
+            A_CONTRACT_THAT_CONTRADICTS +
+                """
+                The helper waits for a note.
                 """
     }
 }
