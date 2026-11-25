@@ -358,10 +358,10 @@ Before merging:
 
 If test is hard to write, the VM is wrong.
 
-- [ ] `state` is `MutableStateFlow<X>` — plain, no `.stateIn(...)`
+- [ ] Public state is read-only — callers get `StateFlow<X>`, only the VM writes (`MviViewModel`: `updateState` / `setState`)
 - [ ] `init` uses injected `CoroutineScope` — primary constructor takes `scope`
-- [ ] No `combine(...)` — extract to `init { scope.launch { _state.value = computed } }`
-- [ ] No side effects in flow operators — never `_state.value = ...` inside `map`, `combine`
+- [ ] No `combine(...)` — extract to `init { scope.launch { updateState { computed } } }`
+- [ ] No side effects in flow operators — never `updateState { }` inside `map`, `combine`
 - [ ] Editable state in `*State` class (e.g., `DraftState`)
 - [ ] Test passes `this` (test scope), NOT `backgroundScope`
 

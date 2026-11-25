@@ -8,12 +8,14 @@ import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 // --- Test state/intent/event types ---
@@ -293,5 +295,21 @@ class MviViewModelTest {
                 events.any { it is VmEvent.Notify && it.msg == "inner" },
                 "expected the throwable message in the event, got $events",
             )
+        }
+
+    @Test
+    fun `state is a read-only view of stateFlow`() =
+        runTest {
+            val vm = VmUnderTest(this)
+
+            // The public handle must not be a MutableStateFlow. A caller that could write
+            // it would put the screen in a state the ViewModel never decided — which is
+            // exactly the drift the event bus cannot see.
+            assertFalse(vm.state is MutableStateFlow<*>, "state must not expose a mutable flow")
+
+            vm.onIntent(TestIntent.Start)
+            advanceUntilIdle()
+
+            assertEquals(vm.stateFlow.value, vm.state.value, "state and stateFlow are the same flow")
         }
 }

@@ -111,7 +111,8 @@ Parameters:
 
 **Properties:**
 
-- `state: StateFlow<S>` — public read-only state
+- `stateFlow: StateFlow<S>` — the canonical public read-only state
+- `state: StateFlow<S>` — the same read-only flow under a shorter name
 - `events: Flow<E>` — one-shot event flow (collect to handle events)
 
 **Methods:**
@@ -120,6 +121,16 @@ Parameters:
 - `tryEmit(event: E): Boolean` — non-suspend emit (returns false if buffer full)
 - `updateState(transform: (S) → S)` — update state with transform function
 - `onIntent(intent: I)` — abstract; override to dispatch intents
+
+### State is observed read-only
+
+Neither `state` nor `stateFlow` is a `MutableStateFlow`, and the backing flow is
+private to the base class. A public mutable handle lets any caller write state behind
+the ViewModel's back, and then the screen shows something the ViewModel never decided —
+drift the event bus cannot see. Writes go through `updateState` / `setState` only.
+
+In a subclass, read the current value with the protected `currentState`; do not reach
+for a mutable flow of your own.
 
 ### `IntentActions<I>`
 

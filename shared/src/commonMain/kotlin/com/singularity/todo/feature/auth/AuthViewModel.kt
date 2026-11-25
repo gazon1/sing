@@ -227,7 +227,7 @@ class AuthViewModel(
         password: String,
     ) {
         vmScope.launch {
-            if (_state.value is AuthUiState.Loading) return@launch
+            if (currentState is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
             authRepository.signIn(email, password).fold(
                 onSuccess = {
@@ -248,7 +248,7 @@ class AuthViewModel(
         password: String,
     ) {
         vmScope.launch {
-            if (_state.value is AuthUiState.Loading) return@launch
+            if (currentState is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
             authRepository.signUp(email, password).fold(
                 onSuccess = {
@@ -282,7 +282,7 @@ class AuthViewModel(
 
     private fun continueOffline() {
         vmScope.launch {
-            if (_state.value is AuthUiState.Loading) return@launch
+            if (currentState is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
             authRepository.startLocalSession().fold(
                 onSuccess = {
@@ -310,7 +310,7 @@ class AuthViewModel(
      */
     private fun attachAccount(intent: AuthIntent.AttachAccount) {
         vmScope.launch {
-            if (_state.value is AuthUiState.Loading) return@launch
+            if (currentState is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
 
             // Collect every step from the claimer — including SignOutFailed which occurs
@@ -385,7 +385,7 @@ class AuthViewModel(
         token: String,
     ) {
         vmScope.launch {
-            if (_state.value is AuthUiState.Loading) return@launch
+            if (currentState is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
             authRepository.verifyMagicLink(email, token).fold(
                 onSuccess = {
@@ -402,7 +402,7 @@ class AuthViewModel(
 
     private fun sendMagicLink(email: String) {
         vmScope.launch {
-            if (_state.value is AuthUiState.Loading) return@launch
+            if (currentState is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
             authRepository.sendMagicLink(email).fold(
                 onSuccess = {
