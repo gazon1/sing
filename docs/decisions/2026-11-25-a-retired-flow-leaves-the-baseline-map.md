@@ -100,8 +100,9 @@ fingerprint".
   fingerprints of the flows retired by #3143, and `BASELINE_DIGEST` in
   `scripts/check-maestro-flow-qualification.py` is refreshed to the new map.
   The frozen set and its pin are unchanged.
-- The shape of a retirement is now written down in three places instead of
-  two: the baseline map's header, `docs/testing/maestro-flow-qualification.md`
+- The shape of a retirement is now written down in four places instead of
+  two: the baseline map's header, `docs/testing/maestro-flow-qualification.md`,
+  the gate's own docstring in `scripts/check-maestro-flow-qualification.py`
   and this record.
 - The retirements that removed the flow from the frozen set as well (#3115,
   #3120, #3121, #3122, #3123) are not rewritten — a decision record is the

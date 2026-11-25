@@ -512,7 +512,7 @@ is read by the same rule as in the top eight.
 | `menu/10-large-projects.yaml` | 34 s | full | low | the desktop carrier of MENU-07 asserts the fold contract on the drawer; the residue is the toggle's two different ids (`menu_projects_expand` / `menu_projects_collapse`) |
 | `negative/04-empty-archive.yaml` | 28 s | full | medium | both assertions are desktop-owned (`ArchiveBulkActionFlowTest`); the residue is the Android menu path — and Archive is a **menu destination on Android, a tab on desktop**, so the residue is structural — **retired 2026-11-25 (#3143)** |
 | `negative/03-empty-projects.yaml` | 23 s | full | low | the single assertion is a desktop copy; the residue is the menu navigation and its scroll — **retired 2026-11-25 (#3143)** |
-| `negative/02-empty-notes.yaml` | 20 s | full | low | both assertions are desktop-owned (`NotesFlowTest`); the residue is the same menu navigation — **retired 2026-11-25 (#3143)** |
+| `negative/02-empty-notes.yaml` | 20 s | full | low | both assertions are desktop-owned (`NotesFlowTest`); the residue is the menu navigation and the quick-add field it typed into — **retired 2026-11-25 (#3143)** |
 
 ### The largest `split` payoffs
 
