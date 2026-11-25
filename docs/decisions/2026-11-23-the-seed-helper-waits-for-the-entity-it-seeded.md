@@ -702,7 +702,19 @@ helper invalidated, against the APK built from `38f87de9b9`:
   #3191. Each of the thirteen is admitted by an evidence-backed exception that
   names the issue that owns its cause.
 - The gate is green on this tree: 122 flows in a blocking scope, 51 baselined,
-  58 qualified, 13 excepted.
+  58 qualified, 13 excepted. The exceptions file holds exactly those thirteen: the
+  exception `archive/02-bulk-archive-confirm` was issued in #3126 against a
+  fingerprint the flow has left behind, and the flow has been requalified since, so
+  the record admits nothing and would be ignored by the gate — a stale record in the
+  file that names a cause for a flow that is qualified is a second, wrong contract
+  about the flow. It is gone.
+- The gate now says so itself. An exception that names a fingerprint the flow has
+  left behind was read only where a flow had to be admitted, so an exception
+  beside a *valid* qualification was never looked at: the gate was silent about a
+  record that contradicts the qualification next to it. The gate reports it as a
+  `stale exception` finding — the record has to be reissued for the current
+  fingerprint or deleted. The rule is what keeps the exceptions file honest as the
+  flows move under it.
 
 ## Links
 
@@ -716,7 +728,12 @@ helper invalidated, against the APK built from `38f87de9b9`:
   the gate that holds the flows to the rule that one wait covers one entity.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedContractCopiesTest.kt` —
   the gate that holds the three copies of the contract to each other: every
-  clause in all three, and the opposite of a clause in none.
+  clause in all three, and the opposite of a clause in none. A clause is held by
+  a marker — a phrase all three copies use — so the check is that the three state
+  the same rules, not that they read alike: a copy may state a clause in its own
+  words. The clauses are the rules a flow author relies on (what the wait names,
+  where it stands relative to the seed, whose entity it is evidence for, what a
+  seed that writes nothing waits for), not the wording.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/SeedHelperQueryTest.kt` —
   the gate that holds the helper to forwarding the query whole, and to reading
   none of it.

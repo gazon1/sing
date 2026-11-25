@@ -19,6 +19,15 @@ import kotlin.test.assertTrue
  * of its own: the helper's own gate holds the helper and its callers, and
  * this one holds the three copies of the wording to each other.
  *
+ * What the check is, precisely: the copies have to state the same *clauses*.
+ * A clause is a consequence of the contract a flow author relies on, and it is
+ * held by a marker — a phrase all three copies use. The check is not a
+ * comparison of the three texts: a copy may state a clause in its own words.
+ * What it holds is that no copy loses a clause and no copy contradicts one,
+ * because a copy that drops a rule or denies it is a second contract. The
+ * clauses below are chosen for that: each of them is a rule that changes what
+ * a flow has to write, not a wording.
+ *
  * Run from repo root:
  * ```
  * ./gw :shared:archTest --tests "com.singularity.todo.arch.SeedContractCopiesTest"
@@ -192,6 +201,18 @@ class SeedContractCopiesTest {
                 "a wait names what the seed changed" to Regex("what\\s+the\\s+seed\\s+changed"),
                 "the copies state the contract alike" to Regex("copies\\s+state\\s+it\\s+alike"),
                 "the wait covers one entity of the seed" to Regex("covers\\s+one\\s+entity"),
+                // The clauses below are the ones a flow author relies on when
+                // they write a flow: what the wait names, where it stands
+                // relative to the seed, whose entity it is evidence for, and
+                // what happens when the seed writes nothing. A copy that drops
+                // one of them tells its reader to write a flow that fails on a
+                // device.
+                "the wait names what the flow asserts on" to Regex("assert\\s+on"),
+                "the wait belongs to the seed that asked for it" to Regex("belongs\\s+to\\s+the\\s+seed"),
+                "the shell wait and the entity wait are two waits" to Regex("the\\s+shell\\s+wait"),
+                "the wait is the entity wait" to Regex("entity\\s+wait"),
+                "a seed that writes no entity waits for the shell alone" to Regex("names\\s+no\\s+entity"),
+                "a title-named entity is named by the id the app renders" to Regex("TestTags"),
             )
 
         /**
@@ -231,6 +252,11 @@ class SeedContractCopiesTest {
             is not a target either; a section an earlier seed brought in is not a target either.
             A wait names what the seed changed, and the copies state it alike.
             The wait covers one entity of the seed.
+            The wait names what the flow will assert on, and it belongs to the seed that asked for it.
+            The shell wait and the entity wait are two waits: the shell wait lets the app come up,
+            and the entity wait absorbs the arrival.
+            A seed that writes no entity names no entity to wait for, and waits for the shell alone.
+            A title-named entity is named by the id the app renders — the slug of TestTags.
             The helper navigates to the section it waits for.
             """
     }

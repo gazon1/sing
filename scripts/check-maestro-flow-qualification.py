@@ -779,6 +779,9 @@ def scan(
             continue
         if flow in initial_set and baseline.get(flow) == fp:
             counts["baselined"] += 1
+            stale = stale_exception_reason(exceptions.get(flow), fp) if flow in exceptions else None
+            if stale is not None:
+                findings.append(Finding(flow, "stale exception", stale))
             continue
 
         # Recovery for a changed/non-matching flow happens via qualification or
@@ -791,6 +794,9 @@ def scan(
             ok, reason = is_qualified(qualifications[flow], fp, required)
             if ok:
                 counts["qualified"] += 1
+                stale = stale_exception_reason(exceptions.get(flow), fp) if flow in exceptions else None
+                if stale is not None:
+                    findings.append(Finding(flow, "stale exception", stale))
                 continue
             qualification_reason = reason
         exception_reason = None
@@ -831,7 +837,29 @@ def scan(
                     "new or unadmitted flow in a blocking automated scope; qualify it (bounded repeated run) or add an evidence-backed exception",
                 )
             )
+
     return findings, counts
+
+
+def stale_exception_reason(record: dict, current_fp: str) -> str | None:
+    """Why an exception that admitted nothing is a finding, if it is one.
+
+    An exception is read as a reason a flow is admitted *instead* of being
+    qualified. When the flow is admitted by something else, an exception that
+    names a fingerprint the flow has left behind is a record about a flow that
+    no longer exists: it says the flow was never qualified on a device while
+    the file elsewhere says it was qualified three times. The record has to be
+    reissued against the current fingerprint or deleted.
+    """
+    if not isinstance(record, dict):
+        return "the exception record is not a mapping"
+    recorded = record.get("fingerprint")
+    if recorded == current_fp:
+        return None
+    return (
+        f"the exception is for fingerprint {recorded}, current is {current_fp} "
+        f"(reissue it for the changed flow, or delete it if the flow is qualified)"
+    )
 
 
 def build_baseline(root: pathlib.Path, catalogue_path: pathlib.Path, initial_names: list[str]) -> dict:
