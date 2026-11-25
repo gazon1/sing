@@ -41,6 +41,14 @@ flows tagged ``manual`` or ``auth-live`` (the automated ``full`` suite and the
    The baseline map is pinned the same way: its digest is kept here, so an
    edited fingerprint -- a changed flow nobody qualified -- is a source
    change and not a data change.
+
+   Retiring a flow splits the two artifacts in opposite directions. The frozen
+   set keeps the name: it is the record of the flows that were in a blocking
+   scope when the rule was introduced, and a name without a file behind it
+   qualifies nothing. The baseline map drops the fingerprint: the map only
+   shrinks, and a flow that comes back to the catalogue is qualified instead
+   of admitted by a fingerprint nobody re-ran. ADR
+   ``docs/decisions/2026-11-25-a-retired-flow-leaves-the-baseline-map.md``.
 2. **Qualified.** ``config/docs/maestro-flow-qualification.yaml`` records a
    qualification run for the flow's current fingerprint: at least
    ``required_attempts`` consecutive attempts, every attempt represented,
@@ -139,7 +147,7 @@ FROZEN_SET_DIGEST = "sha256:863ed25a7db9a260fba93474102645baa27359399e94f8665e95
 #: changed — a source change, reviewed as one, that says in the diff that
 #: flows are admitted without being qualified. Print the current digest with
 #: ``--print-baseline-digest``.
-BASELINE_DIGEST = "sha256:abe44c4760eda44981f240a99386d88cde256066a019e28b5d8180a9e7be4d2e"
+BASELINE_DIGEST = "sha256:9e9fe6fffeae18306e2bc84a9c0c0cc3d9c8cadfdd95d9f517110d73eb225ca7"
 
 #: A reference inside a flow/helper: `file: path`, `- runFlow: path` or
 #: `- runScript: path`. The extension is not restricted to YAML: a flow can run

@@ -1,8 +1,12 @@
 # Maestro flow qualification baseline: fingerprints of the frozen set.
 # This map only shrinks; a changed flow must be qualified or excepted instead.
+# A retired flow leaves this map as well: its fingerprint is dropped, so a flow
+# that comes back is qualified instead of admitted by an old fingerprint.
 #
 # The frozen set itself lives in maestro-flow-qualification-initial.yaml and is
-# pinned by a digest in scripts/check-maestro-flow-qualification.py.
+# pinned by a digest in scripts/check-maestro-flow-qualification.py. The frozen
+# set is the record of the flows that were in a blocking scope when the rule
+# was introduced, so it keeps a retired flow's name.
 schema: 1
 policy: flows in automated blocking scopes at rule introduction; a matching fingerprint
   admits the flow, a change requires qualification
@@ -57,9 +61,6 @@ flows:
   Maestro/flows/nav/bottom-nav-tabs.yaml: sha256:26d7e374af8e3c354d5230b21e40a7c5a7b59849230a993e85b5c67718aaccb1
   Maestro/flows/nav/deep-link-task.yaml: sha256:713a02f964ee99ff7f39c59f0feb901b6937ae73f81b55c2f3185139831d14bc
   Maestro/flows/negative/01-empty-inbox.yaml: sha256:bcfe2120936b566f35319dae7885e6a82870a9fa11ea96f4770d7c1c230f8ea5
-  Maestro/flows/negative/02-empty-notes.yaml: sha256:cffab5d1ddd2f08aafc8527f367767945a3e5c8d7c8228976091b9d8a00671fc
-  Maestro/flows/negative/03-empty-projects.yaml: sha256:a4c43d1042425ce7573d81ec58457998707d3e81814ea872075e1e99310e4e09
-  Maestro/flows/negative/04-empty-archive.yaml: sha256:95381b5f450bd7960c19e84f5e58616be26067dcf01decb228dee297fbdcf891
   Maestro/flows/negative/05-empty-search.yaml: sha256:d027826d96cc4afe0f3fe02bc4ae2dd5b00f64f2b873e0ae19905391dd63e8e4
   Maestro/flows/negative/06-empty-tags.yaml: sha256:2a4ace1bdcc16bb2ebebe6ba80a641caea5862b2b3d4eaaca99871c35b025722
   Maestro/flows/notes/01-edit-body.yaml: sha256:6eb17794d4d8b298cd503c02bad3d7e9920e138eb5ef933b24ef835fd31fde7c
