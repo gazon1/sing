@@ -1,14 +1,19 @@
 # Scenario specification for NEGATIVE-03.
 #
-# Claimed on `android`, carried by Maestro flow
-# `Maestro/flows/negative/03-empty-projects.yaml` (`scenario:NEGATIVE-03`).
+# The Maestro flow `Maestro/flows/negative/03-empty-projects.yaml` that
+# carried this on Android was retired (#3143): the shared behaviour — the empty
+# state — is owned by the desktop carrier below, which asserts the same empty
+# message and the create action. The flow's Android-only residue is not this
+# guarantee: the menu route, scrolled to the fold, is exercised by
+# `Maestro/flows/menu/04-all-projects.yaml`, which walks the same
+# `menu_all_projects` path into the list.
 
 id: NEGATIVE-03
 title: "The projects list shows an empty state with no projects"
 area: feature.negative
 priority: P1
 status: confirmed
-targets: [android]
+targets: [desktop]
 preconditions: >-
   No projects exist.
 steps:

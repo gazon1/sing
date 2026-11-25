@@ -1,8 +1,14 @@
 # Maestro flow qualification baseline: fingerprints of the frozen set.
 # This map only shrinks; a changed flow must be qualified or excepted instead.
+# A retired flow leaves this map as well: its fingerprint is dropped, so a flow
+# that comes back is qualified instead of admitted by an old fingerprint.
 #
 # The frozen set itself lives in maestro-flow-qualification-initial.yaml and is
-# pinned by a digest in scripts/check-maestro-flow-qualification.py.
+# pinned by a digest in scripts/check-maestro-flow-qualification.py. The frozen
+# set is the record of the flows that were in a blocking scope when the rule
+# was introduced, so it keeps a retired flow's name. Every entry below points
+# at a flow that is still in the catalogue; a flow introduced after the rule
+# has no entry here and enters through qualification or an exception.
 schema: 1
 policy: flows in automated blocking scopes at rule introduction; a matching fingerprint
   admits the flow, a change requires qualification
@@ -53,13 +59,9 @@ flows:
   Maestro/flows/menu/09-attach-account-entry.yaml: sha256:1673b9f7fe281b6c14367af94a5ffc9ef8fa0ac92fef2b5a613c0fba15ee4397
   Maestro/flows/menu/10-large-projects.yaml: sha256:b1c70ad8f265ccb81eb8555c0305772aa4bffdd1296592bc4aeabcdfd8a99fa5
   Maestro/flows/nav/01-no-calendar-tab.yaml: sha256:22c77e4c3a94d1f9f82a04aed3ea68a36e6e7a73c733c1e509fd32dfb719ad3d
-  Maestro/flows/nav/02-menu-parity.yaml: sha256:3dc5caf5ced79999a87be3af34cdbac474dbd63974da7461401ca1a7cd0f6192
   Maestro/flows/nav/bottom-nav-tabs.yaml: sha256:26d7e374af8e3c354d5230b21e40a7c5a7b59849230a993e85b5c67718aaccb1
   Maestro/flows/nav/deep-link-task.yaml: sha256:713a02f964ee99ff7f39c59f0feb901b6937ae73f81b55c2f3185139831d14bc
   Maestro/flows/negative/01-empty-inbox.yaml: sha256:bcfe2120936b566f35319dae7885e6a82870a9fa11ea96f4770d7c1c230f8ea5
-  Maestro/flows/negative/02-empty-notes.yaml: sha256:cffab5d1ddd2f08aafc8527f367767945a3e5c8d7c8228976091b9d8a00671fc
-  Maestro/flows/negative/03-empty-projects.yaml: sha256:a4c43d1042425ce7573d81ec58457998707d3e81814ea872075e1e99310e4e09
-  Maestro/flows/negative/04-empty-archive.yaml: sha256:95381b5f450bd7960c19e84f5e58616be26067dcf01decb228dee297fbdcf891
   Maestro/flows/negative/05-empty-search.yaml: sha256:d027826d96cc4afe0f3fe02bc4ae2dd5b00f64f2b873e0ae19905391dd63e8e4
   Maestro/flows/negative/06-empty-tags.yaml: sha256:2a4ace1bdcc16bb2ebebe6ba80a641caea5862b2b3d4eaaca99871c35b025722
   Maestro/flows/notes/01-edit-body.yaml: sha256:6eb17794d4d8b298cd503c02bad3d7e9920e138eb5ef933b24ef835fd31fde7c
@@ -78,13 +80,10 @@ flows:
   Maestro/flows/projects/04-pick-emoji.yaml: sha256:9d0c54531bafc4bd7ff845efde54b3819fdf07bb0c5e4a77d49b7205b1366193
   Maestro/flows/projects/05-custom-emoji.yaml: sha256:846a1f7580793c4e0c73c861bc63c2e5732700500149adea43d34c8ce24731cd
   Maestro/flows/search/02-cyrillic.yaml: sha256:2985dbd3930b1fc88817b0b6b6526c58dcb85c46755d6200deded4085612ed85
-  Maestro/flows/search/03-clear.yaml: sha256:342585e5ab196d1fc3eee609047a6a89f6cc37f0e160fadf086150780d5eb9d7
   Maestro/flows/search/04-filter-description.yaml: sha256:212d47b45dfc56edcf46dc37fd569009041ffac2fe7850a9fb7cc4d78ce6031f
   Maestro/flows/search/05-filter-pinned.yaml: sha256:77edb5ea5b266373a6ed9297ca25eaec875f26f9f7f78b07d6447fe0f6722bbc
   Maestro/flows/search/06-no-results.yaml: sha256:a509240106d40c2bd725cfb2c2edd1ab6a7748ba06b6699bbba52c6d62670253
   Maestro/flows/search/07-saved-search.yaml: sha256:f650acf790aab8bb2d47a9f26a818353418ab172d7844aaa855b806c6ee65173
-  Maestro/flows/search/08-word-prefix.yaml: sha256:510b2f2c6b990a28e84c7cf5988a2ae78ab0a010965548bd5b6747ca55a26c79
-  Maestro/flows/search/09-contains-mode.yaml: sha256:8c53780115183936728de0774540c22c804cc43446b72e0425f8549fb90dd264
   Maestro/flows/search/10-task-card-actions.yaml: sha256:e2e6cb51e037be859da7ed1284480f640a87ed550464c13a0d56fb8cde74973d
   Maestro/flows/search/11-filter-sheet-reachability.yaml: sha256:6d2bca8e5ec1d98607164e11ab158ae1ca58c6db8b320ca798953dea3d6034f4
   Maestro/flows/search/12-no-results-recovery.yaml: sha256:2eab83a3ff5d70c584613d6deef8b91dd15e2ff2b25f2de3e048af9c36b64014

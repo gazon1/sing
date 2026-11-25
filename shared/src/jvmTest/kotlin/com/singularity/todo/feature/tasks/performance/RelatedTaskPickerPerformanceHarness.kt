@@ -9,7 +9,9 @@ import co.touchlab.kermit.CommonWriter
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.loggerConfigInit
 import com.singularity.todo.core.attachments.AttachmentStorage
+import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.backup.BackupImporter
+import com.singularity.todo.core.backup.DatasetDirectoryBackupCodec
 import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.database.AppDatabase
@@ -78,6 +80,14 @@ import kotlin.time.TimeSource
  * ./gw :import-cli:run --args="generate --profile 10k --seed 4242 --output build/perf/10k.zip"
  * ./gw :shared:relatedTaskPickerPerf -Pperf.archive=$PWD/build/perf/10k.zip
  * ```
+ *
+ * A dataset that does not fit a backup archive is generated as a dataset
+ * directory (`--format dir`) and measured the same way:
+ *
+ * ```
+ * ./gw :import-cli:run --args="generate --profile 10k --seed 4242 --format dir --output build/perf/10k-dir"
+ * ./gw :shared:relatedTaskPickerPerf -Pperf.dataset=$PWD/build/perf/10k-dir
+ * ```
  */
 fun main(args: Array<String>) {
     val config = PerfConfig.parse(args)
@@ -86,25 +96,12 @@ fun main(args: Array<String>) {
 }
 
 /** What to measure, and how often. */
-private data class PerfConfig(val archive: String, val iterations: Int, val warmup: Int, val owner: UserId) {
+private data class PerfConfig(val dataset: PerfDataset, val iterations: Int, val warmup: Int, val owner: UserId) {
     companion object {
         fun parse(args: Array<String>): PerfConfig {
-            val values =
-                args
-                    .mapNotNull { arg ->
-                        if (!arg.startsWith("--")) return@mapNotNull null
-                        val key = arg.removePrefix("--").substringBefore('=')
-                        val value = arg.substringAfter('=', "")
-                        if (value.isEmpty()) null else key to value
-                    }.toMap()
-            val archive =
-                values["archive"]
-                    ?: error("no dataset to measure — pass --archive=<path to a generated backup zip>")
-            check(archive.isNotBlank()) {
-                "no dataset to measure — pass --archive=<path to a generated backup zip>"
-            }
+            val values = perfArgs(args)
             return PerfConfig(
-                archive = archive,
+                dataset = PerfDataset.parse(values),
                 iterations = (values["iterations"] ?: "10").toInt(),
                 warmup = (values["warmup"] ?: "3").toInt(),
                 owner = UserId(values["owner"] ?: "perf-owner"),
@@ -208,10 +205,10 @@ private data class Scenario(
 )
 
 private suspend fun measure(config: PerfConfig): String {
-    val archive = File(config.archive)
-    check(archive.isFile) { "no dataset to measure: ${archive.absolutePath}" }
-    val runs = RecencyMode.entries.map { mode -> measureMode(mode, archive, config) }
-    return render(archive, runs)
+    val dataset = config.dataset
+    check(dataset.file.exists()) { "no dataset to measure: ${dataset.file.absolutePath}" }
+    val runs = RecencyMode.entries.map { mode -> measureMode(mode, dataset, config) }
+    return render(dataset, runs)
 }
 
 /**
@@ -250,13 +247,13 @@ private enum class RecencyMode(val label: String) {
 
 private suspend fun measureMode(
     mode: RecencyMode,
-    archive: File,
+    dataset: PerfDataset,
     config: PerfConfig,
 ): ModeRun {
     val fixture = DatabaseTestFixture.onDisk()
     try {
         val db = fixture.database("perf")
-        restore(db, fixture, archive.absolutePath, config.owner)
+        restore(db, fixture, dataset, config.owner)
         if (mode == RecencyMode.DatasetOrder) {
             db.restoreRecencyOrder()
         }
@@ -280,14 +277,27 @@ private suspend fun measureMode(
     }
 }
 
-/** Restores the archive through the app's own restore path. */
+/**
+ * Restores the dataset through the app's own restore path.
+ *
+ * The dataset in, the rows out: [BackupImporter] validates the manifest, migrates
+ * the payload and applies the rows exactly as it does for a backup the user
+ * picked. Only the reader differs — an archive is read by the archive codec, a
+ * dataset directory by [DatasetDirectoryBackupCodec], which does not apply the
+ * archive budget, because a dataset directory is not a backup (#3197).
+ */
 internal suspend fun restore(
     db: AppDatabase,
     fixture: DatabaseTestFixture,
-    archivePath: String,
+    dataset: PerfDataset,
     owner: UserId,
 ) {
     val fs = JvmFileSystem()
+    val codec: BackupCodec =
+        when (dataset.form) {
+            PerfDataset.Form.Archive -> JvmBackupCodec()
+            PerfDataset.Form.Directory -> DatasetDirectoryBackupCodec(dataset.file)
+        }
     val importer =
         BackupImporter(
             log = Logger(loggerConfigInit(CommonWriter()), "related-task-picker-perf"),
@@ -307,7 +317,7 @@ internal suspend fun restore(
             attachmentDao = db.attachmentDao(),
             annotationDao = db.annotationDao(),
             attachmentStorage = AttachmentStorage(fs, File(fixture.directory(), "attachments").absolutePath),
-            codec = JvmBackupCodec(),
+            codec = codec,
             clock = Clock.System,
             createFileSource = JvmFileSourceFactory(),
             tasksSettings = FakeTasksSettingsRepository(),
@@ -316,7 +326,7 @@ internal suspend fun restore(
     val restored =
         importer.import(
             importOptions {
-                sourcePath = archivePath
+                sourcePath = dataset.path
                 targetUserId = owner
             },
         )
@@ -739,13 +749,16 @@ private suspend fun AppDatabase.readOrderingEdges(
 
 /** The report. */
 private fun render(
-    archive: File,
+    dataset: PerfDataset,
     runs: List<ModeRun>,
 ): String =
     buildString {
         appendLine("## Related Tasks picker — measurement")
         appendLine()
-        appendLine("- dataset: `${archive.absolutePath}` (${archive.length() / 1024} KiB)")
+        appendLine(
+            "- dataset: `${dataset.file.absolutePath}` " +
+                "(${dataset.sizeBytes() / 1024} KiB, ${dataset.form.name.lowercase()})",
+        )
         val stats = runs.first().stats
         appendLine("- tasks: ${stats.tasks}, dependency edges: ${stats.edges}")
         appendLine("- dense task: ${stats.hub.title} (closure ${stats.hubClosure} tasks)")
