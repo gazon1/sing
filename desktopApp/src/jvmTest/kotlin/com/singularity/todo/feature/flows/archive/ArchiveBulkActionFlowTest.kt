@@ -139,6 +139,10 @@ class ArchiveBulkActionFlowTest {
             assertTextDisplayed("Archive is empty")
 
             clickTag(TestTags.ARCHIVE_OVERFLOW)
+            // Discoverable first: the retired flow waited for the item to be
+            // visible, and an item that is composed but off screen would still
+            // pass a state check while the user cannot find it.
+            assertTagDisplayed(TestTags.ARCHIVE_BULK_ACTION)
             assertTagNotEnabled(TestTags.ARCHIVE_BULK_ACTION)
         }
 
