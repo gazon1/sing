@@ -43,6 +43,8 @@ object ProfileWipePlan {
             "attachments" to "attachmentDao.deleteAllForUser",
             "calendar_import_event" to "calendarImportEventDao.deleteAllForUser",
             "calendar_sync_task_map" to "calendarSyncTaskMapDao.clearAll",
+            "chat_conversations" to "chatConversationDao.deleteAllForUser",
+            "chat_messages" to "chatMessageDao.deleteAllForUser",
             "checklist_items" to "taskRepository.deleteAllForCurrentProfile",
             "google_event_shadow" to "googleEventShadowDao.deleteAllForUser",
             "notes" to "notesRepository.deleteAllForCurrentProfile",

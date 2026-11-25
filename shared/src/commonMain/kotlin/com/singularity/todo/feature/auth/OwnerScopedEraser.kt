@@ -92,6 +92,8 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
         // the opposite of what the operation promises.
         val timeEntries = erase.deleteTimeEntries(scopes)
         val agendaViews = erase.deleteAgendaViews(scopes)
+        val chatMessages = erase.deleteChatMessages(scopes)
+        val chatConversations = erase.deleteChatConversations(scopes)
         val tasks = erase.deleteTasks(scopes)
 
         // ── Sync state ──────────────────────────────────────────────────────────
@@ -117,6 +119,8 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
                 tagGroups = tagGroups,
                 timeEntries = timeEntries,
                 agendaViews = agendaViews,
+                chatConversations = chatConversations,
+                chatMessages = chatMessages,
                 outbox = outbox,
                 deadLetter = deadLetter,
                 shadows = shadow,
@@ -166,6 +170,8 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
         val tagGroups = preview.countTagGroups(scopes)
         val timeEntries = preview.countTimeEntries(scopes)
         val agendaViews = preview.countAgendaViews(scopes)
+        val chatMessages = preview.countChatMessages(scopes)
+        val chatConversations = preview.countChatConversations(scopes)
         val tasks = preview.countTasks(scopes)
 
         val outbox = database.syncOutboxDao().countForOwner(resolved.ownerId)
@@ -186,6 +192,8 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
             tagGroups = tagGroups,
             timeEntries = timeEntries,
             agendaViews = agendaViews,
+            chatConversations = chatConversations,
+            chatMessages = chatMessages,
             outbox = outbox,
             deadLetter = deadLetter,
             shadows = shadow,
@@ -204,7 +212,7 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
  * one place; the 5 child-row counters and 2 computed properties are erase-specific.
  */
 data class EraseCounts(
-    // ── 12 shared counters (OwnerOperationCounts) ────────────────────────────
+    // ── 14 shared counters (OwnerOperationCounts) ────────────────────────────
     override val tasks: Int = 0,
     override val notes: Int = 0,
     override val projects: Int = 0,
@@ -214,6 +222,8 @@ data class EraseCounts(
     override val projectReminders: Int = 0,
     override val timeEntries: Int = 0,
     override val agendaViews: Int = 0,
+    override val chatConversations: Int = 0,
+    override val chatMessages: Int = 0,
     override val outbox: Int = 0,
     override val deadLetter: Int = 0,
     override val shadows: Int = 0,
@@ -231,6 +241,7 @@ data class EraseCounts(
         get() =
             tasks + notes + projects + tags + childRows +
                 taskReminders + projectReminders + tagGroups + timeEntries + agendaViews +
+                chatConversations + chatMessages +
                 outbox + deadLetter + shadows == 0
 
     override fun toString(): String =

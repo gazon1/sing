@@ -95,6 +95,8 @@ by consequence, and none is unresolved.
 | `ai_proposal_item` | wiped | The items of a proposal. They carry no owner of their own — ownership lives on the parent proposal — so they are reached through it. | `ProposalItemDao.deleteAllForUser(userId)` |
 | `calendar_import_event` | wiped | An event offered for import; a leftover one is offered again to the next flow. | `CalendarImportEventDao.deleteAllForUser(userId)` |
 | `calendar_sync_task_map` | wiped | The mapping from a task to the calendar event it owns. The task is gone; the mapping must go with it, or the next sync believes it still manages a task that no longer exists. | `CalendarSyncTaskMapDao.clearAll(userId)` |
+| `chat_conversations` | wiped | A built-in AI chat conversation is profile content: its transcript belongs to the profile that created it and must not leak across profiles or survive a profile reset. | `ChatConversationDao.deleteAllForUser(userId)` |
+| `chat_messages` | wiped | The ordered transcript messages of a built-in chat conversation. They carry a foreign key to the conversation and are wiped before the conversation row. | `ChatMessageDao.deleteAllForUser(userId)` |
 | `google_event_shadow` | wiped | The record of the calendar event this profile manages, kept so the planner can tell a change from a deletion. With the task gone, a leftover shadow makes the planner believe the event is still managed and keep it alive. | `GoogleEventShadowDao.deleteAllForUser(userId)` |
 
 ### 2. Not profile content — the tables the reset leaves alone
@@ -160,6 +162,8 @@ without creating a task, and the reset now reaches them: `tags`, `tag_groups`,
 `task_reminders`, `project_reminders`, `time_entries`, `saved_searches`,
 `attachments`, `attachment_annotations`, `ai_proposal`, `ai_proposal_item`,
 `calendar_import_event`, `calendar_sync_task_map` and `google_event_shadow`.
+Later additions to the schema (`chat_conversations`, `chat_messages`) are also
+profile content and are reached by the same wipe.
 
 The other nine are the tables a profile reset must not touch, and they are the
 second section of this inventory: `profiles`, `llm_usage`, `remote_configs`,

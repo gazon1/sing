@@ -69,6 +69,7 @@ fun domainModule(fixedProfileId: ProfileId? = null): List<Module> =
         // included module would put it in a child scope where the sibling
         // modules above could not see it.
         add(refreshModule())
+        add(aiChatModule())
         add(aiToolsModule())
         add(genuiModule())
         add(aiSettingsModule())

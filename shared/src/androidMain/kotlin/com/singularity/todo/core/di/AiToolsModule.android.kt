@@ -138,6 +138,8 @@ actual fun aiToolsModule(): Module =
                 idGen = get(),
                 crashReporter = get(),
                 surfaces = get(),
+                conversationRepository = get(),
+                clock = get(),
             )
         }
         viewModel { AiUsageViewModel(usageRecorder = get(), profileRepository = get(), crashReporter = get()) }

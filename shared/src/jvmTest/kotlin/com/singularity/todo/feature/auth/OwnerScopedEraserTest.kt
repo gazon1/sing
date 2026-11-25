@@ -526,6 +526,8 @@ class OwnerScopedEraserTest {
             assertEquals(preview.tagRefs, erased.tagRefs)
             assertEquals(preview.dependencies, erased.dependencies)
             assertEquals(preview.checklists, erased.checklists)
+            assertEquals(preview.chatConversations, erased.chatConversations)
+            assertEquals(preview.chatMessages, erased.chatMessages)
             // The sync queues are counted by the same owner filter that erases them, so a
             // preview built from `countForOwner` must promise exactly what the erase takes.
             assertEquals(preview.outbox, erased.outbox)

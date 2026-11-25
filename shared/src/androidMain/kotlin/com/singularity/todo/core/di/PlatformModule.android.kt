@@ -175,6 +175,8 @@ actual fun platformModule(): Module =
         single { get<AppDatabase>().timeEntryDao() }
         single { get<AppDatabase>().proposalDao() }
         single { get<AppDatabase>().proposalItemDao() }
+        single { get<AppDatabase>().chatConversationDao() }
+        single { get<AppDatabase>().chatMessageDao() }
 
         // ─── Platform Ports (registered early — needed by koinBridge migrations) ────
 

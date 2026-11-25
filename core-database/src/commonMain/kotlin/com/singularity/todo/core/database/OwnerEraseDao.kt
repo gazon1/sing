@@ -152,6 +152,12 @@ interface OwnerEraseDao {
     @Query("DELETE FROM agenda_views WHERE user_id IN (:scopedUserIds)")
     suspend fun deleteAgendaViews(scopedUserIds: List<String>): Int
 
+    @Query("DELETE FROM chat_messages WHERE user_id IN (:scopedUserIds)")
+    suspend fun deleteChatMessages(scopedUserIds: List<String>): Int
+
+    @Query("DELETE FROM chat_conversations WHERE user_id IN (:scopedUserIds)")
+    suspend fun deleteChatConversations(scopedUserIds: List<String>): Int
+
     // ── Preview (count without delete) ────────────────────────────────────────
 
     /** @see deleteTagRefs */
@@ -253,6 +259,14 @@ interface OwnerEraseDao {
     /** @see deleteAgendaViews */
     @Query("SELECT COUNT(*) FROM agenda_views WHERE user_id IN (:scopedUserIds)")
     suspend fun countAgendaViews(scopedUserIds: List<String>): Int
+
+    /** @see deleteChatMessages */
+    @Query("SELECT COUNT(*) FROM chat_messages WHERE user_id IN (:scopedUserIds)")
+    suspend fun countChatMessages(scopedUserIds: List<String>): Int
+
+    /** @see deleteChatConversations */
+    @Query("SELECT COUNT(*) FROM chat_conversations WHERE user_id IN (:scopedUserIds)")
+    suspend fun countChatConversations(scopedUserIds: List<String>): Int
 
     /** @see deleteProfiles */
     @Query("SELECT COUNT(*) FROM profiles WHERE user_id = :ownerId")

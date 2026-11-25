@@ -69,6 +69,8 @@ class OwnerScopedReassigner(private val database: AppDatabase, private val log: 
         var projectReminders = 0
         var timeEntries = 0
         var agendaViews = 0
+        var chatConversations = 0
+        var chatMessages = 0
 
         for ((from, to) in mapping.pairs) {
             tasks += dao.reassignTasks(from, to)
@@ -80,6 +82,8 @@ class OwnerScopedReassigner(private val database: AppDatabase, private val log: 
             projectReminders += dao.reassignProjectReminders(from, to)
             timeEntries += dao.reassignTimeEntries(from, to)
             agendaViews += dao.reassignAgendaViews(from, to)
+            chatConversations += dao.reassignChatConversations(from, to)
+            chatMessages += dao.reassignChatMessages(from, to)
         }
 
         // ── Sync state, keyed by the bare owner ─────────────────────────────────
@@ -103,6 +107,8 @@ class OwnerScopedReassigner(private val database: AppDatabase, private val log: 
                 tagGroups = tagGroups,
                 timeEntries = timeEntries,
                 agendaViews = agendaViews,
+                chatConversations = chatConversations,
+                chatMessages = chatMessages,
                 profiles = profiles,
                 outbox = outbox,
                 deadLetter = deadLetter,
@@ -126,7 +132,7 @@ class OwnerScopedReassigner(private val database: AppDatabase, private val log: 
  * one place; the `profiles` counter and [isEmpty] formula are reassign-specific.
  */
 data class ReassignCounts(
-    // ── 12 shared counters (OwnerOperationCounts) ────────────────────────────
+    // ── 14 shared counters (OwnerOperationCounts) ────────────────────────────
     override val tasks: Int = 0,
     override val notes: Int = 0,
     override val projects: Int = 0,
@@ -136,6 +142,8 @@ data class ReassignCounts(
     override val projectReminders: Int = 0,
     override val timeEntries: Int = 0,
     override val agendaViews: Int = 0,
+    override val chatConversations: Int = 0,
+    override val chatMessages: Int = 0,
     override val outbox: Int = 0,
     override val deadLetter: Int = 0,
     override val shadows: Int = 0,
@@ -147,6 +155,7 @@ data class ReassignCounts(
         get() =
             tasks + notes + projects + tags + tagGroups +
                 taskReminders + projectReminders + timeEntries + agendaViews +
+                chatConversations + chatMessages +
                 profiles + outbox + deadLetter + shadows == 0
 
     override fun toString(): String =

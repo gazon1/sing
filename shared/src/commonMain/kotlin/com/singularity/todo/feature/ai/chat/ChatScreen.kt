@@ -255,6 +255,19 @@ private fun ChatMessagesList(
                     role = if (msg.role == ChatRole.User) BubbleRole.User else BubbleRole.Assistant,
                     content = msg.content,
                 )
+            } else if (msg.interrupted) {
+                MessageBubble(
+                    role = BubbleRole.Assistant,
+                    content = "Response interrupted.",
+                )
+            }
+            if (msg.interrupted && msg.content.isNotBlank()) {
+                Text(
+                    text = "Interrupted — partial response kept",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
             }
             // A reply may be a sentence and a screen at once. The surface is drawn inside the
             // bubble rather than below it so that the two read as one answer.

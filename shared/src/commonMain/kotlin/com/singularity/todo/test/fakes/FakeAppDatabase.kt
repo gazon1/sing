@@ -64,6 +64,10 @@ import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapEntity
 import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowDao
 import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowEntity
+import com.singularity.todo.feature.ai.chat.data.ChatConversationDao
+import com.singularity.todo.feature.ai.chat.data.ChatConversationEntity
+import com.singularity.todo.feature.ai.chat.data.ChatMessageDao
+import com.singularity.todo.feature.ai.chat.data.ChatMessageEntity
 import com.singularity.todo.feature.notes.KnowledgeArticle
 import com.singularity.todo.feature.proposals.data.AiProposalEntity
 import com.singularity.todo.feature.proposals.data.ProposalDao
@@ -147,6 +151,12 @@ class FakeAppDatabase : AppDatabase() {
     @Suppress("BackingPropertyNaming")
     private val _proposalItems = MutableStateFlow<Map<String, ProposalItemEntity>>(emptyMap())
 
+    @Suppress("BackingPropertyNaming")
+    private val _chatConversations = MutableStateFlow<Map<String, ChatConversationEntity>>(emptyMap())
+
+    @Suppress("BackingPropertyNaming")
+    private val _chatMessages = MutableStateFlow<Map<String, ChatMessageEntity>>(emptyMap())
+
     override fun taskDao(): TaskDao =
         FakeTaskDao(_tasks, _taskTags, _taskDependencies, _tags, _projectTagGroups, _checklist)
 
@@ -210,6 +220,10 @@ class FakeAppDatabase : AppDatabase() {
 
     override fun proposalItemDao(): ProposalItemDao = FakeProposalItemDao(_proposals, _proposalItems)
 
+    override fun chatConversationDao(): ChatConversationDao = FakeChatConversationDao(_chatConversations)
+
+    override fun chatMessageDao(): ChatMessageDao = FakeChatMessageDao(_chatMessages)
+
     /**
      * Makes every ownership transfer fail, the way a disk that goes away mid-write does.
      *
@@ -233,6 +247,8 @@ class FakeAppDatabase : AppDatabase() {
             projectReminders = _projectReminders,
             timeEntries = _timeEntries,
             agendaViews = _agendaViews,
+            chatConversations = _chatConversations,
+            chatMessages = _chatMessages,
             profiles = _profiles,
             outbox = _outbox,
             deadLetter = _deadLetter,
@@ -254,6 +270,8 @@ class FakeAppDatabase : AppDatabase() {
             projectReminders = _projectReminders,
             timeEntries = _timeEntries,
             agendaViews = _agendaViews,
+            chatConversations = _chatConversations,
+            chatMessages = _chatMessages,
             profiles = _profiles,
         )
 
@@ -289,6 +307,8 @@ class FakeAppDatabase : AppDatabase() {
         _timeEntries.value = emptyMap()
         _proposals.value = emptyMap()
         _proposalItems.value = emptyMap()
+        _chatConversations.value = emptyMap()
+        _chatMessages.value = emptyMap()
     }
 
     // ─── Seed helpers ────────────────────────────────────────────────────────
@@ -4005,6 +4025,8 @@ private class FakeOwnerReassignDao(
     private val projectReminders: MutableStateFlow<Map<Pair<String, String>, ProjectReminderEntity>>,
     private val timeEntries: MutableStateFlow<Map<String, TimeEntryEntity>>,
     private val agendaViews: MutableStateFlow<Map<String, AgendaViewEntity>>,
+    private val chatConversations: MutableStateFlow<Map<String, ChatConversationEntity>>,
+    private val chatMessages: MutableStateFlow<Map<String, ChatMessageEntity>>,
     private val profiles: MutableStateFlow<Map<String, ProfileEntity>>,
     private val outbox: MutableStateFlow<Map<String, SyncOutboxEntity>>,
     private val deadLetter: MutableStateFlow<Map<String, SyncDeadLetterEntity>>,
@@ -4118,6 +4140,28 @@ private class FakeOwnerReassignDao(
         return doomed
     }
 
+    override suspend fun reassignChatConversations(
+        from: String,
+        to: String,
+    ): Int {
+        val doomed = chatConversations.value.values.count { it.userId == from }
+        chatConversations.update { current ->
+            current.mapValues { (_, c) -> if (c.userId == from) c.copy(userId = to) else c }
+        }
+        return doomed
+    }
+
+    override suspend fun reassignChatMessages(
+        from: String,
+        to: String,
+    ): Int {
+        val doomed = chatMessages.value.values.count { it.userId == from }
+        chatMessages.update { current ->
+            current.mapValues { (_, m) -> if (m.userId == from) m.copy(userId = to) else m }
+        }
+        return doomed
+    }
+
     // ── Ownership and sync state: exact equality on the bare owner ───────────
 
     override suspend fun reassignProfiles(
@@ -4201,6 +4245,12 @@ private class FakeOwnerReassignDao(
     override suspend fun countAgendaViews(scopedUserIds: List<String>): Int =
         agendaViews.value.values.count { it.userId in scopedUserIds }
 
+    override suspend fun countChatConversations(scopedUserIds: List<String>): Int =
+        chatConversations.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countChatMessages(scopedUserIds: List<String>): Int =
+        chatMessages.value.values.count { it.userId in scopedUserIds }
+
     override suspend fun countProfiles(ownerId: String): Int = profiles.value.values.count { it.userId == ownerId }
 
     override suspend fun countOutbox(ownerId: String): Int = outbox.value.values.count { it.ownerId == ownerId }
@@ -4237,6 +4287,8 @@ private class FakeOwnerEraseDao(
     private val projectReminders: MutableStateFlow<Map<Pair<String, String>, ProjectReminderEntity>>,
     private val timeEntries: MutableStateFlow<Map<String, TimeEntryEntity>>,
     private val agendaViews: MutableStateFlow<Map<String, AgendaViewEntity>>,
+    private val chatConversations: MutableStateFlow<Map<String, ChatConversationEntity>>,
+    private val chatMessages: MutableStateFlow<Map<String, ChatMessageEntity>>,
     private val profiles: MutableStateFlow<Map<String, ProfileEntity>>,
 ) : OwnerEraseDao {
     // ── Children: scoped through their parent, at call time ───────────────────
@@ -4377,6 +4429,24 @@ private class FakeOwnerEraseDao(
         return doomed.size
     }
 
+    override suspend fun deleteChatMessages(scopedUserIds: List<String>): Int {
+        val doomed =
+            chatMessages.value.values
+                .filter { it.userId in scopedUserIds }
+                .map { it.id }
+        chatMessages.update { current -> current - doomed.toSet() }
+        return doomed.size
+    }
+
+    override suspend fun deleteChatConversations(scopedUserIds: List<String>): Int {
+        val doomed =
+            chatConversations.value.values
+                .filter { it.userId in scopedUserIds }
+                .map { it.id }
+        chatConversations.update { current -> current - doomed.toSet() }
+        return doomed.size
+    }
+
     // ── Preview (count without delete) ────────────────────────────────────────
 
     override suspend fun countTagRefs(
@@ -4440,6 +4510,12 @@ private class FakeOwnerEraseDao(
 
     override suspend fun countAgendaViews(scopedUserIds: List<String>): Int =
         agendaViews.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countChatConversations(scopedUserIds: List<String>): Int =
+        chatConversations.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countChatMessages(scopedUserIds: List<String>): Int =
+        chatMessages.value.values.count { it.userId in scopedUserIds }
 
     override suspend fun countProfiles(ownerId: String): Int = profiles.value.values.count { it.userId == ownerId }
 }
@@ -4512,4 +4588,123 @@ private class FakeSelectorCrossRefs(
                 }
             }
         }
+}
+
+private class FakeChatConversationDao(
+    private val store: MutableStateFlow<Map<String, ChatConversationEntity>>,
+) : ChatConversationDao {
+    override suspend fun upsertConversation(entity: ChatConversationEntity) {
+        store.update { it + (entity.id to entity) }
+    }
+
+    override fun observeLatestForUser(userId: String): Flow<ChatConversationEntity?> =
+        store.map { map ->
+            map.values
+                .filter { it.userId == userId }
+                .maxWithOrNull(compareBy<ChatConversationEntity> { it.updatedAt }.thenBy { it.createdAt }.thenBy { it.id })
+        }
+
+    override suspend fun getByIdForUser(id: String, userId: String): ChatConversationEntity? =
+        store.value[id]?.takeIf { it.userId == userId }
+
+    override suspend fun listAllForUser(userId: String): List<ChatConversationEntity> =
+        store.value.values
+            .filter { it.userId == userId }
+            .sortedWith(compareByDescending<ChatConversationEntity> { it.updatedAt }.thenByDescending { it.createdAt })
+
+    override suspend fun touchForUser(id: String, userId: String, updatedAt: Long): Int {
+        val current = store.value[id] ?: return 0
+        if (current.userId != userId) return 0
+        store.update { it + (id to current.copy(updatedAt = updatedAt)) }
+        return 1
+    }
+
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }.map { it.id }
+        store.update { current -> current - doomed.toSet() }
+        return doomed.size
+    }
+}
+
+private class FakeChatMessageDao(
+    private val store: MutableStateFlow<Map<String, ChatMessageEntity>>,
+) : ChatMessageDao {
+    override suspend fun upsertMessage(entity: ChatMessageEntity) {
+        store.update { it + (entity.id to entity) }
+    }
+
+    override fun observeByConversationForUser(
+        conversationId: String,
+        userId: String,
+    ): Flow<List<ChatMessageEntity>> =
+        store.map { map ->
+            map.values
+                .filter { it.conversationId == conversationId && it.userId == userId }
+                .sortedWith(compareBy<ChatMessageEntity> { it.position }.thenBy { it.createdAt }.thenBy { it.id })
+        }
+
+    override suspend fun listByConversationForUser(
+        conversationId: String,
+        userId: String,
+    ): List<ChatMessageEntity> =
+        store.value.values
+            .filter { it.conversationId == conversationId && it.userId == userId }
+            .sortedWith(compareBy<ChatMessageEntity> { it.position }.thenBy { it.createdAt }.thenBy { it.id })
+
+    override suspend fun maxPositionForUser(conversationId: String, userId: String): Int =
+        store.value.values
+            .filter { it.conversationId == conversationId && it.userId == userId }
+            .maxOfOrNull { it.position } ?: -1
+
+    override suspend fun updateContentForUser(
+        id: String,
+        conversationId: String,
+        userId: String,
+        content: String,
+        status: String,
+        updatedAt: Long,
+    ): Int {
+        val current = store.value[id] ?: return 0
+        if (current.conversationId != conversationId || current.userId != userId) return 0
+        store.update {
+            it + (id to current.copy(content = content, status = status, updatedAt = updatedAt))
+        }
+        return 1
+    }
+
+    override suspend fun markInProgressForUser(
+        conversationId: String,
+        userId: String,
+        inProgressStatus: String,
+        status: String,
+        updatedAt: Long,
+    ): Int {
+        var changed = 0
+        store.update { map ->
+            map.mapValues { (_, entity) ->
+                if (
+                    entity.conversationId == conversationId &&
+                    entity.userId == userId &&
+                    entity.status == inProgressStatus
+                ) {
+                    changed++
+                    entity.copy(status = status, updatedAt = updatedAt)
+                } else {
+                    entity
+                }
+            }
+        }
+        return changed
+    }
+
+    override suspend fun listAllForUser(userId: String): List<ChatMessageEntity> =
+        store.value.values
+            .filter { it.userId == userId }
+            .sortedWith(compareBy<ChatMessageEntity> { it.conversationId }.thenBy { it.position }.thenBy { it.createdAt }.thenBy { it.id })
+
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }.map { it.id }
+        store.update { current -> current - doomed.toSet() }
+        return doomed.size
+    }
 }

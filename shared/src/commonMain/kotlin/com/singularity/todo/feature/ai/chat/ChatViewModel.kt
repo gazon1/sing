@@ -15,6 +15,13 @@ import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.ai.TextGenPort
+import com.singularity.todo.feature.ai.chat.persistence.ChatConversation
+import com.singularity.todo.feature.ai.chat.persistence.ChatConversationId
+import com.singularity.todo.feature.ai.chat.persistence.ChatConversationRepository
+import com.singularity.todo.feature.ai.chat.persistence.ChatMessageId
+import com.singularity.todo.feature.ai.chat.persistence.ChatMessageRecord
+import com.singularity.todo.feature.ai.chat.persistence.ChatMessageStatus
+import com.singularity.todo.feature.ai.chat.persistence.PersistedChatRole
 import com.singularity.todo.feature.genui.engine.SurfaceTurn
 import com.singularity.todo.feature.genui.engine.SurfaceTurnFactory
 import com.singularity.todo.feature.genui.surface.SurfaceId
@@ -23,9 +30,14 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlin.coroutines.coroutineContext
+import kotlin.time.Clock
 
 /**
  * AI chat state and intents.
@@ -47,12 +59,17 @@ class ChatViewModel(
      * text and a screen is the exception rather than the rule.
      */
     private val surfaces: SurfaceTurnFactory? = null,
+    private val conversationRepository: ChatConversationRepository? = null,
+    private val clock: Clock = Clock.System,
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ChatViewModel.State, ChatViewModel.Intent, ChatUiEvent>(
         initialState = State(),
         crashReporter = crashReporter,
         scope = scope,
     ) {
+    init {
+        restoreLatestConversation()
+    }
     data class State(
         val messages: ImmutableList<ChatMessage> = persistentListOf(),
         /**
@@ -130,6 +147,31 @@ class ChatViewModel(
      * the model keeps talking to a socket nobody reads.
      */
     private var turnJob: Job? = null
+    private var restoreJob: Job? = null
+    private var conversationId: ChatConversationId? = null
+    private var nextPosition: Int = 0
+
+    private fun restoreLatestConversation() {
+        val repo = conversationRepository ?: return
+        restoreJob = vmScope.launch {
+            runCatching {
+                val conversation = repo.observeLatestConversation().firstOrNull() ?: return@runCatching
+                val now = clock.now().toEpochMilliseconds()
+                repo.markInProgressInterrupted(conversation.id, now).getOrThrow()
+                val records = repo.getMessages(conversation.id)
+                conversationId = conversation.id
+                nextPosition = (records.maxOfOrNull { it.position } ?: -1) + 1
+                updateState { state ->
+                    // Never overwrite an active turn; restoration is only for initial open.
+                    if (state.isLoading || state.messages.isNotEmpty()) state
+                    else state.copy(messages = records.map { it.toChatMessage() }.toImmutableList())
+                }
+            }.onFailure { error ->
+                log.e(error) { "Chat transcript restoration failed" }
+            }
+        }
+    }
+
 
     override fun onIntent(intent: Intent) {
         when (intent) {
@@ -181,6 +223,7 @@ class ChatViewModel(
         prompt: String,
         showUserMessage: Boolean,
     ) = vmScope.launch {
+        restoreJob?.join()
         if (currentState.isLoading) return@launch
 
         val assistantId = newId()
@@ -193,6 +236,11 @@ class ChatViewModel(
         // of the questions that came before it and not in the context of itself.
         val history: List<ChatTurnRecord> = historyRecords()
 
+        val persistence = prepareTurnPersistence(showUserMessage, userText.trim(), assistantId)
+        if (persistence == TurnPersistencePreparation.Failed && conversationRepository != null) return@launch
+        val userUiId = if (showUserMessage) newIdOr(persistence.userMessageId) else null
+        val assistantUiId = newIdOr(persistence.assistantMessageId)
+
         updateState { current ->
             current.copy(
                 input = current.input.cleared(),
@@ -204,26 +252,136 @@ class ChatViewModel(
                     (
                         current.messages +
                             (
-                                if (showUserMessage) {
-                                    listOf(ChatMessage(newId(), ChatRole.User, userText.trim()))
+                                if (showUserMessage && userUiId != null) {
+                                    listOf(ChatMessage(userUiId, ChatRole.User, userText.trim()))
                                 } else {
                                     emptyList()
                                 }
                             ) +
-                            ChatMessage(assistantId, ChatRole.Assistant, "")
+                            ChatMessage(assistantUiId, ChatRole.Assistant, "")
                     ).toImmutableList(),
             )
         }
 
         turnJob = coroutineContext[Job]
         try {
-            runTurn(assistantId, prompt, surfaceId, history)
+            runTurn(
+                assistantUiId = assistantUiId,
+                assistantPersistedId = persistence.assistantMessageId,
+                conversationId = persistence.conversationId,
+                prompt = prompt,
+                surfaceId = surfaceId,
+                history = history,
+            )
         } finally {
             // The loading state is cleared on every path, including a cancellation: a turn
             // that was cancelled while the spinner was up must not leave the spinner up.
             updateState { it.copy(isLoading = false) }
             turnJob = null
         }
+    }
+
+    private data class TurnPersistencePreparation(
+        val conversationId: ChatConversationId?,
+        val userMessageId: ChatMessageId?,
+        val assistantMessageId: ChatMessageId?,
+    ) {
+        companion object {
+            val Failed = TurnPersistencePreparation(null, null, null)
+        }
+    }
+
+    private suspend fun prepareTurnPersistence(
+        showUserMessage: Boolean,
+        userText: String,
+        assistantUiId: String,
+    ): TurnPersistencePreparation {
+        val repo = conversationRepository ?: return TurnPersistencePreparation(null, null, null)
+        return runCatching {
+            val conversationId = ensureConversation() ?: return TurnPersistencePreparation(null, null, null)
+            val userMessageId = if (showUserMessage) persistUserMessage(conversationId, userText) else null
+            val assistantMessageId = persistAssistantPlaceholder(conversationId, assistantUiId)
+            TurnPersistencePreparation(conversationId, userMessageId, assistantMessageId)
+        }.getOrElse { error ->
+            log.e(error) { "Chat transcript persistence failed before generation" }
+            emit(ChatUiEvent.Error(error.message ?: "Failed to persist chat transcript"))
+            TurnPersistencePreparation.Failed
+        }
+    }
+
+    private fun newIdOr(persistedId: ChatMessageId?): String = persistedId?.value ?: newId()
+
+    private suspend fun ensureConversation(): ChatConversationId? {
+        conversationId?.let { return it }
+        val repo = conversationRepository ?: return null
+        val existing = repo.observeLatestConversation().firstOrNull()
+        if (existing != null) {
+            val now = clock.now().toEpochMilliseconds()
+            repo.markInProgressInterrupted(existing.id, now).getOrThrow()
+            conversationId = existing.id
+            nextPosition = (repo.getMessages(existing.id).maxOfOrNull { it.position } ?: -1) + 1
+            return existing.id
+        }
+        val now = clock.now().toEpochMilliseconds()
+        val conversation =
+            ChatConversation(
+                id = ChatConversationId.generate(),
+                userId = "",
+                createdAt = now,
+                updatedAt = now,
+            )
+        repo.createConversation(conversation).getOrThrow()
+        conversationId = conversation.id
+        nextPosition = 0
+        return conversation.id
+    }
+
+    private suspend fun persistUserMessage(
+        conversationId: ChatConversationId?,
+        text: String,
+    ): ChatMessageId? {
+        val repo = conversationRepository ?: return null
+        val id = conversationId ?: return null
+        val now = clock.now().toEpochMilliseconds()
+        val message =
+            ChatMessageRecord(
+                id = ChatMessageId.generate(),
+                conversationId = id,
+                userId = "",
+                role = PersistedChatRole.User,
+                content = text,
+                status = ChatMessageStatus.Completed,
+                position = nextPosition++,
+                createdAt = now,
+                updatedAt = now,
+            )
+        repo.insertMessage(message).getOrThrow()
+        repo.touchConversation(id, now).getOrThrow()
+        return message.id
+    }
+
+    private suspend fun persistAssistantPlaceholder(
+        conversationId: ChatConversationId?,
+        assistantUiId: String,
+    ): ChatMessageId? {
+        val repo = conversationRepository ?: return null
+        val id = conversationId ?: return null
+        val now = clock.now().toEpochMilliseconds()
+        val message =
+            ChatMessageRecord(
+                id = ChatMessageId.fromString(assistantUiId),
+                conversationId = id,
+                userId = "",
+                role = PersistedChatRole.Assistant,
+                content = "",
+                status = ChatMessageStatus.InProgress,
+                position = nextPosition++,
+                createdAt = now,
+                updatedAt = now,
+            )
+        repo.insertMessage(message).getOrThrow()
+        repo.touchConversation(id, now).getOrThrow()
+        return message.id
     }
 
     /**
@@ -286,7 +444,9 @@ class ChatViewModel(
      */
     @Suppress("NoSwallowedCancellation", "TooGenericExceptionCaught")
     private suspend fun runTurn(
-        assistantId: String,
+        assistantUiId: String,
+        assistantPersistedId: ChatMessageId?,
+        conversationId: ChatConversationId?,
         prompt: String,
         surfaceId: SurfaceId,
         history: List<ChatTurnRecord>,
@@ -295,12 +455,34 @@ class ChatViewModel(
         val turn = ChatTurn(agent = agent, surface = surface, history = history)
         val collected = StringBuilder()
         var completed = false
+        var lastPersisted = ""
+        var lastPersistAt = 0L
+        suspend fun flushPersist(force: Boolean = false, status: ChatMessageStatus = ChatMessageStatus.InProgress) {
+            val repo = conversationRepository ?: return
+            val cid = conversationId ?: return
+            val mid = assistantPersistedId ?: return
+            val content = collected.toString().trim()
+            val now = clock.now().toEpochMilliseconds()
+            val changed = content != lastPersisted || status != ChatMessageStatus.InProgress
+            val due = force || now - lastPersistAt >= STREAM_PERSIST_INTERVAL_MS
+            if (!changed || !due) return
+            runCatching {
+                repo.updateMessageContent(mid, cid, content, status, now).getOrThrow()
+                repo.touchConversation(cid, now).getOrThrow()
+                lastPersisted = content
+                lastPersistAt = now
+            }.onFailure { error ->
+                log.w(error) { "Chat transcript persistence failed during stream" }
+            }
+        }
         try {
             turn.run(prompt).collect { event ->
                 when (event) {
                     is AgentEvent.TextDelta -> {
                         collected.append(event.text)
-                        applyReply(assistantId, collected.toString().trim(), null)
+                        val text = collected.toString().trim()
+                        applyReply(assistantUiId, text, null, interrupted = false)
+                        flushPersist()
                     }
 
                     is AgentEvent.ToolCallUpdated -> {
@@ -320,11 +502,15 @@ class ChatViewModel(
             }
         } catch (cancellation: CancellationException) {
             // A cancelled turn is cancelled, not failed. The partial answer stays on screen.
+            withContext(NonCancellable) {
+                markAssistantInterrupted(assistantUiId, assistantPersistedId, conversationId, collected.toString().trim())
+            }
             setOutcome(AgentTurnOutcome.Cancelled)
             throw cancellation
         } catch (error: Throwable) {
             log.e(error) { "AI stream failed" }
             crashReporter.report(error, CHAT_STREAM_FAILED)
+            markAssistantInterrupted(assistantUiId, assistantPersistedId, conversationId, collected.toString().trim())
             emit(ChatUiEvent.Error(error.message ?: "AI request failed"))
             setOutcome(AgentTurnOutcome.Failed(error.message ?: "AI request failed"))
             return
@@ -333,8 +519,9 @@ class ChatViewModel(
         // The screen, if the answer drew one. The identifier is filed on the answer only now:
         // an answer that drew nothing must not point at a screen, and an answer that drew one
         // must not point at nothing.
+        val finalText = collected.toString().trim()
         if (surface?.drawn == true) {
-            applyReply(assistantId, collected.toString(), surfaceId)
+            applyReply(assistantUiId, collected.toString(), surfaceId, interrupted = false)
         }
         val rejections = surface?.rejections.orEmpty()
         if (rejections.isNotEmpty()) {
@@ -348,10 +535,47 @@ class ChatViewModel(
         // that as a completed turn would tell the reader the answer is complete when it is
         // not — and the missing text would be the very thing they needed to know.
         if (!completed) {
+            markAssistantInterrupted(assistantUiId, assistantPersistedId, conversationId, finalText)
             setOutcome(AgentTurnOutcome.Failed("The response ended before it was complete."))
         } else {
+            markAssistantCompleted(assistantUiId, assistantPersistedId, conversationId, finalText, if (surface?.drawn == true) surfaceId else null)
             setOutcome(AgentTurnOutcome.Completed())
         }
+    }
+
+    private suspend fun markAssistantCompleted(
+        assistantUiId: String,
+        assistantPersistedId: ChatMessageId?,
+        conversationId: ChatConversationId?,
+        content: String,
+        surfaceId: SurfaceId?,
+    ) {
+        applyReply(assistantUiId, content, surfaceId, interrupted = false)
+        val repo = conversationRepository ?: return
+        val cid = conversationId ?: return
+        val mid = assistantPersistedId ?: return
+        val now = clock.now().toEpochMilliseconds()
+        runCatching {
+            repo.updateMessageContent(mid, cid, content, ChatMessageStatus.Completed, now).getOrThrow()
+            repo.touchConversation(cid, now).getOrThrow()
+        }.onFailure { error -> log.w(error) { "Chat transcript completion persistence failed" } }
+    }
+
+    private suspend fun markAssistantInterrupted(
+        assistantUiId: String,
+        assistantPersistedId: ChatMessageId?,
+        conversationId: ChatConversationId?,
+        content: String,
+    ) {
+        applyReply(assistantUiId, content, null, interrupted = true)
+        val repo = conversationRepository ?: return
+        val cid = conversationId ?: return
+        val mid = assistantPersistedId ?: return
+        val now = clock.now().toEpochMilliseconds()
+        runCatching {
+            repo.updateMessageContent(mid, cid, content, ChatMessageStatus.Interrupted, now).getOrThrow()
+            repo.touchConversation(cid, now).getOrThrow()
+        }.onFailure { error -> log.w(error) { "Chat transcript interruption persistence failed" } }
     }
 
     /**
@@ -383,6 +607,7 @@ class ChatViewModel(
         assistantId: String,
         text: String,
         surfaceId: SurfaceId?,
+        interrupted: Boolean,
     ) {
         updateState { state ->
             state.copy(
@@ -392,16 +617,29 @@ class ChatViewModel(
                             if (message.id != assistantId) {
                                 message
                             } else {
-                                message.copy(content = text, surfaceId = surfaceId)
+                                message.copy(content = text, surfaceId = surfaceId, interrupted = interrupted)
                             }
                         }.toImmutableList(),
             )
         }
     }
 
+    private fun ChatMessageRecord.toChatMessage(): ChatMessage =
+        ChatMessage(
+            id = id.value,
+            role =
+                when (role) {
+                    PersistedChatRole.User -> ChatRole.User
+                    PersistedChatRole.Assistant -> ChatRole.Assistant
+                },
+            content = content,
+            interrupted = status == ChatMessageStatus.Interrupted,
+        )
+
     private companion object {
         /** Machine-shaped grouping key — it leaves the device. */
         const val CHAT_STREAM_FAILED = "chat.stream_failed"
+        const val STREAM_PERSIST_INTERVAL_MS = 250L
     }
 
     private fun newId(): String = idGen.next()
@@ -415,8 +653,17 @@ enum class ChatRole { User, Assistant }
  * @param surfaceId the surface drawn alongside this message, when the model produced one. Null for
  *   the overwhelming majority of messages, which is why it is a field here rather than a separate
  *   concept: a reply that is text and a screen at once is still one reply.
+ * @param interrupted true when an assistant response was left unfinished by cancellation or
+ *   process death and its partial content was kept. Transcript restoration is not execution
+ *   restoration: the message is a record, not a running turn.
  */
-data class ChatMessage(val id: String, val role: ChatRole, val content: String, val surfaceId: SurfaceId? = null)
+data class ChatMessage(
+    val id: String,
+    val role: ChatRole,
+    val content: String,
+    val surfaceId: SurfaceId? = null,
+    val interrupted: Boolean = false,
+)
 
 /**
  * One-shot events emitted by [ChatViewModel].

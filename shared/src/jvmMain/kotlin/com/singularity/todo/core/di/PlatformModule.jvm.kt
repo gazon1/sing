@@ -171,6 +171,8 @@ fun jvmPlatformModule(applicationRoot: File): Module =
         single { get<AppDatabase>().timeEntryDao() }
         single { get<AppDatabase>().proposalDao() }
         single { get<AppDatabase>().proposalItemDao() }
+        single { get<AppDatabase>().chatConversationDao() }
+        single { get<AppDatabase>().chatMessageDao() }
 
         // ─── DataStore (split: user settings + state) ─────────────────────────
         // File-level caching: the SAME DataStore instance is returned for the same
