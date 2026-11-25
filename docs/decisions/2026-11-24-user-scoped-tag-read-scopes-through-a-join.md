@@ -138,7 +138,9 @@ question cannot pass as a successful measurement.
   profile itself free of tags, notes and checklist items.
 - The queries of the same shape that were **not** measured — the checklist reads
   and the blocking-tasks read — are left exactly as they are. One measured query
-  at a time.
+  at a time: the checklist read is #3194, the blocking-tasks read is #3195. The
+  call overhead the rewrite leaves behind is #3196, and the archive budget that
+  caps the largest tag-bearing dataset is #3197.
 - The harness is a program in `shared/src/jvmTest`, not a test class: a
   dataset-dependent test would either skip itself or fail for a reason that has
   nothing to do with the claim.
@@ -152,3 +154,7 @@ question cannot pass as a successful measurement.
 - Issue: https://github.com/gazon1/sing/issues/3176
 - Previous measurement: https://github.com/gazon1/sing/issues/3157
 - Dataset generator: https://github.com/gazon1/sing/issues/3090
+- Follow-up measurements: https://github.com/gazon1/sing/issues/3194,
+  https://github.com/gazon1/sing/issues/3195,
+  https://github.com/gazon1/sing/issues/3196
+- Generator budget: https://github.com/gazon1/sing/issues/3197
