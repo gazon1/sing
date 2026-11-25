@@ -28,6 +28,13 @@ import kotlin.test.assertTrue
  * clauses below are chosen for that: each of them is a rule that changes what
  * a flow has to write, not a wording.
  *
+ * A marker has to be as specific as the clause it holds. A marker that matches
+ * a word the copy also uses elsewhere — "overdue" — is satisfied by a copy that
+ * lost the rule and kept the word, and the drift is invisible. So every marker
+ * here is a phrase the clause's own statement uses, and the last test holds the
+ * three copies to the same number of occurrences of it: a copy that gains a
+ * mention of the same words outside the clause shows up there.
+ *
  * Run from repo root:
  * ```
  * ./gw :shared:archTest --tests "com.singularity.todo.arch.SeedContractCopiesTest"
@@ -76,24 +83,39 @@ class SeedContractCopiesTest {
             Paths.get(root)
         }
 
+    /**
+     * The three places that state the contract.
+     *
+     * The contract lives in the header of `helpers/seed.yaml` and is repeated
+     * in `Maestro/CONVENTIONS.md` and in the maestro-flows skill.
+     */
+    private fun places(): List<Pair<String, Path>> =
+        listOf(
+            "Maestro/helpers/seed.yaml" to maestroRoot.resolve("helpers/seed.yaml"),
+            "Maestro/CONVENTIONS.md" to maestroRoot.resolve("CONVENTIONS.md"),
+            "the maestro-flows skill" to skillsRoot.resolve("singularity-todo-maestro-flows/SKILL.md"),
+        )
+
+    /**
+     * The text a copy states the contract in, with the markup taken off.
+     *
+     * The contract is a comment in one copy and prose in the other two, and it
+     * is wrapped differently in each. The markers are phrases of the statement
+     * itself, so they have to be matched against the words and not against the
+     * way the words are laid out: the comment prefix and the line breaks say
+     * nothing about which clause a copy states.
+     */
+    private fun normalized(text: String): String =
+        text
+            .replace(Regex("(?m)^[ \\t]*#+[ \\t]?"), " ")
+            .replace(Regex("\\s+"), " ")
+
     @Test
     fun `the three places that state the contract state it alike`() {
-        // The contract lives in the header of `helpers/seed.yaml` and is
-        // repeated in `Maestro/CONVENTIONS.md` and in the maestro-flows skill.
-        // A repetition that drifts from the contract is a second contract, and
-        // a flow written against it fails on a device for a reason the source
-        // does not show.
-        val places =
-            listOf(
-                "Maestro/helpers/seed.yaml" to maestroRoot.resolve("helpers/seed.yaml"),
-                "Maestro/CONVENTIONS.md" to maestroRoot.resolve("CONVENTIONS.md"),
-                "the maestro-flows skill" to skillsRoot.resolve("singularity-todo-maestro-flows/SKILL.md"),
-            )
-
         val missing = mutableListOf<String>()
         for ((clause, pattern) in CONTRACT_CLAUSES) {
-            for ((name, path) in places) {
-                if (!pattern.containsMatchIn(path.readText())) {
+            for ((name, path) in places()) {
+                if (!pattern.containsMatchIn(normalized(path.readText()))) {
                     missing += "$name does not state the clause: $clause"
                 }
             }
@@ -117,8 +139,8 @@ class SeedContractCopiesTest {
         // states one is a second contract that contradicts the first.
         val contradictions = mutableListOf<String>()
         for ((clause, pattern) in CONTRACT_CONTRADICTIONS) {
-            for ((name, path) in places) {
-                if (pattern.containsMatchIn(path.readText())) {
+            for ((name, path) in places()) {
+                if (pattern.containsMatchIn(normalized(path.readText()))) {
                     contradictions += "$name states the opposite of the clause: $clause"
                 }
             }
@@ -158,6 +180,41 @@ class SeedContractCopiesTest {
     }
 
     /**
+     * A clause's marker is as common in the three copies as the clause is.
+     *
+     * A marker that matches a word the copy uses elsewhere — "overdue", or
+     * "WAIT_FOR" — is satisfied by a copy that dropped the rule and kept the
+     * word, and the drift the clause check is there to catch goes unseen. The
+     * three copies state a clause the same number of times, so a copy that
+     * gains a mention of the same words outside the clause, or loses one of
+     * the statements of it, shows up here: the counts stop matching.
+     */
+    @Test
+    fun `a clause's marker is as common in the three copies as the clause is`() {
+        val mismatched = mutableListOf<String>()
+        for ((clause, pattern) in CONTRACT_CLAUSES) {
+            val counts = places().map { (_, path) -> pattern.findAll(normalized(path.readText())).count() }
+            if (counts.any { it == 0 }) {
+                mismatched += "no copy states the clause by its marker: $clause"
+            } else if (counts.distinct().size != 1) {
+                mismatched +=
+                    "the marker of the clause occurs a different number of times in " +
+                    "the copies ($counts): $clause"
+            }
+        }
+
+        assertTrue(
+            mismatched.isEmpty(),
+            "A clause's marker has to be as specific as the clause it holds " +
+                "(${mismatched.size}):\n" +
+                mismatched.joinToString("\n") { "  - $it" } +
+                "\n\nA marker that matches a word the copy also uses elsewhere is " +
+                "satisfied by a copy that lost the rule and kept the word. Give the " +
+                "clause a phrase of its own statement instead.",
+        )
+    }
+
+    /**
      * The clauses the three places have to state alike.
      *
      * Each clause is a marker the wording shares: the three places are three
@@ -184,48 +241,65 @@ class SeedContractCopiesTest {
         /**
          * The clauses the three places have to state alike.
          *
-         * Each clause is a phrase the wording shares: the three places are
-         * three documents, and a phrase all of them use is a phrase they
-         * cannot drift apart on without one of them losing it.
+         * Each clause is a phrase the wording shares: the three places are three
+         * documents, and a phrase all of them use is a phrase they cannot drift
+         * apart on without one of them losing it.
+         *
+         * Each marker is a phrase of the statement that holds the clause, not
+         * a word the clause is about: a marker of the statement cannot be
+         * satisfied by a paragraph that merely mentions the same words.
          */
         val CONTRACT_CLAUSES: List<Pair<String, Regex>> =
             listOf(
-                "the optional input is named WAIT_FOR" to Regex("WAIT_FOR"),
-                "the wait is by id" to Regex("visible: \\{id:"),
-                "the wait covers the screen the seed leaves the app on" to Regex("Today\\s+tab"),
+                "the optional input is named WAIT_FOR" to
+                    Regex("WAIT_FOR\\s+is\\s+optional|`WAIT_FOR`\\s+is\\s+the\\s+element\\s+id"),
+                "the wait is by id" to Regex("visible: \\{id: …\\}"),
+                "the wait covers the screen the seed leaves the app on" to
+                    Regex("comes\\s+up\\s+on\\s+the\\s+Today\\s+tab|agenda's\\s+Today\\s+tab"),
                 "the helper does not navigate" to Regex("does\\s+not\\s+navigate"),
-                "the helper does not scroll" to Regex("does\\s+not\\s+scroll"),
-                "the row of an overdue task is not a target" to Regex("overdue"),
-                "a section the flow named before the seed is not a target" to Regex("before\\s+the\\s+seed"),
-                "a section an earlier seed brought in is not a target" to Regex("earlier\\s+seed"),
-                "a wait names what the seed changed" to Regex("what\\s+the\\s+seed\\s+changed"),
+                "the helper does not scroll" to
+                    Regex(
+                        "neither\\s+expands\\s+the\\s+section\\s+nor\\s+scrolls|and\\s+the\\s+helper\\s+does\\s+not\\s+scroll",
+                    ),
+                "the row of an overdue task is not a target" to
+                    Regex("row\\s+of\\s+an\\s+overdue\\s+task|not\\s+by\\s+its\\s+row"),
+                "a section the flow named before the seed is not a target" to
+                    Regex("before\\s+the\\s+seed\\s+was\\s+there\\s+before\\s+the\\s+seed"),
+                "a section an earlier seed brought in is not a target" to
+                    Regex(
+                        "The\\s+same\\s+holds\\s+for\\s+a\\s+section\\s+an\\s+earlier\\s+seed|brought\\s+in\\s+is\\s+the\\s+same\\s+case",
+                    ),
+                "a wait names what the seed changed" to
+                    Regex("to\\s+name\\s+what\\s+the\\s+seed\\s+changed"),
                 "the copies state the contract alike" to Regex("copies\\s+state\\s+it\\s+alike"),
-                "the wait covers one entity of the seed" to Regex("covers\\s+one\\s+entity"),
-                // The clauses below are the ones a flow author relies on when
-                // they write a flow: what the wait names, where it stands
-                // relative to the seed, whose entity it is evidence for, and
-                // what happens when the seed writes nothing. A copy that drops
-                // one of them tells its reader to write a flow that fails on a
-                // device.
-                "the wait names what the flow asserts on" to Regex("assert\\s+on"),
-                "the wait belongs to the seed that asked for it" to Regex("belongs\\s+to\\s+the\\s+seed"),
-                "the shell wait and the entity wait are two waits" to Regex("the\\s+shell\\s+wait"),
-                "the wait is the entity wait" to Regex("entity\\s+wait"),
-                "a seed that writes no entity waits for the shell alone" to Regex("names\\s+no\\s+entity"),
-                "a title-named entity is named by the id the app renders" to Regex("TestTags"),
-                // The five cases the contract states one by one: a flow author
-                // looks up "where does my wait go" and finds the case they are
-                // in. A copy that drops one of them sends the author to the
-                // wrong side of the contract.
-                "a single named entity is waited for by the helper" to Regex("single\\s+named\\s+entity"),
-                "a title-named entity is a case of its own" to Regex("title-named\\s+entity"),
+                "the wait covers one entity of the seed" to
+                    Regex("The\\s+wait\\s+covers\\s+one\\s+entity\\s+of\\s+that\\s+seed"),
+                "the wait names what the flow asserts on" to
+                    Regex("names\\s+the\\s+entity\\s+the\\s+flow\\s+asserts\\s+on"),
+                "the wait belongs to the seed that asked for it" to
+                    Regex("belongs\\s+to\\s+the\\s+seed\\s+that\\s+asked\\s+for\\s+it"),
+                "the shell wait and the entity wait are two waits" to
+                    Regex(
+                        "shell\\s+wait\\s+lets\\s+the\\s+app\\s+come\\s+up|" +
+                            "shell\\s+wait\\s+stands\\s+between\\s+the\\s+link\\s+and\\s+the",
+                    ),
+                "the wait is the entity wait" to Regex("absorbs\\s+the\\s+arrival"),
+                "a seed that writes no entity waits for the shell alone" to
+                    Regex(
+                        "gets\\s+the\\s+shell\\s+wait\\s+alone|the\\s+helper\\s+waits\\s+for\\s+the\\s+shell\\s+alone",
+                    ),
+                "a title-named entity is named by the id the app renders" to
+                    Regex("rule\\s+is\\s+`TestTags\\.slug`|\\(`TestTags\\.slug`\\)"),
+                "a single named entity is waited for by the helper" to
+                    Regex("single\\s+named\\s+entity"),
+                "a title-named entity is a case of its own" to Regex("A\\s+title-named\\s+entity"),
                 "an anonymous session writes no entity" to Regex("anonymous\\s+session"),
                 "several rows in one seed are the flow's to wait for" to
-                    Regex("[Ss]everal\\s+rows\\s+in\\s+one\\s+seed"),
+                    Regex("Several\\s+rows\\s+in\\s+one\\s+seed"),
                 "an entity that is not on the screen is the flow's to wait for" to
-                    Regex("not\\s+on\\s+the\\s+screen"),
+                    Regex("not\\s+on\\s+the\\s+screen\\s+the\\s+seed\\s+leaves\\s+the\\s+app\\s+on"),
                 "a flow that keeps a wait says why in a comment" to
-                    Regex("says\\s+why\\s+in\\s+a\\s+comment"),
+                    Regex("keeps\\s+its\\s+own\\s+wait\\s+and\\s+says\\s+why"),
             )
 
         /**
@@ -258,24 +332,26 @@ class SeedContractCopiesTest {
          */
         const val A_CONTRACT_THAT_CONTRADICTS =
             """
-            The optional input is named WAIT_FOR, and the wait is by id: `visible: {id: ...}`.
-            The wait covers the screen the seed leaves the app on — the Today tab.
-            The helper does not navigate and does not scroll.
+            The optional input is named WAIT_FOR: WAIT_FOR is optional, and the wait is by id —
+            `visible: {id: …}`.
+            The app comes up on the Today tab, so the wait covers the screen the seed leaves the app on.
+            The helper does not navigate, and it neither expands the section nor scrolls.
             The row of an overdue task is not a target, and a section the flow named before the seed
-            is not a target either; a section an earlier seed brought in is not a target either.
-            A wait names what the seed changed, and the copies state it alike.
-            The wait covers one entity of the seed.
-            The wait names what the flow will assert on, and it belongs to the seed that asked for it.
-            The shell wait and the entity wait are two waits: the shell wait lets the app come up,
+            was there before the seed is not a target either; The same holds for a section an earlier
+            seed brought in: it is not a target either.
+            A wait has to name what the seed changed, and the three copies state it alike.
+            The wait covers one entity of that seed.
+            The wait names the entity the flow asserts on, and it belongs to the seed that asked for it.
+            The shell wait stands between the link and the entity wait: it lets the app come up,
             and the entity wait absorbs the arrival.
-            A seed that writes no entity names no entity to wait for, and waits for the shell alone.
-            A title-named entity is named by the id the app renders — the slug of TestTags.
+            A seed that writes no entity gets the shell wait alone.
+            A title-named entity is named by the id the app renders — the rule is `TestTags.slug`.
             The five cases, one by one: a single named entity is waited for by the helper;
             a title-named entity is named by the element its title produces;
             an anonymous session writes no entity at all;
-            several rows in one seed are the flow's to wait for;
+            Several rows in one seed are the flow's to wait for;
             an entity that is not on the screen the seed leaves the app on is the flow's to wait for;
-            a flow that keeps a wait says why in a comment.
+            a flow that keeps its own wait and says why in a comment.
             The helper navigates to the section it waits for.
             """
     }
