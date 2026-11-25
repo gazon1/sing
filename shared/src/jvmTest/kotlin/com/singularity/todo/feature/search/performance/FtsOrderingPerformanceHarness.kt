@@ -59,6 +59,10 @@ import kotlin.time.TimeSource
  *   without the ordering.
  * - `match_order` — the same statement with `ORDER BY updated_at DESC`: the
  *   production ordering, on a plan the harness controls.
+ * - `match_all_no_order` — the whole matching set, without the ordering and
+ *   without a limit: the cost of materializing every matched row.
+ * - `match_all_order` — the same whole matching set, ordered: the cost of the
+ *   sort itself, with nothing else differing between the two.
  * - `current_ids` — the production statement with the id alone: the sort, and
  *   nothing else.
  * - `current_no_offsets` — the production statement with the match offsets
@@ -80,10 +84,36 @@ import kotlin.time.TimeSource
  *
  * So `match_limit_no_order` and `match_order` are stated with a `CROSS JOIN`,
  * which pins the join order (`tasks_fts` outer, `tasks` inner) and leaves the
- * only difference between them the sort. `current` is kept verbatim, and the
+ * only difference between them the ordering. `current` is kept verbatim, and the
  * plan of `current_no_order` — the production statement without its `ORDER BY`,
  * recorded as a plan and never executed — shows the shape the planner picks when
  * it is allowed to.
+ *
+ * ## The limited pair does not price the sort, and the whole-set pair does
+ *
+ * The two statements above differ by the sort — and by one more thing, which the
+ * `LIMIT` brings with it. Without an order SQLite stops as soon as it has
+ * twenty rows; with an order it has to walk the whole matching set to learn
+ * which twenty come first, and it computes the sort key of every matched row
+ * to do that. The difference between the two is therefore the sort *and* the
+ * extra pass over the match set — it is what the production statement pays
+ * for the ordering, and that is a measurement worth having.
+ *
+ * It is not, though, the price of the sort, and the harness must not claim it
+ * is. So the sort is measured on its own, by `match_all_no_order` against
+ * `match_all_order`: the same two statements without the `LIMIT`, so that both
+ * of them read the whole matching set and the only thing left between them is
+ * the order. The plans of that pair are checked the same way — same plan apart
+ * from the temporary B-tree of the sort.
+ *
+ * ## The transaction the DAO adds is not measured here
+ *
+ * The DAO runs the two phases inside one transaction, so that both reads see
+ * the same snapshot of the database. This harness runs the two statements on
+ * their own, one connection each, and prices no transaction: the `BEGIN` and
+ * the `COMMIT` around the pair are not in any number here. The snapshot is
+ * bought with the price of correctness, and that price is not what this
+ * harness reports.
  *
  * ## The candidates
  *
@@ -124,8 +154,8 @@ import kotlin.time.TimeSource
  *
  * Nothing about wall-clock time. The harness asserts that the counts agree where
  * they must (the FTS rows and the joined rows are the same rows), that every
- * measured variant returns rows, and that the two pinned variants really did get
- * the same plan apart from the sort. Latencies are recorded, not asserted.
+ * measured variant returns rows, and that both pinned pairs really did get the
+ * same plan apart from the sort. Latencies are recorded, not asserted.
  *
  * ## Datasets
  *
@@ -148,7 +178,8 @@ import kotlin.time.TimeSource
  * sorter. When they fall along the scan order, the first rows are already the
  * best ones and everything after them is dropped at once. The two pictures
  * differ in the timestamps and in nothing else, so the difference between them
- * prices the sort and nothing else.
+ * prices the work the order costs — the comparison of the keys, and the
+ * delivery of the rows that the order would have carried.
  *
  * ## How to run
  *
@@ -216,11 +247,12 @@ private enum class Phase(val label: String) {
  * The statements the ladder is made of.
  *
  * [parameters] is how many placeholders the statement has: the FTS count has
- * one, the joined count two, the statements that fetch rows three, and the
- * rewritten candidate four (the match expression is used twice — once in the
- * subquery, once for the offsets). A statement is bound by index and SQLite
- * refuses a binding past its last placeholder, so the count of the statement is
- * part of its identity here.
+ * one, the joined count two, the statements that fetch rows three, the
+ * statements that read the whole matching set two (they carry no limit), and
+ * the rewritten candidate four (the match expression is used twice — once in
+ * the subquery, once for the offsets). A statement is bound by index and
+ * SQLite refuses a binding past its last placeholder, so the count of the
+ * statement is part of its identity here.
  *
  * [timed] says whether the statement is executed and priced. `current_no_order`
  * is not: it is the production statement without its ordering, which the planner
@@ -239,6 +271,8 @@ private enum class Variant(
     MatchCount("match_count", MATCH_COUNT_SQL, 2, true, Phase.Baseline, Phase.Baseline),
     MatchLimitNoOrder("match_limit_no_order", MATCH_NO_ORDER_SQL, 3, true, Phase.Baseline, Phase.Baseline),
     MatchOrder("match_order", MATCH_ORDER_SQL, 3, true, Phase.Baseline, Phase.Baseline),
+    MatchAllNoOrder("match_all_no_order", MATCH_ALL_NO_ORDER_SQL, 2, true, Phase.Baseline, Phase.Baseline),
+    MatchAllOrder("match_all_order", MATCH_ALL_ORDER_SQL, 2, true, Phase.Baseline, Phase.Baseline),
     CurrentIds("current_ids", CURRENT_IDS_SQL, 3, true, Phase.Baseline, Phase.Baseline),
     CurrentNoOffsets("current_no_offsets", CURRENT_NO_OFFSETS_SQL, 3, true, Phase.Baseline, Phase.Baseline),
     CurrentOffsetsOnly("current_offsets_only", CURRENT_OFFSETS_ONLY_SQL, 3, true, Phase.Baseline, Phase.Baseline),
@@ -432,18 +466,34 @@ private fun jobs(
  * whole measurement would answer a different question than the one it claims.
  * The plan of the ordered statement carries one extra step — the temporary
  * B-tree the sort uses — and the rest of the steps have to match.
+ *
+ * The same holds for the pair that reads the whole matching set: the sort is
+ * the only difference there too.
  */
 private fun checkSamePlan(plans: List<PlanRecord>) {
-    val unordered = plans.first { it.variant == Variant.MatchLimitNoOrder.label }
-    val ordered = plans.first { it.variant == Variant.MatchOrder.label }
+    checkSamePlanExceptSort(plans, Variant.MatchLimitNoOrder, Variant.MatchOrder, "the limited pair")
+    checkSamePlanExceptSort(plans, Variant.MatchAllNoOrder, Variant.MatchAllOrder, "the whole-set pair")
+}
+
+/**
+ * Checks that two variants differ by the sort and by nothing else.
+ */
+private fun checkSamePlanExceptSort(
+    plans: List<PlanRecord>,
+    unorderedVariant: Variant,
+    orderedVariant: Variant,
+    pair: String,
+) {
+    val unordered = plans.first { it.variant == unorderedVariant.label }
+    val ordered = plans.first { it.variant == orderedVariant.label }
     val sortStep = ordered.steps.filter { "USE TEMP B-TREE" in it.uppercase(Locale.ROOT) }
     val orderedWithoutSort = ordered.steps.filterNot { "USE TEMP B-TREE" in it.uppercase(Locale.ROOT) }
     check(unordered.steps == orderedWithoutSort) {
-        "the pinned variants did not get the same plan: " +
+        "$pair did not get the same plan: " +
             "no order ${unordered.steps}, order ${ordered.steps}"
     }
     check(sortStep.size == 1) {
-        "the ordered variant did not sort through a temporary B-tree: ${ordered.steps}"
+        "the ordered variant of $pair did not sort through a temporary B-tree: ${ordered.steps}"
     }
 }
 
@@ -524,6 +574,14 @@ private fun checkJob(
         Variant.MatchCount -> {
             check(rows == job.matchCount) {
                 "count variant disagreed: $rows != ${job.matchCount}"
+            }
+        }
+
+        // The variants that read the whole matching set: every matched row, and
+        // no limit to cut them short.
+        Variant.MatchAllNoOrder, Variant.MatchAllOrder -> {
+            check(rows == job.matchCount) {
+                "whole-set variant disagreed: $rows != ${job.matchCount}"
             }
         }
 
@@ -956,6 +1014,8 @@ private fun StringBuilder.appendHeader(
     appendLine("- `match_count` — the same count over the join with the ownership filter.")
     appendLine("- `match_limit_no_order` — the joined rows with the production LIMIT, no ordering.")
     appendLine("- `match_order` — the same statement with `ORDER BY updated_at DESC`.")
+    appendLine("- `match_all_no_order` — the whole matching set, no ordering and no LIMIT.")
+    appendLine("- `match_all_order` — the same whole matching set, with `ORDER BY updated_at DESC`.")
     appendLine("- `current_ids` — the production statement with the id alone.")
     appendLine("- `current_no_offsets` — the production statement with the offsets replaced by a constant.")
     appendLine("- `current_offsets_only` — the production statement with the task row replaced by the id.")
@@ -966,7 +1026,13 @@ private fun StringBuilder.appendHeader(
     appendLine("so the difference between them is a difference between two statements.")
     appendLine()
     appendLine("`match_limit_no_order` and `match_order` are stated with a CROSS JOIN, which pins the")
-    appendLine("join order, so the difference between them prices the sort and nothing else.")
+    appendLine("join order. The limited pair measures the ordering as the production statement pays")
+    appendLine("for it: the unordered statement stops after twenty rows, while the ordered one walks")
+    appendLine("the whole matching set to learn which twenty come first — so the difference between")
+    appendLine("them is the sort together with the extra iteration of the index that the sort needed.")
+    appendLine("`match_all_no_order` and `match_all_order` are the same two statements without the")
+    appendLine("LIMIT: both read the whole matching set, and the difference between them is the price")
+    appendLine("of the sort and of nothing else.")
     appendLine("`current_no_order` is the production statement without its ORDER BY: it is recorded as a")
     appendLine("plan only, and never executed — the shape the planner picks when it is allowed to.")
     appendLine()
@@ -1062,6 +1128,35 @@ private const val MATCH_ORDER_SQL = """
       AND t.archived_at IS NULL
     ORDER BY t.updated_at DESC
     LIMIT ?
+"""
+
+// The same two statements without the LIMIT.
+//
+// The limited pair cannot answer the question it looks like it answers: the
+// unordered statement stops after it has found twenty rows, while the ordered
+// one has to walk the whole matching set to know which twenty come first. The
+// difference between them is therefore the sort *and* the extra iteration of
+// the index that the sort made necessary.
+//
+// These two statements read the whole matching set — every matched row, in
+// both of them — so the difference between them is the price of the sort and
+// nothing else. The limited pair stays in the sweep as the measurement of the
+// production behaviour; this pair is the measurement of the sort.
+private const val MATCH_ALL_NO_ORDER_SQL = """
+    SELECT t.id FROM tasks_fts
+    CROSS JOIN tasks t ON t.rowid = tasks_fts.docid
+    WHERE tasks_fts MATCH ?
+      AND t.user_id = ?
+      AND t.archived_at IS NULL
+"""
+
+private const val MATCH_ALL_ORDER_SQL = """
+    SELECT t.id FROM tasks_fts
+    CROSS JOIN tasks t ON t.rowid = tasks_fts.docid
+    WHERE tasks_fts MATCH ?
+      AND t.user_id = ?
+      AND t.archived_at IS NULL
+    ORDER BY t.updated_at DESC
 """
 
 // The production query shape, copied deliberately: this harness measures the
