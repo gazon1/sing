@@ -17,6 +17,27 @@ tags:
 - runFlow: ../../helpers/launch-clean.yaml
 - tapOn:
     id: tasks_fab
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# The FAB opens the capture path: the title takes the focus and the keyboard
+# comes up with it. The keyboard takes half the editor's height, the rows below
+# the fold are then not on the screen at all, and the swipe a scroll does lands
+# on the save bar rather than on the editor — so the scroll cannot reach them.
+#
+# So the title is typed first, and the keyboard is closed right after the text
+# that opened it: one input, one dismissal. A hideKeyboard with nothing to hide
+# is a BACK keypress, and the editor reads that as "dismiss me"
+# (docs/decisions/2026-10-28-the-keyboard-was-already-down.md).
+- tapOn:
+    id: task_editor_title_input
+# The create screen restores its draft, so the field still holds the previous
+# flow's title; `inputText` appends to whatever is there.
+- eraseText
+- inputText: "${RUN_ID} Full task with all fields"
+- hideKeyboard
 
 # The editor is open. The editor restores its draft — and with it the place it
 # was left — so the title input can start below the fold. Scrolling up to it
@@ -103,19 +124,10 @@ tags:
 - assertVisible:
     id: task_editor_pin_row
 
-# ── Fill title ─────────────────────────────────────────────────────────
-- scrollUntilVisible:
-    element:
-      id: task_editor_title_input
-    direction: UP
-    timeout: 5000
-- tapOn:
-    id: task_editor_title_input
-# The create screen restores its draft, so the field still holds the previous
-# flow's title; `inputText` appends to whatever is there.
-- eraseText
-- inputText: "${RUN_ID} Full task with all fields"
-- hideKeyboard
+# ── Title ──────────────────────────────────────────────────────────────
+# The title was typed at the top of the flow, right after the editor opened:
+# the capture path opens with the title focused and the keyboard up, and the
+# rows below the fold are only reachable once the keyboard is gone.
 
 # ── Set priority to High ──────────────────────────────────────────────
 # Priority row may be below the fold — scroll it into view before tapping.

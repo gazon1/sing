@@ -1,0 +1,165 @@
+reusing the open ChatGPT tab (new chat, no page reload)
+using project "chatgpt-use"
+warning: 45 prompts sent in the last hour on this machine — near the pace that has tripped chatgpt.com's 'Too many requests' throttle before. Consider pausing.
+[   0.0s] submitted; waiting for reply
+pinned to conversation 6b07a9b7-0404-83eb-90c9-16234f42ac65
+[    6.0s] generating (msgs=10, len=20)
+[   12.0s] generating (msgs=10, len=278)
+[   18.0s] generating (msgs=9, len=773)
+[   23.0s] generating (msgs=9, len=773)
+[   28.0s] generating (msgs=9, len=773)
+[   34.0s] generating (msgs=9, len=773)
+[   40.0s] generating (msgs=9, len=773)
+[   45.0s] generating (msgs=9, len=773)
+[   51.0s] generating (msgs=9, len=773)
+[   57.0s] generating (msgs=9, len=773)
+[   62.0s] generating (msgs=9, len=773)
+[   68.0s] generating (msgs=9, len=773)
+[   74.0s] generating (msgs=9, len=4623)
+[   80.0s] generating (msgs=9, len=7732)
+[   85.0s] waiting for reply (msgs=9, len=8789)
+[   91.0s] waiting for reply (msgs=9, len=8789)
+[   97.0s] waiting for reply (msgs=9, len=8789)
+[  103.0s] waiting for reply (msgs=9, len=8789)
+[  108.0s] waiting for reply (msgs=9, len=8789)
+[  114.0s] waiting for reply (msgs=9, len=8789)
+[  120.0s] waiting for reply (msgs=9, len=8789)
+[  126.0s] waiting for reply (msgs=9, len=8789)
+[  130.0s] server reports the turn closed; taking the reply from the conversation record
+## Findings
+
+**No findings.**
+
+I found no blocker, major regression, security issue, data-loss issue, or untested risky logic that warrants requesting changes.
+
+In particular:
+
+- **Navigation restoration:** `rememberSaveable` now owns the selected top-level route, using the same polymorphic registration as the navigation stacks. Restored routes are checked against the available top-level routes. Invalid or undecodable state falls back safely.
+- **Navigation callers:** `Nav3State` validates both the initial route and restored route against `backStacks`. `topMostRoute()` continues to resolve through the active stack. The JVM implementation remains in-memory and is unaffected.
+- **Undo:** The action-bearing snackbar uses `SnackbarDuration.Long`; ordinary notices retain `Short`. The notification lifecycle preserves the snackbar until its result is handled.
+- **Orientation fixture:** Original settings are captured once per device, individually, and restored through a close callback. Dead devices and unreadable settings are handled without attempting invalid restoration.
+- **Maestro flows:** The changes use observable state, bounded waits and explicit recovery steps rather than arbitrary delays. I found no newly introduced unbounded wait.
+- **Debt registry:** The six newly identified causes have individual entries owned by #3191. The additional undo-related product cause is also registered.
+- **Qualification:** The PR documents fourteen flows, including the additional attachment flow, with three attempts against the same identified build and environment.
+
+### Attachment helpers — explicit answer
+
+**Not a finding.**
+
+The removal of centering is justified.
+
+`open-attachments-sheet.yaml` and `reveal-attachments-section.yaml` now use ordinary `scrollUntilVisible`. The former centering behavior could never settle on the last row of the sheet because there was no further content to scroll.
+
+The replacement tap:
+
+```yaml
+- tapOn:
+    id: attachments_add_file_row
+    point: "50%,25%"
+```
+
+addresses the upper quarter of the row, rather than its bottom edge. This avoids depending on the sheet's final scroll position and reduces the risk of hitting the gesture-navigation area.
+
+The helper still waits for the URL input after tapping. I see no correctness regression from removing centering.
+
+---
+
+## Implicit-decisions audit
+
+These are consequential implementation decisions beyond the literal acceptance criteria. I do not consider them defects.
+
+### 1. Persist the selected tab, not tab history
+
+- **Decision:** Save one top-level `NavKey`, not `_previousTopLevelRoute`.
+- **Alternatives:** Persist the complete navigation history, use an Activity-scoped ViewModel, or retain the old reset behavior.
+- **Why:** The selected route is sufficient to restore the screen and its independently saved back stack. Persisting history would widen the navigation state contract.
+- **Evidence:** `Nav3SavedState.kt`, `Nav3StateFactory.android.kt`, and the ADR `2026-11-25-the-selected-tab-survives-the-configuration-change.md`.
+- **Assumption:** Returning to the start route when pressing Back at the root after rotation is acceptable.
+- **Support:** Explicitly documented in the ADR and consistent with the previous behavior after Activity recreation.
+- **Changed guarantee:** The selected tab survives rotation; the previous-tab relationship does not.
+
+### 2. Degrade incompatible navigation state instead of crashing
+
+- **Decision:** An undecodable or no-longer-allowed saved route restores as `null`, allowing `rememberSaveable` to retain its initial route.
+- **Alternatives:** Throw, attempt migration, or restore an arbitrary route.
+- **Why:** A stale saved-state payload should not prevent application startup.
+- **Evidence:** `navKeySaver()`:
+
+```kotlin
+runCatching {
+    decodeFromSavedState(serializer, saved as SavedState, configuration)
+}
+    .getOrNull()
+    ?.takeIf { it in allowedRoutes }
+```
+
+- **Assumption:** Losing the selected tab is preferable to losing access to the application.
+- **Support:** The allowed-route validation and fallback behavior are explicit.
+- **Changed guarantee:** Restoration is best-effort, not guaranteed across incompatible application versions.
+
+### 3. Extend undo lifetime to ten seconds
+
+- **Decision:** Use `SnackbarDuration.Long` for undo, while retaining `Short` for ordinary notices.
+- **Alternatives:** Optimize Maestro tapping or retry the flow.
+- **Why:** The observed delay was longer than the product's existing undo window. Optimizing the test would leave the user-facing defect intact.
+- **Evidence:** `NotificationHost.kt`, `UndoOfferDurationTest.kt`, and the undo ADR.
+- **Assumption:** Ten seconds provides a reasonable opportunity to act.
+- **Support:** Recorded measurements show the tap sometimes took up to nine seconds.
+- **Changed guarantee:** Users receive a longer undo opportunity. This is a visible product behavior change, not merely a testing adjustment.
+
+### 4. Restore only readable device settings
+
+- **Decision:** Capture each orientation setting independently and restore only successfully read values.
+- **Alternatives:** Treat both settings as one atomic pair, or abandon restoration if either is unreadable.
+- **Why:** One unreadable setting should not prevent restoration of the other.
+- **Evidence:** `_fixtures.py`, `test_maestro_orientation_fixture.py`, and the fixture ADR.
+- **Assumption:** Individual setting restoration is better than leaving both modified.
+- **Support:** Dedicated tests cover partially readable settings and one-time restoration.
+- **Changed guarantee:** Restoration is best-effort rather than atomic.
+
+### 5. Remove attachment centering
+
+- **Decision:** Stop scrolling as soon as the target row becomes visible and tap its upper quarter.
+- **Alternatives:** Keep centering, use coordinates independent of the row, or increase the timeout.
+- **Why:** Centering cannot reliably reach the desired position for the last row.
+- **Evidence:** Both attachment helpers and the PR's three-attempt requalification evidence.
+- **Assumption:** The row's upper quarter remains a safe tap target when partially visible.
+- **Support:** The tap is relative to the element, not the screen.
+- **Changed guarantee:** The helper guarantees visibility and targets the row; it no longer guarantees centered positioning.
+
+### 6. Anchor qualification to the tested APK, not the final PR commit
+
+- **Decision:** Qualification records identify the APK build SHA `277e8ebff18a79cf10bfaf903991bd0ece2b4ed8`, retained through `qualification-3191-rebase-build`.
+- **Alternatives:** Record the final PR commit or omit the build identity.
+- **Why:** The evidence file itself changes the commit containing it. Naming that commit as the tested build would create a circular dependency.
+- **Evidence:** PR verification and qualification registry.
+- **Assumption:** The retained build reference remains resolvable.
+- **Support:** The PR documents the tag anchoring that build.
+- **Changed guarantee:** The evidence identifies the tested binary rather than claiming the final documentation commit was itself built and tested.
+
+---
+
+## Acceptance criteria assessment
+
+| # | Criterion from #3191 | Assessment |
+|---|---|---|
+| 1 | Six new causes independently registered and owned | <badge color="success">PASS</badge> |
+| 2 | Thirteen flows, three consecutive passes, documented environment | <badge color="success">PASS</badge> |
+| 3 | Qualification checker passes without exceptions for these flows | <badge color="success">PASS</badge> |
+
+The additional undo cause is also registered. The attachment helper change invalidates the affected flows' fingerprints, and the PR reports their subsequent requalification.
+
+**Verification qualification:** These acceptance results are supported by the committed registry, recorded qualification data and the local output quoted in the PR description. They are not independently confirmed by GitHub CI: no workflow runs or status checks exist for the supplied head, as CI was intentionally skipped.
+
+## Final assessment
+
+The important distinction is that this PR fixes two genuine product defects, not just thirteen unreliable tests:
+
+1. Losing the selected tab and its editor on rotation.
+2. Losing the undo opportunity before the user could act.
+
+The implementation addresses both at their respective sources, adds regression protection, and documents the intentional behavioral trade-offs.
+
+I found no remaining issue requiring a code change.
+
+VERDICT: APPROVE

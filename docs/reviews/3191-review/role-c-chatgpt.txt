@@ -1,0 +1,263 @@
+reusing the open ChatGPT tab (new chat, no page reload)
+using project "chatgpt-use"
+warning: 47 prompts sent in the last hour on this machine — near the pace that has tripped chatgpt.com's 'Too many requests' throttle before. Consider pausing.
+[   0.0s] submitted; waiting for reply
+pinned to conversation 6b07aab7-c414-83eb-892b-8dcb1bc78f6a
+[    6.0s] generating (msgs=9, len=20)
+[   12.0s] generating (msgs=9, len=20)
+[   18.0s] generating (msgs=9, len=20)
+[   24.0s] generating (msgs=9, len=20)
+[   31.0s] generating (msgs=9, len=20)
+[   37.0s] generating (msgs=9, len=20)
+[   43.0s] generating (msgs=9, len=20)
+[   49.0s] generating (msgs=9, len=696)
+[   55.0s] generating (msgs=9, len=696)
+[   63.0s] generating (msgs=9, len=696)
+[   69.0s] generating (msgs=9, len=696)
+[   75.0s] generating (msgs=9, len=2529)
+[   82.0s] generating (msgs=9, len=3019)
+[   88.0s] generating (msgs=9, len=6879)
+[   94.0s] waiting for reply (msgs=9, len=7489)
+ChatGPT said:
+PR #3214 — independent review, role C
+No blocking findings identified
+
+Reviewed head: 728b6be67037354ff1f2795146b9f39c633570ac
+
+Governing issue: #3191
+
+I reviewed the issue, PR description, repository conventions, navigation implementation and tests, qualification records, changed Maestro flows, fixture implementation, and the relevant static-gate implementations.
+
+The six new failure causes are individually registered. The requalification evidence is internally consistent: the records identify API 36, sdk_gphone64_x86_64, the same emulator serial, build 277e8ebff18a, and Maestro 2.10.0.
+
+I found no evidence that the attachment-flow changes weaken the intended assertions.
+
+Findings
+
+No findings.
+
+In particular:
+
+Navigation tests: NavKeySaverTest exercises actual serialization and restoration through the production saver. It also verifies rejection of a non-top-level route. Nav3StateRestoredRouteTest verifies acceptance of a restored non-default tab and rejection of a route without a back stack. These tests would catch the corresponding regressions.
+
+Test conventions: Both classes use @Tag("fast"), live in commonTest, and use real navigation objects rather than mocks. This follows docs/architecture/tests.md.
+
+Undo behaviour: The implementation gives action-bearing snackbars Long duration while keeping ordinary notifications Short. The flow verifies the actual Undo action and subsequent task restoration.
+
+Rename behaviour: The flow checks that the original title is restored in the editor, then checks that the original task remains in the list. It does not merely check that the editor remains open.
+
+Pinned search: The flow waits for the pin operation to complete, finds both tasks, enables the pinned-only filter, verifies the pinned task remains, and verifies the unpinned task disappears.
+
+No-results recovery: Both recovery paths remain covered: clearing the query and clearing filters while preserving the ability to find the seeded task again.
+
+Full task creation: The flow still checks the editor's attribute rows and the resulting task properties. Scrolling to individual rows does not replace their assertions.
+
+Attachment helper question
+Not a finding
+
+I explicitly checked the removal of centerElement.
+
+The previous centering operation could fail to converge because the add-file row was the last item in the sheet. The replacement uses scrollUntilVisible followed by a tap at 50%,25% within the row.
+
+This is a reasonable correction:
+
+Scrolling stops when the target becomes visible.
+
+The tap is relative to the target element, not the screen.
+
+The upper-quarter tap avoids relying on a screen coordinate near the gesture-navigation area.
+
+The helper still waits for attachments_url_input, so the action has a meaningful postcondition.
+
+The change does not remove the attachment interaction or replace it with a weaker assertion.
+
+The five attachment flows have new fingerprints and corresponding fresh qualification records. I would not require restoring centering.
+
+Acceptance criteria
+
+Criterion
+
+	
+
+Status
+
+	
+
+Evidence
+
+
+
+
+1. Six new causes individually registered with owning issues
+
+	
+
+PASS
+
+	
+
+maestro-debt.yaml contains separate entries for all six new failure signatures, owned by #3191.
+
+
+
+
+2. Thirteen flows qualified with three consecutive passes
+
+	
+
+PASS
+
+	
+
+All thirteen have qualification records. Each records three passing attempts, the same API 36 emulator, serial emulator-5590, build 277e8ebff18a, and Maestro 2.10.0.
+
+
+
+
+3. No exceptions remain for the thirteen flows
+
+	
+
+PASS
+
+	
+
+All thirteen appear under qualifications, not exceptions. PR reports check-maestro-flow-qualification.py exit 0.
+
+Qualification evidence details
+
+I checked the records against the actual changed flow paths.
+
+The evidence is internally consistent:
+
+One environment throughout: API 36 emulator.
+
+One device serial: emulator-5590.
+
+One APK build: 277e8ebff18a.
+
+One Maestro version: 2.10.0.
+
+Three attempts per flow, numbered 1–3.
+
+Every attempt records outcome: pass and return_code: 0.
+
+The five attachment flows have records dated November 26, following the helper modification.
+
+The additional attachments/02-delete qualification is appropriate: it shares the modified helper and therefore also needs requalification.
+
+Verification limitation: I inspected the committed evidence and checker implementation, but did not independently execute the local test commands or inspect the machine-local JUnit artifacts. CI was intentionally skipped. The reported local results are therefore treated as supplied verification evidence, not as executions independently reproduced during this review.
+
+Static gates
+
+The PR reports successful execution of all six relevant checks over 130 flows:
+
+Gate
+
+	
+
+Review
+
+
+
+
+Flow qualification
+
+	
+
+Current fingerprints and admission records
+
+
+
+
+hideKeyboard
+
+	
+
+Changed flows retain valid input/dismissal ordering
+
+
+
+
+Keyboard commands
+
+	
+
+No apparent duplicate or unsupported dismissal
+
+
+
+
+Seeded titles
+
+	
+
+No template variables in seeded entity titles
+
+
+
+
+Screen geometry
+
+	
+
+No newly introduced hardcoded screen coordinates
+
+
+
+
+Selector validation
+
+	
+
+Changed selectors use existing test identifiers or supported dynamic identifiers
+
+I found no apparent violation in the changed flows.
+
+ADR review
+
+docs/decisions/2026-11-25-the-selected-tab-survives-the-configuration-change.md:
+
+Uses the repository's required ADR structure.
+
+Records a genuine architectural decision.
+
+Describes the actual rememberSaveable implementation.
+
+Explains the fallback for undecodable saved state.
+
+Documents the back-stack invariant.
+
+Explicitly records the limitation concerning tab history.
+
+The decision is implemented consistently in Nav3StateFactory.android.kt, Nav3SavedState.kt, and Nav3State.kt.
+
+The second ADR, concerning undo duration, also matches the implementation and its regression test.
+
+Implicit-decisions audit
+
+Several decisions go beyond the literal acceptance criteria:
+
+1. Save the selected tab, but not tab history. This preserves the active screen across rotation without expanding the navigation state/API. It is explicitly documented rather than silently introduced.
+
+2. Treat the undo duration as a product defect. Instead of speeding up Maestro or adding retries, the implementation gives the user ten seconds to act. Ordinary notifications retain their shorter duration.
+
+3. Keep non-reproduced causes as accepted debt. A cause that disappears during requalification is not automatically declared fixed. This preserves regression visibility.
+
+4. Use one emulator as the qualification environment. The evidence establishes repeatability in that environment, not universal reliability across physical devices. The acceptance criteria require a documented environment, not multiple device classes.
+
+5. Include the additional attachment flow. The helper fingerprint affects dependent flows beyond the original thirteen, so qualifying attachments/02-delete is justified.
+
+I consider these decisions reasonable and sufficiently documented.
+
+Final assessment
+
+The important distinction is that this PR does not simply turn thirteen red flows green by removing assertions or extending exceptions.
+
+It addresses actual product defects, fixes test synchronization and viewport assumptions, restores qualification evidence, and preserves the original behavioural contracts.
+
+I found no actionable issue in the tests and verification scope.
+
+No blocking issues. No requested changes.
+
+VERDICT: APPROVE

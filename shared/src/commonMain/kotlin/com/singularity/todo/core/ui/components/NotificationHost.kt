@@ -121,11 +121,21 @@ fun NotificationHost(
             }
 
             is Notification.Undo -> {
+                // The undo offer is an answer the user has to give, not a notice
+                // they only read. Material 3's own guidance is the rule here: a
+                // snackbar that carries an action lives longer than one that does
+                // not (`Short` is four seconds, `Long` is ten).
+                //
+                // Four seconds is also what made the undo unreachable in practice:
+                // on a busy device the tap that presses "Undo" needs seconds to
+                // land, and the offer was gone before the tap arrived — the tap
+                // then hit whatever the snackbar had been covering. Ten seconds
+                // is the difference between an offer and a race.
                 val result =
                     snackbarHostState.showSnackbar(
                         message = n.title,
                         actionLabel = n.actionLabel,
-                        duration = SnackbarDuration.Short,
+                        duration = SnackbarDuration.Long,
                     )
                 if (result == SnackbarResult.ActionPerformed) n.onAction() else n.onDeclined()
                 notification = null

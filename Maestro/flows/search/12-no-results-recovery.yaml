@@ -46,6 +46,11 @@ tags:
 - tapOn:
     id: search_input
 - inputText: "zzzznomatchzzzz999999"
+# The keyboard stays up over the empty state and covers the way out: the
+# "Clear query" button sits at the bottom of the screen, under the keyboard,
+# and it is not in the tree while the keyboard is there (measured 2026-11-25,
+# API 36 emulator). The keyboard goes down before the way out is looked for.
+- hideKeyboard
 - extendedWaitUntil:
     visible:
       id: search_empty_results
@@ -72,6 +77,8 @@ tags:
 - tapOn:
     id: search_input
 - inputText: "Recovery"
+# Same as above: the keyboard covers the empty state's way out.
+- hideKeyboard
 # The search screen is not the screen the seed leaves the app on: the helper
 # waits for the task on the Today tab and does not navigate here, so the result
 # row on this screen is the flow's to wait for.

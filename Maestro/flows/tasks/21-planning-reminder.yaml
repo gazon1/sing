@@ -13,7 +13,17 @@ tags:
   - regression
   - tasks
 ---
-- runFlow: ../../helpers/seed-task.yaml
+# The reminder counts back from the due moment, so the task needs one: the
+# reminder slot refuses the write for a task without a due date
+# ("A reminder needs a due date to count back from"), and the refusal is a
+# dialog that hides the row this flow asserts on. `seed-task.yaml` seeds an
+# undated task on purpose — this flow seeds its own dated one instead.
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Buy%20milk&due=today"
+      WAIT_FOR: "task_item_buy_milk"
 - tapOn:
     id: task_item_buy_milk
 - extendedWaitUntil:

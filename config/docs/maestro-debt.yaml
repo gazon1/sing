@@ -77,10 +77,10 @@ environments:
 causes:
 - key: "No visible element found: id: attachments_add_file_row"
   issue: 818
-  owner: product
-  status: accepted
+  owner: test
+  status: fixed
   flows: 5
-  note: "The sheet that owns the row has no trigger in the UI (#818)."
+  note: "Re-attributed on 2026-11-25 (gazon1/sing#3191): the row was on the screen all along. Maestro's `centerElement: true` keeps scrolling until the row sits in the middle of the screen, and the '+ Add file' row is the last thing in the sheet — the content below it cannot scroll further, so the scroll ran to its timeout on a row that was already visible. The two attachment helpers scroll without centering now (API 36 emulator, 2026-11-25). The cause is a regression guard from now on."
 - key: "Assertion is false: id: task_detail_title is visible"
   issue: 864
   owner: fixed
@@ -175,9 +175,10 @@ causes:
   note: "Fixed by #842 (EventBus double-collect); seeing it again is a regression. The 2026-11-24 smoke run (45357418110) reported this cause on tasks/10-swipe-delete-undo, and that run did not record whether the row had gone first. The flow does not assert that today: it swipes and waits for the snackbar action, so one key covers two failure modes — a swipe that never crossed the delete threshold, and a row that went but whose snackbar action never arrived. Until the flow distinguishes them (a `notVisible: task_item_buy_milk` wait before the snackbar assertion), the observed failure stays counted here rather than being written off as fixed."
 - key: "Assertion is false: id: task_editor_title_input is visible"
   issue: 837
-  owner: unclassified
-  status: accepted
+  owner: product
+  status: fixed
   flows: 1
+  note: "Fixed by gazon1/sing#3191: a rotation recreated the Activity, the selected top-level route lived in a plain `remember`, so the shell came back on Today and the stack that held the open editor was never composed again — the app looked reset rather than broken. The route is saved now, and the state accepts a restored route. Verified on device (API 36 emulator, 2026-11-25); the cause is a regression guard from now on."
 - key: "Assertion is false: id: task_item_buy_milk is not visible"
   issue: 869
   owner: unclassified
@@ -195,9 +196,10 @@ causes:
   flows: 1
 - key: "Assertion is false: id: task_item_renameme is visible"
   issue: 872
-  owner: unclassified
-  status: accepted
+  owner: test
+  status: fixed
   flows: 1
+  note: "Fixed by gazon1/sing#3191: the flow's bare `eraseText` erased 50 characters, and the surplus deletions took the title the draft had just reverted apart again — the field ended up holding 'Rename', the task really was renamed, and the row's id no longer matched. The flow now erases exactly the title's length and asserts that the field still shows the reverted title. The cause is a regression guard from now on."
 - key: "Assertion is false: id: task_item_savedalpha<n> is visible"
   issue: 870
   owner: unclassified
@@ -348,7 +350,7 @@ causes:
   owner: product
   status: accepted
   flows: 1
-  note: "The identity cause this key carried is fixed (#938, closed). What the key reports now is tasks/06-delete-undo: after Delete, Undo and Back the row is still archived in the database, so the undo does not put the task back (#2723)."
+  note: "The cause did not reproduce in the requalification of 2026-11-25 (gazon1/sing#3191): three consecutive attempts passed and the row was back in the list after Undo every time. #2723 keeps the cause open — it was measured once, on a phone, and the issue itself records that the flow passed on the immediate retry. It stays registered as debt rather than being written off: a recurrence is this cause and not a new one."
 - key: "Assertion is false: id: task_item_taskwithdesc<n> is visible"
   issue: 937
   owner: test
@@ -358,9 +360,9 @@ causes:
 - key: "Assertion is false: id: task_item_pinnedtask<n> is visible"
   issue: 937
   owner: test
-  status: accepted
+  status: fixed
   flows: 1
-  note: "The flow asks the Inbox for a task it seeded with a due date, so the task is on the Today tab (#937)."
+  note: "The flow asks the Inbox for a task it seeded with a due date, so the task is on the Today tab (#937). Fixed by gazon1/sing#3191: the flow taps the Today tab now, and the one failure the requalification of 2026-11-25 measured was the pin — the flow left the editor before the asynchronous pin write had landed, so the pinned-only filter hid a task that was never pinned. The flow waits for the pin row to report 'Pinned' before it leaves the editor now, and it passed every attempt on the API 36 emulator. The cause is a regression guard from now on."
 - key: "Element not found: Id matching regex: task_editor_title_input"
   issue: 837
   owner: unclassified
@@ -418,3 +420,60 @@ causes:
   status: fixed
   flows: 5
   note: "Fixed by this change: the E2E build started as a user who had never seen the spotlight tour, so the tour's scrim swallowed the helper's tap on the Inbox tab and the seeded row was never on the screen. Measured 2026-11-11 (CI run 42998855935, PR #2804); the same first-run state was in the dumps of profile/02-isolation, smoke/03-health-drilldown and tasks/subtasks/TASK-SUB-01. The cause is a regression guard from now on."
+
+# The causes the requalification of 2026-11-25 found (gazon1/sing#3191) on the
+# thirteen flows whose seed-helper fingerprint had moved. Each is registered on
+# its own: a cause the registry does not know fails the results gate even when
+# the number of failing flows is within the floor.
+#
+# Two of them did not reproduce on the current build and are kept as debt
+# rather than written off — a cause that may still come back has to be
+# registered, so that its return reads as this cause and not as a new one. The
+# other four were fixed in the flows themselves and are regression guards.
+- key: "No visible element found: id: menu_pomodoro"
+  issue: 3191
+  owner: test
+  status: accepted
+  flows: 1
+  note: "The app-menu sheet's scroll did not reach the Pomodoro row within its five-second timeout on the 2026-11-25 build, so the flow never reached the destination it seeds a task for. It did not reproduce on the current build (three consecutive passes, API 36 emulator, 2026-11-25): the row is in the menu and the sheet's scroll finds it. Kept registered as debt — a recurrence is this cause and not a new one."
+- key: "No visible element found: id: task_editor_pin_row"
+  issue: 3191
+  owner: test
+  status: accepted
+  flows: 1
+  note: "The task editor's scroll did not reach the pin row on the 2026-11-25 build, so the flow never reached the pin it asserts on. It did not reproduce in the requalification of 2026-11-25 (gazon1/sing#3191): the row was on the screen on every attempt, and the failure the run did record was a different cause (#937's 'Assertion is false: id: task_item_pinnedtask<n> is visible'). Kept registered as debt — a recurrence is this cause and not a new one."
+- key: "Assertion is false: id: search_clear_query_button is visible"
+  issue: 3191
+  owner: test
+  status: fixed
+  flows: 1
+  note: "Fixed by gazon1/sing#3191: the keyboard stayed up over the empty state, and the 'Clear query' button sits at the bottom of the screen — under the keyboard it is not in the tree at all, so 'visible' was false for a button that was on the screen. The flow hides the keyboard before it looks for the way out. The cause is a regression guard from now on."
+- key: "No visible element found: id: task_editor_due_row"
+  issue: 3191
+  owner: test
+  status: fixed
+  flows: 1
+  note: "Fixed by gazon1/sing#3191: the create path focuses the title field, and the keyboard took half of the editor's viewport, so the due row was below the fold and never composed. The flow types the title and closes the keyboard right after it — one input, one dismissal — and the editor's rows are on the screen again. The cause is a regression guard from now on."
+- key: "Assertion is false: id: task_editor_reminder_row_label is visible"
+  issue: 3191
+  owner: test
+  status: fixed
+  flows: 1
+  note: "Fixed by gazon1/sing#3191: the fixture had no due date, and a reminder needs one to count back from ('A reminder needs a due date to count back from'), so the editor refused the reminder and the row was never shown. The flow seeds the task with `due=today` now. The cause is a regression guard from now on."
+- key: "Assertion is false: id: logbook_note_by_title_r<n>_logbook_note is visible"
+  issue: 3191
+  owner: test
+  status: fixed
+  flows: 1
+  note: "Fixed by gazon1/sing#3191: the note the flow opens sits under the logbook section, below the fold — a row that is not on the screen is not visible to Maestro, and the flow looked for it without scrolling. The flow scrolls to the note before it waits for it. The cause is a regression guard from now on."
+
+
+# The cause the requalification of 2026-11-26 found (gazon1/sing#3191) on
+# tasks/06-delete-undo, after the rotation fix. This one is a product defect:
+# the undo offer was too short for the tap that accepts it.
+- key: "Element not found: Id matching regex: top_bar_back_button"
+  issue: 3191
+  owner: product
+  status: fixed
+  flows: 1
+  note: "Fixed by gazon1/sing#3191: the undo snackbar lived four seconds (`SnackbarDuration.Short`) while the tap that accepts it cost three to nine seconds on the loaded host, so the offer was gone before the tap landed — the undo never happened and the screen was no longer the one the flow expects, and the flow's next step found no back button. The undo offer now lives ten seconds (`SnackbarDuration.Long`), which is also what Material 3 asks for of a snackbar that carries an action. ADR: docs/decisions/2026-11-26-the-undo-offer-outlives-the-tap.md. The cause is a regression guard from now on."

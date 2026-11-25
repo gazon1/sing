@@ -1,0 +1,180 @@
+reusing the open ChatGPT tab (new chat, no page reload)
+using project "chatgpt-use"
+warning: 46 prompts sent in the last hour on this machine — near the pace that has tripped chatgpt.com's 'Too many requests' throttle before. Consider pausing.
+[   0.0s] submitted; waiting for reply
+pinned to conversation 6b07aa44-4974-83eb-a9a8-3e46abf46954
+[    6.0s] generating (msgs=9, len=20)
+[   12.0s] generating (msgs=9, len=20)
+[   18.0s] generating (msgs=9, len=20)
+[   23.0s] generating (msgs=9, len=20)
+[   29.0s] generating (msgs=9, len=20)
+[   35.0s] generating (msgs=9, len=6471)
+[   40.0s] waiting for reply (msgs=9, len=7256)
+[   46.0s] waiting for reply (msgs=9, len=7256)
+[   52.0s] waiting for reply (msgs=9, len=7256)
+[   58.0s] waiting for reply (msgs=9, len=7256)
+[   63.0s] waiting for reply (msgs=9, len=7256)
+[   69.0s] waiting for reply (msgs=9, len=7256)
+[   75.0s] waiting for reply (msgs=9, len=7256)
+[   81.0s] waiting for reply (msgs=9, len=7256)
+[   86.0s] waiting for reply (msgs=9, len=7256)
+[   92.0s] waiting for reply (msgs=9, len=7256)
+[   98.0s] waiting for reply (msgs=9, len=7256)
+[  106.0s] server reports the turn closed; taking the reply from the conversation record
+## Review result — PR #3214, round 6
+
+<row align="center" gap={2}>
+  <badge color="success">APPROVE</badge>
+  <text color="secondary" size="xs">Role B · Architecture, maintainability, compatibility and scope</text>
+</row>
+
+**No blocking, major or minor findings.**
+
+I reviewed the head `728b6be67037354ff1f2795146b9f39c633570ac` against issue #3191, the repository conventions, the affected architecture and the existing saved-state decisions.
+
+### 1. Acceptance criteria
+
+| Issue #3191 criterion | Assessment |
+|---|---|
+| Six new causes registered individually | <badge color="success">Satisfied</badge> |
+| All thirteen flows qualified, three consecutive passes | <badge color="success">Evidence recorded</badge> |
+| Exceptions replaced with qualifications | <badge color="success">Satisfied</badge> |
+| Qualification checker exits 0 | <badge color="success">Reported</badge> |
+
+The additional `attachments/02-delete` qualification is appropriate: its fingerprint also changed because it shares the modified helpers.
+
+The evidence consistently identifies build `277e8ebff18a79cf10bfaf903991bd0ece2b4ed8`, API 36 emulator and Maestro 2.10.0.
+
+The qualification records distinguish the build being tested from the commit containing the records. This is the correct approach: embedding the containing commit would change the tree being certified.
+
+CI was explicitly skipped. I treat the quoted local verification as reported evidence, not as an independently observed CI pass.
+
+### 2. Architecture and compatibility
+
+**Navigation saved state**
+
+The implementation respects the two September 29 ADRs:
+
+- The sealed `AppNavKey` remains the single polymorphic registration root.
+- `SavedStateConfiguration` remains a factory rather than becoming a shared global instance.
+- The new `navKeySaver` reuses the existing serialization mechanism instead of introducing another route registry.
+- The selected route is saved independently from the graph back stacks.
+- Invalid or undecodable restored routes degrade safely.
+- `Nav3State` now checks the actual invariant: the selected route must have a corresponding back stack.
+
+The change is appropriately narrow. It does not redesign the navigation architecture or introduce another navigation abstraction.
+
+The tests cover successful restoration and rejection of invalid routes.
+
+**Undo notification**
+
+Changing only the undo branch from `Short` to `Long` is the correct scope.
+
+Plain notifications retain their existing duration. The test protects both sides of that distinction.
+
+The decision also belongs in the product rather than compensating for the problem with faster Maestro selectors.
+
+**Orientation fixture**
+
+The implementation belongs in the existing `_fixtures.py` module.
+
+It reuses `DeviceDeps`, `adb_on`, the existing logger and Click's close-callback mechanism.
+
+The lifecycle is coherent:
+
+1. Read the original settings once.
+2. Force portrait before each flow.
+3. Keep portrait between flows.
+4. Restore the original settings at the end.
+5. Restore before the screen-off callback executes.
+
+The tests cover restoration, unreadable settings, dead devices, repeated initialization and idempotent cleanup.
+
+This is a reasonable amount of custom code for the device-specific lifecycle requirement. I don't see a justified dependency or abstraction that would improve it.
+
+**Evidence and ADRs**
+
+The debt registry distinguishes causes, ownership and whether recurrence represents a regression.
+
+The qualification records retain individual attempts, environment, build and fingerprint.
+
+The three new ADRs follow the repository's required frontmatter and decision structure. They explain alternatives, rationale and consequences rather than merely documenting implementation details.
+
+I found no material compatibility or maintainability problem in these changes.
+
+### 3. Attachment helpers: explicit answer
+
+<badge color="success">Not a finding</badge>
+
+Removing `centerElement: true` is justified.
+
+The previous centering behavior could continue scrolling towards an impossible position because the add-file row is the last element in the sheet.
+
+The replacement:
+
+```yaml
+- scrollUntilVisible:
+    element:
+      id: attachments_add_file_row
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: attachments_add_file_row
+    point: "50%,25%"
+```
+
+is a better approach.
+
+It separates two responsibilities:
+
+- Scrolling establishes visibility.
+- The fixed point identifies where inside the row to tap.
+
+The upper-quarter tap also addresses the gesture-navigation concern.
+
+The change requalifies the affected shared-helper consumers rather than assuming that a helper modification preserves their previous qualification.
+
+I would not require restoring centering.
+
+---
+
+### 4. Implicit-decisions audit
+
+These are consequential decisions made by the implementation beyond the literal acceptance criteria.
+
+| Decision | Alternatives | Assessment and behavioural guarantee |
+|---|---|---|
+| Save only the selected top-level route | Save complete tab history; use Activity ViewModel | Saving one key reuses the existing saved-state mechanism and satisfies the rotation contract. The selected tab survives recreation, but Back history does not. |
+| Reject restored routes outside `allowedRoutes` | Trust the serialized payload | A stale route must not point the shell at a nonexistent stack. The fallback is the start route. |
+| Treat undecodable saved state as recoverable | Fail fast on deserialization | Prevents an incompatible payload from crashing recreation. The trade-off is that the user may return to Today. |
+| Give undo ten seconds | Keep four seconds and optimize automation | Material 3's action-bearing snackbar duration is appropriate. Users get more time to reverse deletion. |
+| Keep portrait throughout the run | Restore after each flow | Every flow receives a consistent screen geometry. The phone owner gets their original settings back only when the run ends. |
+| Restore orientation before automatic-rotation policy | Restore settings in another order | Avoids restoring the policy before the orientation itself. |
+| Retain two non-reproduced causes as accepted debt | Remove them after three successful attempts | Avoids confusing non-reproduction with proof that the original cause never existed. |
+| Use an upper-quarter attachment tap | Restore centered scrolling | Avoids the sheet's impossible centering target while keeping the tap inside the row. |
+
+**One particularly important decision:** the selected-tab ADR explicitly acknowledges that tab history is not restored. This is a legitimate, documented scope boundary, not an accidental regression introduced by incomplete implementation.
+
+I agree with that trade-off.
+
+### 5. Final assessment
+
+I found no evidence-backed reason to request changes.
+
+In particular:
+
+- No violation of the existing saved-state architecture.
+- No unnecessary dependency or competing serialization mechanism.
+- No unjustified navigation refactoring.
+- No problematic public API or persisted schema change.
+- No meaningful duplication introduced by the fixture.
+- No missing fixture lifecycle cleanup in the reviewed implementation.
+- No evidence-registry inconsistency identified.
+- No reason to reverse the attachment-helper scrolling change.
+- The additional product fixes are appropriately isolated and documented.
+
+The implementation is disciplined about scope: it fixes the product defects where they belong, repairs the test flows where the tests were wrong, and preserves the remaining uncertainty as explicitly owned debt.
+
+**Recommendation: approve without further changes.**
+
+VERDICT: APPROVE
