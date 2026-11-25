@@ -65,8 +65,9 @@ def desktop_series(**overrides: object) -> list[dict]:
 
 
 def android_report(
-    samples: int = 1,
-    measured_runs: int = 1,
+    samples: int | None = None,
+    measured_runs: int = 5,
+    warmup_runs: int = 2,
     builds: list[str | None] | None = None,
     scenarios: tuple[str, ...] = ANDROID_SCENARIOS,
     planned: list[str] | None = None,
@@ -79,11 +80,18 @@ def android_report(
 
     A build of None is a run that names no build at all: the sample carries
     no version name at all, the way a run of an old report does.
+
+    The default is a report that can be published: several measured runs and
+    a warm-up before them. `samples` is how many of the runs are in the
+    report, and it defaults to all of them.
     """
+    if samples is None:
+        samples = measured_runs
     versions = builds if builds is not None else ["0.1.0"] * samples
     return {
         "method": {
             "measuredRuns": measured_runs,
+            "warmupRuns": warmup_runs,
             "plannedScenarios": list(scenarios if planned is None else planned),
         },
         "scenarios": {
@@ -158,7 +166,7 @@ def scenario_report(
     gesture_median: float = 80.0,
     opens: list[float] | None = None,
     gestures: list[float] | None = None,
-    runs: int = 1,
+    runs: int = 3,
     gestures_per_run: int = 2,
     distance_px: int = 400,
     dataset: dict[str, object] | None = None,
@@ -179,9 +187,16 @@ def scenario_report(
     The medians are the numbers the samples are built around: an open is one
     sample of its median, and a gesture is a pair of samples around it, so
     the median of the pair is the median the report claims.
+
+    The samples are as many as the configuration claims: `runs` opens and
+    `runs * gestures_per_run` gestures - and the default is a measurement
+    that can be published, several measured runs and a warm-up before them.
     """
-    opens = opens if opens is not None else [open_median]
-    gestures = gestures if gestures is not None else [gesture_median - 10.0, gesture_median + 10.0]
+    if opens is None:
+        opens = [open_median] * runs
+    if gestures is None:
+        pair = [gesture_median - 10.0, gesture_median + 10.0]
+        gestures = [pair[index % 2] for index in range(runs * gestures_per_run)]
     report = {
         "target": "jvm-desktop",
         "scenario": scenario,
@@ -270,11 +285,23 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
                 [
                     (
                         "2026-11-24T15:36:47",
-                        desktop_series(open_median=470.0, gesture_median=80.0, gestures=[70.0, 80.0]),
+                        desktop_series(
+                            open_median=470.0,
+                            gesture_median=80.0,
+                            gestures=[70.0, 75.0, 80.0],
+                            runs=3,
+                            gestures_per_run=1,
+                        ),
                     ),
                     (
                         "2026-11-24T15:37:35",
-                        desktop_series(open_median=452.0, gesture_median=76.0, gestures=[60.0, 76.0]),
+                        desktop_series(
+                            open_median=452.0,
+                            gesture_median=76.0,
+                            gestures=[60.0, 68.0, 76.0],
+                            runs=3,
+                            gestures_per_run=1,
+                        ),
                     ),
                 ],
             )
@@ -285,7 +312,7 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             self.assertEqual(runs[0]["ranAt"], "2026-11-24T15:36:47")
             self.assertEqual(runs[1]["ranAt"], "2026-11-24T15:37:35")
             self.assertEqual(runs[0]["measurements"]["gesture"]["medianMs"], 75.0)
-            self.assertEqual(runs[1]["measurements"]["gesture"]["samplesMs"], [60.0, 76.0])
+            self.assertEqual(runs[1]["measurements"]["gesture"]["samplesMs"], [60.0, 68.0, 76.0])
 
     def test_the_published_median_is_the_median_of_the_published_samples(self):
         """The published number and the population it describes are the same one.
@@ -303,9 +330,9 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
                         desktop_series(
                             open_median=465.0,
                             gesture_median=75.0,
-                            opens=[460.0, 470.0],
-                            gestures=[70.0, 80.0],
-                            runs=2,
+                            opens=[460.0, 465.0, 470.0],
+                            gestures=[70.0, 76.0, 80.0],
+                            runs=3,
                             gestures_per_run=1,
                         ),
                     ),
@@ -314,9 +341,9 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
                         desktop_series(
                             open_median=445.0,
                             gesture_median=68.0,
-                            opens=[440.0, 450.0],
-                            gestures=[60.0, 76.0],
-                            runs=2,
+                            opens=[440.0, 445.0, 450.0],
+                            gestures=[60.0, 68.0, 76.0],
+                            runs=3,
                             gestures_per_run=1,
                         ),
                     ),
@@ -326,12 +353,12 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             scenario = self._evidence(tmp)["scenarios"][SCENARIO]
             results = scenario["results"]
             samples = scenario["samples"]
-            # the pooled gesture samples are 60, 70, 76 and 80
+            # the pooled gesture samples are 60, 68, 70, 76, 76 and 80
             self.assertEqual(results["gesture"]["medianMs"], 73.0)
-            self.assertEqual(results["gesture"]["sampleCount"], 4)
-            # the pooled open samples are 440, 450, 460 and 470
+            self.assertEqual(results["gesture"]["sampleCount"], 6)
+            # the pooled open samples are 440, 445, 450, 460, 465 and 470
             self.assertEqual(results["open"]["medianMs"], 455.0)
-            self.assertEqual(results["open"]["sampleCount"], 4)
+            self.assertEqual(results["open"]["sampleCount"], 6)
 
     def test_the_medians_of_the_runs_travel_with_the_published_median(self):
         """The spread between the runs stays visible next to the pooled median."""
@@ -362,19 +389,29 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
                 [
                     (
                         "2026-11-24T15:36:47",
-                        desktop_series(gestures=[70.0, 80.0], opens=[460.0]),
+                        desktop_series(
+                            gestures=[70.0, 75.0, 80.0],
+                            opens=[460.0, 460.0, 460.0],
+                            runs=3,
+                            gestures_per_run=1,
+                        ),
                     ),
                     (
                         "2026-11-24T15:37:35",
-                        desktop_series(gestures=[60.0, 65.0], opens=[440.0]),
+                        desktop_series(
+                            gestures=[60.0, 65.0, 70.0],
+                            opens=[440.0, 440.0, 440.0],
+                            runs=3,
+                            gestures_per_run=1,
+                        ),
                     ),
                 ],
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             samples = self._evidence(tmp)["scenarios"][SCENARIO]["samples"]
-            self.assertEqual(len(samples["gesture"]), 4)
-            self.assertEqual(sorted(samples["gesture"]), [60.0, 65.0, 70.0, 80.0])
-            self.assertEqual(len(samples["open"]), 2)
+            self.assertEqual(len(samples["gesture"]), 6)
+            self.assertEqual(sorted(samples["gesture"]), [60.0, 65.0, 70.0, 70.0, 75.0, 80.0])
+            self.assertEqual(len(samples["open"]), 6)
 
     def test_the_load_of_the_host_travels_with_the_numbers(self):
         """The numbers move with the load of the host, so the load is published."""
@@ -499,7 +536,7 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
     def test_a_run_that_does_not_match_its_own_configuration_is_not_published(self):
         """A report whose samples do not match its configuration is not a measurement."""
         with tempfile.TemporaryDirectory() as tmp:
-            report = desktop_series(gestures=[70.0, 80.0])
+            report = desktop_series()
             report[0]["measurements"][1]["samples"] = 9
             result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
             self.assertNotEqual(result.returncode, 0)
@@ -568,7 +605,7 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
     def test_a_run_with_fewer_raw_samples_than_it_claims_is_not_published(self):
         """The count of the samples and the samples themselves are one claim."""
         with tempfile.TemporaryDirectory() as tmp:
-            report = desktop_series(gestures=[70.0, 80.0])
+            report = desktop_series()
             report[0]["measurements"][1]["samplesMs"] = [70.0]
             result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
             self.assertNotEqual(result.returncode, 0)
@@ -578,8 +615,8 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
     def test_a_run_whose_median_is_not_the_median_of_its_samples_is_not_published(self):
         """A median of another population is not the median of this one."""
         with tempfile.TemporaryDirectory() as tmp:
-            report = desktop_series(gestures=[70.0, 80.0])
-            report[0]["measurements"][1]["medianMs"] = 80.0
+            report = desktop_series()
+            report[0]["measurements"][1]["medianMs"] = 123.0
             result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("medianMs", result.stderr)
@@ -588,12 +625,65 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
     def test_a_run_whose_percentile_is_not_the_percentile_of_its_samples_is_not_published(self):
         """A percentile that no sample has is not a number that was measured."""
         with tempfile.TemporaryDirectory() as tmp:
-            report = desktop_series(gestures=[70.0, 80.0])
+            report = desktop_series()
             report[0]["measurements"][1]["p95Ms"] = 99.0
             result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("p95Ms", result.stderr)
             self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_run_measured_once_is_not_published(self):
+        """A median of one run is that run, and it is not a baseline.
+
+        The desktop rule is the rule of the Android one: a scenario needs
+        several measured runs and a warm-up before them, or the number that
+        would be published is the number of one moment.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series(runs=1, gestures_per_run=2, opens=[460.0], gestures=[70.0, 80.0])
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("too little to be a baseline", result.stderr)
+            self.assertIn("measured 1 time(s)", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_run_without_a_warm_up_is_not_published(self):
+        """Without a warm-up the first measured run is the measurement of a cold start."""
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series(warmupRuns=0)
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("too little to be a baseline", result.stderr)
+            self.assertIn("warm-up run(s)", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_run_that_does_not_say_its_warm_up_is_not_published(self):
+        """A report that does not say how it warmed up cannot show that it did."""
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series()
+            del report[0]["warmupRuns"]
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("does not say how many warm-up runs", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_run_measured_twice_is_not_published(self):
+        """Two runs are two numbers, and their median is their mean."""
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series(runs=2, gestures_per_run=1, opens=[460.0, 470.0], gestures=[70.0, 80.0])
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("measured 2 time(s)", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_run_with_a_warm_up_and_several_runs_is_published(self):
+        """The rule is a floor, and a measurement above it is published."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(tmp, [("2026-11-24T15:36:47", desktop_series())])
+            self.assertEqual(result.returncode, 0, result.stderr)
+            method = self._evidence(tmp)["scenarios"][SCENARIO]["method"]
+            self.assertEqual(method["measuredRunsPerRun"], 3)
+            self.assertEqual(method["warmupRuns"], 2)
 
     def test_a_run_with_two_reports_of_one_scenario_is_not_published(self):
         """One execution measures a screen once.
@@ -630,13 +720,24 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
 class PublishAndroidEvidenceTest(unittest.TestCase):
     """The published Android evidence is the report of the measurement."""
 
-    def _report(self, samples: int = 1, measured_runs: int = 1, builds: list[str] | None = None) -> dict:
+    def _report(
+        self,
+        samples: int = 5,
+        measured_runs: int = 5,
+        warmup_runs: int = 2,
+        builds: list[str] | None = None,
+    ) -> dict:
         """A report of the whole set of scenarios, with the given number of runs.
 
         `measured_runs` is how many runs the measurement was asked for, and
         `samples` is how many of them are in the report.
         """
-        return android_report(samples=samples, measured_runs=measured_runs, builds=builds)
+        return android_report(
+            samples=samples,
+            measured_runs=measured_runs,
+            warmup_runs=warmup_runs,
+            builds=builds,
+        )
 
     def _publish(self, tmp: str, report: dict) -> subprocess.CompletedProcess:
         report_path = Path(tmp) / "frame-time-report.json"
@@ -735,11 +836,58 @@ class PublishAndroidEvidenceTest(unittest.TestCase):
             self.assertIn("calendar-periods", result.stderr)
             self.assertFalse((Path(tmp) / "evidence.json").exists())
 
+    def test_a_report_measured_once_is_not_published(self):
+        """A median of one run is that run, and it is not a baseline.
+
+        The report says everything it says truthfully - one run was asked
+        for and one run is in it - and the number it would publish is the
+        number of one moment, not the median of a repeatable measurement.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(tmp, self._report(samples=1, measured_runs=1))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("measured 1 time(s)", result.stderr)
+            self.assertIn("at least 3 measured runs", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_report_measured_twice_is_not_published(self):
+        """Two runs are two numbers, and their median is their mean."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(tmp, self._report(samples=2, measured_runs=2))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("measured 2 time(s)", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_report_without_a_warm_up_is_not_published(self):
+        """Without a warm-up the first measured run is the measurement of a cold start."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(tmp, self._report(warmup_runs=0))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("warm-up run(s)", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_report_that_does_not_say_its_warm_up_is_not_published(self):
+        """A report that does not say how it warmed up cannot show that it did."""
+        report = self._report()
+        del report["method"]["warmupRuns"]
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(tmp, report)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("does not say how many warm-up runs", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_report_with_a_warm_up_and_several_runs_is_published(self):
+        """The rule is a floor, and a measurement above it is published."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(tmp, self._report(samples=3, measured_runs=3, warmup_runs=1))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((Path(tmp) / "evidence.json").exists())
+
 
 class UpdateDocTablesTest(unittest.TestCase):
     """The tables and the spread of the document come from the artifacts."""
 
-    def _android_report(self, samples: int = 1, measured_runs: int = 1) -> dict:
+    def _android_report(self, samples: int = 5, measured_runs: int = 5) -> dict:
         return android_report(
             samples=samples,
             measured_runs=measured_runs,
@@ -836,7 +984,7 @@ class UpdateDocTablesTest(unittest.TestCase):
 class RenderTableTest(unittest.TestCase):
     """The table of the document is rendered out of the report."""
 
-    def _report(self, samples: int = 1, measured_runs: int = 1) -> dict:
+    def _report(self, samples: int = 5, measured_runs: int = 5) -> dict:
         return android_report(
             samples=samples,
             measured_runs=measured_runs,

@@ -292,11 +292,45 @@ class ArgumentsTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 driver.parse_args(argv)
 
+    def _refusal(self, argv: list[str]) -> str:
+        """What the command said about the measurement it refused."""
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit):
+                driver.parse_args(argv)
+        return stderr.getvalue()
+
     def test_a_run_without_a_measurement_is_refused(self):
         self._refused(["--serial", "serial", "--runs", "0"])
 
     def test_a_negative_warm_up_is_refused(self):
         self._refused(["--serial", "serial", "--warmup", "-1"])
+
+    def test_one_measured_run_is_refused(self):
+        """A median of one run is that run, and it is not a baseline."""
+        refusal = self._refusal(["--serial", "serial", "--runs", "1"])
+        self.assertIn("--runs must be at least 3", refusal)
+
+    def test_two_measured_runs_are_refused(self):
+        refusal = self._refusal(["--serial", "serial", "--runs", "2"])
+        self.assertIn("--runs must be at least 3", refusal)
+
+    def test_three_measured_runs_are_accepted(self):
+        args = driver.parse_args(["--serial", "serial", "--runs", "3"])
+        self.assertEqual(args.runs, 3)
+
+    def test_no_warm_up_is_refused(self):
+        """Without a warm-up the first measured run is the measurement of a cold start."""
+        refusal = self._refusal(["--serial", "serial", "--warmup", "0"])
+        self.assertIn("--warmup must be at least 1", refusal)
+
+    def test_one_warm_up_is_accepted(self):
+        args = driver.parse_args(["--serial", "serial", "--warmup", "1"])
+        self.assertEqual(args.warmup, 1)
+
+    def test_the_default_is_a_measurement_that_can_be_published(self):
+        args = driver.parse_args(["--serial", "serial"])
+        self.assertGreaterEqual(args.runs, 3)
+        self.assertGreaterEqual(args.warmup, 1)
 
     def test_the_package_is_not_choosable(self):
         # The command measures this application; a flag that half of it

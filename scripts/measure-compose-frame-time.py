@@ -74,7 +74,14 @@ _SCRIPTS_SRC = str(ROOT / "scripts" / "src")
 if _SCRIPTS_SRC not in sys.path:
     sys.path.insert(0, _SCRIPTS_SRC)
 
+# The rule of a complete measurement lives in one place, and the command
+# that measures has to refuse the same measurement the publishers refuse.
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
 from emulator.maestro._lock import DeviceLock, DeviceLocked  # noqa: E402
+import frame_time_evidence  # noqa: E402  — one owner of the rule of a complete measurement
 
 APP_ID = "com.singularity.todo"
 MAIN_ACTIVITY = "com.singularity.todo/.MainActivity"
@@ -1576,10 +1583,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="where the report goes; by default a new directory under build/perf/",
     )
     args = parser.parse_args(argv)
-    if args.runs < 1:
-        parser.error("--runs must be at least 1: a run without a measurement is not a run")
-    if args.warmup < 0:
-        parser.error("--warmup cannot be negative")
+    if args.runs < frame_time_evidence.MINIMUM_MEASURED_RUNS:
+        parser.error(
+            f"--runs must be at least {frame_time_evidence.MINIMUM_MEASURED_RUNS}: a baseline "
+            "is a median over a repeatable measurement, and one run is the number itself"
+        )
+    if args.warmup < frame_time_evidence.MINIMUM_WARMUP_RUNS:
+        parser.error(
+            f"--warmup must be at least {frame_time_evidence.MINIMUM_WARMUP_RUNS}: without a "
+            "warm-up the first measured run is the measurement of a cold start"
+        )
     return args
 
 

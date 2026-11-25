@@ -191,6 +191,25 @@ def check_the_environment_is_named(run: dict, index: int) -> None:
         )
 
 
+def check_the_measurement_is_repeatable(run: dict, index: int) -> None:
+    """Refuse a run that measured too few times, or did not warm up at all.
+
+    The same rule the Android publisher and the Android table apply: a
+    baseline is a median over a repeatable measurement, so a scenario needs
+    several measured runs, and a warm-up run before them, or the first
+    measured run is the measurement of a cold start. The rule lives in one
+    place, and every publisher of a frame-time number asks it the same
+    question.
+    """
+    problems = frame_time_evidence.thin_measurement_problems(
+        run.get("runs"), run.get("warmupRuns")
+    )
+    if problems:
+        raise SystemExit(
+            f"run {index} measured too little to be a baseline: " + "; ".join(problems) + "."
+        )
+
+
 def check_samples_match_the_configuration(run: dict, index: int) -> None:
     """Refuse a run whose samples do not match what it claims to have measured.
 
@@ -276,6 +295,7 @@ def scenario_evidence(
     check_same_configuration(runs)
     for index, run in enumerate(runs, start=1):
         check_the_environment_is_named(run, index)
+        check_the_measurement_is_repeatable(run, index)
         check_samples_match_the_configuration(run, index)
     first = runs[0]
 
