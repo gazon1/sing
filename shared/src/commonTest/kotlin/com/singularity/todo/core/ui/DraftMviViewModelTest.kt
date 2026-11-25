@@ -3,10 +3,13 @@
 package com.singularity.todo.core.ui
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelStore
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -20,6 +23,9 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 private val testLogger = Logger.withTag("DraftMviViewModelTest")
+
+/** Store key for the clear-through-lifecycle helper below. */
+private const val DRAFT_MVI_LIFECYCLE_HARNESS_KEY = "draft_mvi_lifecycle_harness"
 
 /** Minimal draft for testing */
 @Immutable
@@ -58,6 +64,21 @@ private class TestDraftVm(
     override fun onIntent(intent: TestIntent) { /* no-op for tests */ }
 }
 
+/**
+ * Clears a ViewModel through the public lifecycle API.
+ *
+ * `ViewModel.clear()` is `internal` in lifecycle 2.11, so the public teardown path an
+ * owner actually drives is the store: `ViewModelStore.clear()` resolves the stored
+ * ViewModels and runs their clear — cancelling the `addCloseable` scope — before dropping
+ * them. Routing the clear through the store is what makes the teardown tests exercise the
+ * real contract rather than poking at a protected member directly.
+ */
+private fun clearThroughLifecycle(vm: ViewModel) =
+    ViewModelStore().apply {
+        put(DRAFT_MVI_LIFECYCLE_HARNESS_KEY, vm)
+        clear()
+    }
+
 private sealed interface TestIntent : MviIntent {
     data class EditTitle(val title: String) : TestIntent
 
@@ -91,6 +112,7 @@ private fun TestScope.testVm(
     persistBlock: suspend (TestDraft) -> Either<AppError, Unit> = { Either.Right(Unit) },
     onSavedBlock: (suspend () -> Unit)? = null,
     autosaveDebounceMs: Long = 10L,
+    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
 ): TestDraftVm =
     TestDraftVm(
         initialDraft = initialDraft,
@@ -100,7 +122,7 @@ private fun TestScope.testVm(
         persistBlock = persistBlock,
         onSavedBlock = onSavedBlock,
         autosaveDebounceMs = autosaveDebounceMs,
-        scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
+        scope = scope,
     )
 
 @Tag("fast")
@@ -516,5 +538,40 @@ class DraftMviViewModelTest {
 
             assertTrue(op1Done)
             assertTrue(op2Done)
+        }
+
+    /**
+     * The draft VM's teardown has to reach the work its init block launched on the
+     * injected scope (#3228): the restore collector and the debounced autosave loop are
+     * children of that scope, so clearing the ViewModel has to stop them.
+     */
+    @Test
+    fun `clearing the draft viewmodel stops the autosave loop`() =
+        runTest {
+            var autosaveCalled = 0
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "Hello"),
+                    autosaveBlock = { autosaveCalled++ },
+                    validateBlock = { null },
+                    persistBlock = { Either.Right(Unit) },
+                    // A child of the test's job — clearing must cancel it, not the test.
+                    scope = AutoCloseableCoroutineScope(coroutineContext + Job(backgroundScope.coroutineContext[Job])),
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+            assertEquals(0, autosaveCalled, "no autosave before any edit")
+
+            vm.updateDraft { it.copy(title = "edited") }
+            advanceTimeBy(50L)
+            runCurrent()
+            assertEquals(1, autosaveCalled, "the debounce fired once after the edit")
+
+            clearThroughLifecycle(vm)
+            vm.updateDraft { it.copy(title = "edited-again") }
+            advanceTimeBy(200L)
+            runCurrent()
+
+            assertEquals(1, autosaveCalled, "the autosave loop must be dead after the ViewModel was cleared")
         }
 }
