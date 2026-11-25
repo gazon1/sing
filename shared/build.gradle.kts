@@ -613,7 +613,8 @@ val dependencyQueryPerf =
 // The same program shape as the two harnesses above: a program, not a test,
 // and the same dataset source — the shared generator of #3090:
 //
-//   ./gw :import-cli:run --args="generate --profile 100k --seed 4242 --tags 30 --format dir --output $PWD/build/perf/100k-tags"
+//   ./gw :import-cli:run --args="generate --profile 100k --seed 4242 --tags 30 \
+//     --dependency-density 0.1 --format dir --output $PWD/build/perf/100k-tags"
 //   ./gw :shared:readOverheadPerf -Pperf.dataset=$PWD/build/perf/100k-tags
 val readOverheadPerf =
     tasks.register<JavaExec>("readOverheadPerf") {
