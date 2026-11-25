@@ -131,7 +131,8 @@ def desktop_environment(
     way a run of an old report names it.
 
     The build is named by its version and the sha of the checkout: the
-    desktop app is a JVM application and has no variants.
+    desktop app is a JVM application and has no variants. The time zone is
+    named because the dataset derives its "today" from it.
     """
     return {
         "runtime": {
@@ -140,6 +141,7 @@ def desktop_environment(
             "javaVmName": "OpenJDK 64-Bit Server VM",
             "javaVmVersion": java_version,
             "assertionsEnabled": True,
+            "timeZone": "Europe/Moscow",
         },
         "os": {"name": os_name, "version": "6.15.4", "arch": "amd64"},
         "build": {"version": version, "gitSha": git_sha},
@@ -621,6 +623,21 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             build = self._evidence(tmp)["environment"]["build"]
             self.assertNotIn("variant", build)
             self.assertEqual(sorted(build), ["gitSha", "version"])
+
+    def test_a_run_that_names_no_time_zone_is_not_published(self):
+        """The zone the dataset derives its "today" from is part of the runtime.
+
+        The same archive read on two hosts in two zones selects two different
+        days of the timeline, so a number without the zone next to it cannot
+        be compared with a number taken elsewhere.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series()
+            for scenario in report:
+                del scenario["environment"]["runtime"]["timeZone"]
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("runtime.timeZone", result.stderr)
 
     def test_a_run_with_fewer_raw_samples_than_it_claims_is_not_published(self):
         """The count of the samples and the samples themselves are one claim."""

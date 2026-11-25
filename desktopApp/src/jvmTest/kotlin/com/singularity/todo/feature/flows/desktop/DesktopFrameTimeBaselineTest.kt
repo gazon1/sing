@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Tag
 import java.io.File
 import java.lang.management.ManagementFactory
 import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.ceil
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.minutes
@@ -545,6 +546,11 @@ class DesktopFrameTimeBaselineTest {
      * stops the measurement instead of being written down as an empty string.
      * A report that names no build is not a measurement of a known program,
      * and a nameless number is worse than no number at all.
+     *
+     * The time zone is named because the dataset derives its "today" from it:
+     * the same archive read on two hosts in two zones selects two different
+     * days, so a number without the zone next to it cannot be compared with
+     * a number taken elsewhere.
      */
     private fun environment(): Map<String, Any> {
         val environment =
@@ -556,6 +562,7 @@ class DesktopFrameTimeBaselineTest {
                         "javaVmName" to systemProperty("java.vm.name"),
                         "javaVmVersion" to systemProperty("java.vm.version"),
                         "assertionsEnabled" to assertionsEnabled(),
+                        "timeZone" to TimeZone.getDefault().id,
                     ),
                 "os" to
                     mapOf(

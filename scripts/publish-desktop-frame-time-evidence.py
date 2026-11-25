@@ -104,8 +104,21 @@ CONFIGURATION_KEYS = (
 # its version and the sha of the checkout it was built from. The mode of the
 # JVM (its assertions) is a property of the runtime, and it is published as
 # one: a JVM with the assertions on is not a debug build of the app.
+#
+# The time zone is a part of the runtime, not a detail of the machine: the
+# dataset derives its "today" from the default zone of the JVM, so two hosts
+# in two zones measure two different days of the same archive. A number
+# without the zone next to it cannot be compared with a number taken
+# elsewhere.
 ENVIRONMENT_KEYS = {
-    "runtime": ("javaVersion", "javaVendor", "javaVmName", "javaVmVersion", "assertionsEnabled"),
+    "runtime": (
+        "javaVersion",
+        "javaVendor",
+        "javaVmName",
+        "javaVmVersion",
+        "assertionsEnabled",
+        "timeZone",
+    ),
     "os": ("name", "version", "arch"),
     "build": ("version", "gitSha"),
 }
