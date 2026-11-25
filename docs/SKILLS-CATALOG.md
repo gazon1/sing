@@ -62,7 +62,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-monthly-doc-audit` | 113 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |
 | `singularity-todo-multi-profile` | 423 | Namespace-based multi-profile pattern for Singularity Todo KMP. |
 | `singularity-todo-multi-select` | 327 | Long-press multi-selection pattern for Compose Multiplatform list screens. |
-| `singularity-todo-mvi-framework` | 264 | Local MVI framework for Singularity Todo KMP. |
+| `singularity-todo-mvi-framework` | 275 | Local MVI framework for Singularity Todo KMP. |
 | `singularity-todo-nav3-decorators` | 68 | Nav3 entry decorators — ViewModelStore vs SaveableStateHolder scoping. |
 | `singularity-todo-nav3-nested-graphs` | 493 | Full architecture of Nav3 two-level nested navigation in this KMP project: the common *NavGraph pattern with three platform seams (rememberAppNavBackStack, SystemBackHandler, rememberAppEntryDecorators), sealed Route hierarchies, Local*Navigator providers, per-feature entry contributors, and how the outer shell integrates nested graphs. |
 | `singularity-todo-nav3-savedstate` | 153 | Nav3 back stack persistence in this KMP project. |
