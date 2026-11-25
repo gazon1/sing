@@ -59,19 +59,19 @@ scenarios:
     area: feature.negative
     priority: P1
     status: confirmed
-    targets: [android]
+    targets: [desktop]
   - id: NEGATIVE-03
     title: The projects list shows an empty state with no projects
     area: feature.negative
     priority: P1
     status: confirmed
-    targets: [android]
+    targets: [desktop]
   - id: NEGATIVE-04
     title: The Archive screen shows an empty state
     area: feature.negative
     priority: P1
     status: confirmed
-    targets: [android]
+    targets: [desktop]
   - id: NEGATIVE-05
     title: Search distinguishes an idle prompt from no matches
     area: feature.negative

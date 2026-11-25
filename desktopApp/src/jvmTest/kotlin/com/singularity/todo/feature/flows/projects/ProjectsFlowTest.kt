@@ -14,11 +14,14 @@ import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.typeIntoTag
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 
 /**
- * Desktop mirror of `Maestro/flows/projects/01-open-detail.yaml`.
+ * Desktop mirror of `Maestro/flows/projects/01-open-detail.yaml`, and the owner
+ * of scenario `NEGATIVE-03` (see
+ * `scripts/src/traceability/scenarios/negative/NEGATIVE-03.yaml`).
  *
  * The project list is no longer a tab — it is reached from the drawer's Projects
  * section — so the flow opens it from the menu.
@@ -32,7 +35,17 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class ProjectsFlowTest {
+    /**
+     * The owner of `NEGATIVE-03`.
+     *
+     * The Android flow that used to carry it (`Maestro/flows/negative/03-empty-projects.yaml`)
+     * was retired: the empty state is asserted here, and the flow's device-only
+     * residue — the menu route, scrolled to the fold — is carried by
+     * `Maestro/flows/menu/04-all-projects.yaml`, which walks the same
+     * `menu_all_projects` path into the list.
+     */
     @Test
+    @DisplayName("NEGATIVE-03 the project list starts empty and offers to create one")
     fun the_project_list_starts_empty() =
         runDesktopAppTest(checkA11y = true) {
             openAllProjects()

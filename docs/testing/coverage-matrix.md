@@ -126,9 +126,9 @@ the table carries the one-line version so a row is readable in a diff.
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
 | `NEGATIVE-01` | The Inbox empty state names what is missing | ● | — | An empty state is shown saying what the screen is empty of, rather than a blank list that is indistinguishable from a… |
-| `NEGATIVE-02` | The notes list shows an empty state | ● | — | The list shows its empty state instead of rendering as an empty area with no message. |
-| `NEGATIVE-03` | The projects list shows an empty state with no projects | ● | — | The list shows its empty state rather than an unexplained blank area — a list with nothing to show still has to say so. |
-| `NEGATIVE-04` | The Archive screen shows an empty state | ● | — | The screen shows an empty state rather than being blank, so a user who arrives there by accident is told the archive… |
+| `NEGATIVE-02` | The notes list shows an empty state | — | ● | The list shows its empty state instead of rendering as an empty area with no message. |
+| `NEGATIVE-03` | The projects list shows an empty state with no projects | — | ● | The list shows its empty state rather than an unexplained blank area — a list with nothing to show still has to say so. |
+| `NEGATIVE-04` | The Archive screen shows an empty state | — | ● | The screen shows an empty state rather than being blank, so a user who arrives there by accident is told the archive… |
 | `NEGATIVE-05` | Search distinguishes an idle prompt from no matches | ● | — | The empty query shows a prompt asking the user to search, and the failed search says that nothing matched — so the… |
 | `NEGATIVE-06` | The Tags tab shows an empty state | ● | — | The tab shows its empty state. The assertion is on the screen rather than on the list container, because the… |
 

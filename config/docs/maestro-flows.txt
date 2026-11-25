@@ -77,9 +77,6 @@ Maestro/flows/nav/01-no-calendar-tab.yaml
 Maestro/flows/nav/bottom-nav-tabs.yaml
 Maestro/flows/nav/deep-link-task.yaml
 Maestro/flows/negative/01-empty-inbox.yaml
-Maestro/flows/negative/02-empty-notes.yaml
-Maestro/flows/negative/03-empty-projects.yaml
-Maestro/flows/negative/04-empty-archive.yaml
 Maestro/flows/negative/05-empty-search.yaml
 Maestro/flows/negative/06-empty-tags.yaml
 Maestro/flows/notes/01-edit-body.yaml

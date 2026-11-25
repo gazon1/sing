@@ -6,12 +6,14 @@ import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 
 /**
  * Desktop mirror of `Maestro/flows/notes/create-note.yaml` and
- * `02-filter-chips.yaml`.
+ * `02-filter-chips.yaml`, and the owner of scenario `NEGATIVE-02` (see
+ * `scripts/src/traceability/scenarios/negative/NEGATIVE-02.yaml`).
  *
  * Notes live behind the drawer's second group on desktop rather than a bottom-bar
  * tab on Android, and the list has no FAB on either platform — a note is created
@@ -34,7 +36,17 @@ class NotesFlowTest {
             assertTagDisplayed(TestTags.NOTES_QUICK_ADD_INPUT)
         }
 
+    /**
+     * The owner of `NEGATIVE-02`.
+     *
+     * The Android flow that used to carry it (`Maestro/flows/negative/02-empty-notes.yaml`)
+     * was retired: the empty state is asserted here, and the flow's device-only
+     * residue — the menu route to Notes and the quick-add field the flow typed
+     * into — is carried by `Maestro/flows/notes/create-note.yaml`, which waits
+     * for `notes_quick_add_input` before it types.
+     */
     @Test
+    @DisplayName("NEGATIVE-02 the notes list shows an empty state and offers to create the first note")
     fun an_empty_notes_list_offers_to_create_the_first_note() =
         runDesktopAppTest(checkA11y = true) {
             tapTab("Notes")
