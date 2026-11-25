@@ -1,8 +1,9 @@
 ---
 title: "Desktop-отчёт называет окружение замера, а числа — свои сэмплы"
 date: 2026-11-25
-status: accepted
+status: superseded
 tags: ["performance", "tooling"]
+superseded-by: 2026-11-25-the-desktop-build-has-no-variant
 ---
 
 # Desktop-отчёт называет окружение замера, а числа — свои сэмплы

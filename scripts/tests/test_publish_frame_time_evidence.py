@@ -121,7 +121,6 @@ def android_report(
 def desktop_environment(
     java_version: str = "21.0.8+9",
     os_name: str = "Linux",
-    variant: str = "debug",
     version: str = "0.1.0",
     git_sha: str = "f159ec393cd8",
 ) -> dict:
@@ -130,6 +129,9 @@ def desktop_environment(
     The publisher refuses a run that names no environment, so the fixture of
     the tests has to name one. A field of None is a name that is missing, the
     way a run of an old report names it.
+
+    The build is named by its version and the sha of the checkout: the
+    desktop app is a JVM application and has no variants.
     """
     return {
         "runtime": {
@@ -140,7 +142,7 @@ def desktop_environment(
             "assertionsEnabled": True,
         },
         "os": {"name": os_name, "version": "6.15.4", "arch": "amd64"},
-        "build": {"variant": variant, "version": version, "gitSha": git_sha},
+        "build": {"version": version, "gitSha": git_sha},
     }
 
 
@@ -597,10 +599,28 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             environment = self._evidence(tmp)["environment"]
-            self.assertEqual(environment["build"]["variant"], "debug")
             self.assertEqual(environment["build"]["version"], "0.1.0")
+            self.assertEqual(environment["build"]["gitSha"], "f159ec393cd8")
             self.assertEqual(environment["runtime"]["javaVersion"], "21.0.8+9")
             self.assertEqual(environment["os"]["name"], "Linux")
+
+    def test_the_published_environment_names_no_build_variant(self):
+        """The desktop app has no variants, so the published file names none.
+
+        A report of an older run carries a `variant` field that was derived
+        from the mode of the JVM. The published file carries the names the
+        rule knows, so a build that does not exist cannot travel into the
+        artifact.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            report = desktop_series()
+            for scenario in report:
+                scenario["environment"]["build"]["variant"] = "debug"
+            result = self._publish(tmp, [("2026-11-24T15:36:47", report)])
+            self.assertEqual(result.returncode, 0, result.stderr)
+            build = self._evidence(tmp)["environment"]["build"]
+            self.assertNotIn("variant", build)
+            self.assertEqual(sorted(build), ["gitSha", "version"])
 
     def test_a_run_with_fewer_raw_samples_than_it_claims_is_not_published(self):
         """The count of the samples and the samples themselves are one claim."""

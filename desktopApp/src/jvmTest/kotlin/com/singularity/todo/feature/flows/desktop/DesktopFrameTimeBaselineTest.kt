@@ -146,7 +146,9 @@ class DesktopFrameTimeBaselineTest {
      *
      * The names are read, not assumed, and the rules the report follows are
      * checked here: every name of the environment is a name and not an empty
-     * string, and the variant of the build follows the mode of the JVM.
+     * string, the mode of the JVM is a fact of the runtime, and the build is
+     * named by its version and its sha - the desktop app has no variants, and
+     * a report that claims one names a build that does not exist.
      */
     @Test
     @DisplayName("#2975 the desktop baseline: the environment of the report")
@@ -170,9 +172,13 @@ class DesktopFrameTimeBaselineTest {
                 "the environment of the report holds a name that is not a name: $value"
             }
         }
-        check(build["variant"] == if (assertionsEnabled()) "debug" else "release") {
-            "the report names the build variant '${build["variant"]}', but the JVM runs in " +
-                "the ${if (assertionsEnabled()) "debug" else "release"} mode"
+        check(runtime["assertionsEnabled"] is Boolean) {
+            "the report does not say whether the JVM runs with the assertions on"
+        }
+        check("variant" !in build) {
+            "the report names a build variant '${build["variant"]}', but the desktop app " +
+                "has no variants: it is a JVM application, and its build is named by the " +
+                "version and the sha of the checkout it was built from"
         }
     }
 
@@ -559,7 +565,6 @@ class DesktopFrameTimeBaselineTest {
                     ),
                 "build" to
                     mapOf(
-                        "variant" to buildVariant(),
                         "version" to systemProperty("singularity.build.version"),
                         "gitSha" to systemProperty("singularity.build.gitSha"),
                     ),
@@ -584,10 +589,6 @@ class DesktopFrameTimeBaselineTest {
             "the report names no build: the sha of the checkout is '$sha'. A number " +
                 "without a build behind it describes nothing that can be rebuilt."
         }
-        val variant = build["variant"]?.toString().orEmpty()
-        check(variant == "debug" || variant == "release") {
-            "the report names the build variant '$variant', which is neither debug nor release"
-        }
     }
 
     /**
@@ -605,24 +606,15 @@ class DesktopFrameTimeBaselineTest {
      * Whether the JVM runs in its debug mode - with the assertions on.
      *
      * The assertions are the JVM's own debug switch, and the JVM tells the
-     * process which mode it was started in.
+     * process which mode it was started in. This is a property of the runtime,
+     * and it is published as one - it is not a variant of the build: the
+     * desktop app is a JVM application, and it has no variants at all.
      */
     private fun assertionsEnabled(): Boolean =
         ManagementFactory
             .getRuntimeMXBean()
             .inputArguments
             .any { it == "-ea" || it.startsWith("-ea:") || it.startsWith("-enableassertions") }
-
-    /**
-     * The variant of the build the measurement ran on.
-     *
-     * The desktop app has no product flavours - it is a JVM application, and
-     * the only thing that tells one build of it from another is the mode of
-     * the JVM it runs on. A JVM in its debug mode is the debug build, a plain
-     * JVM is the release one. The report carries the assertion mode next to
-     * the variant, so the rule is visible and not taken on faith.
-     */
-    private fun buildVariant(): String = if (assertionsEnabled()) "debug" else "release"
 
     /**
      * The load of the host that measured.

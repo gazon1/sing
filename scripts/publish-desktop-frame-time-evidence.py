@@ -98,10 +98,16 @@ CONFIGURATION_KEYS = (
 # The names the environment of a run has to carry. A number without them
 # describes a program nobody can point at: which JVM drew it, on which
 # operating system, out of which build.
+#
+# The desktop app has no product flavours and no build types: it is a JVM
+# application, and one build of it is one commit - so the build is named by
+# its version and the sha of the checkout it was built from. The mode of the
+# JVM (its assertions) is a property of the runtime, and it is published as
+# one: a JVM with the assertions on is not a debug build of the app.
 ENVIRONMENT_KEYS = {
     "runtime": ("javaVersion", "javaVendor", "javaVmName", "javaVmVersion", "assertionsEnabled"),
     "os": ("name", "version", "arch"),
-    "build": ("variant", "version", "gitSha"),
+    "build": ("version", "gitSha"),
 }
 
 # The report prints its samples in milliseconds with three decimals - a
@@ -155,6 +161,22 @@ def check_same_configuration(runs: list[dict]) -> None:
             "configurations cannot be published together - measure every configuration "
             "on its own."
         )
+
+
+def environment_of(run: dict) -> dict:
+    """The environment of a run, with only the names the rule knows.
+
+    A report can carry anything; the published file carries the names the
+    rule asks for. A field nobody can vouch for - a build variant the desktop
+    app does not have - therefore cannot travel into the artifact, and the
+    shape of the published environment does not depend on the shape of the
+    report that produced it.
+    """
+    environment = run.get("environment") or {}
+    return {
+        group: {key: (environment.get(group) or {}).get(key) for key in keys}
+        for group, keys in ENVIRONMENT_KEYS.items()
+    }
 
 
 def check_the_environment_is_named(run: dict, index: int) -> None:
@@ -452,7 +474,7 @@ def main(argv: list[str]) -> int:
             + ". The published file names one environment, and its numbers are the "
             "numbers of one program on one machine."
         )
-    environment = json.loads(next(iter(environments)))
+    environment = environment_of(per_run[0][0])
 
     evidence = {
         "target": per_run[0][0].get("target"),
