@@ -1135,12 +1135,23 @@ open class FakeTaskRepository(
     /**
      * The seed's batch write. The fake has no transaction and no outbox, so the only
      * thing left to be honest about is the rows: every one of them lands.
+     *
+     * [fixtureBatches] counts the calls, because a caller that is supposed to route
+     * through this path has no other observable difference from one that routes through
+     * `create`: both store the row, and only production knows that one of them also
+     * sends a patch. The count is what lets a test tell the two apart.
      */
-    override suspend fun writeFixtures(tasks: List<Task>): List<Task> =
-        tasks.map { task ->
+    override suspend fun writeFixtures(tasks: List<Task>): List<Task> {
+        fixtureBatches++
+        return tasks.map { task ->
             store.upsert(task)
             task
         }
+    }
+
+    /** How many times [writeFixtures] was called — the marker of the fixture path. */
+    var fixtureBatches: Int = 0
+        private set
 
     /**
      * Runs after the task was created and before the call returns.

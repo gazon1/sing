@@ -69,6 +69,26 @@ class SeedWriterTest {
         }
 
     @Test
+    fun `createTasks goes through the fixture writer, not the ordinary create`() =
+        runTest {
+            // The row counts above cannot tell the two paths apart: both store the row,
+            // and only production knows that the ordinary one also enqueues a patch per
+            // row — which is the whole cost this change removed. A future refactor that
+            // routed here through `tasks.create` would keep every other test in this
+            // file green while quietly bringing the 30 ms back.
+            var ordinaryCreates = 0
+            tasks.createCallOverride = { _ ->
+                ordinaryCreates++
+                null
+            }
+
+            writer.createTasks((1..5).map { TaskSeed(title = "Bulk$it", stamp = stamp) })
+
+            assertEquals(1, tasks.fixtureBatches, "the bulk must reach the fixture writer, in one batch")
+            assertEquals(0, ordinaryCreates, "and must not go through the ordinary per-row create")
+        }
+
+    @Test
     fun `the second seed rewrites the row instead of adding one`() =
         runTest {
             val first =
