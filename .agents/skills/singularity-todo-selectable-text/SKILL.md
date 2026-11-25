@@ -145,6 +145,7 @@ when the answer is "excluded".
 | `feature/proposals/presentation/ProposalsScreen.kt` | selectable | the empty list of proposals is a message the person reads |
 | `feature/agenda/presentation/screen/SavedAgendaContent.kt` | selectable | the missing-view report is a message the person reads |
 | `feature/agenda/presentation/screen/SavedAgendaScreen.kt` | selectable | the dialog explains the pattern it matches; the mode names stay labels |
+| `feature/ai/chat/ChatScreen.kt` | selectable | the notice that says a restored answer was interrupted and its partial text kept; the bubbles themselves are `MessageBubble`, which is linkified |
 | `feature/ai/usage/AiUsageScreen.kt` | selectable | the model id and the tool name; the token counts are not |
 | `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | selectable | the quote and the annotation's text; the input fields are not touched |
 | `feature/attachments/components/AttachmentsSheet.kt` | selectable | the empty state tells the person what is missing |

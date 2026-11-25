@@ -1,5 +1,6 @@
 package com.singularity.todo.test.fakes
 
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.feature.ai.chat.persistence.ChatConversation
 import com.singularity.todo.feature.ai.chat.persistence.ChatConversationId
 import com.singularity.todo.feature.ai.chat.persistence.ChatConversationRepository
@@ -43,12 +44,12 @@ class FakeChatConversationRepository(
             .sortedWith(compareBy<ChatMessageRecord> { it.position }.thenBy { it.createdAt }.thenBy { it.id.value })
 
     override suspend fun createConversation(conversation: ChatConversation): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             conversations.update { it + (conversation.id to conversation) }
         }
 
     override suspend fun insertMessage(message: ChatMessageRecord): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             messages.update { it + (message.id to message) }
         }
 
@@ -59,7 +60,7 @@ class FakeChatConversationRepository(
         status: ChatMessageStatus,
         updatedAt: Long,
     ): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             val current = messages.value[messageId] ?: error("Chat message not found: ${messageId.value}")
             require(current.conversationId == conversationId) { "Chat message not found: ${messageId.value}" }
             val updated = current.copy(content = content, status = status, updatedAt = updatedAt)
@@ -71,7 +72,7 @@ class FakeChatConversationRepository(
         conversationId: ChatConversationId,
         updatedAt: Long,
     ): Result<Int> =
-        runCatching {
+        runCatchingCancellable {
             var changed = 0
             messages.update { map ->
                 map.mapValues { (_, message) ->
@@ -92,7 +93,7 @@ class FakeChatConversationRepository(
         conversationId: ChatConversationId,
         updatedAt: Long,
     ): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             val current =
                 conversations.value[conversationId] ?: error("Chat conversation not found: ${conversationId.value}")
             conversations.update { it + (conversationId to current.copy(updatedAt = updatedAt)) }

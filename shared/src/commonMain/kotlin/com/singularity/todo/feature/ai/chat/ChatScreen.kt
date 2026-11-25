@@ -50,6 +50,7 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.ai.ui.AgentPlanCard
 import com.singularity.todo.feature.ai.ui.humanToolName
@@ -262,7 +263,7 @@ private fun ChatMessagesList(
                 )
             }
             if (msg.interrupted && msg.content.isNotBlank()) {
-                Text(
+                SelectableText(
                     text = "Interrupted — partial response kept",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
