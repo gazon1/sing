@@ -2,6 +2,7 @@ package com.singularity.todo.feature.ai.chat
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.llm.AgentActivityState
 import com.singularity.todo.core.llm.AgentEvent
@@ -57,6 +58,8 @@ class ChatViewModel(
      */
     private val surfaces: SurfaceTurnFactory? = null,
     private val conversationRepository: ChatConversationRepository? = null,
+    /** The transaction a turn's two rows are written in, when a transcript is kept. */
+    private val unitOfWork: UnitOfWork? = null,
     private val clock: Clock = Clock.System,
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ChatViewModel.State, ChatViewModel.Intent, ChatUiEvent>(
@@ -146,7 +149,14 @@ class ChatViewModel(
     /** Writes the transcript, or null on a platform (and in a test) that keeps none. */
     private val transcript: ChatTranscriptWriter? =
         conversationRepository?.let { repository: ChatConversationRepository ->
-            ChatTranscriptWriter(repository = repository, clock = clock, log = log)
+            unitOfWork?.let { transaction: UnitOfWork ->
+                ChatTranscriptWriter(
+                    repository = repository,
+                    unitOfWork = transaction,
+                    clock = clock,
+                    log = log,
+                )
+            }
         }
 
     init {

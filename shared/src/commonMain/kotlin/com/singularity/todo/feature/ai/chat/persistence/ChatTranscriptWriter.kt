@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.ai.chat.persistence
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.coroutines.flow.firstOrNull
 import kotlin.time.Clock
@@ -36,6 +37,7 @@ import kotlin.time.Clock
  */
 internal class ChatTranscriptWriter(
     private val repository: ChatConversationRepository,
+    private val unitOfWork: UnitOfWork,
     private val clock: Clock,
     private val log: Logger,
 ) {
@@ -66,7 +68,12 @@ internal class ChatTranscriptWriter(
             val conversation =
                 repository.observeLatestConversation().firstOrNull() ?: return@runCatchingCancellable emptyList()
             val now = clock.now().toEpochMilliseconds()
-            repository.markInProgressInterrupted(conversation.id, now)
+            // The reconciliation is part of reading, so its failure is part of the read: a
+            // transcript that still says `InProgress` would be shown as an answer that is
+            // running, and the row would be restored with `interrupted = false`. Failing the
+            // whole restore is the honest outcome — no transcript is better than one that
+            // claims a request survived the process that was running it.
+            repository.markInProgressInterrupted(conversation.id, now).getOrThrow()
             val records = repository.getMessages(conversation.id)
             conversationId = conversation.id
             nextPosition = (records.maxOfOrNull { it.position } ?: -1) + 1
@@ -94,37 +101,48 @@ internal class ChatTranscriptWriter(
             lastWritten = ""
             lastWrittenAt = 0L
             val now = clock.now().toEpochMilliseconds()
-            if (question != null) {
+            // The counter moves only if the transaction commits. A position consumed by a
+            // rolled-back write is a gap no retry fills, and a retry that renumbers from a
+            // counter already past the row it failed to write would leave the two orders
+            // disagreeing.
+            val first = nextPosition
+            // One transaction, because the question and its answer are one turn: a row written
+            // without its twin is either a question nobody answered or an answer to nothing,
+            // and the restored transcript would show a turn that never happened.
+            unitOfWork.write {
+                if (question != null) {
+                    repository
+                        .insertMessage(
+                            ChatMessageRecord(
+                                id = question.id,
+                                conversationId = id,
+                                userId = "",
+                                role = PersistedChatRole.User,
+                                content = question.text,
+                                status = ChatMessageStatus.Completed,
+                                position = first,
+                                createdAt = now,
+                                updatedAt = now,
+                            ),
+                        ).getOrThrow()
+                }
                 repository
                     .insertMessage(
                         ChatMessageRecord(
-                            id = question.id,
+                            id = assistantId,
                             conversationId = id,
                             userId = "",
-                            role = PersistedChatRole.User,
-                            content = question.text,
-                            status = ChatMessageStatus.Completed,
-                            position = nextPosition++,
+                            role = PersistedChatRole.Assistant,
+                            content = "",
+                            status = ChatMessageStatus.InProgress,
+                            position = if (question != null) first + 1 else first,
                             createdAt = now,
                             updatedAt = now,
                         ),
                     ).getOrThrow()
+                repository.touchConversation(id, now).getOrThrow()
             }
-            repository
-                .insertMessage(
-                    ChatMessageRecord(
-                        id = assistantId,
-                        conversationId = id,
-                        userId = "",
-                        role = PersistedChatRole.Assistant,
-                        content = "",
-                        status = ChatMessageStatus.InProgress,
-                        position = nextPosition++,
-                        createdAt = now,
-                        updatedAt = now,
-                    ),
-                ).getOrThrow()
-            repository.touchConversation(id, now).getOrThrow()
+            nextPosition = first + if (question != null) 2 else 1
             true
         }.getOrElse { error ->
             log.e(error) { "Chat transcript could not record the start of a turn" }

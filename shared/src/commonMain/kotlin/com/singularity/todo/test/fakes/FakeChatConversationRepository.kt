@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.update
 class FakeChatConversationRepository(
     initialConversations: List<ChatConversation> = emptyList(),
     initialMessages: List<ChatMessageRecord> = emptyList(),
+    /** Makes reconciliation fail, the way a database that cannot write does. */
+    private val failReconciliation: Boolean = false,
 ) : ChatConversationRepository {
     private val conversations = MutableStateFlow(initialConversations.associateBy { it.id })
     private val messages = MutableStateFlow(initialMessages.associateBy { it.id })
@@ -73,6 +75,7 @@ class FakeChatConversationRepository(
         updatedAt: Long,
     ): Result<Int> =
         runCatchingCancellable {
+            require(!failReconciliation) { "reconciliation is unavailable" }
             var changed = 0
             messages.update { map ->
                 map.mapValues { (_, message) ->

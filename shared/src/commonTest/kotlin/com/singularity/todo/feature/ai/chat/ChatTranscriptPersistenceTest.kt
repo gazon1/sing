@@ -14,6 +14,7 @@ import com.singularity.todo.feature.ai.chat.persistence.ChatMessageRecord
 import com.singularity.todo.feature.ai.chat.persistence.ChatMessageStatus
 import com.singularity.todo.feature.ai.chat.persistence.PersistedChatRole
 import com.singularity.todo.test.fakes.FakeChatConversationRepository
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.SequenceIdGenerator
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -47,6 +48,7 @@ class ChatTranscriptPersistenceTest {
         agent = agent,
         idGen = SequenceIdGenerator(),
         conversationRepository = repo,
+        unitOfWork = FakeUnitOfWork(),
         clock = clock,
         scope = AutoCloseableCoroutineScope(scope.coroutineContext),
     )
@@ -206,6 +208,43 @@ class ChatTranscriptPersistenceTest {
             assertIs<AgentTurnOutcome.Cancelled>(vm.stateFlow.value.turnOutcome)
             assertTrue(
                 repo.updatedMessages.any { it.status == ChatMessageStatus.Interrupted && it.content == "partial" },
+            )
+        }
+
+    @Test
+    fun `restoration that cannot reconcile shows no transcript at all`() =
+        runTest {
+            // An unreconciled row would be drawn as an answer that is still running, so the
+            // restore fails instead of showing it. The screen then holds no conversation,
+            // which is true, rather than one that claims execution survived the process.
+            val conversation = ChatConversation(ChatConversationId.fromString("c1"), "u1", 1L, 2L)
+            val repo =
+                FakeChatConversationRepository(
+                    initialConversations = listOf(conversation),
+                    initialMessages =
+                        listOf(
+                            ChatMessageRecord(
+                                id = ChatMessageId.fromString("m1"),
+                                conversationId = conversation.id,
+                                userId = "u1",
+                                role = PersistedChatRole.Assistant,
+                                content = "partial",
+                                status = ChatMessageStatus.InProgress,
+                                position = 0,
+                                createdAt = 1L,
+                                updatedAt = 1L,
+                            ),
+                        ),
+                    failReconciliation = true,
+                )
+
+            val vm = vm(this, repo, ScriptedTextGen(flowOf(AgentEvent.TurnCompleted)))
+            advanceUntilIdle()
+
+            assertTrue(
+                vm.stateFlow.value.messages
+                    .isEmpty(),
+                "a transcript that cannot be reconciled must not be shown",
             )
         }
 

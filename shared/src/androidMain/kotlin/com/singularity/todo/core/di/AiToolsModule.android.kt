@@ -139,6 +139,7 @@ actual fun aiToolsModule(): Module =
                 crashReporter = get(),
                 surfaces = get(),
                 conversationRepository = get(),
+                unitOfWork = get(),
                 clock = get(),
             )
         }

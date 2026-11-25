@@ -2,11 +2,18 @@
 
 package com.singularity.todo.feature.ai.chat.persistence
 
+import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.DatabaseTestFixture
+import com.singularity.todo.core.database.RoomUnitOfWork
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.llm.AgentEvent
+import com.singularity.todo.feature.ai.chat.ChatViewModel
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.SequenceIdGenerator
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -14,6 +21,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 /**
  * The transcript as Room actually stores it.
@@ -200,6 +208,141 @@ class ChatConversationRepositoryImplTest {
                     ?.value,
             )
         }
+
+    @Test
+    fun `a turn whose second row fails leaves neither row behind`() =
+        runTest {
+            // A turn is two rows and one transaction. If the answer's row cannot be written,
+            // the question must not stay: a restored transcript would then show a question
+            // nobody answered, which is a turn the reader never took.
+            val repository = repository()
+            repository.createConversation(conversation()).getOrThrow()
+            val writer =
+                ChatTranscriptWriter(
+                    repository = repository,
+                    unitOfWork = RoomUnitOfWork(db),
+                    clock = Clock.System,
+                    log = Logger.withTag("ChatConversationRepositoryImplTest"),
+                )
+            // The answer's id already exists, so its primary key collides and the insert fails.
+            repository.insertMessage(message("taken", position = 0)).getOrThrow()
+
+            val started =
+                writer.beginTurn(
+                    question = ChatTranscriptWriter.Question(ChatMessageId.fromString("q1"), "a question"),
+                    assistantId = ChatMessageId.fromString("taken"),
+                )
+
+            assertTrue(!started, "a turn whose answer cannot be written is not started")
+            assertEquals(
+                listOf("taken"),
+                repository.getMessages(ChatConversationId.fromString("c1")).map { it.id.value },
+                "the question must be rolled back with the answer",
+            )
+        }
+
+    @Test
+    fun `a ViewModel over a reopened database restores the conversation it never saw`() =
+        runTest {
+            // The two halves of the guarantee, joined: the writer that wrote the rows and the
+            // reader that shows them are different objects over a different database instance,
+            // and the only thing they share is the file.
+            val repository = repository()
+            repository.createConversation(conversation()).getOrThrow()
+            val writer =
+                ChatTranscriptWriter(
+                    repository = repository,
+                    unitOfWork = RoomUnitOfWork(db),
+                    clock = Clock.System,
+                    log = Logger.withTag("ChatConversationRepositoryImplTest"),
+                )
+            writer.beginTurn(
+                question = ChatTranscriptWriter.Question(ChatMessageId.fromString("q1"), "what is due today?"),
+                assistantId = ChatMessageId.fromString("a1"),
+            )
+            writer.finish("nothing is due today.", ChatMessageStatus.Completed)
+
+            db.close()
+            db = fixture.reopen()
+
+            val restored =
+                ChatViewModel(
+                    log = Logger.withTag("ChatConversationRepositoryImplTest"),
+                    agent = SilentTextGen,
+                    idGen = SequenceIdGenerator(),
+                    surfaces = null,
+                    conversationRepository = repository(db),
+                    unitOfWork = RoomUnitOfWork(db),
+                    clock = Clock.System,
+                    scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
+                )
+            advanceUntilIdle()
+
+            val messages = restored.stateFlow.value.messages
+            assertEquals(listOf("what is due today?", "nothing is due today."), messages.map { it.content })
+            assertTrue(messages.none { it.interrupted }, "a completed turn is not restored as interrupted")
+        }
+
+    @Test
+    fun `a ViewModel over a reopened database marks the answer it found unfinished interrupted`() =
+        runTest {
+            val repository = repository()
+            repository.createConversation(conversation()).getOrThrow()
+            val writer =
+                ChatTranscriptWriter(
+                    repository = repository,
+                    unitOfWork = RoomUnitOfWork(db),
+                    clock = Clock.System,
+                    log = Logger.withTag("ChatConversationRepositoryImplTest"),
+                )
+            // Left in progress: the process died mid-answer, which is what the row says.
+            writer.beginTurn(
+                question = ChatTranscriptWriter.Question(ChatMessageId.fromString("q1"), "a question"),
+                assistantId = ChatMessageId.fromString("a1"),
+            )
+            writer.onDelta("half an ans")
+
+            db.close()
+            db = fixture.reopen()
+
+            val restored =
+                ChatViewModel(
+                    log = Logger.withTag("ChatConversationRepositoryImplTest"),
+                    agent = SilentTextGen,
+                    idGen = SequenceIdGenerator(),
+                    surfaces = null,
+                    conversationRepository = repository(db),
+                    unitOfWork = RoomUnitOfWork(db),
+                    clock = Clock.System,
+                    scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
+                )
+            advanceUntilIdle()
+
+            val answer =
+                restored.stateFlow.value.messages
+                    .last()
+            assertEquals("half an ans", answer.content, "the partial answer is kept")
+            assertTrue(answer.interrupted, "an answer the process did not finish is interrupted")
+        }
+
+    /** A model nobody asks: these cases are about what the database says, not what it answers. */
+    private object SilentTextGen : com.singularity.todo.feature.ai.TextGenPort {
+        override suspend fun generate(
+            prompt: String,
+            systemPrompt: String?,
+            model: String?,
+        ): Result<String> = Result.success("")
+
+        override fun streamChat(
+            message: String,
+            instructions: String,
+        ): kotlinx.coroutines.flow.Flow<AgentEvent> = kotlinx.coroutines.flow.emptyFlow()
+
+        override suspend fun listModels(
+            baseUrl: String,
+            apiKey: String,
+        ): Result<List<String>> = Result.success(emptyList())
+    }
 
     private companion object
 }
