@@ -6,7 +6,8 @@ test writes one run. The aggregation lives in the repository, and these
 tests hold its shape:
 
 * the published desktop evidence keeps every run next to its own samples,
-  and the medians of the runs are the medians of the runs;
+  and the published median is the median of the pooled samples - the
+  population the published sample count describes;
 * the published desktop evidence keeps every scenario of the runs;
 * the published desktop evidence says whether the runs were separate
   executions - three copies of one run are not three runs;
@@ -230,20 +231,73 @@ class PublishDesktopEvidenceTest(unittest.TestCase):
             self.assertEqual(runs[0]["measurements"]["gesture"]["medianMs"], 80.0)
             self.assertEqual(runs[1]["measurements"]["gesture"]["samplesMs"], [60.0, 76.0])
 
-    def test_the_medians_of_the_runs_are_the_medians_of_the_runs(self):
+    def test_the_published_median_is_the_median_of_the_published_samples(self):
+        """The published number and the population it describes are the same one.
+
+        A median of the medians of the runs is a number of another population:
+        publishing it next to the count of the pooled samples leaves the reader
+        with a count that does not describe the number.
+        """
         with tempfile.TemporaryDirectory() as tmp:
             result = self._publish(
                 tmp,
                 [
-                    ("2026-11-24T15:36:47", desktop_series(open_median=470.0, gesture_median=80.0)),
-                    ("2026-11-24T15:37:35", desktop_series(open_median=452.0, gesture_median=76.0)),
+                    (
+                        "2026-11-24T15:36:47",
+                        desktop_series(
+                            open_median=465.0,
+                            gesture_median=75.0,
+                            opens=[460.0, 470.0],
+                            gestures=[70.0, 80.0],
+                            runs=2,
+                            gestures_per_run=1,
+                        ),
+                    ),
+                    (
+                        "2026-11-24T15:37:35",
+                        desktop_series(
+                            open_median=445.0,
+                            gesture_median=68.0,
+                            opens=[440.0, 450.0],
+                            gestures=[60.0, 76.0],
+                            runs=2,
+                            gestures_per_run=1,
+                        ),
+                    ),
+                ],
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            scenario = self._evidence(tmp)["scenarios"][SCENARIO]
+            results = scenario["results"]
+            samples = scenario["samples"]
+            # the pooled gesture samples are 60, 70, 76 and 80
+            self.assertEqual(results["gesture"]["medianMs"], 73.0)
+            self.assertEqual(results["gesture"]["sampleCount"], 4)
+            # the pooled open samples are 440, 450, 460 and 470
+            self.assertEqual(results["open"]["medianMs"], 455.0)
+            self.assertEqual(results["open"]["sampleCount"], 4)
+
+    def test_the_medians_of_the_runs_travel_with_the_published_median(self):
+        """The spread between the runs stays visible next to the pooled median."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(
+                tmp,
+                [
+                    (
+                        "2026-11-24T15:36:47",
+                        desktop_series(open_median=465.0, gesture_median=75.0),
+                    ),
+                    (
+                        "2026-11-24T15:37:35",
+                        desktop_series(open_median=445.0, gesture_median=68.0),
+                    ),
                 ],
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             results = self._evidence(tmp)["scenarios"][SCENARIO]["results"]
-            self.assertEqual(results["gesture"]["medianMs"], 78.0)
-            self.assertEqual(results["open"]["medianMs"], 461.0)
-            self.assertEqual(results["gesture"]["medianSpreadMs"], [76.0, 80.0])
+            self.assertEqual(results["gesture"]["runMediansMs"], [75.0, 68.0])
+            self.assertEqual(results["gesture"]["runMedianSpreadMs"], [68.0, 75.0])
+            self.assertEqual(results["open"]["runMediansMs"], [465.0, 445.0])
 
     def test_the_samples_of_every_run_are_pooled(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -73,6 +73,12 @@ def measurement_label(name: str, kind: str) -> str:
     return "шаг прокрутки"
 
 
+def percent(value: float) -> str:
+    """A percentage in the units of the document: the Russian ending."""
+    count = int(round(value))
+    return f"{count} {plural(count, 'процент', 'процента', 'процентов')}"
+
+
 def desktop_spread_paragraph(evidence: dict) -> str:
     """The paragraph about the spread of the desktop runs.
 
@@ -114,7 +120,8 @@ def desktop_spread_paragraph(evidence: dict) -> str:
     return (
         "Прогоны подряд дали по сценариям: "
         + "; ".join(lines)
-        + f". Разброс между прогонами одного сценария достигает {max(spreads):.0f} процентов, "
+        + f". Разброс между прогонами одного сценария достигает "
+        f"{percent(max(spreads))}, "
         "и это нормально для величины, которую меряет настольный компьютер."
         + load_text
         + " Desktop-числа читаются как порядок величины, а сравнивать их можно только с "
@@ -181,13 +188,21 @@ def desktop_dataset_paragraph(evidence: dict) -> str:
         f"{thousands(value)} {plural(value, *SEED_NOUNS.get(name, (name, name, name)))}"
         for name, value in counts.items()
     )
+    database = dataset.get("database")
+    room = (
+        " Восстановление идёт в **production Room** того же прогона — "
+        "в отчёте это записано отдельно (`dataset.database`): замер сделан на "
+        "настоящей базе, а не на подмене."
+        if database
+        else ""
+    )
     return (
         "Датасет у сценариев один: "
         f"{dataset.get('generator')}, профиль `{dataset.get('profile')}`, "
         f"seed {dataset.get('seed')} — {described}. Архив восстановлен "
         "импортёром самого приложения (`BackupRepository.import`) — так это "
         "записано в отчёте прогона (`dataset.restoredThrough`), то есть тем же "
-        "путём, которым пользователь заливает архив. Лента держит только видимые "
+        "путём, которым пользователь заливает архив." + room + " Лента держит только видимые "
         "строки — в дереве экрана одновременно живёт около десятка строк."
     )
 

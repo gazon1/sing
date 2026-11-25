@@ -13,6 +13,12 @@ the repository, and not in the working directory of whoever made the
 measurement — a published file whose producer cannot be run again is a file
 that nobody can check.
 
+The published median is the median of the pooled samples — the population the
+published sample count describes. A median of the medians of the runs is a
+different number, and publishing it next to the count of the pooled samples
+leaves the reader with two populations and one number; the medians of the
+runs travel next to it instead, so the spread between the runs stays visible.
+
     python3 scripts/publish-desktop-frame-time-evidence.py <run-1.xml> [<run-2.xml> ...] [--out <file>]
 """
 
@@ -186,11 +192,17 @@ def scenario_evidence(
         pooled = [sample for measurement in measurements for sample in measurement.get("samplesMs", [])]
         medians = [measurement["medianMs"] for measurement in measurements]
         results[name] = {
-            "medianMs": median(medians),
-            "medianSpreadMs": [min(medians), max(medians)],
+            # The median of the pooled samples - the population that the sample
+            # count below describes, and the same rule the Android publisher
+            # uses for the frames of its own runs.
+            "medianMs": median(pooled),
             "p95Ms": round(percentile(pooled, 0.95) or 0.0, 3),
             "sampleCount": len(pooled),
             "samplesPerRun": [measurement.get("samples") for measurement in measurements],
+            # The median of every run, and the spread between them: how much
+            # the runs of the series differ from each other.
+            "runMediansMs": medians,
+            "runMedianSpreadMs": [min(medians), max(medians)],
         }
         samples[name] = pooled
 
