@@ -55,9 +55,9 @@ The facts that decide the question:
 - Koog checkpointing **is** on the classpath, transitively:
   `./gw :shared:dependencyInsight --configuration jvmTestRuntimeClasspath --dependency agents-features-snapshot`
   — `koog-agents → koog-agents-jvm → agents-features-snapshot` (runtime scope in the POM).
-- The checkpoint feature is graph-only:
+- The checkpoint feature installs into graph and planner pipelines (never into a functional agent):
   `unzip -p ~/.gradle/caches/modules-2/files-2.1/ai.koog/agents-features-snapshot-jvm/1.3.0/*/agents-features-snapshot-jvm-1.3.0-sources.jar commonMain/ai/koog/agents/snapshot/feature/Persistence.kt | sed -n '120,135p'`
-  — the `as AIAgentGraphStrategy<*, *>` cast.
+  — the `as AIAgentGraphStrategy<*, *>` cast; the planner-side cast is at `:177`.
 - ACP resume exists in v1:
   `unzip -p ~/.gradle/caches/modules-2/files-2.1/com.agentclientprotocol/acp-model-jvm/0.34.0/*/acp-model-jvm-0.34.0-sources.jar commonMain/com/agentclientprotocol/model/Methods.kt | sed -n '200,210p'`
   and `…/acp-jvm/0.34.0/*/acp-jvm-0.34.0-sources.jar commonMain/com/agentclientprotocol/client/Client.kt | sed -n '560,580p'`.
@@ -80,8 +80,8 @@ The facts that decide the question:
 
 | Fact | Source |
 |---|---|
-| `Persistence.Feature` is a **graph** feature: it implements `AIAgentGraphFeature` and installs itself by casting the running strategy — `val strategy = ctx.strategy as AIAgentGraphStrategy<*, *>` | `commonMain/ai/koog/agents/snapshot/feature/Persistence.kt:130` |
-| A second, planner-side `install(config, pipeline: AIAgentPlannerPipeline)` | `Persistence.kt:177` |
+| `Persistence.Feature` implements **two** feature interfaces — `AIAgentGraphFeature` and `AIAgentPlannerFeature` — so it installs into a graph pipeline and into a planner pipeline, but into no functional agent's pipeline. The graph path casts the running strategy — `val strategy = ctx.strategy as AIAgentGraphStrategy<*, *>` | `commonMain/ai/koog/agents/snapshot/feature/Persistence.kt:130` |
+| The planner-side `install(config, pipeline: AIAgentPlannerPipeline)` casts `(ctx.strategy as AIAgentPlannerStrategy<*, *>).planner` | `Persistence.kt:177` |
 | Restoring is an agent-graph operation: `runFromCheckpoint(agent: AIAgent<Input, Output>, input, checkpoint, …)` | `Persistence.kt:267` |
 | The checkpoint is written into an `AIAgentRunSession`'s *graph* context | `Persistence.kt:290-299` |
 | The feature interfaces live in one file, `commonMain/ai/koog/agents/core/feature/AIAgentFeature.kt`: `AIAgentFeature` `:17`, `AIAgentGraphFeature` `:40`, `AIAgentFunctionalFeature` `:54`, `AIAgentPlannerFeature` `:68` | `agents-core-jvm-1.3.0-sources.jar` |

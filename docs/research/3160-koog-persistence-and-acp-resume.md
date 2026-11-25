@@ -20,7 +20,7 @@ the decisions and the evidence they rest on.
 
 | Question | Answer | Where |
 |---|---|---|
-| Can Koog checkpointing carry a built-in chat across process death? | **No.** The feature is graph-only, and the chat never enters a graph | §1 |
+| Can Koog checkpointing carry a built-in chat across process death? | **No.** The feature never installs into a functional agent, and the chat is not a Koog agent at all | §1 |
 | Can the pinned ACP client issue `session/resume`? | **Yes** — protocol **v1**, gated on a marker capability | §2 |
 | Can it issue `session/load` (the restart-capable call)? | **Yes** — gated on a separate boolean capability | §2 |
 | Should ACP session restore be built now? | **No** — five independent reasons, and the pinned SDK cannot even decode the Claude and Codex `initialize` frames | §2 |
@@ -41,7 +41,7 @@ They are easy to confuse, so the note keeps them apart:
 
 | | Mechanism | What it restores | What it does **not** restore |
 |---|---|---|---|
-| Koog | Agent-graph **checkpointing** (`agents-features-snapshot`) | The position of a Koog agent *graph* mid-run, plus the message history of that run | Anything outside a Koog agent graph; the built-in chat never enters one |
+| Koog | Agent-graph / agent-planner **checkpointing** (`agents-features-snapshot`) | The position of a Koog agent *graph* (or planner run) mid-run, plus the message history of that run | Anything outside a Koog graph or planner run; the built-in chat never enters one |
 | ACP | `session/resume` | A *live* agent-side session, in the agent's own process | The conversation's text, unless the agent replays it; nothing the agent no longer holds |
 | ACP | `session/load` | A session the **agent itself** stored, reloaded into a freshly connected agent process and replayed as `session/update`s | Whatever the agent never stored — and this application's own transcript still does not exist |
 
@@ -78,14 +78,17 @@ Koog 1.3.0 does ship checkpointing, and **it is on this project's classpath** �
 reason is what the feature can checkpoint:
 
 - Checkpointing is an **agent-pipeline feature**. `Persistence.Feature` implements
-  `AIAgentGraphFeature` / `AIAgentPlannerFeature` and installs itself by casting the running
-  strategy: `val strategy = ctx.strategy as AIAgentGraphStrategy<*, *>`
-  (`agents-features-snapshot: Persistence.kt:130`). The cast only holds inside a Koog *graph* run.
-  The built-in chat never enters a Koog agent at all — `KoogAgentService.streamChat` drives the
-  app-owned `ToolCallLoop` — so there is no strategy to cast and nothing for the feature to install
-  into. (The one place the app does run a Koog agent, `KoogAgentService.generate()` →
-  `createAgent(...)` → `agent.run(prompt)`, builds a `FunctionalAIAgent`, whose strategy is
-  functional rather than `AIAgentGraphStrategy`.)
+  `AIAgentGraphFeature` and `AIAgentPlannerFeature` — so it installs into a Koog **graph** pipeline
+  or a **planner** pipeline — and it installs itself by casting the running strategy:
+  `val strategy = ctx.strategy as AIAgentGraphStrategy<*, *>`
+  (`agents-features-snapshot: Persistence.kt:130`; the planner path casts
+  `(ctx.strategy as AIAgentPlannerStrategy<*, *>).planner` at `Persistence.kt:177`). The casts only
+  hold inside a Koog graph or planner run. The built-in chat never enters a Koog agent at all —
+  `KoogAgentService.streamChat` drives the app-owned `ToolCallLoop` — so there is no strategy to
+  cast and nothing for the feature to install into. (The one place the app does run a Koog agent,
+  `KoogAgentService.generate()` → `createAgent(...)` → `agent.run(prompt)`, builds a
+  `FunctionalAIAgent`, whose strategy is functional rather than `AIAgentGraphStrategy` — and the
+  checkpoint feature has no functional install path at all.)
 - Restoring is an **agent-graph operation**: `runFromCheckpoint(agent: AIAgent<Input, Output>, input,
   checkpoint, …)` (`Persistence.kt:267`) writes the checkpoint into an `AIAgentRunSession`'s
   *graph* context (`Persistence.kt:290-299`). There is no `AIAgent` and no graph session in the
@@ -93,7 +96,8 @@ reason is what the feature can checkpoint:
 
 So the two candidate readings of "Koog persistence" both fail for the chat:
 
-- **Graph checkpointing** — not applicable: the chat is not a Koog graph. Adopting it means moving
+- **Graph/planner checkpointing** — not applicable: the chat is neither a Koog graph nor a planner
+  run. Adopting it means moving
   the chat onto `AIAgent.run()`, which is exactly the move ADR `2026-10-22` rejected, and it would
   cost the streaming and multiplatform properties the loop was written for.
 - **Transcript/history persistence** — `agents-features-memory` does ship (`ChatMemory`,
@@ -104,8 +108,9 @@ So the two candidate readings of "Koog persistence" both fail for the chat:
 
 **Verdict: do not adopt.** The tripwire is `KoogCheckpointApplicabilityTest`
 (`shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/KoogCheckpointApplicabilityTest.kt`): it
-pins the facts the decision rests on — the feature itself installs into a **graph** pipeline only
-(`AIAgentGraphFeature`, and *not* `AIAgentFunctionalFeature`), and the chat holds no Koog agent at
+pins the facts the decision rests on — the feature installs into a **graph** pipeline and a
+**planner** pipeline (`AIAgentGraphFeature`, `AIAgentPlannerFeature`) but *not* into a functional
+one (`AIAgentFunctionalFeature` is not implemented), and the chat holds no Koog agent at
 all: neither in the loop, nor in the project-owned port it turns through (`TextGenPort`, `ChatTurn`),
 nor in the streaming implementation that actually runs the chat (`KoogAgentService.streamChat`).
 
