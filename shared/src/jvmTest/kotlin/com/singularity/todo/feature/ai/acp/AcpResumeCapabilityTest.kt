@@ -253,7 +253,11 @@ class AcpResumeCapabilityTest {
 
     @Test
     fun `the marker travels as an empty object`() {
-        val json = Json.encodeToString(SessionCapabilities(resume = SessionResumeCapabilities()))
+        val json =
+            Json.encodeToString(
+                SessionCapabilities.serializer(),
+                SessionCapabilities(resume = SessionResumeCapabilities()),
+            )
 
         assertEquals(
             """{"resume":{}}""",
