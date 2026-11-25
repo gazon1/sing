@@ -544,11 +544,17 @@ val archTest =
 //
 //   ./gw :import-cli:run --args="generate --profile 10k --seed 4242 --output build/perf/10k.zip"
 //   ./gw :shared:relatedTaskPickerPerf -Pperf.archive=$PWD/build/perf/10k.zip
+//
+// A dataset that does not fit a backup archive is generated as a dataset
+// directory (`--format dir`) and named with `-Pperf.dataset` instead:
+// the two forms are different things, and the harness reads them differently.
+//
 // Read at configuration time on purpose: the configuration cache refuses a
 // provider captured in a task action, and the values are the task's inputs —
 // a different dataset is a different measurement, and the cache entry for the
 // old one must not be reused.
 val perfArchivePath = providers.gradleProperty("perf.archive").getOrElse("")
+val perfDatasetPath = providers.gradleProperty("perf.dataset").getOrElse("")
 val perfIterations = providers.gradleProperty("perf.iterations").getOrElse("10")
 val perfWarmup = providers.gradleProperty("perf.warmup").getOrElse("3")
 val perfOwner = providers.gradleProperty("perf.owner").getOrElse("perf-owner")
@@ -569,6 +575,7 @@ val relatedTaskPickerPerf =
         outputs.upToDateWhen { false }
         args(
             "--archive=${if (perfArchivePath.isBlank()) "" else File(perfArchivePath).absolutePath}",
+            "--dataset=${if (perfDatasetPath.isBlank()) "" else File(perfDatasetPath).absolutePath}",
             "--iterations=$perfIterations",
             "--warmup=$perfWarmup",
             "--owner=$perfOwner",
@@ -593,6 +600,7 @@ val dependencyQueryPerf =
         outputs.upToDateWhen { false }
         args(
             "--archive=${if (perfArchivePath.isBlank()) "" else File(perfArchivePath).absolutePath}",
+            "--dataset=${if (perfDatasetPath.isBlank()) "" else File(perfDatasetPath).absolutePath}",
             "--iterations=$perfIterations",
             "--warmup=$perfWarmup",
             "--owner=$perfOwner",
