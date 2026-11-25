@@ -884,3 +884,18 @@ exceptions:
       hash update. The baseline repair itself belongs on main, where the flow was
       changed.'
     evidence: gazon1/sing#3126
+  Maestro/flows/tasks/13-create-full-task.yaml:
+    fingerprint: sha256:ace54426abd9fd7bec3e2ffaf3ed9e6eb2bc11de9ad2a88533db09e9ab08529c
+    reason: 'This branch does not touch the flow. Main broke the baseline pin: ac4aa0f366
+      (gazon1/sing#3117) rewrote this flow''s baseline fingerprint for a comment-only
+      change and did not update BASELINE_DIGEST, so main''s own static gate reports
+      the baseline as not matching its pin. The pin still describes the map as
+      it was at 562b391923, where this flow''s entry is 142afb41. This change keeps
+      that pinned map — a baseline only shrinks, and rewriting the matching entry
+      would admit a flow nobody qualified — and records the current fingerprint
+      as an exception instead. The exception is honest about what it is: the
+      flow is unchanged by this branch, was never requalified after the comment
+      edit, and would be admitted by the repaired baseline pin either way. Delete
+      it when the flow is requalified on a documented environment or when main
+      repairs the pin itself.'
+    evidence: gazon1/sing#3117

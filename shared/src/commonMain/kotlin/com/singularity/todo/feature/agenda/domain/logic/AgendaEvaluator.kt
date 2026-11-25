@@ -54,7 +54,13 @@ object AgendaEvaluator {
         projectsById: Map<String, Project> = emptyMap(),
         dateGrouping: DateGrouping? = null,
     ): List<RenderedSection> {
-        var remaining = tasks.toSet()
+        // Mutable on purpose: the discard sections claim rows from this pool, and
+        // the immutable `minus` rebuilt the whole set once per discard section.
+        // The wide view has six of them, so a 50k profile copied ~50k tasks six
+        // times per evaluation — the largest avoidable allocation in the
+        // evaluator, and one that grows with the profile rather than with what
+        // the screen shows.
+        val remaining = tasks.toMutableSet()
         // Resolved once for the whole evaluation. `isBlocked` rebuilds its lookup
         // table per call, so asking per row was quadratic in the task count.
         val blockedIds = Blocking.blockedTaskIds(tasks)
@@ -79,7 +85,7 @@ object AgendaEvaluator {
                 if (matched.isEmpty()) return@flatMap emptyList()
 
                 if (section.discard) {
-                    remaining = remaining - matched.toSet()
+                    remaining.removeAll(matched)
                 }
 
                 val rows =

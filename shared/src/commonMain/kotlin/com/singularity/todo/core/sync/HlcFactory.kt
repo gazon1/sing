@@ -5,7 +5,11 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 
 /**
@@ -55,6 +59,50 @@ open class HlcFactory(
     // Last HLC, restored from storage if available.
     private var _lastHlc: Hlc? = null
 
+    /**
+     * How many [batched] blocks are open right now.
+     *
+     * It counts, so that a tick minted while any batch is open does not write the
+     * clock by itself: the batch that is open writes it when it ends, and a batch
+     * writes the newest clock it knows about.
+     *
+     * Guarded by the same monitor as [_lastHlc], because [tick] reads it under that
+     * monitor too.
+     */
+    private var batchDepth = 0
+
+    /**
+     * Serializes the clock writes.
+     *
+     * ## Why the writes need a lock of their own
+     *
+     * The clock is written from two kinds of place: the batch writes it once, when the
+     * block ends, and every ordinary tick writes it as it goes. Those writes can
+     * overlap — the batch's write happens after it released the monitor that guards
+     * [_lastHlc], so a tick can mint a newer clock and start writing it while the
+     * batch's write is still on its way.
+     *
+     * Without serialization the order of the two writes is arbitrary, and the losing
+     * order is the dangerous one: the batch holds the *older* clock, so when its write
+     * lands last the stored clock moves **backwards**. A restart then restores a clock
+     * older than one already pushed, and the next patch can carry a timestamp older
+     * than a timestamp the server already holds — which is exactly the ordering the
+     * HLC exists to provide.
+     */
+    private val clockWriteMutex = Mutex()
+
+    /**
+     * The newest clock already handed to the store.
+     *
+     * Guarded by the same monitor as [_lastHlc].
+     *
+     * The mutex alone orders the writes, but ordering is not enough: a write that was
+     * minted earlier can still reach the store later. This is what makes that
+     * impossible — a clock that is not newer than the one already written is dropped
+     * rather than written, so the stored clock only ever moves forward.
+     */
+    private var writtenHlc: Hlc? = null
+
     private val lastHlcDeferred: Deferred<Hlc> =
         CompletableDeferred<Hlc>().also { deferred ->
             scope.launch {
@@ -93,15 +141,126 @@ open class HlcFactory(
      * for the same reason.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun tick(): Hlc =
-        synchronized(this) {
-            val node = nodeIdDeferred.getCompleted()
-            val last = _lastHlc ?: lastHlcDeferred.getCompleted()
-            Hlc.tick(last = last, node = node, nowMillis = currentTimeMillis()).also {
-                _lastHlc = it
-                persist(it)
+    fun tick(): Hlc {
+        var write = false
+        val minted =
+            synchronized(this) {
+                val node = nodeIdDeferred.getCompleted()
+                val last = _lastHlc ?: lastHlcDeferred.getCompleted()
+                Hlc.tick(last = last, node = node, nowMillis = currentTimeMillis()).also {
+                    _lastHlc = it
+                    // Inside a batch the clock is persisted once, at the end: a profile wipe
+                    // mints one tick per removed row, and a DataStore write per tick is what
+                    // made the wipe of ten thousand rows take minutes.
+                    //
+                    // The suppression is global, so a tick minted by an *unrelated* call
+                    // during the batch is not written by itself either. It is not lost: the
+                    // batch writes the newest clock it knows about when it ends, and the
+                    // newest clock it knows about is the one that tick minted — both are
+                    // read under this same monitor, so the tick is either counted in the
+                    // batch's write or sees an empty batch and writes itself.
+                    write = batchDepth == 0
+                }
             }
+        // Outside the monitor on purpose: the write waits for [clockWriteMutex], and a
+        // writer holding that mutex needs this monitor to check [writtenHlc]. Holding
+        // the monitor while waiting for the mutex would be a deadlock.
+        if (write) persist(minted)
+        return minted
+    }
+
+    /**
+     * Mints ticks without persisting each one, and persists the last one when the block
+     * ends.
+     *
+     * ## Why the persistence is deferred
+     *
+     * The clock is stored so that a restart does not mint a clock older than the one
+     * already pushed. Writing it on every tick is honest for one patch at a time and
+     * ruinous for a batch: a wipe of ten thousand rows mints ten thousand ticks, and
+     * ten thousand DataStore writes are ten thousand file writes on a phone.
+     *
+     * The batch still persists — once, with the last clock minted — so the property the
+     * store exists for survives. What it stops doing is writing the same file ten
+     * thousand times to record the same fact.
+     *
+     * The ticks themselves are unchanged: each one is still distinct and still ordered.
+     *
+     * ## When the write happens
+     *
+     * The clock is written when the block ends, which is **before** the patches that
+     * carry it are queued. A crash therefore leaves the clock ahead of the queue rather
+     * than behind it: a clock that skipped ahead loses nothing, and a clock that lagged
+     * behind could mint a patch older than one the server already holds.
+     *
+     * ## What the write does not do
+     *
+     * It does not overwrite a newer clock. A tick minted by another call while the
+     * batch was running may well have written its clock already, and the batch's clock
+     * is the older of the two by then; writing it would move the stored clock
+     * backwards. [writeClock] drops it instead.
+     *
+     * ## Why the write survives a cancellation
+     *
+     * The write is the one thing in the batch that must not be lost, because the batch
+     * suppressed the per-tick writes: a tick minted by an unrelated call during the
+     * batch did not write its own clock either, and this write is the only one that
+     * carries it.
+     *
+     * A `finally` of a cancelled coroutine runs in a cancelled context, where a
+     * suspending call throws before it does anything — so without [NonCancellable] the
+     * write would be skipped exactly when the batch was abandoned, and the stored
+     * clock would stay older than a clock the device already issued. The write is
+     * therefore not cancellable. It is a single local file write, so it cannot hold
+     * the cancellation for long.
+     *
+     * ## Why every batch writes, and not only the outermost one
+     *
+     * Two batches can overlap: the wipe of a profile and a sync that runs beside it
+     * both enqueue, and nothing keeps them apart. The batch that finishes first used
+     * to leave without writing, on the grounds that a batch was still open and would
+     * write the clock.
+     *
+     * That batch had already queued its patches by then, and its patches carried
+     * clocks that were not on disk. A crash in between left the stored clock older
+     * than a clock the device had already issued, and the next patch could then carry
+     * a timestamp older than one the server already holds.
+     *
+     * So the write belongs to *the batch*, not to the outermost one: every batch
+     * writes before it returns, and the batch that queued the patches is the batch
+     * that persisted their clock. The write is still one per batch — [writeClock]
+     * drops a clock that is not newer than the one already written, so a nested
+     * batch's write and its outer batch's write leave one file write behind.
+     */
+    suspend fun <T> batched(block: () -> T): T {
+        synchronized(this) { batchDepth++ }
+        try {
+            return block()
+        } finally {
+            val last =
+                synchronized(this) {
+                    batchDepth--
+                    _lastHlc
+                }
+            last?.let { withContext(NonCancellable) { writeClock(it) } }
         }
+    }
+
+    /**
+     * Writes the clock and waits for it to land.
+     *
+     * The suspending form of [persist], for the places where the write has to be
+     * finished before the caller continues.
+     */
+    private suspend fun writeClock(hlc: Hlc) {
+        val store = hlcStore ?: return
+        clockWriteMutex.withLock {
+            val written = synchronized(this) { writtenHlc }
+            if (written != null && hlc <= written) return
+            store.save(hlc)
+            synchronized(this) { writtenHlc = hlc }
+        }
+    }
 
     /**
      * Merges a received remote HLC with the local state.
@@ -110,15 +269,19 @@ open class HlcFactory(
      * `_lastHlc`, and a `tock` racing a `tick` loses a counter increment the same way.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun tock(remote: Hlc): Hlc =
-        synchronized(this) {
-            val node = nodeIdDeferred.getCompleted()
-            val local = _lastHlc ?: lastHlcDeferred.getCompleted()
-            Hlc.tock(local = local, remote = remote, node = node, nowMillis = currentTimeMillis()).also {
-                _lastHlc = it
-                persist(it)
+    fun tock(remote: Hlc): Hlc {
+        val merged =
+            synchronized(this) {
+                val node = nodeIdDeferred.getCompleted()
+                val local = _lastHlc ?: lastHlcDeferred.getCompleted()
+                Hlc.tock(local = local, remote = remote, node = node, nowMillis = currentTimeMillis()).also {
+                    _lastHlc = it
+                }
             }
-        }
+        // Outside the monitor, for the reason [tick] gives.
+        persist(merged)
+        return merged
+    }
 
     /** Returns the last generated HLC. Guarded for the reason given on [tick]. */
     fun current(): Hlc =
@@ -127,10 +290,16 @@ open class HlcFactory(
                 .getOrElse { Hlc.zero("pending") }
         }
 
+    /**
+     * Queues a clock write without waiting for it.
+     *
+     * The write itself goes through [writeClock], so it is serialized with the other
+     * writes and cannot move the stored clock backwards.
+     */
     private fun persist(hlc: Hlc) {
-        val store = hlcStore ?: return
+        if (hlcStore == null) return
         scope.launch {
-            store.save(hlc)
+            writeClock(hlc)
         }
     }
 

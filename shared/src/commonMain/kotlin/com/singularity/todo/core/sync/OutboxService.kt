@@ -66,6 +66,73 @@ internal class OutboxService(
             }
 
     /**
+     * Queues many entities in one go — the batched form of [enqueue].
+     *
+     * ## What it saves
+     *
+     * The per-entity path costs, for every entity: a scope read, a coalescing delete,
+     * a patch build (which mints a clock and writes it to the DataStore), an outbox
+     * insert and a shadow write. A profile wipe of ten thousand rows paid all of it
+     * ten thousand times, and the DataStore write — a file write per patch — is what
+     * made the wipe take minutes.
+     *
+     * Here the scope is read once, the clocks are minted in one batch (one clock
+     * write for the whole batch), and the patches are built, queued and released
+     * chunk by chunk — a chunk of [SQL_BIND_CHUNK] rows, one shadow statement, one
+     * coalescing delete and one insert each.
+     *
+     * ## What it does not change
+     *
+     * The contract is the same one [enqueue] keeps: one patch per entity, each with
+     * its own clock, each replacing the entity's previous queued patch, each
+     * carrying the entity's own state. Nothing is dropped and nothing is summarised:
+     * the server still learns about every removed row.
+     */
+    suspend fun enqueueAll(entities: List<SyncableEntity>): Result<Unit> {
+        if (entities.isEmpty()) return Result.success(Unit)
+        return readActiveScope()
+            .map { active -> active?.let { insertAllCoalesced(entities, it) } ?: Result.success(Unit) }
+            .fold(
+                onSuccess = { it },
+                onFailure = { Result.failure(it) },
+            ).asAppError()
+    }
+
+    /**
+     * The coalesce-then-insert pair for a whole batch.
+     *
+     * The order is the same as the single-entity path's: the entity's previous
+     * queued patch goes first, so at most one patch per entity is in flight.
+     *
+     * The work happens chunk by chunk — the patches of a chunk are built, queued
+     * and released before the next chunk is built. A batch that held every patch
+     * at once would not fit in a phone's heap once the profile holds tens of
+     * thousands of rows.
+     */
+    private suspend fun insertAllCoalesced(
+        entities: List<SyncableEntity>,
+        active: SyncScope,
+    ): Result<Unit> =
+        phases
+            .localStorage("sync.outbox.write", "queue the pending patches") {
+                val nowMillis = monoNow()
+                patchBuilder.forEachChunk(entities, active, nowMillis) { chunk, patches ->
+                    val rows =
+                        chunk.mapIndexed { index, entity ->
+                            pendingRow(entity, patches[index], active)
+                        }
+                    chunk
+                        .map { it.syncId }
+                        .distinct()
+                        .inBindableChunks()
+                        .forEach { ids ->
+                            outboxDao.deleteByEntities(active.ownerId, active.profileId, ids)
+                        }
+                    outboxDao.insertAll(rows)
+                }
+            }.map { }
+
+    /**
      * The coalesce-then-insert pair. Split from [enqueue] because the delete must not
      * run when there is no active scope, and a single `flatMap` over two phases would
      * hide that ordering behind a chain of guards.
@@ -100,8 +167,14 @@ internal class OutboxService(
     private suspend fun pendingRow(
         entity: SyncableEntity,
         active: SyncScope,
+    ): SyncOutboxEntity = pendingRow(entity, patchBuilder.build(entity, active, monoNow()), active)
+
+    /** The row a built patch becomes. */
+    private fun pendingRow(
+        entity: SyncableEntity,
+        patch: DeltaPatch,
+        active: SyncScope,
     ): SyncOutboxEntity {
-        val patch = patchBuilder.build(entity, active, monoNow())
         val payload = json.encodeToString(patch)
         return SyncOutboxEntity(
             patchId = patch.patchId,

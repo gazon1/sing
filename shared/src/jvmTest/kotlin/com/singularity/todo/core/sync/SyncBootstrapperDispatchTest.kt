@@ -90,7 +90,7 @@ class SyncBootstrapperDispatchTest {
         val outboxService =
             OutboxService(
                 outboxDao = outboxDao,
-                patchBuilder = fakeSyncPatchBuilder(),
+                patchBuilder = productionPatchBuilder(),
                 scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
                 engineState = state,
                 monoNow = { clock.now().toEpochMilliseconds() },
@@ -104,7 +104,7 @@ class SyncBootstrapperDispatchTest {
                 stateRepository = stateRepository,
                 scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
                 shadowDao = FakeSyncShadowDao(),
-                patchBuilder = fakeSyncPatchBuilder(),
+                patchBuilder = productionPatchBuilder(),
                 outboxService = outboxService,
                 _outboxDao = outboxDao,
                 _deadLetterDao = FakeSyncDeadLetterDao(),
@@ -339,7 +339,7 @@ class SyncBootstrapperDispatchTest {
             val outboxService =
                 OutboxService(
                     outboxDao = outboxDao,
-                    patchBuilder = fakeSyncPatchBuilder(),
+                    patchBuilder = productionPatchBuilder(),
                     scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
                     engineState = state,
                     monoNow = { clock.now().toEpochMilliseconds() },
@@ -353,7 +353,7 @@ class SyncBootstrapperDispatchTest {
                     stateRepository = FakeSyncStateRepository(),
                     scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
                     shadowDao = FakeSyncShadowDao(),
-                    patchBuilder = fakeSyncPatchBuilder(),
+                    patchBuilder = productionPatchBuilder(),
                     outboxService = outboxService,
                     _outboxDao = outboxDao,
                     _deadLetterDao = FakeSyncDeadLetterDao(),

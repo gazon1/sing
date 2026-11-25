@@ -88,6 +88,31 @@ interface SyncShadowDao {
     suspend fun upsert(entity: SyncShadowEntity)
 
     /**
+     * The shadows of **many** entities, read in one statement.
+     *
+     * The batched form of [get]. The scope is the same; the ids are the ones the caller
+     * is about to write patches for, and the rows that come back are the ones those
+     * patches have to be diffed against.
+     */
+    @Query(
+        "SELECT * FROM sync_shadow WHERE owner_id = :ownerId AND profile_id = :profileId " +
+            "AND entity_id IN (:entityIds)",
+    )
+    suspend fun getAll(
+        ownerId: String,
+        profileId: String,
+        entityIds: List<String>,
+    ): List<SyncShadowEntity>
+
+    /**
+     * Writes many shadows at once — the batched form of [upsert].
+     *
+     * Same rows, same conflict strategy, one transaction.
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<SyncShadowEntity>)
+
+    /**
      * Replaces only the confirmed state, leaving any in-flight marker untouched.
      *
      * Used by the pull path to keep the shadow current with the server's state

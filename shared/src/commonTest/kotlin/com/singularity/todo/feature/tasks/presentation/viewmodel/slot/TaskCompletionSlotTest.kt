@@ -5,13 +5,11 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
-import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -44,7 +42,6 @@ class TaskCompletionSlotTest {
         fakes: SlotFakes,
         source: TaskSource,
         scope: kotlinx.coroutines.CoroutineScope,
-        allTasks: List<Task> = emptyList(),
         blocked: BlockedRecorder = BlockedRecorder(),
     ): TaskCompletionSlot =
         TaskCompletionSlot(
@@ -52,7 +49,6 @@ class TaskCompletionSlotTest {
             context = fakes.context(),
             scope = testSlotScope(scope),
             taskFlow = source.state,
-            allTasks = MutableStateFlow(allTasks),
             onError = {},
             onSaved = {},
             onBlockedClose = blocked::record,
@@ -161,7 +157,7 @@ class TaskCompletionSlotTest {
             fakes.taskRepo.seed(dep, blockedTask)
             val source = TaskSource(blockedTask)
             val blocked = BlockedRecorder()
-            val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, blockedTask), blocked = blocked)
+            val slot = slot(fakes, source, backgroundScope, blocked = blocked)
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)
@@ -185,7 +181,7 @@ class TaskCompletionSlotTest {
             fakes.taskRepo.seed(dep, blockedTask)
             val source = TaskSource(blockedTask)
             val blocked = BlockedRecorder()
-            val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, blockedTask), blocked = blocked)
+            val slot = slot(fakes, source, backgroundScope, blocked = blocked)
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)
@@ -213,7 +209,7 @@ class TaskCompletionSlotTest {
             fakes.taskRepo.seed(dep, plain)
             val source = TaskSource(plain)
             val blocked = BlockedRecorder()
-            val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, plain), blocked = blocked)
+            val slot = slot(fakes, source, backgroundScope, blocked = blocked)
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)
@@ -242,7 +238,7 @@ class TaskCompletionSlotTest {
             fakes.taskRepo.seed(dep, blockedTask)
             val source = TaskSource(blockedTask)
             val blocked = BlockedRecorder()
-            val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, blockedTask), blocked = blocked)
+            val slot = slot(fakes, source, backgroundScope, blocked = blocked)
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)
@@ -273,7 +269,7 @@ class TaskCompletionSlotTest {
             fakes.taskRepo.seed(dep, recurring)
             val source = TaskSource(recurring)
             val blocked = BlockedRecorder()
-            val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, recurring), blocked = blocked)
+            val slot = slot(fakes, source, backgroundScope, blocked = blocked)
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)
@@ -308,7 +304,7 @@ class TaskCompletionSlotTest {
             fakes.taskRepo.seed(dep, recurring)
             val source = TaskSource(recurring)
             val blocked = BlockedRecorder()
-            val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, recurring), blocked = blocked)
+            val slot = slot(fakes, source, backgroundScope, blocked = blocked)
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)

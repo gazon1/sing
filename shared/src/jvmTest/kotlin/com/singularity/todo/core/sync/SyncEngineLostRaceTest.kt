@@ -77,7 +77,7 @@ class SyncEngineLostRaceTest {
         val outboxService =
             OutboxService(
                 outboxDao = outbox,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 scopeProvider = FakeSyncScopeProvider(SCOPE),
                 engineState = state,
                 monoNow = { clock.now().toEpochMilliseconds() },
@@ -90,7 +90,7 @@ class SyncEngineLostRaceTest {
             stateRepository = FakeSyncStateRepository(),
             scopeProvider = FakeSyncScopeProvider(SCOPE),
             shadowDao = shadow,
-            patchBuilder = fakeSyncPatchBuilder(shadow),
+            patchBuilder = productionPatchBuilder(shadow),
             outboxService = outboxService,
             _outboxDao = outbox,
             _deadLetterDao = FakeSyncDeadLetterDao(),

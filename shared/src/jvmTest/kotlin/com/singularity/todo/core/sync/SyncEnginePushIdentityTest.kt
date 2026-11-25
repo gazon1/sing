@@ -86,7 +86,7 @@ class SyncEnginePushIdentityTest {
         val outboxService =
             OutboxService(
                 outboxDao = outbox,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 scopeProvider = scopes,
                 engineState = state,
                 monoNow = { clock.now().toEpochMilliseconds() },
@@ -100,7 +100,7 @@ class SyncEnginePushIdentityTest {
                 stateRepository = FakeSyncStateRepository(),
                 scopeProvider = scopes,
                 shadowDao = shadow,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 outboxService = outboxService,
                 _outboxDao = outbox,
                 _deadLetterDao = FakeSyncDeadLetterDao(),

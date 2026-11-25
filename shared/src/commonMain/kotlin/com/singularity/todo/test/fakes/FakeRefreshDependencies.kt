@@ -121,6 +121,11 @@ class FakeSyncRepository(var outcome: SyncOutcome = COMPLETED, private val log: 
         return Result.success(Unit)
     }
 
+    override suspend fun enqueue(entities: List<SyncableEntity>): Result<Unit> {
+        enqueuedEntities += entities
+        return Result.success(Unit)
+    }
+
     override suspend fun syncOnce(): SyncOutcome {
         syncOnceCalls++
         log?.record(RefreshCallLog.SYNC_STEP)

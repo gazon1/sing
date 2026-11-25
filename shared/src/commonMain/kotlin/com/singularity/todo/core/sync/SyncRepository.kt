@@ -40,6 +40,20 @@ interface SyncRepository : AutoCloseable {
     suspend fun enqueue(entity: SyncableEntity): Result<Unit>
 
     /**
+     * Enqueues many entities for sync in one batch.
+     *
+     * The same contract as [enqueue], carried out in one pass: one patch per entity,
+     * each replacing that entity's previously queued patch, each carrying the
+     * entity's own state. Nothing is summarised and nothing is dropped.
+     *
+     * It exists because the per-entity path writes the sync clock to disk once per
+     * entity, and a profile wipe of ten thousand rows paid that ten thousand times.
+     *
+     * Returns [Result.success] if the entities were written to the outbox.
+     */
+    suspend fun enqueue(entities: List<SyncableEntity>): Result<Unit>
+
+    /**
      * Runs one push + pull cycle.
      */
     suspend fun syncOnce(): SyncOutcome

@@ -497,6 +497,33 @@ interface TaskDao {
     ): List<String>
 
     /**
+     * The still-open prerequisites of [taskId] — the rows, not just their ids.
+     *
+     * The confirmation a refused close shows names the prerequisites, so the
+     * titles have to come with them. This is the same predicate
+     * [blockedTaskIdsForUser] applies, read for one task: a prerequisite that is
+     * finished, trashed, or gone is not in the way.
+     *
+     * @param taskId the task whose prerequisites are asked about.
+     * @param userId the owner of both rows.
+     * @param verb the edge kind that blocks.
+     */
+    @Query(
+        """
+        SELECT b.* FROM task_dependencies d
+        JOIN tasks b ON b.id = d.depends_on_task_id AND b.user_id = :userId
+        WHERE d.task_id = :taskId AND d.verb = :verb
+          AND d.task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+          AND b.completed_at IS NULL AND b.archived_at IS NULL
+        """,
+    )
+    suspend fun blockingTasksForUser(
+        taskId: String,
+        userId: String,
+        verb: String,
+    ): List<TaskEntity>
+
+    /**
      * Inserts a tag cross-ref only when the owning task belongs to [userId].
      *
      * Returns `Unit` because Room only permits `Unit`/`Long` from INSERT
@@ -574,12 +601,18 @@ interface TaskDao {
      * graph**.
      *
      * Scoped to the owning task's user; the cross-ref table has no `user_id`.
+     *
+     * The scope is resolved through the task's own row, not through the list of
+     * the user's task ids: that list is the whole task table, and SQLite builds
+     * it again for every read — so each read of one task's edges cost a scan of
+     * every task the user owns. Measured on a restored 100k-task dataset: 351 ms
+     * per read through this method, 367 ms as the same raw SQL.
      */
     @Query(
         """
-        SELECT depends_on_task_id FROM task_dependencies
-        WHERE task_id = :taskId
-        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        SELECT d.depends_on_task_id FROM task_dependencies d
+        JOIN tasks t ON t.id = d.task_id
+        WHERE d.task_id = :taskId AND t.user_id = :userId
         """,
     )
     fun getOrderingEdgeIdsForUser(
@@ -594,12 +627,20 @@ interface TaskDao {
      * [verb] is the verb that blocks (`BLOCKS`); the other verbs order the
      * work without making the task wait for it. This is the projection the
      * close rule reads, and the one the badge means.
+     *
+     * The scope is resolved through the task's own row, not through the list of
+     * the user's task ids: that list is the whole task table, and SQLite builds
+     * it again for every read — so each read of one task's edges cost a scan of
+     * every task the user owns. Measured on a restored 100k-task dataset: 235 ms
+     * per read as raw SQL, 0.06 ms after rewriting the query as a primary-key
+     * join on `tasks.id` — see
+     * `docs/architecture/dependency-query-performance.md`.
      */
     @Query(
         """
-        SELECT depends_on_task_id FROM task_dependencies
-        WHERE task_id = :taskId AND verb = :verb
-        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        SELECT d.depends_on_task_id FROM task_dependencies d
+        JOIN tasks t ON t.id = d.task_id
+        WHERE d.task_id = :taskId AND d.verb = :verb AND t.user_id = :userId
         """,
     )
     fun getBlockingEdgeIdsForUser(
@@ -666,12 +707,18 @@ interface TaskDao {
 
     /**
      * Returns all dependency edges for [taskId] including their verb, scoped to [userId].
+     *
+     * Scoped through the task's own row, like [getOrderingEdgeIdsForUser] and
+     * [getBlockingEdgeIdsForUser]: the user's task list is the whole task table,
+     * and SQLite builds it again for every read. Measured on a restored
+     * 100k-task dataset: 309 ms per read as raw SQL, 0.05 ms as a primary-key
+     * join on `tasks.id`.
      */
     @Query(
         """
         SELECT td.task_id, td.depends_on_task_id, td.verb FROM task_dependencies td
-        WHERE td.task_id = :taskId
-        AND td.task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        JOIN tasks t ON t.id = td.task_id
+        WHERE td.task_id = :taskId AND t.user_id = :userId
         """,
     )
     fun observeTypedDependenciesForUser(
@@ -831,6 +878,82 @@ interface TaskDao {
 
     @Query("SELECT * FROM task_tags WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)")
     suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef>
+
+    // ── Selector-scoped cross-references ────────────────────────────────────────
+    //
+    // The [observeTagCrossRefs] / [observeDependencyCrossRefs] pair answers "every
+    // edge of this profile". A screen that shows one task asked the same question and
+    // paid for the whole profile's edges: on a 50k profile that is ~75k tag refs and
+    // 5k dependency refs materialised to find the handful belonging to the open task.
+    //
+    // These read the edges of the rows behind a *selector* — the subtasks of one
+    // parent, the members of one series — as a **subquery**, not as a bound id list.
+    // The id list was the obvious shape and the wrong one: `IN (:taskIds)` binds one
+    // host parameter per row, and SQLite refuses a statement past its ceiling
+    // (`too many SQL variables`). A parent with enough subtasks would have failed
+    // exactly where the read was introduced to make large profiles safe. A subquery
+    // has no such ceiling — it names the parent, not its children.
+    //
+    // The profile predicate stays: the cross-ref tables carry no `user_id`, so the
+    // join on the owning row is the only thing scoping them.
+
+    /** The tag edges of [parentId]'s subtasks, scoped to the profile that owns them. */
+    @Query(
+        """
+        SELECT * FROM task_tags
+        WHERE task_id IN (
+            SELECT id FROM tasks
+            WHERE parent_task_id = :parentId AND user_id = :userId AND archived_at IS NULL
+        )
+        """,
+    )
+    fun observeTagCrossRefsOfSubtasks(
+        parentId: String,
+        userId: String,
+    ): Flow<List<TaskTagCrossRef>>
+
+    /** The dependency edges, of every verb, of [parentId]'s subtasks. */
+    @Query(
+        """
+        SELECT * FROM task_dependencies
+        WHERE task_id IN (
+            SELECT id FROM tasks
+            WHERE parent_task_id = :parentId AND user_id = :userId AND archived_at IS NULL
+        )
+        """,
+    )
+    fun observeDependencyCrossRefsOfSubtasks(
+        parentId: String,
+        userId: String,
+    ): Flow<List<TaskDependencyCrossRef>>
+
+    /** The tag edges of the members of [seriesId], scoped to their profile. */
+    @Query(
+        """
+        SELECT * FROM task_tags
+        WHERE task_id IN (
+            SELECT id FROM tasks WHERE series_id = :seriesId AND user_id = :userId
+        )
+        """,
+    )
+    fun observeTagCrossRefsOfSeries(
+        seriesId: String,
+        userId: String,
+    ): Flow<List<TaskTagCrossRef>>
+
+    /** The dependency edges, of every verb, of the members of [seriesId]. */
+    @Query(
+        """
+        SELECT * FROM task_dependencies
+        WHERE task_id IN (
+            SELECT id FROM tasks WHERE series_id = :seriesId AND user_id = :userId
+        )
+        """,
+    )
+    fun observeDependencyCrossRefsOfSeries(
+        seriesId: String,
+        userId: String,
+    ): Flow<List<TaskDependencyCrossRef>>
 
     /**
      * Archives completed tasks **for one user only**.

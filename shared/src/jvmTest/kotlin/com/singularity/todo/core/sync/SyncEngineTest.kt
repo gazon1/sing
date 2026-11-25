@@ -78,7 +78,7 @@ class SyncEngineTest {
         val outboxService =
             OutboxService(
                 outboxDao = outbox,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 scopeProvider = scopeProvider,
                 engineState = state,
                 monoNow = { clock.now().toEpochMilliseconds() },
@@ -92,7 +92,7 @@ class SyncEngineTest {
                 stateRepository = stateRepo,
                 scopeProvider = scopeProvider,
                 shadowDao = shadow,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+                patchBuilder = productionPatchBuilder(shadow),
                 outboxService = outboxService,
                 _outboxDao = outbox,
                 _deadLetterDao = FakeSyncDeadLetterDao(),
@@ -112,7 +112,7 @@ class SyncEngineTest {
                         shadowDao = shadow,
                         idGenerator = SequentialIdGenerator(),
                         scopeProvider = scopeProvider,
-                        patchBuilder = fakeSyncPatchBuilder(shadow),
+                        patchBuilder = productionPatchBuilder(shadow),
                         monoNow = { clock.now().toEpochMilliseconds() },
                         phases = state.phases,
                         writerProvider = { fakeSyncDocumentWriter() },
@@ -328,7 +328,7 @@ class SyncEngineTest {
             val outboxService =
                 OutboxService(
                     outboxDao = outbox,
-                    patchBuilder = fakeSyncPatchBuilder(),
+                    patchBuilder = productionPatchBuilder(),
                     scopeProvider = scopeProvider,
                     engineState = state,
                     monoNow = { clock.now().toEpochMilliseconds() },
@@ -341,7 +341,7 @@ class SyncEngineTest {
                     idGenerator = SequentialIdGenerator(),
                     stateRepository = FakeSyncStateRepository(),
                     shadowDao = FakeSyncShadowDao(),
-                    patchBuilder = fakeSyncPatchBuilder(),
+                    patchBuilder = productionPatchBuilder(),
                     outboxService = outboxService,
                     _outboxDao = outbox,
                     _deadLetterDao = FakeSyncDeadLetterDao(),
@@ -431,7 +431,7 @@ class SyncEngineTest {
             val outboxService =
                 OutboxService(
                     outboxDao = outbox,
-                    patchBuilder = fakeSyncPatchBuilder(),
+                    patchBuilder = productionPatchBuilder(),
                     scopeProvider = throwingProvider,
                     engineState = state,
                     monoNow = { clock.now().toEpochMilliseconds() },
@@ -444,7 +444,7 @@ class SyncEngineTest {
                     idGenerator = SequentialIdGenerator(),
                     stateRepository = FakeSyncStateRepository(),
                     shadowDao = FakeSyncShadowDao(),
-                    patchBuilder = fakeSyncPatchBuilder(),
+                    patchBuilder = productionPatchBuilder(),
                     outboxService = outboxService,
                     _outboxDao = outbox,
                     _deadLetterDao = FakeSyncDeadLetterDao(),
@@ -493,7 +493,7 @@ class SyncEngineTest {
             val outboxService =
                 OutboxService(
                     outboxDao = throwingOutbox,
-                    patchBuilder = fakeSyncPatchBuilder(),
+                    patchBuilder = productionPatchBuilder(),
                     scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
                     engineState = state,
                     monoNow = { clock.now().toEpochMilliseconds() },
@@ -506,7 +506,7 @@ class SyncEngineTest {
                     idGenerator = SequentialIdGenerator(),
                     stateRepository = FakeSyncStateRepository(),
                     shadowDao = FakeSyncShadowDao(),
-                    patchBuilder = fakeSyncPatchBuilder(),
+                    patchBuilder = productionPatchBuilder(),
                     outboxService = outboxService,
                     _outboxDao = throwingOutbox,
                     _deadLetterDao = FakeSyncDeadLetterDao(),
@@ -552,7 +552,7 @@ class SyncEngineTest {
             val outboxService =
                 OutboxService(
                     outboxDao = throwingOutbox,
-                    patchBuilder = fakeSyncPatchBuilder(),
+                    patchBuilder = productionPatchBuilder(),
                     scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
                     engineState = state,
                     monoNow = { clock.now().toEpochMilliseconds() },
@@ -565,7 +565,7 @@ class SyncEngineTest {
                     idGenerator = SequentialIdGenerator(),
                     stateRepository = FakeSyncStateRepository(),
                     shadowDao = FakeSyncShadowDao(),
-                    patchBuilder = fakeSyncPatchBuilder(),
+                    patchBuilder = productionPatchBuilder(),
                     outboxService = outboxService,
                     _outboxDao = throwingOutbox,
                     _deadLetterDao = FakeSyncDeadLetterDao(),

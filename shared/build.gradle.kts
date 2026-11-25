@@ -535,6 +535,70 @@ val archTest =
         // `build.gradle.kts`; this line only records that this task depends on it.
     }
 
+// The Related Tasks picker, measured on a restored synthetic dataset.
+//
+// It is a program and not a test: the dataset is a file that lives outside the
+// test run, and a test that needed one would either skip itself or fail for a
+// reason that has nothing to do with the claim. The dataset comes from the
+// shared generator of #3090:
+//
+//   ./gw :import-cli:run --args="generate --profile 10k --seed 4242 --output build/perf/10k.zip"
+//   ./gw :shared:relatedTaskPickerPerf -Pperf.archive=$PWD/build/perf/10k.zip
+// Read at configuration time on purpose: the configuration cache refuses a
+// provider captured in a task action, and the values are the task's inputs —
+// a different dataset is a different measurement, and the cache entry for the
+// old one must not be reused.
+val perfArchivePath = providers.gradleProperty("perf.archive").getOrElse("")
+val perfIterations = providers.gradleProperty("perf.iterations").getOrElse("10")
+val perfWarmup = providers.gradleProperty("perf.warmup").getOrElse("3")
+val perfOwner = providers.gradleProperty("perf.owner").getOrElse("perf-owner")
+val relatedTaskPickerPerf =
+    tasks.register<JavaExec>("relatedTaskPickerPerf") {
+        description = "Measures the Related Tasks picker on a restored synthetic dataset."
+        group = "verification"
+        val jvmTestSources = sourceSets.getByName("jvmTest")
+        classpath = jvmTestSources.runtimeClasspath
+        mainClass.set("com.singularity.todo.feature.tasks.performance.RelatedTaskPickerPerformanceHarnessKt")
+        // The heap is READ, not written here: the record of the module's budget
+        // lives in `config/docs/gradle-memory-budget.properties`, and the gate
+        // checks that this module's heap is the recorded one — a module that
+        // names a heap of its own is a module whose heap the record holds.
+        maxHeapSize = testTaskHeap
+        // The dataset is a file outside the build directory, so there is nothing
+        // to compare the outputs against: the task always runs.
+        outputs.upToDateWhen { false }
+        args(
+            "--archive=${if (perfArchivePath.isBlank()) "" else File(perfArchivePath).absolutePath}",
+            "--iterations=$perfIterations",
+            "--warmup=$perfWarmup",
+            "--owner=$perfOwner",
+        )
+    }
+
+// The user-scoped dependency reads, measured on a restored synthetic dataset.
+//
+// The same program shape as the picker harness above: a program, not a test, and
+// the same dataset source — the shared generator of #3090:
+//
+//   ./gw :import-cli:run --args="generate --profile 100k --seed 4242 --output $PWD/build/perf/100k.zip"
+//   ./gw :shared:dependencyQueryPerf -Pperf.archive=$PWD/build/perf/100k.zip
+val dependencyQueryPerf =
+    tasks.register<JavaExec>("dependencyQueryPerf") {
+        description = "Measures the user-scoped dependency reads on a restored synthetic dataset."
+        group = "verification"
+        val jvmTestSources = sourceSets.getByName("jvmTest")
+        classpath = jvmTestSources.runtimeClasspath
+        mainClass.set("com.singularity.todo.feature.tasks.performance.DependencyQueryPerformanceHarnessKt")
+        maxHeapSize = testTaskHeap
+        outputs.upToDateWhen { false }
+        args(
+            "--archive=${if (perfArchivePath.isBlank()) "" else File(perfArchivePath).absolutePath}",
+            "--iterations=$perfIterations",
+            "--warmup=$perfWarmup",
+            "--owner=$perfOwner",
+        )
+    }
+
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
     // JUnit matches tags per class, so an over-narrow -Ptest.tags selection can discover

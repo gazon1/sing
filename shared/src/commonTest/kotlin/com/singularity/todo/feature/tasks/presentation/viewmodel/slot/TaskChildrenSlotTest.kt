@@ -10,7 +10,6 @@ import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -113,7 +112,6 @@ class TaskChildrenSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                    allTasks = MutableStateFlow(emptyList()),
                     onError = { errors += it },
                     onSaved = { saved += it },
                     onBlockedClose = {},
@@ -160,7 +158,6 @@ class TaskChildrenSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                    allTasks = MutableStateFlow(emptyList()),
                     onError = { errors += it },
                     onSaved = {},
                     onBlockedClose = {},
@@ -404,7 +401,6 @@ class TaskChildrenSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                    allTasks = MutableStateFlow(emptyList()),
                     onError = { errors += it },
                     onSaved = {},
                     onBlockedClose = {},
@@ -438,7 +434,6 @@ class TaskChildrenSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                    allTasks = MutableStateFlow(emptyList()),
                     onError = { errors += it },
                     onSaved = {},
                     onBlockedClose = {},
@@ -503,7 +498,6 @@ class TaskChildrenSlotTest {
                     fakes,
                     source,
                     backgroundScope,
-                    allTasks = listOf(dep, child),
                     onBlockedClose = { blocked += it },
                 )
             runCurrent()
@@ -534,7 +528,6 @@ class TaskChildrenSlotTest {
                     fakes,
                     source,
                     backgroundScope,
-                    allTasks = listOf(dep, child),
                     onBlockedClose = { blocked += it },
                 )
             runCurrent()
@@ -563,7 +556,6 @@ class TaskChildrenSlotTest {
                     fakes,
                     source,
                     backgroundScope,
-                    allTasks = listOf(child),
                     onBlockedClose = { blocked += it },
                 )
             runCurrent()

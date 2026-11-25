@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
-import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
@@ -47,13 +47,6 @@ class TaskCompletionSlot(
     private val context: TaskContextDeps,
     private val scope: AutoCloseableCoroutineScope,
     private val taskFlow: StateFlow<Task?>,
-    /**
-     * Every task the user can see, so the slot can answer "which prerequisites of this
-     * task are still open". A prerequisite that is finished, discarded, or gone is not in
-     * the way — and the answer has to come from the same list the badge was computed
-     * from, or the two would disagree.
-     */
-    private val allTasks: StateFlow<List<Task>>,
     private val onError: (String) -> Unit,
     private val onSaved: (String) -> Unit,
     /** Raised when a close is refused until the user confirms. */
@@ -103,21 +96,13 @@ class TaskCompletionSlot(
             // has a window between the two, and the window is where another
             // device reopens the prerequisite.
             scope.launch {
-                core
-                    .completeRecurring(task.id, force)
-                    .onSuccess { onSaved("Recurrence completed") }
-                    .onFailure { error ->
-                        if (error is BlockedTasksException) {
-                            val blockers = Blocking.activeBlockers(task, allTasks.value)
-                            if (blockers.isNotEmpty()) {
-                                askAboutBlockers(task, blockers)
-                            } else {
-                                onError("Save failed")
-                            }
-                        } else {
-                            onError("Failed to complete recurring task")
-                        }
-                    }
+                val result = core.completeRecurring(task.id, force)
+                val error = result.exceptionOrNull()
+                when {
+                    result.isSuccess -> onSaved("Recurrence completed")
+                    error is BlockedTasksException -> askAboutBlockers(task)
+                    else -> onError("Failed to complete recurring task")
+                }
             }
             return
         }
@@ -132,12 +117,7 @@ class TaskCompletionSlot(
                         return@launch
                     }
                 if (!completed) {
-                    val blockers = Blocking.activeBlockers(task, allTasks.value)
-                    if (blockers.isEmpty()) {
-                        onError("Save failed")
-                        return@launch
-                    }
-                    askAboutBlockers(task, blockers)
+                    askAboutBlockers(task)
                     return@launch
                 }
                 onSaved("Marked done")
@@ -152,10 +132,36 @@ class TaskCompletionSlot(
         }
     }
 
-    private fun askAboutBlockers(
-        task: Task,
-        blockers: List<Task>,
-    ) {
+    /**
+     * Asks whether the task may be closed anyway, naming what is in the way.
+     *
+     * The prerequisites are read for this one task. The slot used to be handed every
+     * task of the profile and picked the blockers out of that list, which made opening
+     * a task detail cost the whole profile — on a 50k dataset the heap was spent before
+     * the screen rendered.
+     *
+     * A write that refused and a read that finds nothing in the way disagree only when
+     * another device reopened the prerequisite in between; the caller reports that as a
+     * plain save failure rather than a confirmation about no one.
+     *
+     * The read is the one thing here that can fail on its own — it is the first database
+     * call this path makes that is not the guarded write. A failure reports through the
+     * same save message instead of escaping to the scope, where the user would see the
+     * close silently do nothing.
+     */
+    private suspend fun askAboutBlockers(task: Task) {
+        val blockers =
+            runCatchingCancellable { core.taskRepo.openBlockersOf(task.id) }.getOrElse {
+                onError("Save failed")
+                return
+            }
+        if (blockers.isEmpty()) {
+            // The write refused but nothing is open any more: another device
+            // reopened and re-closed the prerequisite in between. A confirmation
+            // about no one is worse than the plain failure.
+            onError("Save failed")
+            return
+        }
         onBlockedClose(
             BlockedCloseRequest(
                 taskId = task.id,
