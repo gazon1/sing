@@ -84,9 +84,14 @@ class Nav3State internal constructor(
             "Nav3State: startRoute=$startRoute has no back stack. " +
                 "It must be one of the top-level routes (${backStacks.keys})."
         }
-        require(startRoute == topLevelRouteState.value) {
-            "Nav3State: topLevelRouteState must initialise to startRoute=$startRoute, " +
-                "but was ${topLevelRouteState.value}."
+        // The state may initialise to a route other than the start route: a
+        // rotation restores the tab the user was on, and the restored route is
+        // the one the shell has to show. What has to hold is that the route has
+        // a back stack -- a route without one leaves `NavDisplay` with no
+        // entries, and the screen silently disappears.
+        require(topLevelRouteState.value in backStacks) {
+            "Nav3State: topLevelRouteState=${topLevelRouteState.value} has no back stack. " +
+                "It must be one of the top-level routes (${backStacks.keys})."
         }
     }
 
