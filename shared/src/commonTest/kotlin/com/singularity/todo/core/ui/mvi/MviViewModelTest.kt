@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 // --- Test state/intent/event types ---
@@ -306,6 +307,9 @@ class MviViewModelTest {
             // it would put the screen in a state the ViewModel never decided — which is
             // exactly the drift the event bus cannot see.
             assertFalse(vm.state is MutableStateFlow<*>, "state must not expose a mutable flow")
+
+            // The same flow, not two flows that happen to carry equal values.
+            assertSame(vm.stateFlow, vm.state, "state must be the stateFlow itself")
 
             vm.onIntent(TestIntent.Start)
             advanceUntilIdle()
