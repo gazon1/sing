@@ -76,7 +76,11 @@ class SeedTaskWriterFastTest {
             assertEquals(seeded.map { it.id }, written.map { it.id }, "the rows come back as they went in")
             assertEquals(
                 seeded.map { it.id }.toSet(),
-                db.taskDao().listAllForUser(user.value).map { TaskId(it.id) }.toSet(),
+                db
+                    .taskDao()
+                    .listAllForUser(user.value)
+                    .map { TaskId(it.id) }
+                    .toSet(),
                 "every row must be in the table under the active profile",
             )
         }
