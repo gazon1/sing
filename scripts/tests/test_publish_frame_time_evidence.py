@@ -66,7 +66,7 @@ def desktop_series(**overrides: object) -> list[dict]:
 def android_report(
     samples: int = 1,
     measured_runs: int = 1,
-    builds: list[str] | None = None,
+    builds: list[str | None] | None = None,
     scenarios: tuple[str, ...] = ANDROID_SCENARIOS,
     planned: list[str] | None = None,
 ) -> dict:
@@ -75,8 +75,11 @@ def android_report(
     `planned` is the list the report claims it was about. It defaults to the
     scenarios the report holds, and a report that planned less than it holds
     is the case the completeness rule has to catch.
+
+    A build of None is a run that names no build at all: the sample carries
+    no version name at all, the way a run of an old report does.
     """
-    versions = builds or ["0.1.0"] * samples
+    versions = builds if builds is not None else ["0.1.0"] * samples
     return {
         "method": {
             "measuredRuns": measured_runs,
@@ -85,7 +88,10 @@ def android_report(
         "scenarios": {
             name: {
                 "samples": [
-                    {"appVersionName": version, "measuredDurationsMs": [1.0]} for version in versions
+                    {"appVersionName": version, "measuredDurationsMs": [1.0]}
+                    if version is not None
+                    else {"measuredDurationsMs": [1.0]}
+                    for version in versions
                 ],
                 "summary": {
                     "totalFrames": 181,
@@ -511,6 +517,30 @@ class PublishAndroidEvidenceTest(unittest.TestCase):
             result = self._publish(tmp, self._report(samples=2, measured_runs=2, builds=["0.1.0+abc", "0.1.0+def"]))
             self.assertEqual(result.returncode, 1)
             self.assertIn("more than one build", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_report_with_a_run_that_names_no_build_is_not_published(self):
+        """A run that does not name its build belongs to no build that can be shown.
+
+        The version name is what says which build the frames belong to, so a
+        run without it cannot be shown to be of one build - and a report that
+        mixes such a run with named ones passes the "more than one build"
+        check by accident: the unknown build used to be dropped from the
+        comparison, and what was left was one build.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(
+                tmp, self._report(samples=2, measured_runs=2, builds=["0.1.0+abc", None])
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("does not name the build", result.stderr)
+            self.assertFalse((Path(tmp) / "evidence.json").exists())
+
+    def test_a_report_whose_runs_all_name_no_build_is_not_published(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._publish(tmp, self._report(samples=2, measured_runs=2, builds=[None, None]))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("does not name the build", result.stderr)
             self.assertFalse((Path(tmp) / "evidence.json").exists())
 
     def test_a_report_that_does_not_name_its_scenarios_is_not_published(self):

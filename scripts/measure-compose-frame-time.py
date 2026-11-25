@@ -547,7 +547,7 @@ def device_facts(serial: str) -> dict:
 
     code, out = adb("shell", "dumpsys", "package", APP_ID, serial=serial)
     version = ""
-    debuggable = False
+    debuggable: bool | None = None
     if code == 0:
         match = re.search(r"versionName=(\S+)", out)
         if match:
@@ -563,6 +563,19 @@ def device_facts(serial: str) -> dict:
         "appVersionName": version,
         "appDebuggable": debuggable,
     }
+
+
+def build_variant(facts: dict) -> str:
+    """The variant of the build on the device, as the device says it.
+
+    A debug build is a debuggable one, and the package manager says which
+    one is installed. A device that does not answer does not get a variant
+    it never told: it gets "unknown".
+    """
+    debuggable = facts.get("appDebuggable")
+    if debuggable is None:
+        return "unknown"
+    return "debug" if debuggable else "release"
 
 
 def profile_scope_facts(connection, profile_name: str) -> dict:
@@ -1314,9 +1327,24 @@ def require_same_build(device: Device, expected: str, scenario: str) -> str:
     The device is shared, and another session can put another build on it in
     the middle of a measurement. The frames of another build are not the
     frames of the build under measurement, and no retry makes that true.
+
+    A build that cannot be named is not a build that can be checked: the
+    version name is what says which build the frames belong to, so a run
+    that names no build names no build the frames can be shown to be of.
+    Such a run fails instead of passing a check that checks nothing.
     """
+    if not expected:
+        raise MeasurementError(
+            f"the build on the device is not known before the '{scenario}' run, so the "
+            "frames of this run cannot be shown to be of the build under measurement"
+        )
     current = app_version(device.serial)
-    if expected and current != expected:
+    if not current:
+        raise MeasurementError(
+            f"the device stopped naming the build during the '{scenario}' run, so the "
+            "frames of this run cannot be shown to be of the build under measurement"
+        )
+    if current != expected:
         raise MeasurementError(
             f"the build on the device was replaced during the '{scenario}' run "
             f"(it was {expected} and now it is {current}), so the frames of "
@@ -1684,13 +1712,26 @@ def measure(args: argparse.Namespace, out_dir: Path) -> int:
     # build on the device is still this one: the device is shared, and
     # another session can put another build on it in the middle of a
     # measurement.
-    pinned_build = app_version(args.serial)
-    print(f"build: {pinned_build or 'unknown'}")
+    facts = device_facts(args.serial)
+    pinned_build = facts.get("appVersionName") or ""
+    variant = build_variant(facts)
+    if not pinned_build or variant == "unknown":
+        # A measurement whose build cannot be named cannot be shown to be a
+        # measurement of one build, so it does not start.
+        raise MeasurementError(
+            "the device does not say which build is installed on it, so the frames of "
+            "this measurement cannot be shown to be of one build"
+        )
+    print(f"build: {pinned_build}")
 
     report: dict = {
-        "device": device_facts(args.serial),
+        "device": facts,
         "dataset": dataset,
-        "build": {"package": APP_ID, "variant": "debug", "versionName": pinned_build},
+        "build": {
+            "package": APP_ID,
+            "variant": variant,
+            "versionName": pinned_build,
+        },
         "method": {
             "source": "adb shell dumpsys gfxinfo <package> (summary) and framestats (per frame)",
             "warmupRuns": args.warmup,

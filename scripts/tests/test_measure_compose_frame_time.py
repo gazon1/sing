@@ -1110,6 +1110,72 @@ class ProfileRelationsTest(unittest.TestCase):
             self.assertIn("Task three", relations)
 
 
+class BuildFactsTest(unittest.TestCase):
+    """The report says which build it measured, and the device says it.
+
+    The variant of a build is not a constant of the report: a debug APK is a
+    debuggable one, and the package manager is the one who says so. A device
+    that does not answer does not get a variant it never told, and a build
+    that cannot be named is not a build a run can be checked against.
+    """
+
+    def _facts(self, dumpsys: tuple[int, str], props: dict[str, str] | None = None) -> dict:
+        original = driver.adb
+
+        def fake_adb(*args, serial, timeout=120.0):
+            if "dumpsys" in args:
+                return dumpsys
+            name = args[-1]
+            return 0, (props or {}).get(name, "")
+
+        driver.adb = fake_adb
+        try:
+            return driver.device_facts("serial")
+        finally:
+            driver.adb = original
+
+    def test_a_debuggable_build_is_a_debug_build(self):
+        facts = self._facts((0, "versionName=0.1.0+abc\nflags=[ DEBUGGABLE HAS_CODE ]"))
+        self.assertTrue(facts["appDebuggable"])
+        self.assertEqual(driver.build_variant(facts), "debug")
+
+    def test_a_build_that_is_not_debuggable_is_a_release_build(self):
+        facts = self._facts((0, "versionName=0.1.0+abc\nflags=[ HAS_CODE ]"))
+        self.assertFalse(facts["appDebuggable"])
+        self.assertEqual(driver.build_variant(facts), "release")
+
+    def test_a_device_that_does_not_answer_has_no_variant(self):
+        """A device that says nothing is not a release build either."""
+        facts = self._facts((1, "error: device not found"))
+        self.assertIsNone(facts["appDebuggable"])
+        self.assertEqual(facts["appVersionName"], "")
+        self.assertEqual(driver.build_variant(facts), "unknown")
+
+    def test_a_build_that_cannot_be_named_is_not_a_build_a_run_can_be_checked_against(self):
+        """The check that compares builds needs a build on both sides."""
+        device = driver.Device(serial="serial", package="pkg", width=100, height=200)
+        original = driver.app_version
+        driver.app_version = lambda serial: ""
+        try:
+            with self.assertRaises(driver.MeasurementError) as raised:
+                driver.require_same_build(device, "", "agenda-scroll")
+        finally:
+            driver.app_version = original
+        self.assertIn("not known", str(raised.exception))
+
+    def test_a_device_that_stops_naming_the_build_fails_the_run(self):
+        """The device answered before the run and does not answer after it."""
+        device = driver.Device(serial="serial", package="pkg", width=100, height=200)
+        original = driver.app_version
+        driver.app_version = lambda serial: ""
+        try:
+            with self.assertRaises(driver.MeasurementError) as raised:
+                driver.require_same_build(device, "0.1.0+abc", "agenda-scroll")
+        finally:
+            driver.app_version = original
+        self.assertIn("stopped naming the build", str(raised.exception))
+
+
 class MeasureScenarioTest(unittest.TestCase):
     """The measured run measures the interaction and not the navigation.
 

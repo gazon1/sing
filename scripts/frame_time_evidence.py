@@ -104,12 +104,30 @@ def incomplete_scenarios(report: dict) -> list[str]:
     )
 
 
+def build_versions(scenario: dict) -> list[str | None]:
+    """The build every run of a scenario names, in the order of the runs.
+
+    A run that names no build at all names an empty one here: the version
+    is what says which build the frames belong to, and a run without it
+    belongs to no build that can be named.
+    """
+    return [sample.get("appVersionName") for sample in scenario.get("samples") or []]
+
+
+def unknown_build_scenarios(report: dict) -> list[str]:
+    """The scenarios with a run that does not name the build it was measured on."""
+    unknown = []
+    for name, scenario in (report.get("scenarios") or {}).items():
+        if any(not version for version in build_versions(scenario)):
+            unknown.append(name)
+    return sorted(unknown)
+
+
 def mixed_build_scenarios(report: dict) -> list[str]:
     """The scenarios whose runs were not all made on the same build."""
     mixed = []
     for name, scenario in (report.get("scenarios") or {}).items():
-        builds = {sample.get("appVersionName") for sample in scenario.get("samples") or []}
-        builds.discard(None)
+        builds = {version for version in build_versions(scenario) if version}
         if len(builds) > 1:
             mixed.append(name)
     return sorted(mixed)
@@ -144,4 +162,10 @@ def check_report_is_complete(report: dict) -> list[str]:
     mixed = mixed_build_scenarios(report)
     if mixed:
         problems.append(f"the scenarios {', '.join(mixed)} were measured on more than one build")
+    unknown = unknown_build_scenarios(report)
+    if unknown:
+        problems.append(
+            f"the scenarios {', '.join(unknown)} have a run that does not name the build "
+            "it was measured on, so the runs cannot be shown to be of one build"
+        )
     return problems
