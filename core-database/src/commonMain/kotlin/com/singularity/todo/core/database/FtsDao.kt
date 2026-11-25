@@ -2,6 +2,7 @@ package com.singularity.todo.core.database
 
 import androidx.room3.Dao
 import androidx.room3.Query
+import androidx.room3.Transaction
 import com.singularity.todo.core.search.SearchLimits
 import com.singularity.todo.core.search.TextMatchQuery
 import kotlinx.coroutines.flow.Flow
@@ -289,7 +290,15 @@ interface FtsDao {
      * order, then the rows of the ones that survived the limit. The sorter of
      * the first step carries an id — not a row, and not the position of the
      * match — and the second step reads the rows by their id.
+     *
+     * Both steps are one transaction, and that is what makes them one answer.
+     * Two reads a moment apart are two answers: a task whose title was edited
+     * in between could be offered even though it no longer matches, and a row
+     * could be read in a state the order no longer describes. Inside a
+     * transaction both reads see the same snapshot, so the offered rows are
+     * exactly the rows the order was decided over.
      */
+    @Transaction
     suspend fun searchTaskTitles(
         userId: String,
         query: TextMatchQuery,

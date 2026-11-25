@@ -39,6 +39,8 @@ import kotlin.test.assertTrue
  *    whole row nor the position of the match comes back into it.
  * 5. the ownership and the archive filters are stated in both phases, so a task
  *    that belongs to somebody else or is archived is never offered.
+ * 6. the two phases are one transaction, so they are one answer: the rows on
+ *    offer are the rows the order was decided over.
  *
  * ## Why there is no clock here
  *
@@ -161,6 +163,21 @@ class FtsTaskTitleOrderingTest {
             source.contains(OLD_TITLE_STATEMENT),
             "the statement that selected the whole row and the position of the match must not " +
                 "come back into the title door — the sorter would carry both again. " +
+                "The source says: $source",
+        )
+    }
+
+    @Test
+    fun `the two phases of the door are one transaction`() {
+        // The snapshot is not observable from the outside — it is a property of
+        // the transaction the two reads share — so the source is what says it.
+        val source = daoSource().replace(WHITESPACE, " ")
+
+        assertTrue(
+            source.contains("@Transaction suspend fun searchTaskTitles("),
+            "the two phases have to run in one transaction. Without it they are two answers: a " +
+                "task whose title was edited between the phases could be offered even though it no " +
+                "longer matches, and a row could be read in a state the order no longer describes. " +
                 "The source says: $source",
         )
     }
