@@ -64,6 +64,16 @@ and `watchKnowledgeArticlesForTask` filter on the marker inside the `WHERE` clau
 so `LIMIT` cuts the page of *articles*. The older article behind sixty newer ordinary
 notes is still on the page, because the page was never a page of ordinary notes.
 
+**The tool reads articles, not a page of attached notes.** `get_knowledge_brief` used to
+take a bounded page of the owner's attached notes and pick the newest article out of it
+in Kotlin — the same old rule, applied late. It now reads the owner's articles from the
+new statement and takes the newest one, so the brief it returns is the owner's newest
+article and not "the newest article that happened to be on the page". The page of
+attached notes stayed in the tool for one thing only: the diagnostic count of how many
+notes are attached, which tells "nothing is attached" from "notes are attached, but none
+of them is an article". The tool's output contract — the count, the reason strings — is
+unchanged.
+
 **The rule is written twice, and a test holds the two together.** SQLite has no
 regular expressions, so the statement cannot ask a Kotlin object whether a body
 carries the heading. The rule therefore exists in two forms —
@@ -74,29 +84,32 @@ question is a defect, and the test is what makes the difference a fact rather th
 hope.
 
 The rule is a **section**, not a mention: the body has to carry a heading whose text is
-exactly `Sources`. The HTML form is `>Sources</h` (an element whose text is exactly
-`Sources`, closed by a heading tag). The Markdown form is a **line** that is the
-heading — `## Sources` at any level, or the bold form `**Sources**` — with the spaces
-and tabs taken out, so `##Sources` and `## Sources` are the same heading. A note whose
+exactly `Sources`. The HTML form is `>Sources</b` (an element whose text is exactly
+`Sources`, closed by a heading or a bold tag). The Markdown form is a **line** that is
+the heading — `## Sources` at any level, or the bold form `**Sources**`. A note whose
 prose merely mentions sources carries none of them and stays an ordinary note.
 
 Line-anchoring is what SQLite can evaluate. It has no regular expressions, so the
 statement cannot ask "does this line consist of hashes and then the word Sources"; it
-strips the whitespace, collapses a run of hashes into one, and looks for the marker
-between two line feeds. The same normalisation happens in Kotlin, and the test that
-runs both over the same bodies is what keeps them the same rule.
+collapses a run of hashes into one, and looks for the marker between two line feeds. The
+same normalisation happens in Kotlin, and the test that runs both over the same bodies is
+what keeps them the same rule.
 
-The rule is **not** the old `KnowledgeBriefShape` regex moved verbatim — that one
-matched a heading by regular expression and fell back to the Markdown projection of the
-HTML body. It is the same *section*, expressed as a rule the statement can run:
+**The body is normalized, not stripped.** The rule first folds the body's whitespace runs
+into one space and drops the spaces that sit next to a tag or a heading mark; it does
+*not* delete the whitespace. So `<h2> Sources </h2>` and `<h2>Sources</h2>` are the same
+heading, while `<h2>Source s</h2>` is not the heading `Sources` at all — a rule that
+deleted the whitespace would call it one, and a false positive is worse than a missed
+article because it invents an article the user never wrote.
 
-- the old regex accepted a bold *paragraph* — `<p><strong>Sources</strong></p>`, which it
-  projected into Markdown and then read as `**Sources**`; the new rule does not, because a
-  bold paragraph is not a section — and the old rule's own note said as much ("the
-  section has to be a heading, not a mention"). A Markdown line that is exactly
-  `**Sources**` is still an article under both rules;
-- the old regex accepted a heading whose text sat on the next line (`##` then `Sources`);
-  the new rule does not, because no body is written that way.
+**The old accepted forms stay accepted.** The rule is the same *section*, expressed as a
+rule the statement can run, and it accepts every form the previous `KnowledgeBriefShape`
+regex accepted — a bold paragraph (`<p><strong>Sources</strong></p>`), a `<b>Sources</b>`
+element, a heading whose text sits on the next line (`##` then `Sources`), and the
+Markdown `#\nSources`. Dropping them would have turned a rule change into a silent data
+loss: a user's existing brief would stop being an article, with no migration and no
+warning, and the issue asks for legacy briefs to stay discoverable and readable. A
+Markdown line that is exactly `**Sources**` was accepted before and is accepted now.
 
 Everything the app writes — `<h2>Sources</h2>` in HTML, `## Sources` in Markdown — is
 accepted by both, so no brief changes meaning.

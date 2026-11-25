@@ -286,12 +286,22 @@ class KnowledgeArticleRepositoryTest {
                     Body("<h2 class=\"lead\">Sources</h2>", null, true),
                     Body("<h2> Sources </h2>", null, true),
                     Body("<h2>Sources of truth</h2>", null, false),
+                    // The word has to be one word: a rule that deleted the whitespace
+                    // would call this the heading "Sources".
+                    Body("<h2>Source s</h2>", null, false),
+                    // The forms the brief shape accepted before the rule moved here.
+                    Body("<p><strong>Sources</strong></p>", null, true),
+                    Body("<b>Sources</b>", null, true),
+                    Body("<h2>\nSources\n</h2>", null, true),
                     Body(null, "## Sources\n\n- https://example.com\n", true),
                     Body(null, "# Sources\n", true),
                     Body(null, "###### Sources\n", true),
                     Body(null, "##Sources\n", true),
                     Body(null, "**Sources**\n", true),
                     Body(null, "intro\n**Sources**\n- url\n", true),
+                    Body(null, "#\nSources\n", true),
+                    Body(null, "# Source s\n", false),
+                    Body(null, "**Source s**\n", false),
                     // A mention is prose, and prose is not a section.
                     Body("<p>Sources</p>", null, false),
                     Body("<h2>Summary</h2><p>text</p>", null, false),

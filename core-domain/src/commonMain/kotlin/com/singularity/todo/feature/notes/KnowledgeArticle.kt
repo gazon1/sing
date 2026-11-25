@@ -29,41 +29,43 @@ package com.singularity.todo.feature.notes
  *
  * ## What the rule accepts
  *
- * The section is a **heading whose text is exactly `Sources`**:
+ * The section is a **label whose text is exactly `Sources`**:
  *
- * - HTML — the text `Sources` between a `>` and a closing heading tag
- *   (`<h2>Sources</h2>`). The heading may carry attributes: the rule looks at the
- *   text and at the closing tag, not at the opening one.
+ * - HTML — the text `Sources` inside a heading element (`<h2>Sources</h2>`) or
+ *   inside a bold element (`<strong>Sources</strong>`).
  * - Markdown — a line that is a heading `Sources` (`## Sources`, at any level) or
  *   the bold form `**Sources**`.
- *
- * A line is a heading because it starts with `#`; the rule accepts a run of them, so
- * every level is one spelling. The body is matched with the spaces and tabs taken
- * out, so `##Sources` and `## Sources` are the same heading.
  *
  * A note whose prose merely mentions sources carries none of them, so it stays an
  * ordinary note. The rule is not a heading parser — SQLite has no regular
  * expressions, and a rule the statement cannot evaluate is a rule the statement
  * cannot use. It looks for the marker's text instead, anchored so that it can only
- * match a heading: the HTML text sits between a `>` and a closing heading tag, and
- * the Markdown text has to be a line of its own — `**Sources**` in the middle of a
- * sentence is prose, while a line of its own is a heading.
+ * match a label: the HTML text sits between a `>` and a closing tag, and the
+ * Markdown text has to be a line of its own — `**Sources**` in the middle of a
+ * sentence is prose, while a line of its own is a label.
+ *
+ * ## The word has to be one word
+ *
+ * The text is matched after the body is **normalized**, not after its whitespace is
+ * deleted: a run of whitespace becomes one space, and the spaces that sit next to a
+ * tag or a heading mark are dropped. So `<h2> Sources </h2>` and `<h2>Sources</h2>`
+ * are the same heading, while `<h2>Source s</h2>` is not the heading `Sources` at
+ * all — a rule that deleted the whitespace would call it one.
+ *
+ * The normalization is what keeps the two forms of the rule the same rule: the
+ * statement and the code run the same steps, in the same order.
  */
 object KnowledgeArticle {
     /**
-     * The Sources heading as an HTML heading: the text `Sources` between a `>` and a
-     * closing heading tag.
+     * The marker as the HTML body carries it, after the body is normalized.
      *
-     * Lower case, because the HTML the editor writes is matched case-insensitively —
-     * the same way the Kotlin side lowercases the body before looking.
+     * The closing tag is normalized too — a heading and a bold element end the same
+     * way here — so the rule asks one question instead of three.
      */
-    private const val HTML_MARKER = ">sources</h"
+    private const val HTML_MARKER = ">sources</b"
 
-    /** The Sources heading as a Markdown heading, with the hashes collapsed to one. */
-    private const val MARKDOWN_HEADING_MARKER = "#Sources"
-
-    /** The Sources heading as bold Markdown. */
-    private const val MARKDOWN_BOLD_MARKER = "**Sources**"
+    /** The marker as the Markdown body carries it, after the body is normalized. */
+    private const val MARKDOWN_MARKER = "**sources**"
 
     /**
      * A run of two or more hashes — a heading of any level — collapsed to one.
@@ -74,35 +76,60 @@ object KnowledgeArticle {
     private val HASH_RUN = Regex("#{2,}")
 
     /**
+     * The HTML body, normalized so that the marker can be looked for in it.
+     *
+     * The steps, in order: lower case; tab, line feed and carriage return become
+     * spaces; three passes collapse the runs of spaces; a space after a `>` and a
+     * space before a `<` are dropped; `</strong` and `</h` both become `</b`.
+     */
+    private const val SQL_HTML_BODY: String =
+        "replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(" +
+            "lower(COALESCE(body_html, '')), " +
+            "char(9), ' '), char(10), ' '), char(13), ' '), " +
+            "'  ', ' '), '  ', ' '), '  ', ' '), " +
+            "'> ', '>'), ' <', '<'), " +
+            "'</strong', '</b'), '</h', '</b')"
+
+    /**
+     * The Markdown body, normalized so that the marker can be looked for in it, and
+     * padded with line feeds so that a line at either end is a line like any other.
+     *
+     * The steps, in order: lower case; tab and carriage return become spaces; three
+     * passes collapse the runs of spaces; a space next to a line feed is dropped; a
+     * heading mark alone takes the line below it, which is the heading whose text
+     * sits on the next line; a space after a heading mark is dropped; the heading
+     * runs collapse to one; the heading form becomes the bold form.
+     */
+    private const val SQL_MARKDOWN_BODY: String =
+        "replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(" +
+            "replace(replace(replace(replace(replace(" +
+            "char(10) || lower(COALESCE(body_markdown, '')) || char(10), " +
+            "char(9), ' '), char(13), ' '), " +
+            "'  ', ' '), '  ', ' '), '  ', ' '), " +
+            "char(10) || ' ', char(10)), ' ' || char(10), char(10)), " +
+            "char(10) || '#' || char(10), char(10) || '#'), " +
+            "'# ', '#'), " +
+            "'######', '#'), '#####', '#'), '####', '#'), '###', '#'), '##', '#'), " +
+            "'#sources', '" + MARKDOWN_MARKER + "')"
+
+    /**
      * The classification as the statement states it.
      *
      * The predicate names the notes table's own columns, because it is used inside a
      * query over that table. It is the same rule as [carriesSources], in the dialect
-     * SQLite speaks:
+     * SQLite speaks, and it runs the same normalization steps in the same order:
      *
-     * - the HTML body is lowercased and stripped of whitespace, and looked for the
-     *   heading text;
-     * - the Markdown body is stripped of spaces, tabs and carriage returns, padded
-     *   with line feeds so every line is bounded, and its heading runs are
-     *   collapsed — so a line has to *be* the heading, not merely contain it.
+     * - the HTML body is lowercased, its whitespace runs collapse to one space, the
+     *   spaces next to a tag are dropped, and its closing tags are made alike — so
+     *   the marker is one string;
+     * - the Markdown body is lowercased and padded with line feeds, its whitespace
+     *   runs collapse to one space, the spaces next to a line feed are dropped, a
+     *   heading mark alone takes the line below it, the heading runs collapse, and
+     *   the heading form becomes the bold form — so the marker is one string too.
      */
     const val SQL_MARKER: String =
-        "(instr(" +
-            "replace(replace(replace(replace(lower(COALESCE(body_html, '')), ' ', ''), " +
-            "char(9), ''), char(10), ''), char(13), ''), " +
-            "'>sources</h') > 0" +
-            " OR instr(" +
-            "replace(replace(replace(replace(replace(" +
-            "char(10) || replace(replace(replace(COALESCE(body_markdown, ''), ' ', ''), " +
-            "char(9), ''), char(13), '') || char(10), " +
-            "'######', '#'), '#####', '#'), '####', '#'), '###', '#'), '##', '#'), " +
-            "char(10) || '#Sources' || char(10)) > 0" +
-            " OR instr(" +
-            "replace(replace(replace(replace(replace(" +
-            "char(10) || replace(replace(replace(COALESCE(body_markdown, ''), ' ', ''), " +
-            "char(9), ''), char(13), '') || char(10), " +
-            "'######', '#'), '#####', '#'), '####', '#'), '###', '#'), '##', '#'), " +
-            "char(10) || '**Sources**' || char(10)) > 0)"
+        "(instr(" + SQL_HTML_BODY + ", '" + HTML_MARKER + "') > 0" +
+            " OR instr(" + SQL_MARKDOWN_BODY + ", char(10) || '" + MARKDOWN_MARKER + "' || char(10)) > 0)"
 
     /**
      * Whether the body carries the Sources section.
@@ -115,31 +142,61 @@ object KnowledgeArticle {
         bodyHtml: String?,
         bodyMarkdown: String?,
     ): Boolean =
-        bodyHtml?.let { html ->
-            html.lowercase().filterNot { it.isWhitespace() }.contains(HTML_MARKER)
-        } == true ||
+        bodyHtml?.let { html -> htmlCarriesSources(html) } == true ||
             bodyMarkdown?.let { markdown -> markdownCarriesSources(markdown) } == true
 
     /** Whether [note] carries the Sources section. */
     fun carriesSources(note: Note): Boolean = carriesSources(note.bodyHtml, note.bodyMarkdown)
 
     /**
-     * Whether a Markdown body carries the Sources heading.
+     * Whether the HTML body carries the Sources label.
      *
-     * The body is stripped of spaces, tabs and carriage returns, split into lines and
-     * every line is compared with the marker — so the heading has to *be* a line, and
-     * a mention of sources in the middle of a sentence is prose.
+     * The body is normalized the way the statement normalizes it — lower case, the
+     * whitespace runs collapsed, the spaces next to a tag dropped, the closing tags
+     * made alike — and the marker is then looked for in it.
+     */
+    private fun htmlCarriesSources(html: String): Boolean =
+        html
+            .lowercase()
+            .replace('\t', ' ')
+            .replace('\n', ' ')
+            .replace('\r', ' ')
+            .collapseSpaces()
+            .replace("> ", ">")
+            .replace(" <", "<")
+            .replace("</strong", "</b")
+            .replace("</h", "</b")
+            .contains(HTML_MARKER)
+
+    /**
+     * Whether the Markdown body carries the Sources label.
+     *
+     * The body is normalized the way the statement normalizes it — lower case, the
+     * whitespace runs collapsed, the spaces next to a line feed dropped, a heading
+     * mark alone taking the line below it, the heading runs collapsed and the
+     * heading form made the bold form — and the marker is then looked for as a line
+     * of its own.
      */
     private fun markdownCarriesSources(markdown: String): Boolean =
-        markdown
-            .replace(" ", "")
-            .replace("\t", "")
-            .replace("\r", "")
+        ("\n" + markdown.lowercase().replace('\t', ' ').replace('\r', ' ') + "\n")
+            .collapseSpaces()
+            .replace("\n ", "\n")
+            .replace(" \n", "\n")
+            .replace("\n#\n", "\n#")
+            .replace("# ", "#")
+            .replace(HASH_RUN, "#")
+            .replace("#sources", MARKDOWN_MARKER)
             .split("\n")
-            .any { line ->
-                val collapsed = HASH_RUN.replace(line, "#")
-                collapsed == MARKDOWN_HEADING_MARKER || collapsed == MARKDOWN_BOLD_MARKER
-            }
+            .any { it == MARKDOWN_MARKER }
+
+    /**
+     * The runs of spaces collapsed to one space.
+     *
+     * Three passes, because the statement does three passes: a run of sixteen
+     * spaces would survive two of them, and the two forms of the rule have to fold
+     * the body the same way.
+     */
+    private fun String.collapseSpaces(): String = replace("  ", " ").replace("  ", " ").replace("  ", " ")
 
     /**
      * Whether [note] is a Knowledge article.
