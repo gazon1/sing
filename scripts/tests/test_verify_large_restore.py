@@ -1691,6 +1691,19 @@ class VerdictProblemsTest(unittest.TestCase):
         )
         self.assertEqual(len(problems), 5)
 
+    def test_a_cleanup_that_could_not_be_read_is_a_problem(self):
+        """A run that cannot say what it removed is not a successful measurement."""
+        problems = driver.verdict_problems(
+            [],
+            [],
+            [],
+            True,
+            True,
+            ["the tables tags could not be read before the wipe"],
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("could not be read before the wipe", problems[0])
+
 
 def _archive_with(tmp: Path, payload: dict) -> Path:
     """An archive with the given payload, as the generator writes it."""
@@ -2626,9 +2639,9 @@ class OutputDirectoryReservationTest(unittest.TestCase):
             held: list[bool] = []
             original = driver.write_report
 
-            def spy(out_dir: Path, report: dict) -> None:
+            def spy(out_dir: Path, report: dict, serial: str = "") -> None:
                 held.append((out_dir / driver.RESERVATION_FILE).exists())
-                original(out_dir, report)
+                original(out_dir, report, serial)
 
             with unittest.mock.patch.object(driver, "write_report", spy):
                 driver.main(["--out", str(out)])
@@ -3422,6 +3435,247 @@ class DeviceOutputMaskingTest(unittest.TestCase):
             text = log.read_text(encoding="utf-8")
             self.assertNotIn(self.SERIAL, text)
             self.assertNotIn(str(Path.home()), text)
+
+
+class ReportMaskingTest(unittest.TestCase):
+    """The report is read by people who were not there.
+
+    The output of a command that failed names the device it ran on, and a
+    serial number names one person's phone. The report names the device by
+    its fingerprint, and the serial is replaced where the report is written.
+    """
+
+    SERIAL = "0O65321F32204DD5"
+
+    def test_the_serial_is_replaced_by_the_fingerprint_of_the_device(self):
+        masked = driver.mask_report(
+            {"error": f"adb -s {self.SERIAL} failed", "phases": [f"on {self.SERIAL}"]},
+            self.SERIAL,
+        )
+        self.assertNotIn(self.SERIAL, json.dumps(masked))
+        self.assertIn(driver.device_fingerprint(self.SERIAL), masked["error"])
+        self.assertIn(driver.device_fingerprint(self.SERIAL), masked["phases"][0])
+
+    def test_a_report_without_a_device_is_left_alone(self):
+        report = {"status": "complete"}
+        self.assertIs(driver.mask_report(report, ""), report)
+
+    def test_the_written_report_does_not_carry_the_serial(self):
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            driver.write_report(
+                out,
+                {"status": "failed", "error": f"adb -s {self.SERIAL} failed"},
+                self.SERIAL,
+            )
+            for name in ("report.json", "report.md"):
+                text = (out / name).read_text(encoding="utf-8")
+                self.assertNotIn(self.SERIAL, text)
+                self.assertIn(driver.device_fingerprint(self.SERIAL), text)
+
+
+class WipeReportTest(unittest.TestCase):
+    """The report says how many rows the measured wipe removed.
+
+    A wipe of an empty profile and a wipe of fifty thousand rows take the same
+    time in the report otherwise, and the number cannot be attributed to
+    anything.
+    """
+
+    def _run(
+        self,
+        tmp: Path,
+        out: Path,
+        interrupted_counts: dict | None = None,
+        db: Path | None = None,
+        wipe_counts: dict | None = None,
+    ) -> dict:
+        apk = tmp / "the.apk"
+        apk.write_bytes(b"not really an APK")
+        argv = ["--serial", "test-device", "--apk", str(apk), "--out", str(out)]
+        with unittest.mock.patch.dict(os.environ, {"MAESTRO_LOCK_DIR": str(tmp / "locks")}):
+            with contextlib.ExitStack() as stack:
+                for patch in _device_patches(tmp, db):
+                    stack.enter_context(patch)
+                for patch in _flow_patches():
+                    stack.enter_context(patch)
+                if wipe_counts is not None:
+                    # The counts the wipe left behind. The wipe reads them
+                    # from the device after it has emptied the profile, and a
+                    # table that cannot be read there is a different failure
+                    # from a table that could not be read before the wipe.
+                    stack.enter_context(
+                        unittest.mock.patch.object(
+                            driver,
+                            "reset_content",
+                            lambda serial, out=None, scope="", attempts=4, profile_id="": (
+                                wipe_counts,
+                                1.0,
+                            ),
+                        )
+                    )
+                if interrupted_counts is not None:
+                    stack.enter_context(
+                        unittest.mock.patch.object(
+                            driver,
+                            "check_interrupted_import",
+                            lambda *a, **k: {
+                                "interrupted": True,
+                                "importStarted": True,
+                                "evidence": "the app's own working indicator was on the screen",
+                                "counts": interrupted_counts,
+                                "problems": [],
+                                "verdict": "empty",
+                            },
+                        )
+                    )
+                self.exit_code = driver.main(argv)
+        return json.loads((out / "report.json").read_text(encoding="utf-8"))
+
+    def test_the_rows_the_wipe_removed_are_in_the_report(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            report = self._run(tmp, out)
+            wipe = report["wipe"]
+            # Every table the manifest counts, counted before the wipe — the
+            # report says what the wipe removed, not only what was left
+            # behind. A count of one table alone would still pass if the
+            # other tables were dropped from the report.
+            self.assertEqual(
+                wipe["countsBefore"],
+                {
+                    "tasks": 2,
+                    "projects": 1,
+                    "tags": 1,
+                    "notes": 0,
+                    "checklistItems": 0,
+                    "taskDependencies": 1,
+                    "taskTags": 1,
+                },
+            )
+            self.assertEqual(len(wipe["wipes"]), 1)
+            self.assertEqual(wipe["wipes"][0]["countsBefore"], wipe["countsBefore"])
+
+    def test_a_second_wipe_is_named_as_one(self):
+        """A run that wipes twice reports the sum — and says that it is a sum."""
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            report = self._run(tmp, out, interrupted_counts={"tasks": 3})
+            wipe = report["wipe"]
+            self.assertEqual(len(wipe["wipes"]), 2)
+            self.assertEqual(wipe["seconds"], 2.0)
+            self.assertEqual(wipe["wipes"][1]["countsBefore"], {"tasks": 3})
+            # The aggregate fields describe the first wipe; the second one is
+            # in the list. A report that added the two counts together would
+            # attribute the sum to a dataset no wipe ever saw.
+            self.assertEqual(wipe["countsBefore"], wipe["wipes"][0]["countsBefore"])
+            self.assertNotEqual(wipe["countsBefore"], wipe["wipes"][1]["countsBefore"])
+
+    def test_a_table_that_could_not_be_read_is_named(self):
+        """A count that is unknown is named, not reported as a row count."""
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            db = _device_database(tmp)
+            connection = sqlite3.connect(db)
+            try:
+                connection.execute("DROP TABLE tags")
+                connection.commit()
+            finally:
+                connection.close()
+            report = self._run(tmp, out, db=db)
+            wipe = report["wipe"]
+            # The count could not be read, so the report says so — `-1` is not
+            # a number of rows.
+            self.assertEqual(wipe["countsBefore"]["tags"], -1)
+            self.assertIn(
+                "the tables tags could not be read before the wipe",
+                wipe["wipes"][0]["problems"][0],
+            )
+            self.assertIn(
+                "the tables tags could not be read before the wipe",
+                wipe["problems"][0],
+            )
+            # And the run fails: a cleanup whose rows could not be counted
+            # cannot be attributed to anything, and a run that attributes
+            # nothing is not a successful measurement.
+            self.assertTrue(
+                any(
+                    "could not be read before the wipe" in problem
+                    for problem in report["verdict"]["problems"]
+                ),
+                report["verdict"]["problems"],
+            )
+            self.assertNotEqual(self.exit_code, 0)
+
+    def test_a_table_that_could_not_be_read_after_the_wipe_is_named(self):
+        """What the wipe left behind is unknown when it cannot be counted.
+
+        The rows before the wipe are read from the database the run pulled
+        and the rows after it are read from the device again, and the two are
+        read differently: a table that could not be read before the wipe is
+        not the same failure as a table that could not be read after it, and
+        only the second one leaves the leftovers unknown.
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            report = self._run(tmp, out, wipe_counts={"tags": -1})
+            wipe = report["wipe"]
+            # The rows before the wipe were counted, so what the wipe removed
+            # is known; the rows it left behind could not be counted, so what
+            # it left behind is not.
+            self.assertEqual(wipe["countsBefore"]["tags"], 1)
+            self.assertEqual(wipe["counts"]["tags"], -1)
+            self.assertIn(
+                "the tables tags could not be read after the wipe",
+                wipe["wipes"][0]["problems"][0],
+            )
+            self.assertIn(
+                "the tables tags could not be read after the wipe",
+                wipe["problems"][0],
+            )
+            # And the run fails: a cleanup whose leftovers cannot be counted
+            # has not been shown to have emptied the profile.
+            self.assertTrue(
+                any(
+                    "could not be read after the wipe" in problem
+                    for problem in report["verdict"]["problems"]
+                ),
+                report["verdict"]["problems"],
+            )
+            self.assertNotEqual(self.exit_code, 0)
+
+    def test_the_second_wipe_names_the_tables_it_could_not_read(self):
+        """The leftovers of an interrupted import are unknown when they cannot be read."""
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            out = tmp / "out"
+            out.mkdir()
+            report = self._run(tmp, out, interrupted_counts={"tasks": -1})
+            wipe = report["wipe"]
+            self.assertEqual(len(wipe["wipes"]), 2)
+            self.assertIn(
+                "the tables tasks could not be read before the wipe",
+                wipe["wipes"][1]["problems"][0],
+            )
+            # The problem of the second cleanup reaches the verdict too: a
+            # run that does not know how many rows the second cleanup removed
+            # cannot be reported as a successful measurement.
+            self.assertTrue(
+                any(
+                    "could not be read before the wipe" in problem
+                    for problem in report["verdict"]["problems"]
+                ),
+                report["verdict"]["problems"],
+            )
+            self.assertNotEqual(self.exit_code, 0)
 
 
 if __name__ == "__main__":

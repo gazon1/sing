@@ -2185,14 +2185,44 @@ def app_memory(serial: str) -> str:
 # ── the report ───────────────────────────────────────────────────────────────
 
 
-def write_report(out_dir: Path, report: dict) -> None:
+def mask_report(report: dict, serial: str) -> dict:
+    """The report without the serial number of the device.
+
+    The report is read by people who were not there, and a serial number is a
+    hardware identifier: it names one person's phone. The report names the
+    device by its fingerprint, and the output of a command that failed says
+    the serial — so it is replaced here, where the report is written, and
+    every path that could carry it is covered by one place.
+    """
+    if not serial:
+        return report
+    fingerprint = device_fingerprint(serial)
+
+    def masked(value):
+        if isinstance(value, str):
+            return value.replace(serial, fingerprint)
+        if isinstance(value, dict):
+            return {key: masked(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [masked(item) for item in value]
+        return value
+
+    return masked(report)
+
+
+def write_report(out_dir: Path, report: dict, serial: str = "") -> None:
     """Write the measurements as JSON and as a page a person can read.
 
     A report can be partial: the run may have died in the middle of it. What
     was measured is written, and what was not says so — a run that dies after
     the import has still measured the archive, the import and the counts, and
     those are the measurements the report is for.
+
+    The report is written without the serial number of the device: it is a
+    piece of hardware that names one person, and the report names the device
+    by its fingerprint.
     """
+    report = mask_report(report, serial)
     (out_dir / "report.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -2435,6 +2465,55 @@ def reservation_is_stale(reservation: Path) -> bool:
     except PermissionError:
         return False
     return False
+
+
+def unreadable_tables(counts: dict[str, int]) -> list[str]:
+    """The tables whose row count could not be read.
+
+    A table that could not be read is not a table with no rows: its count is
+    unknown. `count_rows` says so with `-1`, and a report that carries that
+    number as a row count claims a number it does not have.
+    """
+    return sorted(key for key, value in counts.items() if value < 0)
+
+
+def wipe_section(wipes: list[dict]) -> dict:
+    """The wipe part of the report: the time and every wipe it is the sum of.
+
+    A run wipes the profile under test a second time when the interrupted
+    import left rows behind, and the number the report carries is then the time
+    of two wipes — so the report says which wipes it covers, and how many rows
+    each of them removed. The counts before the wipe are what make the number
+    attributable: a wipe of an empty profile and a wipe of fifty thousand rows
+    take the same time in the report otherwise.
+
+    The counts that could not be read are named instead of being reported as
+    row counts: an unknown count says nothing about what a wipe removed, and a
+    report that hides that behind `-1` claims a measurement it does not have.
+    """
+    section = []
+    for wipe in wipes:
+        before = unreadable_tables(wipe["countsBefore"])
+        after = unreadable_tables(wipe["counts"])
+        problems = []
+        if before:
+            problems.append(
+                f"the tables {', '.join(before)} could not be read before the wipe, "
+                "so the rows it removed are unknown"
+            )
+        if after:
+            problems.append(
+                f"the tables {', '.join(after)} could not be read after the wipe, "
+                "so what it left behind is unknown"
+            )
+        section.append({**wipe, "problems": problems})
+    return {
+        "seconds": round(sum(wipe["seconds"] for wipe in section), 1),
+        "counts": section[0]["counts"],
+        "countsBefore": section[0]["countsBefore"],
+        "problems": list(dict.fromkeys(problem for wipe in section for problem in wipe["problems"])),
+        "wipes": section,
+    }
 
 
 def reserve_output_dir(out_dir: Path) -> bool:
@@ -2792,14 +2871,20 @@ def verdict_problems(
     negative_problems: list[str],
     browse_ok: bool,
     reported_by_snackbar: bool,
+    wipe_problems: list[str] | None = None,
 ) -> list[str]:
     """Everything that makes the run unsuccessful, in one list.
 
     The exit code of the run is this list, so it is written once, here, and
     not assembled in the middle of the run: a check whose problem is not
     added to this list does not fail the run.
+
+    The problems of the cleanup are among them: a run that could not read
+    the rows it removed cannot attribute its cleanup time to anything, and a
+    run that attributes nothing is not a successful measurement.
     """
     problems = list(count_problems) + list(link_problems) + list(negative_problems)
+    problems += list(wipe_problems or [])
     if not browse_ok:
         problems.append("the imported data did not open in the app")
     if not reported_by_snackbar:
@@ -3191,11 +3276,24 @@ def main(argv: list[str] | None = None) -> int:
         # One wipe before the negative phases, and both of them share it: a
         # refused archive writes nothing, so the profile is still empty for
         # the interrupted import that follows.
+        #
+        # The rows the wipe is about to remove are counted first: the report
+        # says what the measured wipe deleted, and not only what was left
+        # behind.
+        counts_before = count_rows(before_db, scope)
         wipe_counts, wipe_seconds = reset_content(
             serial, out_dir, scope=scope, profile_id=test_profile_id
         )
         print(f"wipe: {wipe_seconds}s ({wipe_counts})")
-        report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
+        report["wipe"] = wipe_section(
+            [
+                {
+                    "seconds": wipe_seconds,
+                    "countsBefore": counts_before,
+                    "counts": wipe_counts,
+                }
+            ]
+        )
         report["profile"] = {
             "scope": scope,
             "source": "the profile the run works in",
@@ -3239,11 +3337,21 @@ def main(argv: list[str] | None = None) -> int:
         # unknown state, and it has to be wiped before it is measured.
         interrupted_counts = negative["interrupted"]["counts"]
         if any(value != 0 for value in interrupted_counts.values()):
-            _, second_wipe = reset_content(
+            second_counts, second_wipe = reset_content(
                 serial, out_dir, scope=scope, profile_id=test_profile_id
             )
-            wipe_seconds += second_wipe
-            report["wipe"] = {"seconds": round(wipe_seconds, 1), "counts": wipe_counts}
+            report["wipe"] = wipe_section(
+                report["wipe"]["wipes"]
+                + [
+                    {
+                        "seconds": second_wipe,
+                        # The rows the interrupted import left behind are the
+                        # rows this wipe removes.
+                        "countsBefore": dict(interrupted_counts),
+                        "counts": second_counts,
+                    }
+                ]
+            )
         outcome = restore_and_watch(serial, file_name, out_dir / "restore-flow.log", apk=apk)
         print(f"import: {outcome['durationSeconds']}s ({outcome['measured']})")
 
@@ -3369,6 +3477,7 @@ def main(argv: list[str] | None = None) -> int:
                 negative_problems,
                 browse_ok,
                 bool(outcome["reportedBySnackbar"]),
+                report.get("wipe", {}).get("problems", []),
             )
             + home_problems
         }
@@ -3456,7 +3565,7 @@ def main(argv: list[str] | None = None) -> int:
         # that released the reservation first would let another run claim the
         # directory and start writing its own archive into it.
         try:
-            write_report(out_dir, report)
+            write_report(out_dir, report, serial)
         finally:
             release_output_dir(out_dir)
     return exit_code
