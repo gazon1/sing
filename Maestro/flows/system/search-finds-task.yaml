@@ -18,6 +18,9 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=UniqueSearchableTask2026"
+# The seed writes an undated task, so the row is on the Inbox tab and not on the
+# screen the seed leaves the app on — the helper does not navigate, so it cannot
+# wait for it. The wait on the search result below is the flow's.
 
 # Open the quick-search from the menu sheet.
 - runFlow: ../../helpers/open-app-menu.yaml

@@ -30,6 +30,8 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "session=anonymous"
+# `session=anonymous` writes no entity: it changes the session and nothing else,
+# so the flow names no entity and the helper waits for the shell alone.
 
 # Navigate to Settings via the menu.
 - runFlow: ../../helpers/open-settings.yaml

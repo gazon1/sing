@@ -11,10 +11,14 @@ tags:
   - search
 ---
 # Seed a task to search for. `due=today` so it is visible on the Today tab too.
+#
+# The task is due today, so it is on the Today screen the seed leaves the app
+# on: the helper waits for its row (the row rule).
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=UniqueSearchableTask2026&due=today"
+      WAIT_FOR: "task_item_uniquesearchabletask2026"
 - runFlow: ../../helpers/open-app-menu.yaml
 - extendedWaitUntil:
     visible:
@@ -30,6 +34,9 @@ tags:
     id: search_input
 - inputText: "UniqueSearchableTask2026"
 - hideKeyboard
+# The helper waited for the row on the Today screen; this wait is for the
+# result row on the Search screen, which is rendered only after the query is
+# typed — the helper does not navigate there.
 - extendedWaitUntil:
     visible:
       id: task_item_uniquesearchabletask2026

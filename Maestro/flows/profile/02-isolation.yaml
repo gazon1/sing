@@ -83,6 +83,9 @@ tags:
     visible:
       id: nav_tab_today
     timeout: 30000
+# The task is undated, so it lands in Inbox — not on the Today screen the seed
+# leaves the app on. The helper cannot wait for it; the flow waits for the row
+# below, after navigating to Inbox.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:

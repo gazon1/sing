@@ -14,6 +14,9 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Buy%20milk&blockeddBy=MissingBlocker"
+# The seed writes an undated task, so the row is on the Inbox tab and not on the
+# screen the seed leaves the app on — the helper does not navigate, so it cannot
+# wait for it. The wait below is the flow's.
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
