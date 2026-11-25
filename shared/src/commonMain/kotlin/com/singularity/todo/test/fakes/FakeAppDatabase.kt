@@ -56,6 +56,10 @@ import com.singularity.todo.core.sync.SyncShadowDao
 import com.singularity.todo.core.sync.SyncShadowEntity
 import com.singularity.todo.core.sync.SyncStateDao
 import com.singularity.todo.core.sync.SyncStateEntity
+import com.singularity.todo.feature.ai.chat.data.ChatConversationDao
+import com.singularity.todo.feature.ai.chat.data.ChatConversationEntity
+import com.singularity.todo.feature.ai.chat.data.ChatMessageDao
+import com.singularity.todo.feature.ai.chat.data.ChatMessageEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventDao
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncStateDao
@@ -64,10 +68,6 @@ import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapEntity
 import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowDao
 import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowEntity
-import com.singularity.todo.feature.ai.chat.data.ChatConversationDao
-import com.singularity.todo.feature.ai.chat.data.ChatConversationEntity
-import com.singularity.todo.feature.ai.chat.data.ChatMessageDao
-import com.singularity.todo.feature.ai.chat.data.ChatMessageEntity
 import com.singularity.todo.feature.notes.KnowledgeArticle
 import com.singularity.todo.feature.proposals.data.AiProposalEntity
 import com.singularity.todo.feature.proposals.data.ProposalDao
@@ -4590,9 +4590,8 @@ private class FakeSelectorCrossRefs(
         }
 }
 
-private class FakeChatConversationDao(
-    private val store: MutableStateFlow<Map<String, ChatConversationEntity>>,
-) : ChatConversationDao {
+private class FakeChatConversationDao(private val store: MutableStateFlow<Map<String, ChatConversationEntity>>) :
+    ChatConversationDao {
     override suspend fun upsertConversation(entity: ChatConversationEntity) {
         store.update { it + (entity.id to entity) }
     }
@@ -4601,18 +4600,26 @@ private class FakeChatConversationDao(
         store.map { map ->
             map.values
                 .filter { it.userId == userId }
-                .maxWithOrNull(compareBy<ChatConversationEntity> { it.updatedAt }.thenBy { it.createdAt }.thenBy { it.id })
+                .maxWithOrNull(
+                    compareBy<ChatConversationEntity> { it.updatedAt }.thenBy { it.createdAt }.thenBy { it.id },
+                )
         }
 
-    override suspend fun getByIdForUser(id: String, userId: String): ChatConversationEntity? =
-        store.value[id]?.takeIf { it.userId == userId }
+    override suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): ChatConversationEntity? = store.value[id]?.takeIf { it.userId == userId }
 
     override suspend fun listAllForUser(userId: String): List<ChatConversationEntity> =
         store.value.values
             .filter { it.userId == userId }
             .sortedWith(compareByDescending<ChatConversationEntity> { it.updatedAt }.thenByDescending { it.createdAt })
 
-    override suspend fun touchForUser(id: String, userId: String, updatedAt: Long): Int {
+    override suspend fun touchForUser(
+        id: String,
+        userId: String,
+        updatedAt: Long,
+    ): Int {
         val current = store.value[id] ?: return 0
         if (current.userId != userId) return 0
         store.update { it + (id to current.copy(updatedAt = updatedAt)) }
@@ -4620,15 +4627,17 @@ private class FakeChatConversationDao(
     }
 
     override suspend fun deleteAllForUser(userId: String): Int {
-        val doomed = store.value.values.filter { it.userId == userId }.map { it.id }
+        val doomed =
+            store.value.values
+                .filter { it.userId == userId }
+                .map { it.id }
         store.update { current -> current - doomed.toSet() }
         return doomed.size
     }
 }
 
-private class FakeChatMessageDao(
-    private val store: MutableStateFlow<Map<String, ChatMessageEntity>>,
-) : ChatMessageDao {
+private class FakeChatMessageDao(private val store: MutableStateFlow<Map<String, ChatMessageEntity>>) :
+    ChatMessageDao {
     override suspend fun upsertMessage(entity: ChatMessageEntity) {
         store.update { it + (entity.id to entity) }
     }
@@ -4651,7 +4660,10 @@ private class FakeChatMessageDao(
             .filter { it.conversationId == conversationId && it.userId == userId }
             .sortedWith(compareBy<ChatMessageEntity> { it.position }.thenBy { it.createdAt }.thenBy { it.id })
 
-    override suspend fun maxPositionForUser(conversationId: String, userId: String): Int =
+    override suspend fun maxPositionForUser(
+        conversationId: String,
+        userId: String,
+    ): Int =
         store.value.values
             .filter { it.conversationId == conversationId && it.userId == userId }
             .maxOfOrNull { it.position } ?: -1
@@ -4700,10 +4712,17 @@ private class FakeChatMessageDao(
     override suspend fun listAllForUser(userId: String): List<ChatMessageEntity> =
         store.value.values
             .filter { it.userId == userId }
-            .sortedWith(compareBy<ChatMessageEntity> { it.conversationId }.thenBy { it.position }.thenBy { it.createdAt }.thenBy { it.id })
+            .sortedWith(
+                compareBy<ChatMessageEntity> {
+                    it.conversationId
+                }.thenBy { it.position }.thenBy { it.createdAt }.thenBy { it.id },
+            )
 
     override suspend fun deleteAllForUser(userId: String): Int {
-        val doomed = store.value.values.filter { it.userId == userId }.map { it.id }
+        val doomed =
+            store.value.values
+                .filter { it.userId == userId }
+                .map { it.id }
         store.update { current -> current - doomed.toSet() }
         return doomed.size
     }

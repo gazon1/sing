@@ -82,7 +82,10 @@ interface ChatConversationDao {
     fun observeLatestForUser(userId: String): Flow<ChatConversationEntity?>
 
     @Query("SELECT * FROM chat_conversations WHERE id = :id AND user_id = :userId LIMIT 1")
-    suspend fun getByIdForUser(id: String, userId: String): ChatConversationEntity?
+    suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): ChatConversationEntity?
 
     @Query(
         """
@@ -91,7 +94,11 @@ interface ChatConversationDao {
         WHERE id = :id AND user_id = :userId
         """,
     )
-    suspend fun touchForUser(id: String, userId: String, updatedAt: Long): Int
+    suspend fun touchForUser(
+        id: String,
+        userId: String,
+        updatedAt: Long,
+    ): Int
 
     @Query("SELECT * FROM chat_conversations WHERE user_id = :userId ORDER BY updated_at DESC, created_at DESC")
     suspend fun listAllForUser(userId: String): List<ChatConversationEntity>
@@ -112,7 +119,10 @@ interface ChatMessageDao {
         ORDER BY position ASC, created_at ASC, id ASC
         """,
     )
-    fun observeByConversationForUser(conversationId: String, userId: String): Flow<List<ChatMessageEntity>>
+    fun observeByConversationForUser(
+        conversationId: String,
+        userId: String,
+    ): Flow<List<ChatMessageEntity>>
 
     @Query(
         """
@@ -121,7 +131,10 @@ interface ChatMessageDao {
         ORDER BY position ASC, created_at ASC, id ASC
         """,
     )
-    suspend fun listByConversationForUser(conversationId: String, userId: String): List<ChatMessageEntity>
+    suspend fun listByConversationForUser(
+        conversationId: String,
+        userId: String,
+    ): List<ChatMessageEntity>
 
     @Query(
         """
@@ -130,7 +143,10 @@ interface ChatMessageDao {
         WHERE conversation_id = :conversationId AND user_id = :userId
         """,
     )
-    suspend fun maxPositionForUser(conversationId: String, userId: String): Int
+    suspend fun maxPositionForUser(
+        conversationId: String,
+        userId: String,
+    ): Int
 
     @Query(
         """

@@ -25,7 +25,9 @@ class FakeChatConversationRepository(
 
     override fun observeLatestConversation(): Flow<ChatConversation?> =
         conversations.map { map ->
-            map.values.maxWithOrNull(compareBy<ChatConversation> { it.updatedAt }.thenBy { it.createdAt }.thenBy { it.id.value })
+            map.values.maxWithOrNull(
+                compareBy<ChatConversation> { it.updatedAt }.thenBy { it.createdAt }.thenBy { it.id.value },
+            )
         }
 
     override fun observeMessages(conversationId: ChatConversationId): Flow<List<ChatMessageRecord>> =
@@ -40,13 +42,15 @@ class FakeChatConversationRepository(
             .filter { it.conversationId == conversationId }
             .sortedWith(compareBy<ChatMessageRecord> { it.position }.thenBy { it.createdAt }.thenBy { it.id.value })
 
-    override suspend fun createConversation(conversation: ChatConversation): Result<Unit> = runCatching {
-        conversations.update { it + (conversation.id to conversation) }
-    }
+    override suspend fun createConversation(conversation: ChatConversation): Result<Unit> =
+        runCatching {
+            conversations.update { it + (conversation.id to conversation) }
+        }
 
-    override suspend fun insertMessage(message: ChatMessageRecord): Result<Unit> = runCatching {
-        messages.update { it + (message.id to message) }
-    }
+    override suspend fun insertMessage(message: ChatMessageRecord): Result<Unit> =
+        runCatching {
+            messages.update { it + (message.id to message) }
+        }
 
     override suspend fun updateMessageContent(
         messageId: ChatMessageId,
@@ -54,15 +58,19 @@ class FakeChatConversationRepository(
         content: String,
         status: ChatMessageStatus,
         updatedAt: Long,
-    ): Result<Unit> = runCatching {
-        val current = messages.value[messageId] ?: error("Chat message not found: ${messageId.value}")
-        require(current.conversationId == conversationId) { "Chat message not found: ${messageId.value}" }
-        val updated = current.copy(content = content, status = status, updatedAt = updatedAt)
-        messages.update { it + (messageId to updated) }
-        updatedMessages += updated
-    }
+    ): Result<Unit> =
+        runCatching {
+            val current = messages.value[messageId] ?: error("Chat message not found: ${messageId.value}")
+            require(current.conversationId == conversationId) { "Chat message not found: ${messageId.value}" }
+            val updated = current.copy(content = content, status = status, updatedAt = updatedAt)
+            messages.update { it + (messageId to updated) }
+            updatedMessages += updated
+        }
 
-    override suspend fun markInProgressInterrupted(conversationId: ChatConversationId, updatedAt: Long): Result<Int> =
+    override suspend fun markInProgressInterrupted(
+        conversationId: ChatConversationId,
+        updatedAt: Long,
+    ): Result<Int> =
         runCatching {
             var changed = 0
             messages.update { map ->
@@ -80,8 +88,13 @@ class FakeChatConversationRepository(
             changed
         }
 
-    override suspend fun touchConversation(conversationId: ChatConversationId, updatedAt: Long): Result<Unit> = runCatching {
-        val current = conversations.value[conversationId] ?: error("Chat conversation not found: ${conversationId.value}")
-        conversations.update { it + (conversationId to current.copy(updatedAt = updatedAt)) }
-    }
+    override suspend fun touchConversation(
+        conversationId: ChatConversationId,
+        updatedAt: Long,
+    ): Result<Unit> =
+        runCatching {
+            val current =
+                conversations.value[conversationId] ?: error("Chat conversation not found: ${conversationId.value}")
+            conversations.update { it + (conversationId to current.copy(updatedAt = updatedAt)) }
+        }
 }

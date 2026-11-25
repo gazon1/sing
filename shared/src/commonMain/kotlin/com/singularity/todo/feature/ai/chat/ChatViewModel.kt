@@ -31,7 +31,6 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -70,6 +69,7 @@ class ChatViewModel(
     init {
         restoreLatestConversation()
     }
+
     data class State(
         val messages: ImmutableList<ChatMessage> = persistentListOf(),
         /**
@@ -153,25 +153,28 @@ class ChatViewModel(
 
     private fun restoreLatestConversation() {
         val repo = conversationRepository ?: return
-        restoreJob = vmScope.launch {
-            runCatching {
-                val conversation = repo.observeLatestConversation().firstOrNull() ?: return@runCatching
-                val now = clock.now().toEpochMilliseconds()
-                repo.markInProgressInterrupted(conversation.id, now).getOrThrow()
-                val records = repo.getMessages(conversation.id)
-                conversationId = conversation.id
-                nextPosition = (records.maxOfOrNull { it.position } ?: -1) + 1
-                updateState { state ->
-                    // Never overwrite an active turn; restoration is only for initial open.
-                    if (state.isLoading || state.messages.isNotEmpty()) state
-                    else state.copy(messages = records.map { it.toChatMessage() }.toImmutableList())
+        restoreJob =
+            vmScope.launch {
+                runCatching {
+                    val conversation = repo.observeLatestConversation().firstOrNull() ?: return@runCatching
+                    val now = clock.now().toEpochMilliseconds()
+                    repo.markInProgressInterrupted(conversation.id, now).getOrThrow()
+                    val records = repo.getMessages(conversation.id)
+                    conversationId = conversation.id
+                    nextPosition = (records.maxOfOrNull { it.position } ?: -1) + 1
+                    updateState { state ->
+                        // Never overwrite an active turn; restoration is only for initial open.
+                        if (state.isLoading || state.messages.isNotEmpty()) {
+                            state
+                        } else {
+                            state.copy(messages = records.map { it.toChatMessage() }.toImmutableList())
+                        }
+                    }
+                }.onFailure { error ->
+                    log.e(error) { "Chat transcript restoration failed" }
                 }
-            }.onFailure { error ->
-                log.e(error) { "Chat transcript restoration failed" }
             }
-        }
     }
-
 
     override fun onIntent(intent: Intent) {
         when (intent) {
@@ -457,7 +460,11 @@ class ChatViewModel(
         var completed = false
         var lastPersisted = ""
         var lastPersistAt = 0L
-        suspend fun flushPersist(force: Boolean = false, status: ChatMessageStatus = ChatMessageStatus.InProgress) {
+
+        suspend fun flushPersist(
+            force: Boolean = false,
+            status: ChatMessageStatus = ChatMessageStatus.InProgress,
+        ) {
             val repo = conversationRepository ?: return
             val cid = conversationId ?: return
             val mid = assistantPersistedId ?: return
@@ -503,7 +510,12 @@ class ChatViewModel(
         } catch (cancellation: CancellationException) {
             // A cancelled turn is cancelled, not failed. The partial answer stays on screen.
             withContext(NonCancellable) {
-                markAssistantInterrupted(assistantUiId, assistantPersistedId, conversationId, collected.toString().trim())
+                markAssistantInterrupted(
+                    assistantUiId,
+                    assistantPersistedId,
+                    conversationId,
+                    collected.toString().trim(),
+                )
             }
             setOutcome(AgentTurnOutcome.Cancelled)
             throw cancellation
@@ -538,7 +550,19 @@ class ChatViewModel(
             markAssistantInterrupted(assistantUiId, assistantPersistedId, conversationId, finalText)
             setOutcome(AgentTurnOutcome.Failed("The response ended before it was complete."))
         } else {
-            markAssistantCompleted(assistantUiId, assistantPersistedId, conversationId, finalText, if (surface?.drawn == true) surfaceId else null)
+            markAssistantCompleted(
+                assistantUiId,
+                assistantPersistedId,
+                conversationId,
+                finalText,
+                if (surface?.drawn ==
+                    true
+                ) {
+                    surfaceId
+                } else {
+                    null
+                },
+            )
             setOutcome(AgentTurnOutcome.Completed())
         }
     }

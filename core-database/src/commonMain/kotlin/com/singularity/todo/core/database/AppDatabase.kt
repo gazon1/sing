@@ -21,6 +21,10 @@ import com.singularity.todo.core.sync.SyncShadowDao
 import com.singularity.todo.core.sync.SyncShadowEntity
 import com.singularity.todo.core.sync.SyncStateDao
 import com.singularity.todo.core.sync.SyncStateEntity
+import com.singularity.todo.feature.ai.chat.data.ChatConversationDao
+import com.singularity.todo.feature.ai.chat.data.ChatConversationEntity
+import com.singularity.todo.feature.ai.chat.data.ChatMessageDao
+import com.singularity.todo.feature.ai.chat.data.ChatMessageEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventDao
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncStateDao
@@ -29,10 +33,6 @@ import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapEntity
 import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowDao
 import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowEntity
-import com.singularity.todo.feature.ai.chat.data.ChatConversationDao
-import com.singularity.todo.feature.ai.chat.data.ChatConversationEntity
-import com.singularity.todo.feature.ai.chat.data.ChatMessageDao
-import com.singularity.todo.feature.ai.chat.data.ChatMessageEntity
 import com.singularity.todo.feature.proposals.data.AiProposalEntity
 import com.singularity.todo.feature.proposals.data.ProposalDao
 import com.singularity.todo.feature.proposals.data.ProposalItemDao

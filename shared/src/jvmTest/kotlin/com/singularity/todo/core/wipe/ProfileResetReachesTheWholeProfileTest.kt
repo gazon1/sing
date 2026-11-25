@@ -23,8 +23,6 @@ import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskReminderEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.textIndex
-import com.singularity.todo.feature.ai.chat.data.ChatConversationEntity
-import com.singularity.todo.feature.ai.chat.data.ChatMessageEntity
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
@@ -35,6 +33,8 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.core.sync.SyncShadowEntity
 import com.singularity.todo.core.sync.SyncStateEntity
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
+import com.singularity.todo.feature.ai.chat.data.ChatConversationEntity
+import com.singularity.todo.feature.ai.chat.data.ChatMessageEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncStateEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapEntity

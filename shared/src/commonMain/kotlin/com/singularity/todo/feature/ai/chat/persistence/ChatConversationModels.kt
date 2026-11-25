@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.ai.chat.persistence
 
 import com.singularity.todo.core.ids.nextId
-import kotlin.jvm.JvmInline
 import kotlinx.serialization.Serializable
+import kotlin.jvm.JvmInline
 
 /** Identity of one persisted chat conversation. */
 @Serializable
@@ -46,12 +46,7 @@ enum class ChatMessageStatus {
 }
 
 /** Conversation metadata. The transcript lives in [ChatMessageRecord] rows. */
-data class ChatConversation(
-    val id: ChatConversationId,
-    val userId: String,
-    val createdAt: Long,
-    val updatedAt: Long,
-)
+data class ChatConversation(val id: ChatConversationId, val userId: String, val createdAt: Long, val updatedAt: Long)
 
 /**
  * One persisted message in a conversation.

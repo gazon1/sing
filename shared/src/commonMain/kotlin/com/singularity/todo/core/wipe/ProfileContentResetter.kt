@@ -7,10 +7,10 @@ import com.singularity.todo.core.database.ProjectReminderDao
 import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.SavedSearchDao
 import com.singularity.todo.core.database.UnitOfWork
-import com.singularity.todo.feature.ai.chat.data.ChatConversationDao
-import com.singularity.todo.feature.ai.chat.data.ChatMessageDao
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.feature.ai.chat.data.ChatConversationDao
+import com.singularity.todo.feature.ai.chat.data.ChatMessageDao
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventDao
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowDao

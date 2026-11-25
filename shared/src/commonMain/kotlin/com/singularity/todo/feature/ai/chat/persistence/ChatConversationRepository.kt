@@ -42,8 +42,14 @@ interface ChatConversationRepository {
      * process death. They are marked [ChatMessageStatus.Interrupted] and their partial
      * content is preserved.
      */
-    suspend fun markInProgressInterrupted(conversationId: ChatConversationId, updatedAt: Long): Result<Int>
+    suspend fun markInProgressInterrupted(
+        conversationId: ChatConversationId,
+        updatedAt: Long,
+    ): Result<Int>
 
     /** Touch conversation updatedAt after transcript changes. */
-    suspend fun touchConversation(conversationId: ChatConversationId, updatedAt: Long): Result<Unit>
+    suspend fun touchConversation(
+        conversationId: ChatConversationId,
+        updatedAt: Long,
+    ): Result<Unit>
 }

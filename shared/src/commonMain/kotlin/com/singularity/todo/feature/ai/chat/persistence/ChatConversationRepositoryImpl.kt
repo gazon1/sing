@@ -82,7 +82,10 @@ class ChatConversationRepositoryImpl(
             )
         }
 
-    override suspend fun touchConversation(conversationId: ChatConversationId, updatedAt: Long): Result<Unit> =
+    override suspend fun touchConversation(
+        conversationId: ChatConversationId,
+        updatedAt: Long,
+    ): Result<Unit> =
         runCatchingCancellable {
             val uid = currentUser.scopedUserId.value.value
             val rows = conversationDao.touchForUser(conversationId.value, uid, updatedAt)

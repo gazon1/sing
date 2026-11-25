@@ -21,9 +21,9 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -31,7 +31,6 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
-import org.junit.jupiter.api.Tag
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
@@ -124,7 +123,13 @@ class ChatTranscriptPersistenceTest {
             assertEquals("question", records[0].content)
             assertEquals(PersistedChatRole.Assistant, records[1].role)
             assertTrue(records[0].position < records[1].position)
-            assertTrue(repo.updatedMessages.any { it.role == PersistedChatRole.Assistant && it.status == ChatMessageStatus.Completed && it.content == "Hi there" })
+            assertTrue(
+                repo.updatedMessages.any {
+                    it.role == PersistedChatRole.Assistant &&
+                        it.status == ChatMessageStatus.Completed &&
+                        it.content == "Hi there"
+                },
+            )
             assertIs<AgentTurnOutcome.Completed>(vm.stateFlow.value.turnOutcome)
         }
 
@@ -132,16 +137,24 @@ class ChatTranscriptPersistenceTest {
     fun `batches stream persistence instead of writing every token`() =
         runTest {
             val repo = FakeChatConversationRepository()
-            val clock = object : Clock {
-                var nowMs = 0L
-                override fun now(): Instant = Instant.fromEpochMilliseconds(nowMs)
-            }
+            val clock =
+                object : Clock {
+                    var nowMs = 0L
+
+                    override fun now(): Instant = Instant.fromEpochMilliseconds(nowMs)
+                }
             val agent =
                 object : TextGenPort {
-                    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
-                        Result.success("unused")
+                    override suspend fun generate(
+                        prompt: String,
+                        systemPrompt: String?,
+                        model: String?,
+                    ): Result<String> = Result.success("unused")
 
-                    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> =
+                    override fun streamChat(
+                        message: String,
+                        instructions: String,
+                    ): Flow<AgentEvent> =
                         flow {
                             emit(AgentEvent.TextDelta("a"))
                             clock.nowMs += 10
@@ -153,7 +166,10 @@ class ChatTranscriptPersistenceTest {
                             emit(AgentEvent.TurnCompleted)
                         }
 
-                    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
+                    override suspend fun listModels(
+                        baseUrl: String,
+                        apiKey: String,
+                    ): Result<List<String>> = Result.success(emptyList())
                 }
             val vm = vm(this, repo, agent, clock)
 
@@ -162,7 +178,10 @@ class ChatTranscriptPersistenceTest {
             advanceUntilIdle()
 
             val inProgressUpdates = repo.updatedMessages.filter { it.status == ChatMessageStatus.InProgress }
-            assertTrue(inProgressUpdates.size < 4, "Expected batched stream persistence, got ${inProgressUpdates.size} updates")
+            assertTrue(
+                inProgressUpdates.size < 4,
+                "Expected batched stream persistence, got ${inProgressUpdates.size} updates",
+            )
             assertTrue(repo.updatedMessages.any { it.status == ChatMessageStatus.Completed && it.content == "abcd" })
         }
 
@@ -179,32 +198,58 @@ class ChatTranscriptPersistenceTest {
             vm.onIntent(ChatViewModel.Intent.Stop)
             advanceUntilIdle()
 
-            val assistant = vm.stateFlow.value.messages.last()
+            val assistant =
+                vm.stateFlow.value.messages
+                    .last()
             assertEquals("partial", assistant.content)
             assertTrue(assistant.interrupted)
             assertIs<AgentTurnOutcome.Cancelled>(vm.stateFlow.value.turnOutcome)
-            assertTrue(repo.updatedMessages.any { it.status == ChatMessageStatus.Interrupted && it.content == "partial" })
+            assertTrue(
+                repo.updatedMessages.any { it.status == ChatMessageStatus.Interrupted && it.content == "partial" },
+            )
         }
 
     private class ScriptedTextGen(private val scripted: Flow<AgentEvent>) : TextGenPort {
-        override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> = Result.success("unused")
-        override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = scripted
-        override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
+        override suspend fun generate(
+            prompt: String,
+            systemPrompt: String?,
+            model: String?,
+        ): Result<String> = Result.success("unused")
+
+        override fun streamChat(
+            message: String,
+            instructions: String,
+        ): Flow<AgentEvent> = scripted
+
+        override suspend fun listModels(
+            baseUrl: String,
+            apiKey: String,
+        ): Result<List<String>> = Result.success(emptyList())
     }
 
     private class SuspendingTextGen : TextGenPort {
         val started = CompletableDeferred<Unit>()
-        override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
-            Result.success("unused")
 
-        override fun streamChat(message: String, instructions: String): Flow<AgentEvent> =
+        override suspend fun generate(
+            prompt: String,
+            systemPrompt: String?,
+            model: String?,
+        ): Result<String> = Result.success("unused")
+
+        override fun streamChat(
+            message: String,
+            instructions: String,
+        ): Flow<AgentEvent> =
             flow {
                 emit(AgentEvent.TextDelta("partial"))
                 started.complete(Unit)
                 awaitCancellation()
             }
 
-        override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
+        override suspend fun listModels(
+            baseUrl: String,
+            apiKey: String,
+        ): Result<List<String>> = Result.success(emptyList())
     }
 
     private class FixedClock(private val fixedNow: Instant) : Clock {
