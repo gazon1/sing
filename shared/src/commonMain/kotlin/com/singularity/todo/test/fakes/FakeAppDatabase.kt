@@ -511,18 +511,44 @@ private class FakeFtsDao(
                 .map { entity -> TagMatchRow(entity, offsets = null) }
         }
 
+    /**
+     * The tasks whose title matches [query] — the first [limit], most recently
+     * updated first.
+     *
+     * The tie is broken the way the DAO breaks it: among the tasks updated at
+     * the same moment, the most recently inserted one comes first. The fake
+     * knows the insertion order from the order of the map it keeps, and the
+     * rowid of the real table is the same order.
+     */
     override suspend fun searchTaskTitles(
         userId: String,
         query: TextMatchQuery,
         limit: Int,
-    ): List<TaskMatchRow> =
+    ): List<TaskEntity> =
         tasks.value.values
-            .filter { t ->
+            .withIndex()
+            .filter { (_, t) ->
                 t.userId == userId && t.archivedAt == null &&
                     matchesTextMatch(query, t.title, t.description)
-            }.sortedByDescending { it.updatedAt }
-            .take(limit)
-            .map { entity -> TaskMatchRow(entity, offsets = null) }
+            }.sortedWith(
+                compareByDescending<IndexedValue<TaskEntity>> { it.value.updatedAt }
+                    .thenByDescending { it.index },
+            ).take(limit)
+            .map { it.value }
+
+    /**
+     * The tasks with the given ids — the rows the door reads after it has
+     * decided which tasks it is offering.
+     *
+     * The order is not the order of the ids, exactly as the real query does
+     * not promise one.
+     */
+    override suspend fun searchTasksByIds(
+        userId: String,
+        ids: List<String>,
+    ): List<TaskEntity> =
+        tasks.value.values
+            .filter { t -> t.id in ids && t.userId == userId && t.archivedAt == null }
 
     override suspend fun searchNoteTitles(
         userId: String,
@@ -562,7 +588,13 @@ private class FakeFtsDao(
         userId: String,
         match: String,
         limit: Int,
-    ): List<TaskMatchRow> = noExpression("searchTaskTitlesByMatch")
+    ): List<TaskEntity> = noExpression("searchTaskTitlesByMatch")
+
+    override suspend fun searchTaskTitleIdsByMatch(
+        userId: String,
+        match: String,
+        limit: Int,
+    ): List<String> = noExpression("searchTaskTitleIdsByMatch")
 
     override suspend fun searchNoteTitlesByMatch(
         userId: String,

@@ -41,7 +41,7 @@ import kotlinx.coroutines.flow.flowOf
  *
  * ## The row carries the position
  *
- * Every query here answers with a row *and* the position of the match inside
+ * Most queries here answer with a row *and* the position of the match inside
  * it, read from FTS4's `offsets()`. The index knows where the word is — it is
  * the only one that does — and a search that shows the word in the result has
  * to be told where it is.
@@ -49,6 +49,16 @@ import kotlinx.coroutines.flow.flowOf
  * The position travels as the raw answer of `offsets()`, a string of integers.
  * Reading it — turning bytes into the characters of the text — needs the text
  * of the column, and only the reader has it. See [FtsOffsets].
+ *
+ * ## One door answers without the position
+ *
+ * The door that offers a title for a link — [searchTaskTitlesByMatch] — answers
+ * with the tasks alone. The position of the match inside a title is not among
+ * the things its readers read, and asking for it is not free: FTS4 can report
+ * the position only while it is answering a `MATCH`, so a door that carries the
+ * position through the ordering has to carry the whole matched row through it
+ * as well. The measurement that decided this is in
+ * `docs/architecture/fts-ordering-performance.md`.
  */
 @Dao
 interface FtsDao {
@@ -128,25 +138,86 @@ interface FtsDao {
     ): Flow<List<TagMatchRow>>
 
     /**
-     * The tasks whose title matches the index — the first twenty, most recently
-     * updated first. Used to offer a title for a link.
+     * The ids of the tasks whose title matches the index — the first [limit], most
+     * recently updated first.
+     *
+     * The ids alone, and not the tasks: the ordering of the result is decided
+     * over every row the term matches, and a sorter that carries a whole task
+     * row — and the position of the match inside it — through that ordering
+     * pays for the row of every matched task, not only for the ones that
+     * survive the limit. The rows of the survivors are read afterwards, by
+     * their ids.
+     *
+     * The ordering carries a tiebreaker on purpose. Two tasks updated at the
+     * same moment have no order between them, and the order SQLite's sorter
+     * happened to give them was not a rule anybody could rely on — it was the
+     * order of the bytes of the rows. The tiebreaker makes it a rule: among the
+     * tasks updated at the same moment, the most recently inserted one comes
+     * first.
      */
     @Query(
         """
-        SELECT t.*, offsets(tasks_fts) AS match_offsets FROM tasks t
+        SELECT t.id FROM tasks t
         JOIN tasks_fts ON t.rowid = tasks_fts.docid
         WHERE tasks_fts MATCH :match
           AND t.user_id = :userId
           AND t.archived_at IS NULL
-        ORDER BY t.updated_at DESC
+        ORDER BY t.updated_at DESC, t.rowid DESC
         LIMIT :limit
         """,
     )
+    suspend fun searchTaskTitleIdsByMatch(
+        userId: String,
+        match: String,
+        limit: Int,
+    ): List<String>
+
+    /**
+     * The tasks with the given ids.
+     *
+     * The order of the answer is not promised: a query with `IN` does not keep
+     * the order of the list it was given. The caller that needs an order keeps
+     * it itself.
+     *
+     * The ownership and the archive filters are stated again: the ids were
+     * picked a moment earlier, and a task that was archived in between must not
+     * be offered.
+     */
+    @Query(
+        """
+        SELECT t.* FROM tasks t
+        WHERE t.id IN (:ids)
+          AND t.user_id = :userId
+          AND t.archived_at IS NULL
+        """,
+    )
+    suspend fun searchTasksByIds(
+        userId: String,
+        ids: List<String>,
+    ): List<TaskEntity>
+
+    /**
+     * The tasks whose title matches the index — the first [limit], most recently
+     * updated first. Used to offer a title for a link.
+     *
+     * The door answers with the tasks and not with the position of the match:
+     * the callers of this door offer a title for a link, and the position of
+     * the match inside the title is not among the things they read. Asking the
+     * index for the position is not free either — FTS4 can only report it
+     * while it is answering a `MATCH`, so a second read of the position is a
+     * second pass over every row the term matches. The measurement that
+     * decided this is in `docs/architecture/fts-ordering-performance.md`.
+     */
     suspend fun searchTaskTitlesByMatch(
         userId: String,
         match: String,
         limit: Int,
-    ): List<TaskMatchRow>
+    ): List<TaskEntity> {
+        val ids = searchTaskTitleIdsByMatch(userId, match, limit)
+        if (ids.isEmpty()) return emptyList()
+        val tasks = searchTasksByIds(userId, ids).associateBy { it.id }
+        return ids.mapNotNull { tasks[it] }
+    }
 
     /**
      * The notes whose title matches the index — the first twenty, most recently
@@ -233,7 +304,7 @@ interface FtsDao {
         userId: String,
         query: TextMatchQuery,
         limit: Int,
-    ): List<TaskMatchRow> =
+    ): List<TaskEntity> =
         FtsMatchQuery
             .expression(query)
             ?.let { match -> searchTaskTitlesByMatch(userId, match, limit) }
