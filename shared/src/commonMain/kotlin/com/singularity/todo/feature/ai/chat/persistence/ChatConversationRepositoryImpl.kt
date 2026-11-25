@@ -43,7 +43,7 @@ class ChatConversationRepositoryImpl(
     override suspend fun insertMessage(message: ChatMessageRecord): Result<Unit> =
         runCatchingCancellable {
             val uid = currentUser.scopedUserId.value.value
-            messageDao.upsertMessage(message.copy(userId = uid).toEntity())
+            messageDao.insertMessage(message.copy(userId = uid).toEntity())
         }
 
     override suspend fun updateMessageContent(

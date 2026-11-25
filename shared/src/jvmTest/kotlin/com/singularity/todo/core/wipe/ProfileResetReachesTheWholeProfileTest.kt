@@ -433,7 +433,7 @@ class ProfileResetReachesTheWholeProfileTest {
                 updatedAt = 0L,
             ),
         )
-        db.chatMessageDao().upsertMessage(
+        db.chatMessageDao().insertMessage(
             ChatMessageEntity(
                 id = "chat-msg-$uid",
                 conversationId = "chat-conv-$uid",

@@ -4638,7 +4638,7 @@ private class FakeChatConversationDao(private val store: MutableStateFlow<Map<St
 
 private class FakeChatMessageDao(private val store: MutableStateFlow<Map<String, ChatMessageEntity>>) :
     ChatMessageDao {
-    override suspend fun upsertMessage(entity: ChatMessageEntity) {
+    override suspend fun insertMessage(entity: ChatMessageEntity) {
         store.update { it + (entity.id to entity) }
     }
 

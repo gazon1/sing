@@ -5,6 +5,8 @@ import androidx.room3.Dao
 import androidx.room3.Entity
 import androidx.room3.ForeignKey
 import androidx.room3.Index
+import androidx.room3.Insert
+import androidx.room3.OnConflictStrategy
 import androidx.room3.PrimaryKey
 import androidx.room3.Query
 import androidx.room3.Upsert
@@ -109,8 +111,15 @@ interface ChatConversationDao {
 
 @Dao
 interface ChatMessageDao {
-    @Upsert
-    suspend fun upsertMessage(entity: ChatMessageEntity)
+    /**
+     * Inserts a chat message, failing when a row with the same id already exists.
+     *
+     * A message is an append-only fact of its conversation, not an upsert target: a collided
+     * identifier has to fail the turn that tried to record it, so the transaction around the
+     * turn can refuse the turn instead of silently overwriting a row that is already history.
+     */
+    @Insert(onConflict = OnConflictStrategy.FAIL)
+    suspend fun insertMessage(entity: ChatMessageEntity)
 
     @Query(
         """
