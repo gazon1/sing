@@ -118,11 +118,14 @@ class SeedTaskWriterFastTest {
             }
 
             // The rollback itself is the slow class's to prove — `FakeUnitOfWork` does
-            // not undo. What this asserts is that the guard ran and stopped the write,
-            // which is the half that a real transaction wraps.
-            assertTrue(
-                db.taskDao().listAllForUser(user.value).size <= 1,
-                "the foreign row must never be written, and the guard is what stops it",
+            // not undo. What this asserts is that the guard ran *at* the foreign row and
+            // not before the batch: the row that came first is in the table. `size <= 1`
+            // would let a writer that rejected the whole batch up front pass, which is a
+            // different behaviour than the one the guard is for.
+            assertEquals(
+                setOf("t1"),
+                db.taskDao().listAllForUser(user.value).map { it.id }.toSet(),
+                "the row before the refused one was written before the guard stopped the batch",
             )
             assertTrue(
                 db.taskDao().listAllForUser("intruder").isEmpty(),
