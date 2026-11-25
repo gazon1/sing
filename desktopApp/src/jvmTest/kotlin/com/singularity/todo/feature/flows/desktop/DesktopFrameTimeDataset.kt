@@ -3,6 +3,8 @@
 package com.singularity.todo.feature.flows.desktop
 
 import androidx.compose.ui.test.DesktopComposeUiTest
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasText
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.backup.ArchiveImporter
 import com.singularity.todo.core.backup.BackupCodec
@@ -60,6 +62,8 @@ internal val DATASET_NOW: Instant = Instant.parse("2025-01-01T10:00:00Z")
 internal class FrameTimeSubject(
     val report: Map<String, Any>,
     val projectName: String? = null,
+    val projectTaskCount: Int? = null,
+    val projectTaskTags: List<String> = emptyList(),
     val task: FrameTimeOpenedTask? = null,
 )
 
@@ -68,6 +72,7 @@ internal class FrameTimeOpenedTask(
     val title: String,
     val relations: FrameTimeRelations,
     val checklistItems: List<ChecklistItemDto>,
+    val relatedTaskIds: List<String>,
 )
 
 /** How much is attached to a task, by the kind of what is attached. */
@@ -109,7 +114,27 @@ internal class FrameTimeDataset(
     val projectsByTag: Map<String, String>,
     val checklistByTask: Map<String, List<ChecklistItemDto>>,
     val database: AppDatabase,
+    val projectTaskCounts: Map<String, Int>,
+    val taskTagsByProject: Map<String, List<String>>,
+    val dependenciesByTask: Map<String, List<String>>,
 ) {
+    /**
+     * The project with the most tasks of the dataset.
+     *
+     * The Android run measured the task list of this project, and the desktop
+     * measures the opening of it: the two platforms have to look at the same
+     * project, or their numbers are the numbers of two different projects.
+     * The name breaks a tie, so every run of every machine chooses the same
+     * one.
+     */
+    fun projectWithMostTasks(): String {
+        check(projectTaskCounts.isNotEmpty()) { "the dataset holds no project at all" }
+        return projectTaskCounts.entries
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+            .first()
+            .key
+    }
+
     /** What the report says about the dataset the runs measured. */
     fun report(): Map<String, Any?> {
         val manifest = archive.dataset.manifest
@@ -189,8 +214,50 @@ internal suspend fun restoreFrameTimeDataset(): FrameTimeDataset {
         projectsByTag = payload.projects.associate { TestTags.projectCard(it.name) to it.name },
         checklistByTask = payload.checklistItems.groupBy { it.taskId },
         database = database,
+        projectTaskCounts = frameTimeProjectTaskCounts(payload),
+        taskTagsByProject = frameTimeTaskTagsByProject(payload),
+        dependenciesByTask = frameTimeDependenciesByTask(payload),
     )
 }
+
+/**
+ * How many tasks every project of the dataset holds.
+ *
+ * The counts are the ones of the generator's own payload, so the project the
+ * run opens is chosen by the data and not by the order of the screen.
+ */
+internal fun frameTimeProjectTaskCounts(payload: BackupPayload): Map<String, Int> {
+    val counts = payload.tasks.groupingBy { it.projectId }.eachCount()
+    return payload.projects.associate { project -> project.name to (counts[project.id] ?: 0) }
+}
+
+/**
+ * The tags of the task rows of every project.
+ *
+ * The rows of the project detail are the tasks of the project, and their tags
+ * are what tells one task from another on the screen.
+ */
+internal fun frameTimeTaskTagsByProject(payload: BackupPayload): Map<String, List<String>> {
+    val names = payload.projects.associate { it.id to it.name }
+    return payload.tasks
+        .filter { it.projectId != null }
+        .groupBy { it.projectId!! }
+        .mapNotNull { (projectId, tasks) ->
+            val name = names[projectId] ?: return@mapNotNull null
+            name to tasks.map { TestTags.taskItem(it.title) }
+        }.toMap()
+}
+
+/**
+ * The tasks every task waits for.
+ *
+ * The ids are the ones the detail screen draws as the related tasks of the
+ * task, so the run can tell a section with rows from a section with a header.
+ */
+internal fun frameTimeDependenciesByTask(payload: BackupPayload): Map<String, List<String>> =
+    payload.taskDependencies
+        .groupBy { it.taskId }
+        .mapValues { (_, dependencies) -> dependencies.map { it.dependsOnTaskId } }
 
 /**
  * The database the run measures on: the production one, on a file of its own.
@@ -335,8 +402,49 @@ internal fun DesktopComposeUiTest.frameTimeSubjectOfTheRichestRow(dataset: Frame
                 title = chosen.title,
                 relations = relations,
                 checklistItems = dataset.checklistByTask[chosen.id].orEmpty(),
+                relatedTaskIds = dataset.dependenciesByTask[chosen.id].orEmpty(),
             ),
     )
+}
+
+/**
+ * How many tasks the detail screen of a project draws.
+ *
+ * The project detail shows a preview of the tasks of the project and a way
+ * into the full list - the list itself lives on a screen the desktop does not
+ * have. The number mirrors the preview limit of the screen.
+ */
+internal const val PROJECT_PREVIEW_LIMIT = 5
+
+/**
+ * Checks that the project the run opened is on the screen, with its tasks.
+ *
+ * A detail screen that shows no task of the project measures an empty screen,
+ * and a screen that shows the tasks of another project measures that one: the
+ * rows of the screen are compared with the rows of the dataset, and the count
+ * of the project is read from the screen itself.
+ */
+internal fun DesktopComposeUiTest.verifyFrameTimeProject(subject: FrameTimeSubject) {
+    val name = subject.projectName ?: return
+    val count = subject.projectTaskCount ?: return
+    check(count > PROJECT_PREVIEW_LIMIT) {
+        "the project '$name' holds $count tasks: a project with fewer than " +
+            "$PROJECT_PREVIEW_LIMIT of them has no preview to draw"
+    }
+    // The preview of the project is what the screen is about: a detail screen
+    // that draws no task of the project measures an empty screen. The rows
+    // that belong to the project are the rows of the dataset's own project -
+    // a row of another project on the screen is not a row of this one.
+    val own = taskRows().filter { it in subject.projectTaskTags }
+    check(own.isNotEmpty()) {
+        "the detail screen of '$name' draws no task of the project"
+    }
+    // The screen says how many tasks the project holds: the count of the
+    // dataset, read back from the screen - the proof that the screen is this
+    // project and not another one.
+    check(onAllNodes(hasText("See all $count tasks")).fetchSemanticsNodes().isNotEmpty()) {
+        "the detail screen of '$name' does not say that it holds $count tasks"
+    }
 }
 
 /**
@@ -347,6 +455,10 @@ internal fun DesktopComposeUiTest.frameTimeSubjectOfTheRichestRow(dataset: Frame
  * empty or not - the header is the way in. The sections of the
  * dependencies and of the tags are drawn when the task has them, so
  * their presence is the fact that the relations reached the screen.
+ *
+ * The header of the related tasks is not enough: the rows of the related
+ * tasks are the content of the section, and a screen that draws the header
+ * and none of the rows has drawn the promise and not the thing.
  */
 internal fun DesktopComposeUiTest.verifyFrameTimeRelations(subject: FrameTimeSubject) {
     val task = subject.task ?: return
@@ -354,6 +466,17 @@ internal fun DesktopComposeUiTest.verifyFrameTimeRelations(subject: FrameTimeSub
         check(tagExists(TestTags.TASK_DETAIL_RELATED_TASKS_SECTION)) {
             "the task '${task.title}' waits for ${task.relations.dependencies} other tasks, " +
                 "but the detail screen draws no related-tasks section"
+        }
+        // The section is a closed header until it is opened, and the rows
+        // live in the open section.
+        if (task.relatedTaskIds.any { !tagExists(TestTags.relatedTaskItem(it)) }) {
+            clickTagScrolled(TestTags.TASK_DETAIL_RELATED_TASKS_SECTION)
+            waitForIdle()
+        }
+        task.relatedTaskIds.forEach { id ->
+            check(tagExists(TestTags.relatedTaskItem(id))) {
+                "the related task '$id' of '${task.title}' is not on the screen"
+            }
         }
     }
     if (task.relations.tags > 0) {

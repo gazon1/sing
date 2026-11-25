@@ -12,6 +12,7 @@ import com.singularity.todo.test.helpers.goBack
 import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
+import com.singularity.todo.test.helpers.typeIntoTag
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -77,6 +78,15 @@ class DesktopFrameTimeBaselineTest {
 
     /** How far one drag travels, in pixels. */
     private val gestureDistance = GESTURE_DISTANCE
+
+    /**
+     * The project the run opens: the one with the most tasks of the dataset.
+     *
+     * The Android run measured the task list of that project, and the two
+     * platforms have to look at the same project, or their numbers are the
+     * numbers of two different projects.
+     */
+    private val projectWithMostTasks: String get() = dataset.projectWithMostTasks()
 
     @Test
     @DisplayName("FRAME-TIME desktop baseline: the Upcoming timeline with the shared dataset")
@@ -155,7 +165,13 @@ class DesktopFrameTimeBaselineTest {
             subject = { FrameTimeSubject(mapOf("screen" to "All projects")) },
             open = { openAllProjects() },
             awaitOpened = { awaitScreen("the project list shows its cards") { projectCards().isNotEmpty() } },
-            reset = { scrollToTopOf(PROJECT_CARD_PREFIX) },
+            reset = {
+                // Another scenario may have left a search behind - the list is
+                // the whole list of the dataset, not the one project a search
+                // found.
+                clearProjectSearch()
+                scrollToTopOf(PROJECT_CARD_PREFIX)
+            },
             gesture = { dragHolding(PROJECT_CARD_PREFIX) },
             gestureKind = "drag",
             signature = { projectCards() },
@@ -163,6 +179,11 @@ class DesktopFrameTimeBaselineTest {
 
     /**
      * The detail of a project: the screen the reader opens a card for.
+     *
+     * The project is the one with the most tasks of the dataset - the same
+     * project the Android run measured. The first card of the list is not it:
+     * the list is sorted by name, and a project with a hundred tasks measures
+     * something else than a project with ten.
      *
      * The desktop's project detail shows a preview of five tasks - the full
      * list of a project lives on a screen the desktop does not have - so the
@@ -174,25 +195,46 @@ class DesktopFrameTimeBaselineTest {
             name = "project-detail-open",
             prepare = {
                 if (tagExists(TestTags.PROJECT_DETAIL_QUICK_ADD)) goBack()
-                if (projectCards().isEmpty()) openAllProjects()
+                if (!tagExists(TestTags.PROJECTS_SEARCH_INPUT)) openAllProjects()
+                // The project with the most tasks is not on the first screen
+                // of the list, so the list is searched for it. The search is
+                // the setup of the run, not the interaction the run measures.
+                clearProjectSearch()
+                typeIntoTag(TestTags.PROJECTS_SEARCH_INPUT, projectWithMostTasks)
+                awaitScreen("the list shows the project") {
+                    projectCards().contains(TestTags.projectCard(projectWithMostTasks))
+                }
             },
-            subject = { dataset ->
-                val card = projectCards().firstOrNull()
-                val project = card?.let { dataset.projectsByTag[it] }
+            subject = { data ->
+                val count = data.projectTaskCounts.getValue(projectWithMostTasks)
                 FrameTimeSubject(
-                    report = mapOf("screen" to "Project detail", "project" to (project ?: card ?: "")),
-                    projectName = project,
+                    report =
+                        mapOf(
+                            "screen" to "Project detail",
+                            "project" to projectWithMostTasks,
+                            "projectTasks" to count,
+                        ),
+                    projectName = projectWithMostTasks,
+                    projectTaskCount = count,
+                    projectTaskTags = data.taskTagsByProject.getValue(projectWithMostTasks),
                 )
             },
             open = { subject ->
                 val name = checkNotNull(subject.projectName) { "the project list showed no card to open" }
                 awaitTag(TestTags.projectCard(name)).performClick()
             },
-            awaitOpened = { awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD) },
+            awaitOpened = {
+                awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD)
+                // The tasks of the project are what the screen is about: a
+                // detail screen that draws no task of the project measures an
+                // empty screen.
+                awaitScreen("the project shows its tasks") { taskRows().isNotEmpty() }
+            },
             reset = {},
             gesture = {},
             gestureKind = "none",
             signature = { allTestTags() },
+            verify = { subject -> verifyFrameTimeProject(subject) },
         )
 
     /** The detail of a task: the screen the reader opens a row for. */

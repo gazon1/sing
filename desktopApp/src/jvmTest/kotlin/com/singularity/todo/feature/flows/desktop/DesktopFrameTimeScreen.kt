@@ -7,9 +7,12 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import com.singularity.todo.core.ui.TestTags
@@ -148,6 +151,24 @@ internal fun DesktopComposeUiTest.scrollableHolding(prefix: String): Int {
             ?.first
             ?: error("no scrollable node holds the '$prefix' rows; tags=${allTestTags().take(40)}")
     return index
+}
+
+/**
+ * Empties the search of the project list.
+ *
+ * The search belongs to the list, not to the run: a scenario that searched for
+ * one project leaves the list showing that one project, and the list the next
+ * scenario measures is not the list of the dataset any more. The field clears
+ * itself - the list draws a clear button as soon as the field holds something
+ * - so the button is what the run presses.
+ */
+@OptIn(ExperimentalTestApi::class)
+internal fun DesktopComposeUiTest.clearProjectSearch() {
+    if (!tagExists(TestTags.PROJECTS_SEARCH_INPUT)) return
+    val clear = onAllNodes(hasContentDescription("Clear search"), useUnmergedTree = true).fetchSemanticsNodes()
+    if (clear.isEmpty()) return
+    onAllNodes(hasContentDescription("Clear search")).onFirst().performClick()
+    waitForIdle()
 }
 
 /** The window the app is drawn in. */
