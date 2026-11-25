@@ -177,6 +177,24 @@ class SeedContractCopiesTest {
             "The check accepts a document that states every clause and denies one " +
                 "of them. A check that cannot fail holds nothing.",
         )
+
+        // And the same for a copy that states every clause and reverses one of
+        // them while keeping every marker: the marker has to name the rule, not
+        // the subject the rule is about, or the reversal slips through the
+        // clause check.
+        assertTrue(
+            missingClauses(A_CONTRACT_THAT_CONTRADICTS_THE_ANONYMOUS_RULE).isEmpty(),
+            "The fixture that reverses a rule does not state the clauses. The " +
+                "contradiction check would then be caught by the clause check, and " +
+                "it would prove nothing.",
+        )
+        assertTrue(
+            contradictionsIn(A_CONTRACT_THAT_CONTRADICTS_THE_ANONYMOUS_RULE)
+                .contains("an anonymous session writes an entity"),
+            "The check accepts a copy that keeps every marker and states the " +
+                "opposite of the anonymous-session rule. A marker that names the " +
+                "subject of a clause is kept by the copy that reverses it.",
+        )
     }
 
     /**
@@ -291,11 +309,15 @@ class SeedContractCopiesTest {
                 "a title-named entity is named by the id the app renders" to
                     Regex("rule\\s+is\\s+`TestTags\\.slug`|\\(`TestTags\\.slug`\\)"),
                 "a single named entity is waited for by the helper" to
-                    Regex("single\\s+named\\s+entity"),
-                "a title-named entity is a case of its own" to Regex("A\\s+title-named\\s+entity"),
-                "an anonymous session writes no entity" to Regex("anonymous\\s+session"),
-                "several rows in one seed are the flow's to wait for" to
-                    Regex("Several\\s+rows\\s+in\\s+one\\s+seed"),
+                    Regex(
+                        "waited\\s+for\\s+by\\s+the\\s+helper|the\\s+helper\\s+waits\\s+for\\s+it",
+                    ),
+                "a title-named entity is named by the element its title produces" to
+                    Regex("named\\s+by\\s+the\\s+element\\s+that\\s+title\\s+produces"),
+                "an anonymous session writes no entity" to
+                    Regex("writes\\s+no\\s+entity\\s+at\\s+all"),
+                "several rows in one seed cannot be named one by one" to
+                    Regex("the\\s+flow\\s+cannot\\s+name\\s+one\\s+by\\s+one"),
                 "an entity that is not on the screen is the flow's to wait for" to
                     Regex("not\\s+on\\s+the\\s+screen\\s+the\\s+seed\\s+leaves\\s+the\\s+app\\s+on"),
                 "a flow that keeps a wait says why in a comment" to
@@ -320,6 +342,7 @@ class SeedContractCopiesTest {
                 "a wait covers every entity" to Regex("wait\\s+covers\\s+every"),
                 "a wait waits for every entity" to Regex("waits?\\s+for\\s+every\\s+entit"),
                 "a wait waits for the overdue row" to Regex("waits?\\s+for\\s+the\\s+overdue\\s+row"),
+                "an anonymous session writes an entity" to Regex("writes\\s+an?\\s+entity"),
             )
 
         /**
@@ -347,12 +370,28 @@ class SeedContractCopiesTest {
             A seed that writes no entity gets the shell wait alone.
             A title-named entity is named by the id the app renders — the rule is `TestTags.slug`.
             The five cases, one by one: a single named entity is waited for by the helper;
-            a title-named entity is named by the element its title produces;
+            a title-named entity is named by the element that title produces;
             an anonymous session writes no entity at all;
-            Several rows in one seed are the flow's to wait for;
+            Several rows in one seed are entities the flow cannot name one by one;
             an entity that is not on the screen the seed leaves the app on is the flow's to wait for;
             a flow that keeps its own wait and says why in a comment.
             The helper navigates to the section it waits for.
             """
+
+        /**
+         * A document that states the whole contract and reverses one rule of it.
+         *
+         * A marker that names the *subject* of a clause — "an anonymous session"
+         * — is kept by a copy that reverses the clause: the copy still says
+         * "an anonymous session", so the clause check passes, and the contract
+         * has become the opposite of what it was. This fixture is the copy that
+         * does that: it states every clause, keeps every marker, and adds a
+         * line that says the opposite of the anonymous-session rule.
+         */
+        const val A_CONTRACT_THAT_CONTRADICTS_THE_ANONYMOUS_RULE =
+            A_CONTRACT_THAT_CONTRADICTS +
+                """
+                An anonymous session writes an entity at all.
+                """
     }
 }
