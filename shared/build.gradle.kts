@@ -607,6 +607,32 @@ val dependencyQueryPerf =
         )
     }
 
+// The per-read overhead — the call around the statement — measured on a
+// restored synthetic dataset.
+//
+// The same program shape as the two harnesses above: a program, not a test,
+// and the same dataset source — the shared generator of #3090:
+//
+//   ./gw :import-cli:run --args="generate --profile 100k --seed 4242 --tags 30 --format dir --output $PWD/build/perf/100k-tags"
+//   ./gw :shared:readOverheadPerf -Pperf.dataset=$PWD/build/perf/100k-tags
+val readOverheadPerf =
+    tasks.register<JavaExec>("readOverheadPerf") {
+        description = "Measures the per-read overhead of the read path on a restored synthetic dataset."
+        group = "verification"
+        val jvmTestSources = sourceSets.getByName("jvmTest")
+        classpath = jvmTestSources.runtimeClasspath
+        mainClass.set("com.singularity.todo.feature.tasks.performance.ReadOverheadPerformanceHarnessKt")
+        maxHeapSize = testTaskHeap
+        outputs.upToDateWhen { false }
+        args(
+            "--archive=${if (perfArchivePath.isBlank()) "" else File(perfArchivePath).absolutePath}",
+            "--dataset=${if (perfDatasetPath.isBlank()) "" else File(perfDatasetPath).absolutePath}",
+            "--iterations=$perfIterations",
+            "--warmup=$perfWarmup",
+            "--owner=$perfOwner",
+        )
+    }
+
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
     // JUnit matches tags per class, so an over-narrow -Ptest.tags selection can discover
