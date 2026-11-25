@@ -1,6 +1,9 @@
 package com.singularity.todo.feature.flows.notes
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.onNodeWithText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
@@ -55,6 +58,11 @@ class NotesFlowTest {
             // The button says what to press ("Create note"); the subtitle answers
             // why. The old label was "Create your first note".
             assertTextDisplayed("Create note")
+            // The label alone does not prove the affordance works: a create
+            // button that lost its click handler, or that was disabled, would
+            // still show its text — and the empty state would keep claiming it
+            // offers a way in. Assert the action is there and enabled.
+            onNodeWithText("Create note").assertIsEnabled().assertHasClickAction()
         }
 
     @Test
