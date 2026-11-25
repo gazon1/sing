@@ -111,6 +111,28 @@ class SeedTaskWriterFastTest {
         }
 
     @Test
+    fun `a link in the description becomes an outgoing link on the row`() =
+        runTest {
+            // `outgoing_links` is *derived* — `toEntity` computes it from the description —
+            // so it is a column this writer gets for free only while it goes through that
+            // mapper. A writer that built its own row would drop it, and nothing else
+            // would notice: the title and the description read back correctly, and only
+            // backlink queries would quietly find nothing. `TaskRowWriterTest` says in so
+            // many words that it checks the mapper, not that a writer calls it.
+            seeds.writeFixtures(
+                listOf(task("t1", title = "Links out").copy(description = "see task://target01")),
+            )
+
+            val row = db.taskDao().listAllForUser(user.value).single()
+
+            assertTrue(
+                "\"task://target01\"" in row.outgoingLinks,
+                "the link in the description must be in the row's outgoing_links — " +
+                    "was ${row.outgoingLinks}",
+            )
+        }
+
+    @Test
     fun `a row of another profile is refused`() =
         runTest {
             assertFailsWith<CrossUserWriteException> {
