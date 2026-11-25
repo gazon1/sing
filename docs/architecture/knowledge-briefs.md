@@ -19,14 +19,23 @@ backs up, and can be edited by hand like any other note.
 At most one of the two attachments is set. A note attached to a task is that task's
 brief; a note attached to a project is the project's brief.
 
+The same note is a **Knowledge article**: what the app calls a brief is one article of
+an owner's library, and an owner may own several. The two words name the same thing —
+a brief is an article the agent wrote; an article is a brief that is one of several.
+The contract is in
+[2026-11-25-a-knowledge-article-is-a-note-with-a-sources-marker.md](../decisions/2026-11-25-a-knowledge-article-is-a-note-with-a-sources-marker.md).
+
 | Question | Answered by |
 |---|---|
 | The brief of a project | `get_knowledge_brief(projectId = …)` — the newest note with `notes.project_id` |
 | The brief of a task | `get_knowledge_brief(taskId = …)` — the newest note with `notes.task_id` |
+| The **articles** of a project | `NotesRepository.watchKnowledgeArticlesForProject` — every article attached to the project |
+| The **articles** of a task | `NotesRepository.watchKnowledgeArticlesForTask` — every article attached to the task |
 | The notes of a project's *tasks* | `NotesRepository.watchForProject` — a different question, joined through `tasks.project_id` |
 
-Those last two rows are not the same read, and the KDoc on each query says so. A note
-attached to the project itself does not appear in the project's task notes.
+Those last rows are not the same read, and the KDoc on each query says so. A note
+attached to the project itself does not appear in the project's task notes, and an
+article attached to a task is not an article of the project the task belongs to.
 
 ## The shape of a body
 
@@ -132,8 +141,20 @@ what it is.
 
 A brief carries the `## Sources` section. That is the one part of the shape below that is
 mandatory anyway (a brief without provenance is not a brief), and it is what
-`KnowledgeBriefShape` checks. An ordinary logbook note is therefore not a brief: the
+`KnowledgeArticle` checks. An ordinary logbook note is therefore not a brief: the
 reader reports "no brief yet" instead of offering the user's own writing to an extraction.
+
+The section is a **heading whose text is exactly `Sources`**. In HTML that is the text
+`Sources` inside a heading element (`<h2>Sources</h2>`); in Markdown it is a line that
+*is* the heading (`## Sources`, at any level, or the bold form `**Sources**`). A mention
+of sources in the middle of a sentence is prose, and prose is not a section.
+
+The check lives in two forms — `KnowledgeArticle.SQL_MARKER` for the statements and
+`KnowledgeArticle.carriesSources` for the code that holds a note in memory — and a test
+runs both over the same bodies, so the statement cannot start answering a different
+question than the code. SQLite has no regular expressions, so the statement expresses
+the same rule by stripping the whitespace, collapsing a run of heading hashes and
+looking for the marker between two line feeds.
 
 ## A brief is a plain note
 
@@ -144,17 +165,26 @@ in the reader for tasks, because `watchForTask` is the logbook's read and answer
 every attached note). Without that filter the newest attached note could be somebody's
 journal, and an agent that writes the extraction over it would destroy it.
 
-## One brief per owner is a convention
+## Many articles per owner
 
-Nothing in the database stops a project from accumulating several plain attached notes,
-and `get_knowledge_brief` does not pretend otherwise: it answers with the **newest** of
-them and reports how many it read (`attachedNotesSeen`, a page size, not a total — the
-reads are bounded).
+An owner may own many articles, and each is addressed by its own note id. The reads
+that answer it are `watchKnowledgeArticlesForProject` and
+`watchKnowledgeArticlesForTask`:
 
-The convention is kept where a brief is written: the agent reads before it writes, and
-`create_note` attaches a note only when asked for. A second attached note is a second note,
-newest first. Making it a constraint would refuse a note the user attached by hand, in a
-notes list that has no notion of a brief.
+- the **classification happens in the statement**, before the page is cut — an older
+  article cannot disappear behind newer ordinary notes;
+- the read is **scoped** to the active profile and to the exact owner, and it leaves
+  out archived and deleted notes;
+- the page is **bounded** by a limit the caller states;
+- the order is deterministic: newest first, then by ascending id, so two reads cannot
+  swap two articles written in the same second.
+
+A brief written before this contract existed is an article: it is a plain attached note
+carrying the `## Sources` section, and nothing was rewritten to make it one.
+
+`get_knowledge_brief` still answers with the **newest** article of an owner. That is
+the single-brief read it has always been, and the read that lists an owner's articles
+is the tool surface of [#3186](https://github.com/gazon1/sing/issues/3186).
 
 ## What the app refuses to do
 

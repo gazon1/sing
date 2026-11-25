@@ -3,6 +3,7 @@ package com.singularity.todo.feature.ai.tools
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
+import com.singularity.todo.feature.notes.KnowledgeArticle
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
@@ -145,7 +146,7 @@ class GetKnowledgeBriefTool(
         // Attached and plain is not enough: a task's logbook notes are attached and
         // plain too, and answering with one of those would invite an extraction to be
         // written over the user's own writing.
-        val briefs = notes.filter(KnowledgeBriefShape::isBrief)
+        val briefs = notes.filter(KnowledgeArticle::isArticle)
         val newest =
             briefs.sortedWith(NOTE_ORDER).firstOrNull()
                 ?: return answer(

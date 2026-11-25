@@ -90,6 +90,7 @@ import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPor
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
+import com.singularity.todo.feature.notes.KnowledgeArticle
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
@@ -3556,6 +3557,47 @@ open class FakeNotesRepository(
                         it.userId == uid && it.deletedAt == null && it.archivedAt == null &&
                             it.projectId == projectId &&
                             it.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !it.isFolder
+                    }.sortedWith(noteOrder)
+                    .take(limit)
+            }
+        }
+
+    /**
+     * The Knowledge articles attached directly to a project — plain, non-folder notes
+     * carrying the `## Sources` section, classified before the page is cut.
+     */
+    override fun watchKnowledgeArticlesForProject(
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId,
+        limit: Int,
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values
+                    .filter { note ->
+                        note.userId == uid && note.deletedAt == null && note.archivedAt == null &&
+                            note.projectId == projectId &&
+                            note.kind == com.singularity.todo.feature.notes.NoteKind.Plain &&
+                            !note.isFolder &&
+                            KnowledgeArticle.carriesSources(note)
+                    }.sortedWith(noteOrder)
+                    .take(limit)
+            }
+        }
+
+    /** The Knowledge articles attached directly to a task. */
+    override fun watchKnowledgeArticlesForTask(
+        taskId: TaskId,
+        limit: Int,
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values
+                    .filter { note ->
+                        note.userId == uid && note.deletedAt == null && note.archivedAt == null &&
+                            note.taskId == taskId &&
+                            note.kind == com.singularity.todo.feature.notes.NoteKind.Plain &&
+                            !note.isFolder &&
+                            KnowledgeArticle.carriesSources(note)
                     }.sortedWith(noteOrder)
                     .take(limit)
             }

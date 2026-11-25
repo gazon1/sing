@@ -74,8 +74,10 @@ to the task — the same shape a brief has — so reading "attached and plain" a
 would hand the user's own logbook entry to an extraction, and a confirmation would write
 the summary over it. The marker is the `## Sources` section, which the brief shape already
 makes mandatory: a brief without provenance is not a brief, and a logbook note does not
-carry one. `KnowledgeBriefShape` is the one place that answers the question, and both the
-reader and the stale-update guard ask it.
+carry one. `KnowledgeArticle` is the one place that answers the question, and both the
+reader and the stale-update guard ask it (it was `KnowledgeBriefShape` until
+[2026-11-25](2026-11-25-a-knowledge-article-is-a-note-with-a-sources-marker.md) moved the
+rule to `core-domain`).
 
 **The candidate is the proposal.** A refresh already produces something the user has to
 approve — that is what `PROPOSAL_WRITE` means — and the proposal card is where a diff
