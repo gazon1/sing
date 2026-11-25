@@ -3,6 +3,7 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.seed.SeedTaskWriter
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.tasks.FixedProfileTasksSettingsRepository
 import com.singularity.todo.core.tasks.TasksSettingsRepository
@@ -26,6 +27,7 @@ import com.singularity.todo.feature.search.query.TagLookup
 import com.singularity.todo.feature.statistics.StatisticsDeps
 import com.singularity.todo.feature.statistics.StatisticsViewModel
 import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl
+import com.singularity.todo.feature.tasks.data.SeedTaskDaoWriter
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
@@ -118,6 +120,11 @@ fun tasksModule(): org.koin.core.module.Module =
                 dependencyValidator = get(),
             )
         }
+
+        // The batch a bulk fixture writes through. A caller asking for *this* is asking
+        // for rows without patches — the distinction the separate port exists to make
+        // visible (ADR 2026-11-24-the-seed-writes-its-rows-without-a-patch).
+        single<SeedTaskWriter> { SeedTaskDaoWriter(taskDao = get(), currentUser = get(), unitOfWork = get()) }
 
         single<DependencyValidator> { DependencyValidatorImpl(get(), get<ProfileAwareCurrentUser>()) }
 

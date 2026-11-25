@@ -16,6 +16,7 @@ import com.singularity.todo.core.seed.SeedLinkKeys
 import com.singularity.todo.core.seed.SeedQueue
 import com.singularity.todo.core.seed.SeedRequest
 import com.singularity.todo.core.seed.SeedSequencer
+import com.singularity.todo.core.seed.SeedTaskWriter
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
 import com.singularity.todo.core.wipe.ContentResetter
@@ -472,6 +473,7 @@ class DebugSeedActivity :
         notesRepo: NotesRepository,
         projectsRepo: ProjectsRepository,
         currentUser: ProfileAwareCurrentUser,
+        seedTasks: SeedTaskWriter,
     ) {
         val writer =
             SeedWriter(
@@ -479,6 +481,7 @@ class DebugSeedActivity :
                 notes = notesRepo,
                 projects = projectsRepo,
                 currentUser = currentUser,
+                seedTasks = seedTasks,
             )
         when {
             params.containsKey(SeedLinkKeys.TASK) -> {
@@ -614,6 +617,7 @@ class DebugSeedActivity :
         val projectsRepo: ProjectsRepository by inject()
         val profileRepo: ProfileRepository by inject()
         val currentUser: ProfileAwareCurrentUser by inject()
+        val seedTasks: SeedTaskWriter by inject()
 
         // Ensure default profile exists so repositories are functional.
         profileRepo.ensureDefaults()
@@ -669,6 +673,7 @@ class DebugSeedActivity :
             notesRepo = notesRepo,
             projectsRepo = projectsRepo,
             currentUser = currentUser,
+            seedTasks = seedTasks,
         )
     }
 

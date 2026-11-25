@@ -7,7 +7,6 @@ import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
@@ -37,10 +36,10 @@ import kotlin.time.Instant
 @Tag("fast")
 class SeedWriterTest {
     private val currentUser = FakeProfileAwareCurrentUser()
-    private val tasks: TaskRepository = FakeTaskRepository(explicitCurrentUser = currentUser)
+    private val tasks: FakeTaskRepository = FakeTaskRepository(explicitCurrentUser = currentUser)
     private val notes: NotesRepository = FakeNotesRepository(currentUser = currentUser)
     private val projects: ProjectsRepository = FakeProjectsRepository(currentUser = currentUser)
-    private val writer = SeedWriter(tasks, notes, projects, currentUser)
+    private val writer = SeedWriter(tasks, notes, projects, currentUser, seedTasks = tasks)
 
     private val stamp = Instant.fromEpochMilliseconds(1_767_225_600_000)
 
@@ -67,6 +66,26 @@ class SeedWriterTest {
             assertEquals(1, liveTasks("Bulk1").size)
             assertEquals(1, liveTasks("Bulk2").size)
             assertEquals(1, liveTasks("Bulk3").size)
+        }
+
+    @Test
+    fun `createTasks goes through the fixture writer, not the ordinary create`() =
+        runTest {
+            // The row counts above cannot tell the two paths apart: both store the row,
+            // and only production knows that the ordinary one also enqueues a patch per
+            // row — which is the whole cost this change removed. A future refactor that
+            // routed here through `tasks.create` would keep every other test in this
+            // file green while quietly bringing the 30 ms back.
+            var ordinaryCreates = 0
+            tasks.createCallOverride = { _ ->
+                ordinaryCreates++
+                null
+            }
+
+            writer.createTasks((1..5).map { TaskSeed(title = "Bulk$it", stamp = stamp) })
+
+            assertEquals(1, tasks.fixtureBatches, "the bulk must reach the fixture writer, in one batch")
+            assertEquals(0, ordinaryCreates, "and must not go through the ordinary per-row create")
         }
 
     @Test

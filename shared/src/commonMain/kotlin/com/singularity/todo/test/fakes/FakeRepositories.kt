@@ -65,6 +65,7 @@ import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.core.search.SearchMode
+import com.singularity.todo.core.seed.SeedTaskWriter
 import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.tasks.TasksSettingsRepository
@@ -979,7 +980,8 @@ open class FakeTaskRepository(
     private val explicitCurrentUser: ProfileAwareCurrentUser? = null,
     private val clock: Clock = FakeClock(),
     private val timeZone: TimeZoneProvider = TEST_TZ,
-) : TaskRepository {
+) : TaskRepository,
+    SeedTaskWriter {
     private val store = InMemoryStore<Task>(keyOf = { it.id.value })
 
     /**
@@ -1130,10 +1132,26 @@ open class FakeTaskRepository(
         }
     }
 
-    override suspend fun createAll(items: List<Task>): Result<List<Task>> =
-        runCatchingCancellable {
-            items.map { create(it).getOrThrow() }
+    /**
+     * The seed's batch write. The fake has no transaction and no outbox, so the only
+     * thing left to be honest about is the rows: every one of them lands.
+     *
+     * [fixtureBatches] counts the calls, because a caller that is supposed to route
+     * through this path has no other observable difference from one that routes through
+     * `create`: both store the row, and only production knows that one of them also
+     * sends a patch. The count is what lets a test tell the two apart.
+     */
+    override suspend fun writeFixtures(tasks: List<Task>): List<Task> {
+        fixtureBatches++
+        return tasks.map { task ->
+            store.upsert(task)
+            task
         }
+    }
+
+    /** How many times [writeFixtures] was called — the marker of the fixture path. */
+    var fixtureBatches: Int = 0
+        private set
 
     /**
      * Runs after the task was created and before the call returns.
