@@ -11,8 +11,8 @@
 # The flow's Android-only residue is not this guarantee: the quick-search entry
 # path (`menu_quick_search` → `search_input`) and the on-device Room index are
 # exercised by the other search flows in this area
-# (`search/04-filter-description.yaml` types a word-prefix query on the device,
-# `search/09-contains-mode.yaml` types the same "port" in the contains mode).
+# (`search/04-filter-description.yaml` types a word-prefix query on the device
+# and asserts the rows it finds).
 #
 # The retired flow entered its text with Maestro's `inputText`, which injects
 # the text instead of typing it through the device's installed keyboard

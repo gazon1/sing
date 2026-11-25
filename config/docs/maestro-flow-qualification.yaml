@@ -1621,60 +1621,6 @@ qualifications:
       apk_commit_sha: 52fe5b1d6660
       maestro_version: 2.10.0
       return_code: 0
-  Maestro/flows/search/09-contains-mode.yaml:
-    fingerprint: sha256:6216505cc5602c6974d0049689e3a5e4cdcd5f08d4a9e9ce9a0f1a4fbb296d6a
-    qualified_at: '2026-11-24'
-    environment:
-      kind: emulator
-      api: 36
-      device: sdk_gphone64_x86_64
-      serial: emulator-5568
-    commit: 52fe5b1d6660
-    apk_commit_sha: 52fe5b1d6660
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-1/09-contains-mode.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5568
-      commit: 52fe5b1d6660
-      apk_commit_sha: 52fe5b1d6660
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-2/09-contains-mode.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5568
-      commit: 52fe5b1d6660
-      apk_commit_sha: 52fe5b1d6660
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-3/09-contains-mode.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5568
-      commit: 52fe5b1d6660
-      apk_commit_sha: 52fe5b1d6660
-      maestro_version: 2.10.0
-      return_code: 0
   Maestro/flows/menu/09-attach-account-entry.yaml:
     fingerprint: sha256:14c56815530b3bd506ccaae38eba27fc55cc04fcef1d2cdc18c9cdad083cd3d9
     qualified_at: '2026-11-24'
@@ -3164,10 +3110,6 @@ exceptions:
     evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/search/07-saved-search.yaml:
     fingerprint: sha256:974e6fe492bd095a3821ac7d69cf1774d49252f0eec4fab743f1a199ca335ef3
-    reason: 'Fingerprint changed by #2555/#2556 (the seed helper''s contract header now states the five cases, and this flow''s seed invocations now name the seeded task''s row in WAIT_FOR): the change ADDS a landing-screen wait — the helper now waits for the seeded row on the Today screen the seed leaves the app on — and removes nothing: every wait the flow had stays in the flow, including the Search-screen waits for the result rows, which the helper cannot reach (it does not navigate). Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the added wait, not a device qualification.'
-    evidence: gazon1/sing#2555, gazon1/sing#2556
-  Maestro/flows/search/09-contains-mode.yaml:
-    fingerprint: sha256:8b66277777970c59203699e0f9cf3e28e6bf8b63266feb7544a55413e5e32ec3
     reason: 'Fingerprint changed by #2555/#2556 (the seed helper''s contract header now states the five cases, and this flow''s seed invocations now name the seeded task''s row in WAIT_FOR): the change ADDS a landing-screen wait — the helper now waits for the seeded row on the Today screen the seed leaves the app on — and removes nothing: every wait the flow had stays in the flow, including the Search-screen waits for the result rows, which the helper cannot reach (it does not navigate). Requalification on device is required before treating this as runtime-qualified; this exception is a reviewed admission for the added wait, not a device qualification.'
     evidence: gazon1/sing#2555, gazon1/sing#2556
   Maestro/flows/search/10-task-card-actions.yaml:

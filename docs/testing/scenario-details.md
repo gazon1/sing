@@ -1324,7 +1324,7 @@ Steps:
 
 Steps:
 
-1. Open the quick search from the menu sheet.
+1. Open the search screen.
 2. Type "port".
 3. Observe the results.
 4. Choose the "Contains" mode on the switch under the search field.
