@@ -137,9 +137,22 @@ class VerifyCommand : CliktCommand(name = "verify") {
 
 class GenerateCommand : CliktCommand(name = "generate") {
     override fun help(context: com.github.ajalt.clikt.core.Context): String =
-        "Generate a deterministic synthetic native backup dataset for performance testing."
+        "Generate a deterministic synthetic native backup dataset for performance testing. " +
+            "By default the dataset is written as a native backup archive; '--format dir' writes " +
+            "a dataset directory instead, for the datasets that do not fit the backup archive budget (#3197)."
 
-    val output by option("--output", help = "Output native backup ZIP path").required()
+    val output by option(
+        "--output",
+        help = "Output path: a native backup ZIP, or a dataset directory with --format dir",
+    ).required()
+    val format by option(
+        "--format",
+        help =
+            "Output form. 'zip' — a native backup archive the app can restore, subject to the backup " +
+                "archive budget. 'dir' — a dataset directory (manifest.json + payload.json) that the " +
+                "app does not read and that the archive budget does not bound, for datasets too large " +
+                "to fit an archive.",
+    ).default("zip")
     val seed by option("--seed", help = "Deterministic generation seed").long().default(1L)
     val profileName by option(
         "--profile",
@@ -188,15 +201,24 @@ class GenerateCommand : CliktCommand(name = "generate") {
 
     override fun run() {
         val params = resolveParams()
-        System.err.print("\r[1/3] Generating the dataset and writing the archive...")
+        val asDirectory = resolveFormat()
+        val form = if (asDirectory) "dataset directory" else "archive"
+        System.err.print("\r[1/3] Generating the dataset and writing the $form...")
         System.err.flush()
         File(output).parentFile?.mkdirs()
         // The archive is written by the same helper the desktop measurement
         // uses, so both platforms restore the same file of the same dataset.
-        val archive = runBlocking { SyntheticBackupArchive.write(params, output) }
+        val archive =
+            runBlocking {
+                if (asDirectory) {
+                    SyntheticBackupArchive.writeDirectory(params, output)
+                } else {
+                    SyntheticBackupArchive.write(params, output)
+                }
+            }
         val generated = archive.dataset
-        val sidecarPath = writeSidecar(generated, archive.manifest)
-        verifyArchive()
+        val sidecarPath = writeSidecar(generated, archive.manifest, asDirectory)
+        if (asDirectory) verifyDataset() else verifyArchive()
 
         printSummary(
             generated.payload,
@@ -205,8 +227,23 @@ class GenerateCommand : CliktCommand(name = "generate") {
             generated,
             archive.payloadBytes,
             archive.manifestBytes,
+            asDirectory,
         )
     }
+
+    /**
+     * The output form the caller asked for.
+     *
+     * The form is named, not guessed: a typo in `--format` has to say so rather
+     * than fall back to the archive form and write a file the caller did not
+     * ask for.
+     */
+    private fun resolveFormat(): Boolean =
+        when (format.lowercase()) {
+            FORMAT_ZIP -> false
+            FORMAT_DIR -> true
+            else -> error("unknown --format '$format' — expected '$FORMAT_ZIP' or '$FORMAT_DIR'")
+        }
 
     private fun resolveParams(): GenerateParams {
         val profile =
@@ -287,6 +324,7 @@ class GenerateCommand : CliktCommand(name = "generate") {
     private fun writeSidecar(
         generated: GeneratedDataset,
         manifest: BackupManifest,
+        asDirectory: Boolean,
     ): String {
         System.err.print("\r[2/3] Writing sidecar...")
         System.err.flush()
@@ -306,7 +344,7 @@ class GenerateCommand : CliktCommand(name = "generate") {
                 schemaVersion = manifest.schemaVersion,
                 payloadChecksum = manifest.payloadChecksum,
             )
-        val sidecarPath = sidecarPathFor(output)
+        val sidecarPath = if (asDirectory) File(output, SIDECAR_NAME).path else sidecarPathFor(output)
         File(sidecarPath).writeText(StableJson.encodeToString(GenerateManifest.serializer(), sidecar))
         return sidecarPath
     }
@@ -315,11 +353,35 @@ class GenerateCommand : CliktCommand(name = "generate") {
         System.err.print("\r[3/3] Verifying...      ")
         System.err.flush()
         val read = runBlocking { JvmBackupCodec().import(output, JvmFileSystem()).getOrThrow() }
-        val decodedPayload = StableJson.decodeFromString(BackupPayload.serializer(), read.payloadBytes.decodeToString())
+        verifyBytes(read.manifestBytes, read.payloadBytes)
+    }
+
+    /**
+     * Verifies the dataset directory the way the archive is verified: the manifest
+     * is checked against the payload it describes, and the payload is validated.
+     *
+     * The archive path reads the file back through the codec; here the two files
+     * are read back directly, because the codec is the archive reader and a
+     * dataset directory is not an archive.
+     */
+    private fun verifyDataset() {
+        System.err.print("\r[3/3] Verifying...      ")
+        System.err.flush()
+        val directory = File(output)
+        val manifestBytes = File(directory, BackupFormat.ENTRY_MANIFEST).readBytes()
+        val payloadBytes = File(directory, BackupFormat.ENTRY_PAYLOAD).readBytes()
+        verifyBytes(manifestBytes, payloadBytes)
+    }
+
+    private fun verifyBytes(
+        manifestBytes: ByteArray,
+        payloadBytes: ByteArray,
+    ) {
+        val decodedPayload = StableJson.decodeFromString(BackupPayload.serializer(), payloadBytes.decodeToString())
         BackupDomain
             .validateManifest(
-                StableJson.decodeFromString(BackupManifest.serializer(), read.manifestBytes.decodeToString()),
-                read.payloadBytes,
+                StableJson.decodeFromString(BackupManifest.serializer(), manifestBytes.decodeToString()),
+                payloadBytes,
             ).getOrThrow()
         SyntheticBackupValidator.validate(decodedPayload)
     }
@@ -331,6 +393,7 @@ class GenerateCommand : CliktCommand(name = "generate") {
         generated: GeneratedDataset,
         payloadBytes: ByteArray,
         manifestBytes: ByteArray,
+        asDirectory: Boolean,
     ) {
         System.err.println("\r[3/3] Done.                    ")
         println("Generated: ${File(output).path}")
@@ -344,10 +407,19 @@ class GenerateCommand : CliktCommand(name = "generate") {
         println(
             "Manifest: schemaVersion=${manifest.schemaVersion} formatVersion=${manifest.formatVersion} payloadChecksum=${manifest.payloadChecksum}",
         )
-        println(
-            "Archive: entries=2 decompressedBytes=${payloadBytes.size.toLong() + manifestBytes.size.toLong()} " +
-                "(budget entries=${ArchiveBudget.MAX_ENTRIES} bytes=${ArchiveBudget.MAX_TOTAL_BYTES})",
-        )
+        val totalBytes = payloadBytes.size.toLong() + manifestBytes.size.toLong()
+        if (asDirectory) {
+            println(
+                "Dataset: directory=${File(output).path} decompressedBytes=$totalBytes " +
+                    "(a dataset directory is not a backup archive, so the archive budget does not bound it: " +
+                    "entries=${ArchiveBudget.MAX_ENTRIES} bytes=${ArchiveBudget.MAX_TOTAL_BYTES})",
+            )
+        } else {
+            println(
+                "Archive: entries=2 decompressedBytes=$totalBytes " +
+                    "(budget entries=${ArchiveBudget.MAX_ENTRIES} bytes=${ArchiveBudget.MAX_TOTAL_BYTES})",
+            )
+        }
     }
 
     private fun sidecarPathFor(archivePath: String): String =
@@ -360,5 +432,14 @@ class GenerateCommand : CliktCommand(name = "generate") {
     private companion object {
         /** Priorities the format knows: none, low, medium, high, urgent. */
         const val PRIORITY_COUNT = 5
+
+        /** The output form that writes a native backup archive. */
+        const val FORMAT_ZIP = "zip"
+
+        /** The output form that writes a dataset directory instead of an archive. */
+        const val FORMAT_DIR = "dir"
+
+        /** The generator's own record of what it made, next to the dataset. */
+        const val SIDECAR_NAME = "dataset.json"
     }
 }

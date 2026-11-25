@@ -14,7 +14,6 @@ import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import java.io.File
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.time.Duration
@@ -63,6 +62,14 @@ import kotlin.time.TimeSource
  * ./gw :import-cli:run --args="generate --profile 100k --seed 4242 --output build/perf/100k.zip"
  * ./gw :shared:dependencyQueryPerf -Pperf.archive=$PWD/build/perf/100k.zip
  * ```
+ *
+ * A dataset that does not fit a backup archive is generated as a dataset
+ * directory (`--format dir`) and measured the same way:
+ *
+ * ```
+ * ./gw :import-cli:run --args="generate --profile 100k --seed 4242 --tags 1 --format dir --output build/perf/100k-tags"
+ * ./gw :shared:dependencyQueryPerf -Pperf.dataset=$PWD/build/perf/100k-tags
+ * ```
  */
 fun main(args: Array<String>) {
     val config = DependencyPerfConfig.parse(args)
@@ -80,25 +87,17 @@ fun main(args: Array<String>) {
 private data class RunOutcome(val report: String, val mismatch: String?)
 
 /** What to measure, and how often. */
-private data class DependencyPerfConfig(val archive: String, val iterations: Int, val warmup: Int, val owner: UserId) {
+private data class DependencyPerfConfig(
+    val dataset: PerfDataset,
+    val iterations: Int,
+    val warmup: Int,
+    val owner: UserId,
+) {
     companion object {
         fun parse(args: Array<String>): DependencyPerfConfig {
-            val values =
-                args
-                    .mapNotNull { arg ->
-                        if (!arg.startsWith("--")) return@mapNotNull null
-                        val key = arg.removePrefix("--").substringBefore('=')
-                        val value = arg.substringAfter('=', "")
-                        if (value.isEmpty()) null else key to value
-                    }.toMap()
-            val archive =
-                values["archive"]
-                    ?: error("no dataset to measure — pass --archive=<path to a generated backup zip>")
-            check(archive.isNotBlank()) {
-                "no dataset to measure — pass --archive=<path to a generated backup zip>"
-            }
+            val values = perfArgs(args)
             return DependencyPerfConfig(
-                archive = archive,
+                dataset = PerfDataset.parse(values),
                 iterations = (values["iterations"] ?: "10").toInt(),
                 warmup = (values["warmup"] ?: "3").toInt(),
                 owner = UserId(values["owner"] ?: "perf-owner"),
@@ -427,12 +426,12 @@ private data class ReadMeasurement(
 private data class Plan(val label: String, val steps: List<String>)
 
 private suspend fun measure(config: DependencyPerfConfig): RunOutcome {
-    val archive = File(config.archive)
-    check(archive.isFile) { "no dataset to measure: ${archive.absolutePath}" }
+    val dataset = config.dataset
+    check(dataset.file.exists()) { "no dataset to measure: ${dataset.file.absolutePath}" }
     val fixture = DatabaseTestFixture.onDisk()
     try {
         val db = fixture.database("perf")
-        restore(db, fixture, archive.absolutePath, config.owner)
+        restore(db, fixture, dataset, config.owner)
         val tasks = db.scalarInt("SELECT count(*) FROM tasks")
         val edges = db.scalarInt("SELECT count(*) FROM task_dependencies")
         val tags = db.scalarInt("SELECT count(*) FROM task_tags")
@@ -454,7 +453,7 @@ private suspend fun measure(config: DependencyPerfConfig): RunOutcome {
             equivalence(db, groups, config.owner)
                 ?: relationEquivalence(db, config.owner)
                 ?: isolation(db, groups, config.owner)
-        val report = render(archive, tasks, edges, tags, groups, measurements, plans, mismatch)
+        val report = render(dataset, tasks, edges, tags, groups, measurements, plans, mismatch)
         return RunOutcome(report = report, mismatch = mismatch)
     } finally {
         fixture.close()
@@ -932,7 +931,7 @@ private suspend fun AppDatabase.scalarInt(sql: String): Int =
 
 /** The report. */
 private fun render(
-    archive: File,
+    dataset: PerfDataset,
     tasks: Int,
     edges: Int,
     tags: Int,
@@ -944,7 +943,10 @@ private fun render(
     buildString {
         appendLine("## User-scoped reads — measurement")
         appendLine()
-        appendLine("- dataset: `${archive.absolutePath}` (${archive.length() / 1024} KiB)")
+        appendLine(
+            "- dataset: `${dataset.file.absolutePath}` " +
+                "(${dataset.sizeBytes() / 1024} KiB, ${dataset.form.name.lowercase()})",
+        )
         appendLine("- tasks: $tasks, dependency edges: $edges, task-tag rows: $tags")
         for (query in Query.entries) {
             val queryGroups = groups[query].orEmpty()
