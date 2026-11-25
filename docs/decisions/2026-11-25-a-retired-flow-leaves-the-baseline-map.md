@@ -88,11 +88,13 @@ unchanged.** The map's header states the direction it may move in; the frozen
 set's header states that it does not move at all. A retirement is exactly the
 event the map's shrink is for.
 
-**The gate stays dumb, the review holds the policy.** The gate cannot tell a
-retirement from an edit that admits an unqualified flow — it sees one artifact
-and one digest — so the pin is refreshed in the same change, and the diff of
-the change is what says "this flow is no longer admitted by its old
-fingerprint".
+**The gate checks the shape; the review holds the rest.** The gate reads the
+catalogue, the frozen set and the map, and it now also reports a map entry
+that points at a flow the catalogue no longer names — the shape of a
+retirement that forgot to shrink the map. What it cannot tell is a
+retirement from an edit that admits an unqualified flow: the pin is
+refreshed in the same change, and the diff of the change is what says
+"this flow is no longer admitted by its old fingerprint".
 
 ## Consequences
 
@@ -114,6 +116,11 @@ fingerprint".
   artifacts — leave the map in the same change that settled the rule, so the
   map no longer admits a flow that does not exist. Their names stay in the
   frozen set, which is what the frozen set is for.
+- The gate reports a map entry that points at a flow the catalogue no longer
+  names ("orphaned baseline entry"), so a retirement that forgets to shrink
+  the map is caught instead of waiting for the next review to find it. The
+  check is covered by a positive-control test in
+  `scripts/tests/test_check_maestro_flow_qualification.py`.
 
 ## Links
 

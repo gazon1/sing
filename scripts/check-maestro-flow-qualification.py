@@ -48,7 +48,9 @@ flows tagged ``manual`` or ``auth-live`` (the automated ``full`` suite and the
    qualifies nothing. The baseline map drops the fingerprint: the map only
    shrinks, and a flow that comes back to the catalogue is qualified instead
    of admitted by a fingerprint nobody re-ran. Every entry in the map points
-   at a flow that is still in the catalogue; a catalogue flow that was
+   at a flow that is still in the catalogue; the gate reports an entry that
+   points at a flow the catalogue no longer names, so a retirement that
+   forgets to shrink the map is caught here. A catalogue flow that was
    introduced after the rule is not in the map and has to be qualified or
    excepted like any other new flow. ADR
    ``docs/decisions/2026-11-25-a-retired-flow-leaves-the-baseline-map.md``.
@@ -787,6 +789,23 @@ def scan(
 
     flows, findings = blocking_scope_flows(catalogue, root)
     counts = {"flows": len(flows), "baselined": 0, "qualified": 0, "excepted": 0}
+
+    # Every entry in the map must point at a flow that is still in the
+    # catalogue. A fingerprint of a flow that was retired answers nothing
+    # while the flow is gone, and admits it again — without a
+    # qualification run — the moment it comes back with the same content.
+    # Retiring a flow therefore drops its fingerprint in the same change
+    # that removes it from the catalogue.
+    for flow in sorted(set(baseline) - set(catalogue)):
+        findings.append(
+            Finding(
+                flow,
+                "orphaned baseline entry",
+                f"{flow} — the baseline map holds a fingerprint for a flow that is not in the "
+                "catalogue; a retired flow leaves the map, and BASELINE_DIGEST is refreshed "
+                "in that change",
+            )
+        )
 
     for flow in flows:
         fp = fingerprint(flow, root)
