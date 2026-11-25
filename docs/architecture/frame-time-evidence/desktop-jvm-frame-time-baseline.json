@@ -1,0 +1,1782 @@
+{
+  "target": "jvm-desktop",
+  "environment": {
+    "runtime": {
+      "javaVersion": "21.0.11",
+      "javaVendor": "Azul Systems, Inc.",
+      "javaVmName": "OpenJDK 64-Bit Server VM",
+      "javaVmVersion": "21.0.11+10-LTS",
+      "assertionsEnabled": true,
+      "timeZone": "Europe/Moscow"
+    },
+    "os": {
+      "name": "Linux",
+      "version": "7.2.10-200.fc44.x86_64",
+      "arch": "amd64"
+    },
+    "build": {
+      "version": "0.1.0",
+      "gitSha": "7b69d01108cc"
+    }
+  },
+  "scenarios": {
+    "agenda-upcoming-scroll": {
+      "scenario": "agenda-upcoming-scroll",
+      "dataset": {
+        "generator": "synthetic-backup-generator (#3090)",
+        "profile": "10k",
+        "seed": 42,
+        "payloadChecksum": "db1d2450da4de66e06c206cd1800af48c3ca29023420cda2d5067b84be7e3f1d",
+        "restoredThrough": "the app's own importer (BackupRepository.import)",
+        "database": "the production Room database of the desktop app (AppDatabaseFactory.build, the same file-backed database the app opens) - the measured screens read the rows through the real queries, the real indexes and the real invalidation, not through an in-memory stand-in",
+        "counts": {
+          "tasks": 10000,
+          "projects": 100,
+          "tags": 100,
+          "notes": 1000,
+          "taskTags": 14814,
+          "taskDependencies": 1500,
+          "checklistItems": 20000
+        }
+      },
+      "subject": {
+        "screen": "Upcoming"
+      },
+      "method": {
+        "warmupRuns": 2,
+        "measuredRunsPerRun": 5,
+        "percentileConvention": "nearest-rank; the median of an even-sized sample is the mean of its two middle values",
+        "hostLoadAveragePerRun": [
+          2.716,
+          3.089,
+          2.508
+        ],
+        "measurements": [
+          {
+            "name": "open",
+            "kind": "navigation",
+            "gesturesPerRun": null,
+            "distancePx": null
+          },
+          {
+            "name": "gesture",
+            "kind": "drag",
+            "gesturesPerRun": 10,
+            "distancePx": 400
+          }
+        ]
+      },
+      "results": {
+        "open": {
+          "medianMs": 332.449,
+          "p95Ms": 358.536,
+          "sampleCount": 15,
+          "samplesPerRun": [
+            5,
+            5,
+            5
+          ],
+          "runMediansMs": [
+            331.678,
+            344.322,
+            326.371
+          ],
+          "runMedianSpreadMs": [
+            326.371,
+            344.322
+          ]
+        },
+        "gesture": {
+          "medianMs": 50.352500000000006,
+          "p95Ms": 56.163,
+          "sampleCount": 150,
+          "samplesPerRun": [
+            50,
+            50,
+            50
+          ],
+          "runMediansMs": [
+            49.551,
+            51.958,
+            49.437
+          ],
+          "runMedianSpreadMs": [
+            49.437,
+            51.958
+          ]
+        }
+      },
+      "runs": [
+        {
+          "index": 1,
+          "ranAt": "2026-11-25T05:55:16.076Z",
+          "hostLoadAverage": 2.716,
+          "measurements": {
+            "open": {
+              "medianMs": 331.678,
+              "p95Ms": 339.511,
+              "samples": 5,
+              "samplesMs": [
+                324.718,
+                323.921,
+                339.511,
+                334.476,
+                331.678
+              ]
+            },
+            "gesture": {
+              "medianMs": 49.551,
+              "p95Ms": 52.402,
+              "samples": 50,
+              "samplesMs": [
+                46.127,
+                50.179,
+                47.774,
+                51.336,
+                48.054,
+                48.551,
+                49.86,
+                51.702,
+                51.359,
+                48.906,
+                45.163,
+                50.008,
+                53.02,
+                50.612,
+                46.966,
+                46.89,
+                47.901,
+                50.171,
+                47.708,
+                49.388,
+                51.0,
+                49.122,
+                49.52,
+                52.683,
+                48.834,
+                48.15,
+                48.846,
+                51.353,
+                50.52,
+                49.582,
+                48.72,
+                51.313,
+                51.177,
+                51.808,
+                49.446,
+                49.32,
+                49.382,
+                51.118,
+                49.922,
+                49.627,
+                46.108,
+                48.247,
+                48.931,
+                52.402,
+                51.584,
+                51.545,
+                48.948,
+                51.927,
+                49.488,
+                49.888
+              ]
+            }
+          }
+        },
+        {
+          "index": 2,
+          "ranAt": "2026-11-25T05:56:40.351Z",
+          "hostLoadAverage": 3.089,
+          "measurements": {
+            "open": {
+              "medianMs": 344.322,
+              "p95Ms": 351.527,
+              "samples": 5,
+              "samplesMs": [
+                339.024,
+                351.145,
+                351.527,
+                344.322,
+                332.449
+              ]
+            },
+            "gesture": {
+              "medianMs": 51.958,
+              "p95Ms": 60.16,
+              "samples": 50,
+              "samplesMs": [
+                50.38,
+                52.638,
+                49.117,
+                49.933,
+                49.257,
+                48.961,
+                48.712,
+                52.915,
+                51.016,
+                56.177,
+                49.229,
+                57.741,
+                56.076,
+                55.26,
+                50.398,
+                50.732,
+                50.042,
+                51.847,
+                52.899,
+                60.16,
+                50.772,
+                52.07,
+                53.053,
+                53.245,
+                47.81,
+                50.516,
+                48.129,
+                62.811,
+                58.469,
+                84.26,
+                49.872,
+                52.846,
+                59.597,
+                52.485,
+                50.75,
+                50.285,
+                49.576,
+                53.654,
+                50.61,
+                54.409,
+                49.213,
+                51.044,
+                50.783,
+                55.535,
+                52.558,
+                50.96,
+                52.591,
+                55.752,
+                54.858,
+                52.641
+              ]
+            }
+          }
+        },
+        {
+          "index": 3,
+          "ranAt": "2026-11-25T05:58:05.773Z",
+          "hostLoadAverage": 2.508,
+          "measurements": {
+            "open": {
+              "medianMs": 326.371,
+              "p95Ms": 358.536,
+              "samples": 5,
+              "samplesMs": [
+                326.371,
+                328.743,
+                358.536,
+                325.221,
+                325.411
+              ]
+            },
+            "gesture": {
+              "medianMs": 49.437,
+              "p95Ms": 54.423,
+              "samples": 50,
+              "samplesMs": [
+                45.514,
+                48.332,
+                48.648,
+                49.5,
+                48.691,
+                49.483,
+                50.604,
+                52.306,
+                50.774,
+                50.848,
+                46.706,
+                54.012,
+                53.82,
+                56.1,
+                51.848,
+                46.902,
+                47.164,
+                49.009,
+                49.181,
+                50.909,
+                47.51,
+                51.519,
+                50.588,
+                50.325,
+                48.063,
+                47.691,
+                53.72,
+                54.423,
+                50.657,
+                51.581,
+                46.529,
+                50.923,
+                53.287,
+                49.391,
+                49.512,
+                47.758,
+                48.885,
+                48.742,
+                48.425,
+                49.222,
+                51.971,
+                48.782,
+                48.887,
+                50.896,
+                47.483,
+                48.586,
+                46.996,
+                51.591,
+                47.476,
+                56.163
+              ]
+            }
+          }
+        }
+      ],
+      "samples": {
+        "open": [
+          324.718,
+          323.921,
+          339.511,
+          334.476,
+          331.678,
+          339.024,
+          351.145,
+          351.527,
+          344.322,
+          332.449,
+          326.371,
+          328.743,
+          358.536,
+          325.221,
+          325.411
+        ],
+        "gesture": [
+          46.127,
+          50.179,
+          47.774,
+          51.336,
+          48.054,
+          48.551,
+          49.86,
+          51.702,
+          51.359,
+          48.906,
+          45.163,
+          50.008,
+          53.02,
+          50.612,
+          46.966,
+          46.89,
+          47.901,
+          50.171,
+          47.708,
+          49.388,
+          51.0,
+          49.122,
+          49.52,
+          52.683,
+          48.834,
+          48.15,
+          48.846,
+          51.353,
+          50.52,
+          49.582,
+          48.72,
+          51.313,
+          51.177,
+          51.808,
+          49.446,
+          49.32,
+          49.382,
+          51.118,
+          49.922,
+          49.627,
+          46.108,
+          48.247,
+          48.931,
+          52.402,
+          51.584,
+          51.545,
+          48.948,
+          51.927,
+          49.488,
+          49.888,
+          50.38,
+          52.638,
+          49.117,
+          49.933,
+          49.257,
+          48.961,
+          48.712,
+          52.915,
+          51.016,
+          56.177,
+          49.229,
+          57.741,
+          56.076,
+          55.26,
+          50.398,
+          50.732,
+          50.042,
+          51.847,
+          52.899,
+          60.16,
+          50.772,
+          52.07,
+          53.053,
+          53.245,
+          47.81,
+          50.516,
+          48.129,
+          62.811,
+          58.469,
+          84.26,
+          49.872,
+          52.846,
+          59.597,
+          52.485,
+          50.75,
+          50.285,
+          49.576,
+          53.654,
+          50.61,
+          54.409,
+          49.213,
+          51.044,
+          50.783,
+          55.535,
+          52.558,
+          50.96,
+          52.591,
+          55.752,
+          54.858,
+          52.641,
+          45.514,
+          48.332,
+          48.648,
+          49.5,
+          48.691,
+          49.483,
+          50.604,
+          52.306,
+          50.774,
+          50.848,
+          46.706,
+          54.012,
+          53.82,
+          56.1,
+          51.848,
+          46.902,
+          47.164,
+          49.009,
+          49.181,
+          50.909,
+          47.51,
+          51.519,
+          50.588,
+          50.325,
+          48.063,
+          47.691,
+          53.72,
+          54.423,
+          50.657,
+          51.581,
+          46.529,
+          50.923,
+          53.287,
+          49.391,
+          49.512,
+          47.758,
+          48.885,
+          48.742,
+          48.425,
+          49.222,
+          51.971,
+          48.782,
+          48.887,
+          50.896,
+          47.483,
+          48.586,
+          46.996,
+          51.591,
+          47.476,
+          56.163
+        ]
+      }
+    },
+    "projects-list-scroll": {
+      "scenario": "projects-list-scroll",
+      "dataset": {
+        "generator": "synthetic-backup-generator (#3090)",
+        "profile": "10k",
+        "seed": 42,
+        "payloadChecksum": "db1d2450da4de66e06c206cd1800af48c3ca29023420cda2d5067b84be7e3f1d",
+        "restoredThrough": "the app's own importer (BackupRepository.import)",
+        "database": "the production Room database of the desktop app (AppDatabaseFactory.build, the same file-backed database the app opens) - the measured screens read the rows through the real queries, the real indexes and the real invalidation, not through an in-memory stand-in",
+        "counts": {
+          "tasks": 10000,
+          "projects": 100,
+          "tags": 100,
+          "notes": 1000,
+          "taskTags": 14814,
+          "taskDependencies": 1500,
+          "checklistItems": 20000
+        }
+      },
+      "subject": {
+        "screen": "All projects"
+      },
+      "method": {
+        "warmupRuns": 2,
+        "measuredRunsPerRun": 5,
+        "percentileConvention": "nearest-rank; the median of an even-sized sample is the mean of its two middle values",
+        "hostLoadAveragePerRun": [
+          3.812,
+          3.356,
+          3.138
+        ],
+        "measurements": [
+          {
+            "name": "open",
+            "kind": "navigation",
+            "gesturesPerRun": null,
+            "distancePx": null
+          },
+          {
+            "name": "gesture",
+            "kind": "drag",
+            "gesturesPerRun": 10,
+            "distancePx": 400
+          }
+        ]
+      },
+      "results": {
+        "open": {
+          "medianMs": 580.082,
+          "p95Ms": 634.568,
+          "sampleCount": 15,
+          "samplesPerRun": [
+            5,
+            5,
+            5
+          ],
+          "runMediansMs": [
+            572.287,
+            575.665,
+            586.483
+          ],
+          "runMedianSpreadMs": [
+            572.287,
+            586.483
+          ]
+        },
+        "gesture": {
+          "medianMs": 46.442,
+          "p95Ms": 58.187,
+          "sampleCount": 150,
+          "samplesPerRun": [
+            50,
+            50,
+            50
+          ],
+          "runMediansMs": [
+            46.615,
+            45.389,
+            47.668
+          ],
+          "runMedianSpreadMs": [
+            45.389,
+            47.668
+          ]
+        }
+      },
+      "runs": [
+        {
+          "index": 1,
+          "ranAt": "2026-11-25T05:55:16.076Z",
+          "hostLoadAverage": 3.812,
+          "measurements": {
+            "open": {
+              "medianMs": 572.287,
+              "p95Ms": 634.568,
+              "samples": 5,
+              "samplesMs": [
+                585.563,
+                572.287,
+                634.568,
+                569.008,
+                564.289
+              ]
+            },
+            "gesture": {
+              "medianMs": 46.615,
+              "p95Ms": 56.586,
+              "samples": 50,
+              "samplesMs": [
+                58.866,
+                46.938,
+                48.39,
+                48.939,
+                52.448,
+                47.339,
+                47.606,
+                46.453,
+                46.437,
+                47.704,
+                56.061,
+                41.809,
+                49.381,
+                47.222,
+                46.728,
+                43.69,
+                47.938,
+                48.278,
+                45.762,
+                44.508,
+                57.346,
+                42.148,
+                45.779,
+                49.792,
+                43.047,
+                44.521,
+                45.559,
+                44.539,
+                43.865,
+                43.56,
+                56.586,
+                39.827,
+                46.502,
+                47.461,
+                45.357,
+                44.196,
+                47.931,
+                43.754,
+                44.366,
+                45.863,
+                56.249,
+                40.086,
+                48.994,
+                45.436,
+                45.028,
+                48.84,
+                45.638,
+                51.004,
+                52.608,
+                47.566
+              ]
+            }
+          }
+        },
+        {
+          "index": 2,
+          "ranAt": "2026-11-25T05:56:40.351Z",
+          "hostLoadAverage": 3.356,
+          "measurements": {
+            "open": {
+              "medianMs": 575.665,
+              "p95Ms": 605.315,
+              "samples": 5,
+              "samplesMs": [
+                580.082,
+                575.665,
+                565.835,
+                571.459,
+                605.315
+              ]
+            },
+            "gesture": {
+              "medianMs": 45.389,
+              "p95Ms": 58.187,
+              "samples": 50,
+              "samplesMs": [
+                64.11,
+                46.408,
+                48.73,
+                50.509,
+                46.953,
+                50.427,
+                51.192,
+                45.586,
+                47.017,
+                46.699,
+                58.169,
+                41.246,
+                53.382,
+                45.913,
+                46.28,
+                44.317,
+                45.549,
+                45.911,
+                45.419,
+                43.873,
+                58.187,
+                41.371,
+                45.151,
+                50.468,
+                43.363,
+                45.422,
+                44.911,
+                46.447,
+                44.164,
+                44.47,
+                55.259,
+                39.838,
+                44.843,
+                43.031,
+                43.033,
+                43.118,
+                45.539,
+                44.482,
+                43.656,
+                44.042,
+                58.662,
+                44.355,
+                45.359,
+                42.904,
+                44.214,
+                44.515,
+                44.431,
+                43.086,
+                44.099,
+                46.129
+              ]
+            }
+          }
+        },
+        {
+          "index": 3,
+          "ranAt": "2026-11-25T05:58:05.773Z",
+          "hostLoadAverage": 3.138,
+          "measurements": {
+            "open": {
+              "medianMs": 586.483,
+              "p95Ms": 616.913,
+              "samples": 5,
+              "samplesMs": [
+                586.483,
+                616.913,
+                584.27,
+                597.269,
+                576.521
+              ]
+            },
+            "gesture": {
+              "medianMs": 47.668,
+              "p95Ms": 58.98,
+              "samples": 50,
+              "samplesMs": [
+                57.988,
+                43.565,
+                46.568,
+                48.165,
+                61.678,
+                56.852,
+                52.262,
+                55.63,
+                48.881,
+                52.379,
+                57.25,
+                41.252,
+                47.859,
+                47.238,
+                48.374,
+                46.23,
+                48.438,
+                46.409,
+                45.228,
+                45.394,
+                58.401,
+                40.182,
+                46.197,
+                55.126,
+                44.568,
+                47.478,
+                47.125,
+                46.51,
+                45.179,
+                43.361,
+                61.983,
+                43.631,
+                48.476,
+                55.848,
+                52.524,
+                49.929,
+                52.407,
+                49.858,
+                48.73,
+                50.879,
+                58.98,
+                42.679,
+                48.476,
+                45.541,
+                46.118,
+                47.363,
+                46.714,
+                45.619,
+                46.978,
+                46.399
+              ]
+            }
+          }
+        }
+      ],
+      "samples": {
+        "open": [
+          585.563,
+          572.287,
+          634.568,
+          569.008,
+          564.289,
+          580.082,
+          575.665,
+          565.835,
+          571.459,
+          605.315,
+          586.483,
+          616.913,
+          584.27,
+          597.269,
+          576.521
+        ],
+        "gesture": [
+          58.866,
+          46.938,
+          48.39,
+          48.939,
+          52.448,
+          47.339,
+          47.606,
+          46.453,
+          46.437,
+          47.704,
+          56.061,
+          41.809,
+          49.381,
+          47.222,
+          46.728,
+          43.69,
+          47.938,
+          48.278,
+          45.762,
+          44.508,
+          57.346,
+          42.148,
+          45.779,
+          49.792,
+          43.047,
+          44.521,
+          45.559,
+          44.539,
+          43.865,
+          43.56,
+          56.586,
+          39.827,
+          46.502,
+          47.461,
+          45.357,
+          44.196,
+          47.931,
+          43.754,
+          44.366,
+          45.863,
+          56.249,
+          40.086,
+          48.994,
+          45.436,
+          45.028,
+          48.84,
+          45.638,
+          51.004,
+          52.608,
+          47.566,
+          64.11,
+          46.408,
+          48.73,
+          50.509,
+          46.953,
+          50.427,
+          51.192,
+          45.586,
+          47.017,
+          46.699,
+          58.169,
+          41.246,
+          53.382,
+          45.913,
+          46.28,
+          44.317,
+          45.549,
+          45.911,
+          45.419,
+          43.873,
+          58.187,
+          41.371,
+          45.151,
+          50.468,
+          43.363,
+          45.422,
+          44.911,
+          46.447,
+          44.164,
+          44.47,
+          55.259,
+          39.838,
+          44.843,
+          43.031,
+          43.033,
+          43.118,
+          45.539,
+          44.482,
+          43.656,
+          44.042,
+          58.662,
+          44.355,
+          45.359,
+          42.904,
+          44.214,
+          44.515,
+          44.431,
+          43.086,
+          44.099,
+          46.129,
+          57.988,
+          43.565,
+          46.568,
+          48.165,
+          61.678,
+          56.852,
+          52.262,
+          55.63,
+          48.881,
+          52.379,
+          57.25,
+          41.252,
+          47.859,
+          47.238,
+          48.374,
+          46.23,
+          48.438,
+          46.409,
+          45.228,
+          45.394,
+          58.401,
+          40.182,
+          46.197,
+          55.126,
+          44.568,
+          47.478,
+          47.125,
+          46.51,
+          45.179,
+          43.361,
+          61.983,
+          43.631,
+          48.476,
+          55.848,
+          52.524,
+          49.929,
+          52.407,
+          49.858,
+          48.73,
+          50.879,
+          58.98,
+          42.679,
+          48.476,
+          45.541,
+          46.118,
+          47.363,
+          46.714,
+          45.619,
+          46.978,
+          46.399
+        ]
+      }
+    },
+    "project-detail-open": {
+      "scenario": "project-detail-open",
+      "dataset": {
+        "generator": "synthetic-backup-generator (#3090)",
+        "profile": "10k",
+        "seed": 42,
+        "payloadChecksum": "db1d2450da4de66e06c206cd1800af48c3ca29023420cda2d5067b84be7e3f1d",
+        "restoredThrough": "the app's own importer (BackupRepository.import)",
+        "database": "the production Room database of the desktop app (AppDatabaseFactory.build, the same file-backed database the app opens) - the measured screens read the rows through the real queries, the real indexes and the real invalidation, not through an in-memory stand-in",
+        "counts": {
+          "tasks": 10000,
+          "projects": 100,
+          "tags": 100,
+          "notes": 1000,
+          "taskTags": 14814,
+          "taskDependencies": 1500,
+          "checklistItems": 20000
+        }
+      },
+      "subject": {
+        "screen": "Project detail",
+        "project": "Project 39",
+        "projectTasks": 108
+      },
+      "method": {
+        "warmupRuns": 2,
+        "measuredRunsPerRun": 5,
+        "percentileConvention": "nearest-rank; the median of an even-sized sample is the mean of its two middle values",
+        "hostLoadAveragePerRun": [
+          2.739,
+          2.995,
+          2.423
+        ],
+        "measurements": [
+          {
+            "name": "open",
+            "kind": "navigation",
+            "gesturesPerRun": null,
+            "distancePx": null
+          }
+        ]
+      },
+      "results": {
+        "open": {
+          "medianMs": 56.11,
+          "p95Ms": 64.138,
+          "sampleCount": 15,
+          "samplesPerRun": [
+            5,
+            5,
+            5
+          ],
+          "runMediansMs": [
+            56.74,
+            56.11,
+            54.097
+          ],
+          "runMedianSpreadMs": [
+            54.097,
+            56.74
+          ]
+        }
+      },
+      "runs": [
+        {
+          "index": 1,
+          "ranAt": "2026-11-25T05:55:16.076Z",
+          "hostLoadAverage": 2.739,
+          "measurements": {
+            "open": {
+              "medianMs": 56.74,
+              "p95Ms": 64.138,
+              "samples": 5,
+              "samplesMs": [
+                50.568,
+                56.74,
+                64.138,
+                60.427,
+                53.109
+              ]
+            }
+          }
+        },
+        {
+          "index": 2,
+          "ranAt": "2026-11-25T05:56:40.351Z",
+          "hostLoadAverage": 2.995,
+          "measurements": {
+            "open": {
+              "medianMs": 56.11,
+              "p95Ms": 63.141,
+              "samples": 5,
+              "samplesMs": [
+                46.617,
+                56.11,
+                54.537,
+                63.141,
+                59.964
+              ]
+            }
+          }
+        },
+        {
+          "index": 3,
+          "ranAt": "2026-11-25T05:58:05.773Z",
+          "hostLoadAverage": 2.423,
+          "measurements": {
+            "open": {
+              "medianMs": 54.097,
+              "p95Ms": 57.737,
+              "samples": 5,
+              "samplesMs": [
+                57.2,
+                54.097,
+                50.787,
+                53.622,
+                57.737
+              ]
+            }
+          }
+        }
+      ],
+      "samples": {
+        "open": [
+          50.568,
+          56.74,
+          64.138,
+          60.427,
+          53.109,
+          46.617,
+          56.11,
+          54.537,
+          63.141,
+          59.964,
+          57.2,
+          54.097,
+          50.787,
+          53.622,
+          57.737
+        ]
+      }
+    },
+    "task-detail-open": {
+      "scenario": "task-detail-open",
+      "dataset": {
+        "generator": "synthetic-backup-generator (#3090)",
+        "profile": "10k",
+        "seed": 42,
+        "payloadChecksum": "db1d2450da4de66e06c206cd1800af48c3ca29023420cda2d5067b84be7e3f1d",
+        "restoredThrough": "the app's own importer (BackupRepository.import)",
+        "database": "the production Room database of the desktop app (AppDatabaseFactory.build, the same file-backed database the app opens) - the measured screens read the rows through the real queries, the real indexes and the real invalidation, not through an in-memory stand-in",
+        "counts": {
+          "tasks": 10000,
+          "projects": 100,
+          "tags": 100,
+          "notes": 1000,
+          "taskTags": 14814,
+          "taskDependencies": 1500,
+          "checklistItems": 20000
+        }
+      },
+      "subject": {
+        "screen": "Task detail",
+        "task": "Task 1526",
+        "relations": {
+          "children": 2,
+          "tags": 3,
+          "dependencies": 1,
+          "notes": 1,
+          "checklist": 2
+        }
+      },
+      "method": {
+        "warmupRuns": 2,
+        "measuredRunsPerRun": 5,
+        "percentileConvention": "nearest-rank; the median of an even-sized sample is the mean of its two middle values",
+        "hostLoadAveragePerRun": [
+          3.029,
+          2.726,
+          2.552
+        ],
+        "measurements": [
+          {
+            "name": "open",
+            "kind": "navigation",
+            "gesturesPerRun": null,
+            "distancePx": null
+          }
+        ]
+      },
+      "results": {
+        "open": {
+          "medianMs": 52.638,
+          "p95Ms": 68.213,
+          "sampleCount": 15,
+          "samplesPerRun": [
+            5,
+            5,
+            5
+          ],
+          "runMediansMs": [
+            50.474,
+            58.899,
+            50.642
+          ],
+          "runMedianSpreadMs": [
+            50.474,
+            58.899
+          ]
+        }
+      },
+      "runs": [
+        {
+          "index": 1,
+          "ranAt": "2026-11-25T05:55:16.076Z",
+          "hostLoadAverage": 3.029,
+          "measurements": {
+            "open": {
+              "medianMs": 50.474,
+              "p95Ms": 54.785,
+              "samples": 5,
+              "samplesMs": [
+                54.785,
+                50.069,
+                50.474,
+                49.511,
+                51.747
+              ]
+            }
+          }
+        },
+        {
+          "index": 2,
+          "ranAt": "2026-11-25T05:56:40.351Z",
+          "hostLoadAverage": 2.726,
+          "measurements": {
+            "open": {
+              "medianMs": 58.899,
+              "p95Ms": 68.213,
+              "samples": 5,
+              "samplesMs": [
+                58.899,
+                68.213,
+                52.638,
+                52.902,
+                61.71
+              ]
+            }
+          }
+        },
+        {
+          "index": 3,
+          "ranAt": "2026-11-25T05:58:05.773Z",
+          "hostLoadAverage": 2.552,
+          "measurements": {
+            "open": {
+              "medianMs": 50.642,
+              "p95Ms": 55.749,
+              "samples": 5,
+              "samplesMs": [
+                55.749,
+                53.115,
+                49.94,
+                44.427,
+                50.642
+              ]
+            }
+          }
+        }
+      ],
+      "samples": {
+        "open": [
+          54.785,
+          50.069,
+          50.474,
+          49.511,
+          51.747,
+          58.899,
+          68.213,
+          52.638,
+          52.902,
+          61.71,
+          55.749,
+          53.115,
+          49.94,
+          44.427,
+          50.642
+        ]
+      }
+    },
+    "calendar-periods": {
+      "scenario": "calendar-periods",
+      "dataset": {
+        "generator": "synthetic-backup-generator (#3090)",
+        "profile": "10k",
+        "seed": 42,
+        "payloadChecksum": "db1d2450da4de66e06c206cd1800af48c3ca29023420cda2d5067b84be7e3f1d",
+        "restoredThrough": "the app's own importer (BackupRepository.import)",
+        "database": "the production Room database of the desktop app (AppDatabaseFactory.build, the same file-backed database the app opens) - the measured screens read the rows through the real queries, the real indexes and the real invalidation, not through an in-memory stand-in",
+        "counts": {
+          "tasks": 10000,
+          "projects": 100,
+          "tags": 100,
+          "notes": 1000,
+          "taskTags": 14814,
+          "taskDependencies": 1500,
+          "checklistItems": 20000
+        }
+      },
+      "subject": {
+        "screen": "Calendar"
+      },
+      "method": {
+        "warmupRuns": 2,
+        "measuredRunsPerRun": 5,
+        "percentileConvention": "nearest-rank; the median of an even-sized sample is the mean of its two middle values",
+        "hostLoadAveragePerRun": [
+          2.739,
+          3.082,
+          2.423
+        ],
+        "measurements": [
+          {
+            "name": "open",
+            "kind": "navigation",
+            "gesturesPerRun": null,
+            "distancePx": null
+          },
+          {
+            "name": "gesture",
+            "kind": "click",
+            "gesturesPerRun": 10,
+            "distancePx": null
+          }
+        ]
+      },
+      "results": {
+        "open": {
+          "medianMs": 315.922,
+          "p95Ms": 327.837,
+          "sampleCount": 15,
+          "samplesPerRun": [
+            5,
+            5,
+            5
+          ],
+          "runMediansMs": [
+            315.922,
+            320.915,
+            305.406
+          ],
+          "runMedianSpreadMs": [
+            305.406,
+            320.915
+          ]
+        },
+        "gesture": {
+          "medianMs": 31.686500000000002,
+          "p95Ms": 40.89,
+          "sampleCount": 150,
+          "samplesPerRun": [
+            50,
+            50,
+            50
+          ],
+          "runMediansMs": [
+            31.152,
+            32.209,
+            31.163
+          ],
+          "runMedianSpreadMs": [
+            31.152,
+            32.209
+          ]
+        }
+      },
+      "runs": [
+        {
+          "index": 1,
+          "ranAt": "2026-11-25T05:55:16.076Z",
+          "hostLoadAverage": 2.739,
+          "measurements": {
+            "open": {
+              "medianMs": 315.922,
+              "p95Ms": 317.922,
+              "samples": 5,
+              "samplesMs": [
+                317.922,
+                315.922,
+                309.591,
+                310.871,
+                316.43
+              ]
+            },
+            "gesture": {
+              "medianMs": 31.152,
+              "p95Ms": 38.947,
+              "samples": 50,
+              "samplesMs": [
+                32.295,
+                32.181,
+                36.537,
+                33.103,
+                31.743,
+                29.406,
+                28.56,
+                32.138,
+                31.973,
+                30.787,
+                30.558,
+                30.393,
+                34.293,
+                32.123,
+                42.931,
+                44.219,
+                30.021,
+                35.614,
+                33.98,
+                34.899,
+                32.743,
+                38.817,
+                29.067,
+                30.125,
+                30.353,
+                30.901,
+                38.947,
+                32.585,
+                33.25,
+                28.726,
+                33.522,
+                30.019,
+                31.065,
+                30.088,
+                31.238,
+                31.24,
+                33.768,
+                30.452,
+                29.019,
+                37.777,
+                29.895,
+                30.95,
+                29.955,
+                28.733,
+                29.569,
+                31.678,
+                28.734,
+                28.995,
+                28.593,
+                28.737
+              ]
+            }
+          }
+        },
+        {
+          "index": 2,
+          "ranAt": "2026-11-25T05:56:40.351Z",
+          "hostLoadAverage": 3.082,
+          "measurements": {
+            "open": {
+              "medianMs": 320.915,
+              "p95Ms": 327.837,
+              "samples": 5,
+              "samplesMs": [
+                327.837,
+                320.915,
+                309.042,
+                324.838,
+                317.039
+              ]
+            },
+            "gesture": {
+              "medianMs": 32.209,
+              "p95Ms": 41.995,
+              "samples": 50,
+              "samplesMs": [
+                36.467,
+                33.49,
+                33.177,
+                32.642,
+                38.925,
+                34.341,
+                31.868,
+                31.372,
+                30.773,
+                30.932,
+                31.995,
+                36.654,
+                40.89,
+                38.67,
+                37.139,
+                41.995,
+                64.701,
+                58.449,
+                32.108,
+                36.485,
+                32.633,
+                29.076,
+                29.012,
+                31.924,
+                32.31,
+                32.597,
+                36.143,
+                29.418,
+                38.561,
+                29.885,
+                31.399,
+                28.948,
+                30.924,
+                31.039,
+                38.121,
+                35.036,
+                32.508,
+                29.263,
+                29.177,
+                32.002,
+                32.394,
+                31.01,
+                33.424,
+                28.618,
+                29.915,
+                28.931,
+                30.172,
+                29.309,
+                30.996,
+                32.589
+              ]
+            }
+          }
+        },
+        {
+          "index": 3,
+          "ranAt": "2026-11-25T05:58:05.773Z",
+          "hostLoadAverage": 2.423,
+          "measurements": {
+            "open": {
+              "medianMs": 305.406,
+              "p95Ms": 316.645,
+              "samples": 5,
+              "samplesMs": [
+                305.406,
+                316.645,
+                310.403,
+                299.491,
+                303.662
+              ]
+            },
+            "gesture": {
+              "medianMs": 31.163,
+              "p95Ms": 40.852,
+              "samples": 50,
+              "samplesMs": [
+                34.896,
+                34.309,
+                33.731,
+                32.772,
+                29.022,
+                32.011,
+                28.692,
+                30.13,
+                30.087,
+                29.087,
+                32.108,
+                41.02,
+                43.6,
+                35.748,
+                37.636,
+                30.942,
+                30.497,
+                33.775,
+                30.508,
+                30.621,
+                33.861,
+                32.67,
+                38.111,
+                31.695,
+                31.147,
+                33.11,
+                32.041,
+                30.38,
+                31.654,
+                29.921,
+                32.103,
+                32.074,
+                29.178,
+                28.923,
+                30.101,
+                37.049,
+                29.534,
+                30.001,
+                28.938,
+                30.347,
+                30.932,
+                29.566,
+                29.867,
+                28.283,
+                29.153,
+                32.138,
+                31.179,
+                32.701,
+                30.782,
+                40.852
+              ]
+            }
+          }
+        }
+      ],
+      "samples": {
+        "open": [
+          317.922,
+          315.922,
+          309.591,
+          310.871,
+          316.43,
+          327.837,
+          320.915,
+          309.042,
+          324.838,
+          317.039,
+          305.406,
+          316.645,
+          310.403,
+          299.491,
+          303.662
+        ],
+        "gesture": [
+          32.295,
+          32.181,
+          36.537,
+          33.103,
+          31.743,
+          29.406,
+          28.56,
+          32.138,
+          31.973,
+          30.787,
+          30.558,
+          30.393,
+          34.293,
+          32.123,
+          42.931,
+          44.219,
+          30.021,
+          35.614,
+          33.98,
+          34.899,
+          32.743,
+          38.817,
+          29.067,
+          30.125,
+          30.353,
+          30.901,
+          38.947,
+          32.585,
+          33.25,
+          28.726,
+          33.522,
+          30.019,
+          31.065,
+          30.088,
+          31.238,
+          31.24,
+          33.768,
+          30.452,
+          29.019,
+          37.777,
+          29.895,
+          30.95,
+          29.955,
+          28.733,
+          29.569,
+          31.678,
+          28.734,
+          28.995,
+          28.593,
+          28.737,
+          36.467,
+          33.49,
+          33.177,
+          32.642,
+          38.925,
+          34.341,
+          31.868,
+          31.372,
+          30.773,
+          30.932,
+          31.995,
+          36.654,
+          40.89,
+          38.67,
+          37.139,
+          41.995,
+          64.701,
+          58.449,
+          32.108,
+          36.485,
+          32.633,
+          29.076,
+          29.012,
+          31.924,
+          32.31,
+          32.597,
+          36.143,
+          29.418,
+          38.561,
+          29.885,
+          31.399,
+          28.948,
+          30.924,
+          31.039,
+          38.121,
+          35.036,
+          32.508,
+          29.263,
+          29.177,
+          32.002,
+          32.394,
+          31.01,
+          33.424,
+          28.618,
+          29.915,
+          28.931,
+          30.172,
+          29.309,
+          30.996,
+          32.589,
+          34.896,
+          34.309,
+          33.731,
+          32.772,
+          29.022,
+          32.011,
+          28.692,
+          30.13,
+          30.087,
+          29.087,
+          32.108,
+          41.02,
+          43.6,
+          35.748,
+          37.636,
+          30.942,
+          30.497,
+          33.775,
+          30.508,
+          30.621,
+          33.861,
+          32.67,
+          38.111,
+          31.695,
+          31.147,
+          33.11,
+          32.041,
+          30.38,
+          31.654,
+          29.921,
+          32.103,
+          32.074,
+          29.178,
+          28.923,
+          30.101,
+          37.049,
+          29.534,
+          30.001,
+          28.938,
+          30.347,
+          30.932,
+          29.566,
+          29.867,
+          28.283,
+          29.153,
+          32.138,
+          31.179,
+          32.701,
+          30.782,
+          40.852
+        ]
+      }
+    }
+  },
+  "repeatRuns": 3,
+  "runsAreDistinct": true,
+  "source": "the FRAME_TIME_BASELINE reports of each run, read from the JUnit XML of the run (desktopApp/build/test-results/test/TEST-*DesktopFrameTimeBaselineTest.xml); the test also writes the same reports to build/perf/frame-time-desktop/",
+  "publishedBy": "scripts/publish-desktop-frame-time-evidence.py"
+}

@@ -1,0 +1,67 @@
+# Smoke: the seed helper's optional wait behaves on a device as the contract says.
+#
+# Why this flow exists. The gate reads the YAML — `SeedHelperWaitTest` and
+# `SeededEntityWaitTest` hold the helper's contract in the source — but a gate
+# cannot hold what the helper does on a device. This flow is the runtime half
+# of that contract, one case per branch of it:
+#
+#   * a seed with no `WAIT_FOR` — the input is optional, the helper waits for
+#     the shell alone, and the flow waits for the row itself;
+#   * a seed with a `WAIT_FOR` — the helper waits for the row, and the flow
+#     asserts on it right away, with no wait of its own: the helper's wait is
+#     what makes that assertion safe;
+#   * a seed that writes no entity (`session=anonymous`) — no row is written,
+#     so no entity is named, and the helper does not wait for a row that is
+#     not there.
+#
+# The app is already up when the seeds run (`launch-clean`), so the helper's
+# shell wait returns at once — the case where a wait *before* the seed would
+# be satisfied by a row that was already on screen.
+#
+# The seed writes into the profile the device carries and replaces the row its
+# title names, so every run asserts on the same two rows.
+#
+# прогнан на устройстве: да (2026-11-24) — эмулятор Android, emulator-5554
+appId: com.singularity.todo
+name: smoke-seed-helper-contract
+tags:
+  - smoke
+  - regression
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# A seed with no WAIT_FOR: the input is optional, and the helper waits for
+# the shell alone. The flow waits for the row itself — the row rule.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=HelperOptionalInput&due=today"
+- extendedWaitUntil:
+    visible:
+      id: task_item_helperoptionalinput
+    timeout: 8000
+- assertVisible:
+    id: task_item_helperoptionalinput
+
+# A seed with a WAIT_FOR: the helper waits for the row, so the assertion
+# below stands on the helper's wait and needs no wait of its own.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=HelperNamedEntity&due=today"
+      WAIT_FOR: "task_item_helpernamedentity"
+- assertVisible:
+    id: task_item_helpernamedentity
+
+# A seed that writes no entity: no row, so no entity to wait for — and the
+# app still comes up.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "session=anonymous"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000
+- assertVisible:
+    id: nav_tab_today

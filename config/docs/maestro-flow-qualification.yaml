@@ -4,384 +4,6 @@
 schema: 1
 required_attempts: 3
 qualifications:
-  Maestro/flows/attachments/02-delete.yaml:
-    fingerprint: sha256:a29866156a65bebbe1a8ed3485b4602f8fa342e3d4398900fa62b7cb7dbc6207
-    qualified_at: '2026-11-23'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 344998aeaf23
-    apk_commit_sha: 344998aeaf23
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-1/02-delete.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-2/02-delete.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-3/02-delete.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-  Maestro/flows/attachments/04-persistence.yaml:
-    fingerprint: sha256:a5b820245de38cd6be4fcbf86243b4ad88d66edf92c5285fb34e57e60078421a
-    qualified_at: '2026-11-23'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 344998aeaf23
-    apk_commit_sha: 344998aeaf23
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-1/04-persistence.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-2/04-persistence.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/attachments/04-persistence/attempt-3/04-persistence.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-  Maestro/flows/attachments/01-add-url.yaml:
-    fingerprint: sha256:7728252ba94b86819ad28bab7c6cf655da90db0b7fc70251bdb7202ff55d16dd
-    qualified_at: '2026-11-23'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 344998aeaf23
-    apk_commit_sha: 344998aeaf23
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-1/01-add-url.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-2/01-add-url.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/attachments/01-add-url/attempt-3/01-add-url.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-  Maestro/flows/attachments/05-renders-correctly.yaml:
-    fingerprint: sha256:fc2fcd504d4ad2a0c025f18b898d7b575bb16e7b757d98b39d3cd4c1ce474e9d
-    qualified_at: '2026-11-23'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 344998aeaf23
-    apk_commit_sha: 344998aeaf23
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-1/05-renders-correctly.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-2/05-renders-correctly.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/attachments/05-renders-correctly/attempt-3/05-renders-correctly.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-  Maestro/flows/attachments/03-empty-url-rejected.yaml:
-    fingerprint: sha256:b0c812201cd2400b79d9a4c6fce29056d158e3ab168d42256455c42b4da55a88
-    qualified_at: '2026-11-23'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 344998aeaf23
-    apk_commit_sha: 344998aeaf23
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-1/03-empty-url-rejected.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-2/03-empty-url-rejected.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/attachments/03-empty-url-rejected/attempt-3/03-empty-url-rejected.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-  Maestro/flows/agenda/01-smart-lists.yaml:
-    fingerprint: sha256:3e12dff5cb842fffbdc1cb14ddfd98c6d330eb1e69ea70e87d9d6107854d3454
-    qualified_at: '2026-11-22'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 74b8712b414f
-    apk_commit_sha: 74b8712b414f
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-1/01-smart-lists.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-2/01-smart-lists.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-3/01-smart-lists.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
-      maestro_version: 2.10.0
-      return_code: 0
-  Maestro/flows/menu/09-attach-account-entry.yaml:
-    fingerprint: sha256:426e14f70868a1c349a48c63cc43a40d4abcbfc767bc131fdd5be4b01d3731a0
-    qualified_at: '2026-11-22'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 74b8712b414f
-    apk_commit_sha: 74b8712b414f
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-1/09-attach-account-entry.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-2/09-attach-account-entry.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-3/09-attach-account-entry.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
-      maestro_version: 2.10.0
-      return_code: 0
   Maestro/flows/negative/05-empty-search.yaml:
     fingerprint: sha256:0e4b542d1ac3b3e7598d76b746b353360b1434478f553ca72b12c6b62b0b6174
     qualified_at: '2026-11-22'
@@ -434,276 +56,6 @@ qualifications:
         serial: 0O65321F32204DD5
       commit: 74b8712b414f
       apk_commit_sha: 74b8712b414f
-      maestro_version: 2.10.0
-      return_code: 0
-  Maestro/flows/search/02-cyrillic.yaml:
-    fingerprint: sha256:7dd90779a1dc69313684a174f36f1c51d525e4ea087fc5738a7861836430a8e1
-    qualified_at: '2026-11-23'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 0d1d9f14073f
-    apk_commit_sha: 0d1d9f14073f
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-1/02-cyrillic.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 0d1d9f14073f
-      apk_commit_sha: 0d1d9f14073f
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-2/02-cyrillic.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 0d1d9f14073f
-      apk_commit_sha: 0d1d9f14073f
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-3/02-cyrillic.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 0d1d9f14073f
-      apk_commit_sha: 0d1d9f14073f
-      maestro_version: 2.10.0
-      return_code: 0
-  Maestro/flows/tasks/open-task-detail.yaml:
-    fingerprint: sha256:2b20dc0da91a28e0442a6589b59f9efb3b145aa7ab789a0a94644e55fa3ce4da
-    qualified_at: '2026-11-22'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 74b8712b414f
-    apk_commit_sha: 74b8712b414f
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-1/open-task-detail.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-2/open-task-detail.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-3/open-task-detail.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 74b8712b414f
-      apk_commit_sha: 74b8712b414f
-      maestro_version: 2.10.0
-      return_code: 0
-  Maestro/flows/search/07-saved-search.yaml:
-    fingerprint: sha256:0cea19d446ed86afec426f0cdc5f40ea6a1c73473d0c9fee9926ec56e33cc235
-    qualified_at: '2026-11-23'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 344998aeaf23
-    apk_commit_sha: 344998aeaf23
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-1/07-saved-search.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-2/07-saved-search.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-3/07-saved-search.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-  Maestro/flows/auth/05-session-invalidation.yaml:
-    fingerprint: sha256:1449713c9b893068f95d124a02363333ae0b6fdb329f07e7bf13322e3db809c4
-    qualified_at: '2026-11-23'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 344998aeaf23
-    apk_commit_sha: 344998aeaf23
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-1/05-session-invalidation.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-2/05-session-invalidation.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-3/05-session-invalidation.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-  Maestro/flows/search/13-suggestion-dismissal.yaml:
-    fingerprint: sha256:74ab4a2f3b2443995518735d269a984362e74274b3c5ba603664f296a7bac2dd
-    qualified_at: '2026-11-23'
-    environment:
-      kind: device
-      api: 35
-      device: RMX3938
-      serial: 0O65321F32204DD5
-    commit: 344998aeaf23
-    apk_commit_sha: 344998aeaf23
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-1/13-suggestion-dismissal.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-2/13-suggestion-dismissal.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-3/13-suggestion-dismissal.xml
-      environment:
-        kind: device
-        api: 35
-        device: RMX3938
-        serial: 0O65321F32204DD5
-      commit: 344998aeaf23
-      apk_commit_sha: 344998aeaf23
       maestro_version: 2.10.0
       return_code: 0
   Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml:
@@ -760,60 +112,6 @@ qualifications:
       apk_commit_sha: e74c7bb9fa17
       maestro_version: 2.10.0
       return_code: 0
-  Maestro/flows/menu/06-tree-live.yaml:
-    fingerprint: sha256:0c27d6aa132f9741a8bbc28ea3ed692419c7add574894f8ae1774a6a151141b7
-    qualified_at: '2026-11-24'
-    environment:
-      kind: emulator
-      api: 36
-      device: sdk_gphone64_x86_64
-      serial: emulator-5554
-    commit: cb084683b66e
-    apk_commit_sha: cb084683b66e
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-1/06-tree-live.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5554
-      commit: cb084683b66e
-      apk_commit_sha: cb084683b66e
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-2/06-tree-live.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5554
-      commit: cb084683b66e
-      apk_commit_sha: cb084683b66e
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-3/06-tree-live.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5554
-      commit: cb084683b66e
-      apk_commit_sha: cb084683b66e
-      maestro_version: 2.10.0
-      return_code: 0
   Maestro/flows/sync/01-change-sync-interval.yaml:
     fingerprint: sha256:d6682af4cf94fa6a6426add809b2c09dd21f9ef2dd761906c4b2173b88a3f6f3
     qualified_at: '2026-11-24'
@@ -868,34 +166,3102 @@ qualifications:
       apk_commit_sha: cb084683b66e
       maestro_version: 2.10.0
       return_code: 0
-exceptions:
+  Maestro/flows/agenda/01-smart-lists.yaml:
+    fingerprint: sha256:5ef34d875dad5f560c1e0802cb7d0b5b77f8cc3202cdeb315eb0a43e21b4af27
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-1/01-smart-lists.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-2/01-smart-lists.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/agenda/01-smart-lists/attempt-3/01-smart-lists.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/agenda/07-large-overdue.yaml:
+    fingerprint: sha256:5bae3bd5241573487716235145f3d0a61ecc76bc0a9d92d865bfafe3e429c38b
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5564
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/agenda/07-large-overdue/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/agenda/07-large-overdue/attempt-1/07-large-overdue.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5564
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/agenda/07-large-overdue/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/agenda/07-large-overdue/attempt-2/07-large-overdue.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5564
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/agenda/07-large-overdue/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/agenda/07-large-overdue/attempt-3/07-large-overdue.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5564
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/logbook/TASK-LOG-02.yaml:
+    fingerprint: sha256:ec1f986d41409f462b9839cfe68bfc1f53fca56943908657b7ede86070b4281f
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5564
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/logbook/TASK-LOG-02/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/logbook/TASK-LOG-02/attempt-1/TASK-LOG-02.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5564
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/logbook/TASK-LOG-02/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/logbook/TASK-LOG-02/attempt-2/TASK-LOG-02.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5564
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/logbook/TASK-LOG-02/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/logbook/TASK-LOG-02/attempt-3/TASK-LOG-02.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5564
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/toggle-task-complete.yaml:
+    fingerprint: sha256:17b37f3dbbacfed94d28c222660b69753915b381f15c4fdb6c68ca8a12df4b5f
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5564
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/toggle-task-complete/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/toggle-task-complete/attempt-1/toggle-task-complete.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5564
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/toggle-task-complete/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/toggle-task-complete/attempt-2/toggle-task-complete.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5564
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/toggle-task-complete/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/toggle-task-complete/attempt-3/toggle-task-complete.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5564
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/attachments/02-delete.yaml:
+    fingerprint: sha256:a68e2988551429ed94391d919b18fb4a48de7972027d2729dbe0452d6610d9d3
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-1/02-delete.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-2/02-delete.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/attachments/02-delete/attempt-3/02-delete.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/open-task-detail.yaml:
+    fingerprint: sha256:9bcd41e4d5b570ffc6ad563865269c8086e21228f03630cc5f99f48ec88a02f9
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-1/open-task-detail.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-2/open-task-detail.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/open-task-detail/attempt-3/open-task-detail.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/search/07-saved-search.yaml:
+    fingerprint: sha256:cdd0d64a08b74e68642d85e2c5636b7aded466ee054793000bad15bcca80580c
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-1/07-saved-search.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-2/07-saved-search.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/search/07-saved-search/attempt-3/07-saved-search.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/archive/01-restore.yaml:
+    fingerprint: sha256:a16a95ba5d58ebe375fe767759571f4b9a2b2120d15ef36c909c2b6f41902e80
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/archive/01-restore/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/archive/01-restore/attempt-1/01-restore.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/archive/01-restore/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/archive/01-restore/attempt-2/01-restore.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/archive/01-restore/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/archive/01-restore/attempt-3/01-restore.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/menu/05-tree-contents.yaml:
+    fingerprint: sha256:6acbba30e1520a44a86dc7d9d96f25565b8a396996e0e7b58edca838fa16a9ae
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/05-tree-contents/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/menu/05-tree-contents/attempt-1/05-tree-contents.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/05-tree-contents/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/menu/05-tree-contents/attempt-2/05-tree-contents.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/05-tree-contents/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/menu/05-tree-contents/attempt-3/05-tree-contents.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/menu/10-large-projects.yaml:
+    fingerprint: sha256:ce3811487b9c6fb633c3046eabe4be0a783e357d712b78ca565e1d6ec74428d8
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/10-large-projects/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/menu/10-large-projects/attempt-1/10-large-projects.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/10-large-projects/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/menu/10-large-projects/attempt-2/10-large-projects.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/10-large-projects/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/menu/10-large-projects/attempt-3/10-large-projects.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/pomodoro/02-start-focus-task.yaml:
+    fingerprint: sha256:24c9b36b6e8ca3187097392f224f871edf0508d3de07b6cb60bc4cda4c853db1
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/pomodoro/02-start-focus-task/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/pomodoro/02-start-focus-task/attempt-1/02-start-focus-task.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/pomodoro/02-start-focus-task/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/pomodoro/02-start-focus-task/attempt-2/02-start-focus-task.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/pomodoro/02-start-focus-task/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/pomodoro/02-start-focus-task/attempt-3/02-start-focus-task.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/pomodoro/05-stop-resets.yaml:
+    fingerprint: sha256:1320801e43e08ab96351c159e987edff53d727870a75932725d6dd4412294c4e
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/pomodoro/05-stop-resets/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/pomodoro/05-stop-resets/attempt-1/05-stop-resets.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/pomodoro/05-stop-resets/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/pomodoro/05-stop-resets/attempt-2/05-stop-resets.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/pomodoro/05-stop-resets/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/pomodoro/05-stop-resets/attempt-3/05-stop-resets.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/search/03-clear.yaml:
+    fingerprint: sha256:2d6fb98e84bb3c0f2b5a5e2121f9a6e2b4187be89219fb45a4ba8a3a2938bca1
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-1/03-clear.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-2/03-clear.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/search/03-clear/attempt-3/03-clear.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/search/10-task-card-actions.yaml:
+    fingerprint: sha256:1a5a88b63c50c99077e6a815746a761cd7675a05dca5037a050bbacd51560d19
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/10-task-card-actions/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/search/10-task-card-actions/attempt-1/10-task-card-actions.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/10-task-card-actions/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/search/10-task-card-actions/attempt-2/10-task-card-actions.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/10-task-card-actions/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/search/10-task-card-actions/attempt-3/10-task-card-actions.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/smoke/03-health-drilldown.yaml:
+    fingerprint: sha256:18673075d0cad8fc4b38133caf95762c6f9717189320d40ca993fe47f7852db4
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/03-health-drilldown/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/smoke/03-health-drilldown/attempt-1/03-health-drilldown.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/03-health-drilldown/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/smoke/03-health-drilldown/attempt-2/03-health-drilldown.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/03-health-drilldown/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/smoke/03-health-drilldown/attempt-3/03-health-drilldown.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/sync/01-offline-create-survives-reconnect.yaml:
+    fingerprint: sha256:97547d1436ebbcbf0410beb1ba2f5cfb3fb3c82a5c8d61bb1a6415d0ff714a04
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/sync/01-offline-create-survives-reconnect/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/sync/01-offline-create-survives-reconnect/attempt-1/01-offline-create-survives-reconnect.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/sync/01-offline-create-survives-reconnect/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/sync/01-offline-create-survives-reconnect/attempt-2/01-offline-create-survives-reconnect.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/sync/01-offline-create-survives-reconnect/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/sync/01-offline-create-survives-reconnect/attempt-3/01-offline-create-survives-reconnect.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/01-set-priority.yaml:
+    fingerprint: sha256:2c4abeadedd421372bfbb07a0e185202f382c56c26a908b7da4f079d937f4a61
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/01-set-priority/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/01-set-priority/attempt-1/01-set-priority.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/01-set-priority/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/01-set-priority/attempt-2/01-set-priority.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/01-set-priority/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/01-set-priority/attempt-3/01-set-priority.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/04-delete.yaml:
+    fingerprint: sha256:a2a0a1233bdc2a3bd3f517ac830cd61849a7588820595b64c86d4703d937f7ce
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/04-delete/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/04-delete/attempt-1/04-delete.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/04-delete/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/04-delete/attempt-2/04-delete.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/04-delete/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/04-delete/attempt-3/04-delete.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/07-cyrillic-title.yaml:
+    fingerprint: sha256:c8c8a4bd30dbb1ed7beb9c87d796e334e28284daed82168739c772bb0d8d7dae
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/07-cyrillic-title/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/07-cyrillic-title/attempt-1/07-cyrillic-title.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/07-cyrillic-title/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/07-cyrillic-title/attempt-2/07-cyrillic-title.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/07-cyrillic-title/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/07-cyrillic-title/attempt-3/07-cyrillic-title.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/10-swipe-delete-undo.yaml:
+    fingerprint: sha256:804942c891bad8da2af9d40449c9dabdfcd4ad4e1f8120467d29cbb57ea20c30
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/10-swipe-delete-undo/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/10-swipe-delete-undo/attempt-1/10-swipe-delete-undo.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/10-swipe-delete-undo/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/10-swipe-delete-undo/attempt-2/10-swipe-delete-undo.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/10-swipe-delete-undo/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/10-swipe-delete-undo/attempt-3/10-swipe-delete-undo.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/22-planning-someday.yaml:
+    fingerprint: sha256:3a05aa24417588c2965ffaa98aeef3212cfef783cfbaf1b40293f4c066746653
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/22-planning-someday/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/22-planning-someday/attempt-1/22-planning-someday.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/22-planning-someday/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/22-planning-someday/attempt-2/22-planning-someday.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/22-planning-someday/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/22-planning-someday/attempt-3/22-planning-someday.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
   Maestro/flows/archive/02-bulk-archive-confirm.yaml:
-    fingerprint: sha256:793db33e3909688eeceef23a368f96d298fa72e61d67c9218d0b647f7cf293ca
-    reason: 'The flow was split by gazon1/sing#3126: the confirmation and cancellation
-      behaviour moved to the desktop behaviour owner and what is left is the Android
-      residue (long-press context sheet, archive overflow popup ids, the modal result
-      dialog). That content was never requalified on a device. The baseline entry
-      on main records the plain sha256 of the flow file rather than the flow''s fingerprint
-      (the gate compares the fingerprint -- the flow plus its transitive helper dependencies),
-      so the entry no longer matches and the gate reports a stale baseline. This PR
-      does not re-baseline the flow: re-baselining would admit changed device content
-      without the qualification the gate asks for. It is admitted here by an explicit
-      exception instead, so the admission is a recorded decision rather than a quiet
-      hash update. The baseline repair itself belongs on main, where the flow was
-      changed.'
-    evidence: gazon1/sing#3126
+    fingerprint: sha256:f87f68194024ffc4b273bb33472858097dbff618dda416c53ee4fec5cf6b02e5
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/archive/02-bulk-archive-confirm/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/archive/02-bulk-archive-confirm/attempt-1/02-bulk-archive-confirm.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/archive/02-bulk-archive-confirm/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/archive/02-bulk-archive-confirm/attempt-2/02-bulk-archive-confirm.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/archive/02-bulk-archive-confirm/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/archive/02-bulk-archive-confirm/attempt-3/02-bulk-archive-confirm.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/auth/04-signin-with-seeded-data.yaml:
+    fingerprint: sha256:332524d0b35f98b9e091e39dfba9388417d713dc1ab60b452a68f90ecbd89ba3
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/04-signin-with-seeded-data/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/auth/04-signin-with-seeded-data/attempt-1/04-signin-with-seeded-data.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/04-signin-with-seeded-data/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/auth/04-signin-with-seeded-data/attempt-2/04-signin-with-seeded-data.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/04-signin-with-seeded-data/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/auth/04-signin-with-seeded-data/attempt-3/04-signin-with-seeded-data.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/auth/10-attach-account-validation-error.yaml:
+    fingerprint: sha256:a5fe838d727644574d197399c4641f46c96ffc59f5088b36c3fb854bdfaf0476
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/10-attach-account-validation-error/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/auth/10-attach-account-validation-error/attempt-1/10-attach-account-validation-error.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/10-attach-account-validation-error/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/auth/10-attach-account-validation-error/attempt-2/10-attach-account-validation-error.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/10-attach-account-validation-error/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/auth/10-attach-account-validation-error/attempt-3/10-attach-account-validation-error.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/auth/05-session-invalidation.yaml:
+    fingerprint: sha256:5a1b81607ecc1111bfd42996046f6632557c9c44699370c8e2013babd32e7bab
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5568
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-1/05-session-invalidation.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-2/05-session-invalidation.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/auth/05-session-invalidation/attempt-3/05-session-invalidation.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/backup/01-round-trip.yaml:
+    fingerprint: sha256:304deb75e69978fb166a7c390b2409bdbdd87d0432176ac0b6e6e6d91c703773
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5568
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/backup/01-round-trip/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/backup/01-round-trip/attempt-1/01-round-trip.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/backup/01-round-trip/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/backup/01-round-trip/attempt-2/01-round-trip.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/backup/01-round-trip/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/backup/01-round-trip/attempt-3/01-round-trip.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/nav/deep-link-task.yaml:
+    fingerprint: sha256:747b8752b4029b43b468593448de5e0b7622c5ddb1ae4151d1f9a888b8a009f4
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5568
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/nav/deep-link-task/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/nav/deep-link-task/attempt-1/deep-link-task.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/nav/deep-link-task/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/nav/deep-link-task/attempt-2/deep-link-task.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/nav/deep-link-task/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/nav/deep-link-task/attempt-3/deep-link-task.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/search/04-filter-description.yaml:
+    fingerprint: sha256:434e0ff34c52f28052698ce2af72d272f36e2b4133ac514fcf617ef5a355e606
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5568
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/04-filter-description/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/search/04-filter-description/attempt-1/04-filter-description.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/04-filter-description/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/search/04-filter-description/attempt-2/04-filter-description.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/04-filter-description/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/search/04-filter-description/attempt-3/04-filter-description.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/search/09-contains-mode.yaml:
+    fingerprint: sha256:6216505cc5602c6974d0049689e3a5e4cdcd5f08d4a9e9ce9a0f1a4fbb296d6a
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5568
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-1/09-contains-mode.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-2/09-contains-mode.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-3/09-contains-mode.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/menu/09-attach-account-entry.yaml:
+    fingerprint: sha256:14c56815530b3bd506ccaae38eba27fc55cc04fcef1d2cdc18c9cdad083cd3d9
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-1/09-attach-account-entry.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-2/09-attach-account-entry.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/menu/09-attach-account-entry/attempt-3/09-attach-account-entry.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/auth/01-first-run-anonymous.yaml:
+    fingerprint: sha256:d6304dd4dce1e2a20f0b56ed7948eb397dfc2910b4f19841bb8708cebe8b7ee8
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/01-first-run-anonymous/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/auth/01-first-run-anonymous/attempt-1/01-first-run-anonymous.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/01-first-run-anonymous/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/auth/01-first-run-anonymous/attempt-2/01-first-run-anonymous.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/01-first-run-anonymous/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/auth/01-first-run-anonymous/attempt-3/01-first-run-anonymous.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/auth/07-account-attach.yaml:
+    fingerprint: sha256:d9a5add3e43bb22170142e97e0496a9d61b229b20284da611048f1d2bbd94a2d
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/07-account-attach/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/auth/07-account-attach/attempt-1/07-account-attach.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/07-account-attach/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/auth/07-account-attach/attempt-2/07-account-attach.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/auth/07-account-attach/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/auth/07-account-attach/attempt-3/07-account-attach.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/menu/03-open-project.yaml:
+    fingerprint: sha256:fb9f889b5c982a85f4b10fad1498a9ab0f8d9caec9f47088336d2051c8e31200
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 52fe5b1d6660
+    apk_commit_sha: 52fe5b1d6660
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/03-open-project/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/menu/03-open-project/attempt-1/03-open-project.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/03-open-project/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/menu/03-open-project/attempt-2/03-open-project.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/03-open-project/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/menu/03-open-project/attempt-3/03-open-project.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 52fe5b1d6660
+      apk_commit_sha: 52fe5b1d6660
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/menu/01-projects-roots.yaml:
+    fingerprint: sha256:e7fe9a981162495b69418fcd63e3ffbd31cdca06854ecb33f064d5f479b3d789
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/01-projects-roots/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/menu/01-projects-roots/attempt-1/01-projects-roots.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/01-projects-roots/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/menu/01-projects-roots/attempt-2/01-projects-roots.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/01-projects-roots/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/menu/01-projects-roots/attempt-3/01-projects-roots.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/notes/03-internal-link-navigation.yaml:
+    fingerprint: sha256:fe4f396d3fb3b775795e56eb94bf7999dc56f0f7fa2c9c0e031448ee1404e37d
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/notes/03-internal-link-navigation/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/notes/03-internal-link-navigation/attempt-1/03-internal-link-navigation.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/notes/03-internal-link-navigation/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/notes/03-internal-link-navigation/attempt-2/03-internal-link-navigation.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/notes/03-internal-link-navigation/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/notes/03-internal-link-navigation/attempt-3/03-internal-link-navigation.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/profile/02-isolation.yaml:
+    fingerprint: sha256:48fc264073e8f747b65cf189c2183adac2da4aaa0967942d27446664955fcf32
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/profile/02-isolation/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/profile/02-isolation/attempt-1/02-isolation.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/profile/02-isolation/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/profile/02-isolation/attempt-2/02-isolation.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/profile/02-isolation/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/profile/02-isolation/attempt-3/02-isolation.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/search/08-word-prefix.yaml:
+    fingerprint: sha256:22962705eebe0cd64049cb15b0fa5f0ade0a59f20737d3b882e486d562145ee9
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-1/08-word-prefix.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-2/08-word-prefix.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/search/08-word-prefix/attempt-3/08-word-prefix.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/smoke/06-session-anonymous.yaml:
+    fingerprint: sha256:416a6b83ae385d78437137a673cd28b6fedb8d7d6ff3164ebfe2762f0324eba7
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/06-session-anonymous/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/smoke/06-session-anonymous/attempt-1/06-session-anonymous.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/06-session-anonymous/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/smoke/06-session-anonymous/attempt-2/06-session-anonymous.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/06-session-anonymous/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/smoke/06-session-anonymous/attempt-3/06-session-anonymous.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/system/seed-unknown-key.yaml:
+    fingerprint: sha256:affbd239dc7b818dad5f1801e5cf874060cc0b57e31bd20a412096379a2e20d4
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/system/seed-unknown-key/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/system/seed-unknown-key/attempt-1/seed-unknown-key.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/system/seed-unknown-key/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/system/seed-unknown-key/attempt-2/seed-unknown-key.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/system/seed-unknown-key/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/system/seed-unknown-key/attempt-3/seed-unknown-key.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/05-archive-via-menu.yaml:
+    fingerprint: sha256:1ebc7686038a7c2cf19f5223c134cb4d4054f39099dfd3fddbca61822de1db52
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/05-archive-via-menu/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/05-archive-via-menu/attempt-1/05-archive-via-menu.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/05-archive-via-menu/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/05-archive-via-menu/attempt-2/05-archive-via-menu.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/05-archive-via-menu/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/05-archive-via-menu/attempt-3/05-archive-via-menu.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/18-time-tracking-start-stop.yaml:
+    fingerprint: sha256:7979d94bed3481c33dcd7ce8d0194791f1811606f722eb2d7f6bd4ef7f394053
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5562
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/18-time-tracking-start-stop/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/18-time-tracking-start-stop/attempt-1/18-time-tracking-start-stop.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/18-time-tracking-start-stop/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/18-time-tracking-start-stop/attempt-2/18-time-tracking-start-stop.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/18-time-tracking-start-stop/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/18-time-tracking-start-stop/attempt-3/18-time-tracking-start-stop.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5562
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/lifecycle/01-kill-restart-persist.yaml:
+    fingerprint: sha256:ddcb8058df1b22dfa47658e69209c008269040001e1bd41a30131b19611fc7d3
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/lifecycle/01-kill-restart-persist/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/lifecycle/01-kill-restart-persist/attempt-1/01-kill-restart-persist.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/lifecycle/01-kill-restart-persist/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/lifecycle/01-kill-restart-persist/attempt-2/01-kill-restart-persist.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/lifecycle/01-kill-restart-persist/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/lifecycle/01-kill-restart-persist/attempt-3/01-kill-restart-persist.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/menu/04-all-projects.yaml:
+    fingerprint: sha256:6df86f08d09d3f775ed3d48b09be666cb6e027da725d0ad9bfe4866b218ed375
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/04-all-projects/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/menu/04-all-projects/attempt-1/04-all-projects.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/04-all-projects/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/menu/04-all-projects/attempt-2/04-all-projects.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/04-all-projects/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/menu/04-all-projects/attempt-3/04-all-projects.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/pomodoro/03-pause-resume.yaml:
+    fingerprint: sha256:ae2a78ab89524c59cbac54dd70a633c412cdef1e6adcf72e074c67857adcade5
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/pomodoro/03-pause-resume/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/pomodoro/03-pause-resume/attempt-1/03-pause-resume.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/pomodoro/03-pause-resume/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/pomodoro/03-pause-resume/attempt-2/03-pause-resume.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/pomodoro/03-pause-resume/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/pomodoro/03-pause-resume/attempt-3/03-pause-resume.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/search/02-cyrillic.yaml:
+    fingerprint: sha256:f6a842aff530337474062c80fdd4024f6347a519c1b4e0b46aeaa332f4ce8b2e
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-1/02-cyrillic.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-2/02-cyrillic.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/search/02-cyrillic/attempt-3/02-cyrillic.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/smoke/07-seed-helper-contract.yaml:
+    fingerprint: sha256:e7efc7772620e758102091111df8145f171a34e07a0890dae61cfe3eeebc22a7
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-1/07-seed-helper-contract.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-2/07-seed-helper-contract.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/smoke/07-seed-helper-contract/attempt-3/07-seed-helper-contract.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/02-set-due-date.yaml:
+    fingerprint: sha256:f064b38bd040a0f51117b5e64a91f5f4d9b8e44cd5a2f4bb5c97d3ff6acdaf6c
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/02-set-due-date/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/02-set-due-date/attempt-1/02-set-due-date.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/02-set-due-date/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/02-set-due-date/attempt-2/02-set-due-date.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/02-set-due-date/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/02-set-due-date/attempt-3/02-set-due-date.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/20-planning-deadline.yaml:
+    fingerprint: sha256:3f61c3d43e399f73fa50d86037668ffe5a201e6bd87999c94d8e47926e97d206
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/20-planning-deadline/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/20-planning-deadline/attempt-1/20-planning-deadline.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/20-planning-deadline/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/20-planning-deadline/attempt-2/20-planning-deadline.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/20-planning-deadline/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/20-planning-deadline/attempt-3/20-planning-deadline.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/subtasks/TASK-SUB-01.yaml:
+    fingerprint: sha256:671d5444667e6c3c45d6d0bef1a928dacec5030987f882ba83bc895b1105dbb0
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5566
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/subtasks/TASK-SUB-01/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/subtasks/TASK-SUB-01/attempt-1/TASK-SUB-01.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/subtasks/TASK-SUB-01/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/subtasks/TASK-SUB-01/attempt-2/TASK-SUB-01.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/subtasks/TASK-SUB-01/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/subtasks/TASK-SUB-01/attempt-3/TASK-SUB-01.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5566
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/menu/06-tree-live.yaml:
+    fingerprint: sha256:991fe90a12be3a825fd1a9b01b77d954c88ed78ce55425264feea2f21b38f95b
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5568
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-1/06-tree-live.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-2/06-tree-live.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/menu/06-tree-live/attempt-3/06-tree-live.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/search/13-suggestion-dismissal.yaml:
+    fingerprint: sha256:9581a05d5495614af446baafca4c3416b8449267f5f39b5307a13079120ba1b8
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5568
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-1/13-suggestion-dismissal.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-2/13-suggestion-dismissal.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/search/13-suggestion-dismissal/attempt-3/13-suggestion-dismissal.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/system/search-finds-task.yaml:
+    fingerprint: sha256:e02f031e45d59573a7f2cbd0ee3a45970b3b6d8fd509985c4dc3533e446696dd
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5568
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/system/search-finds-task/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/system/search-finds-task/attempt-1/search-finds-task.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/system/search-finds-task/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/system/search-finds-task/attempt-2/search-finds-task.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/system/search-finds-task/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/system/search-finds-task/attempt-3/search-finds-task.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/03-due-date-cancel.yaml:
+    fingerprint: sha256:5ab94c010b31c852551a4cf3625318671297af2213545fc9c6231f7905258dd9
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5568
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/03-due-date-cancel/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/03-due-date-cancel/attempt-1/03-due-date-cancel.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/03-due-date-cancel/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/03-due-date-cancel/attempt-2/03-due-date-cancel.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/03-due-date-cancel/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/03-due-date-cancel/attempt-3/03-due-date-cancel.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/08-date-buckets.yaml:
+    fingerprint: sha256:d635b2f6787730687520f0bc9e5a53a2fc23d1cc3da4c759b25a7588e2a8bf16
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5568
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/08-date-buckets/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/08-date-buckets/attempt-1/08-date-buckets.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/08-date-buckets/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/08-date-buckets/attempt-2/08-date-buckets.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/08-date-buckets/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/08-date-buckets/attempt-3/08-date-buckets.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+  Maestro/flows/tasks/16-return-to-source-tab.yaml:
+    fingerprint: sha256:c4bb4b5a1cfb607a93ea7cc4b6d897fe8f444e467492c63b42188e25e465a6ff
+    qualified_at: '2026-11-24'
+    environment:
+      kind: emulator
+      api: 36
+      device: sdk_gphone64_x86_64
+      serial: emulator-5568
+    commit: 38f87de9b959
+    apk_commit_sha: 38f87de9b959
+    maestro_version: 2.10.0
+    attempts:
+    - attempt: 1
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/16-return-to-source-tab/attempt-1
+      junit: build/maestro-qualification/Maestro/flows/tasks/16-return-to-source-tab/attempt-1/16-return-to-source-tab.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 2
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/16-return-to-source-tab/attempt-2
+      junit: build/maestro-qualification/Maestro/flows/tasks/16-return-to-source-tab/attempt-2/16-return-to-source-tab.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+    - attempt: 3
+      outcome: pass
+      reason: test passed
+      results_dir: build/maestro-qualification/Maestro/flows/tasks/16-return-to-source-tab/attempt-3
+      junit: build/maestro-qualification/Maestro/flows/tasks/16-return-to-source-tab/attempt-3/16-return-to-source-tab.xml
+      environment:
+        kind: emulator
+        api: 36
+        device: sdk_gphone64_x86_64
+        serial: emulator-5568
+      commit: 38f87de9b959
+      apk_commit_sha: 38f87de9b959
+      maestro_version: 2.10.0
+      return_code: 0
+exceptions:
+  Maestro/flows/attachments/01-add-url.yaml:
+    fingerprint: sha256:59caa6cc64027e9eba4f3d22ed5f61365b76195889166ff359549f80e69bcbcf
+    reason: 'The flow fails on the sheet that owns the row: the sheet that holds `attachments_add_file_row`
+      has no trigger in the UI, so the flow never reaches the row it asserts on. The
+      cause is owned by #818 and is recorded in `config/docs/maestro-debt.yaml`. The
+      flow itself was not changed by PR #3130 — what changed is the fingerprint its
+      baseline entry was written against, because the flow runs the seed helper the
+      PR changed. The requalification of 2026-11-25 failed on all three attempts with
+      the same message the debt file names.'
+    evidence: gazon1/sing#818
+  Maestro/flows/attachments/03-empty-url-rejected.yaml:
+    fingerprint: sha256:16aaf1ad7b54b7797540cc7161a23811beca091948ee530f1e6b937b02c0076b
+    reason: 'The flow fails on the sheet that owns the row: the sheet that holds `attachments_add_file_row`
+      has no trigger in the UI, so the flow never reaches the row it asserts on. The
+      cause is owned by #818 and is recorded in `config/docs/maestro-debt.yaml`. The
+      flow itself was not changed by PR #3130 — what changed is the fingerprint its
+      baseline entry was written against, because the flow runs the seed helper the
+      PR changed. The requalification of 2026-11-25 failed on all three attempts with
+      the same message the debt file names.'
+    evidence: gazon1/sing#818
+  Maestro/flows/attachments/04-persistence.yaml:
+    fingerprint: sha256:fdf6bf18d23f5601b5b88806dfe5d4d1bba59337767ecb648369ba73d5f0a34a
+    reason: 'The flow fails on the sheet that owns the row: the sheet that holds `attachments_add_file_row`
+      has no trigger in the UI, so the flow never reaches the row it asserts on. The
+      cause is owned by #818 and is recorded in `config/docs/maestro-debt.yaml`. The
+      flow itself was not changed by PR #3130 — what changed is the fingerprint its
+      baseline entry was written against, because the flow runs the seed helper the
+      PR changed. The requalification of 2026-11-25 failed on all three attempts with
+      the same message the debt file names.'
+    evidence: gazon1/sing#818
+  Maestro/flows/attachments/05-renders-correctly.yaml:
+    fingerprint: sha256:1c8fe2499594980843ecf4225f9cb35b4eee20e27bc67d2df61bae4a2e5c4399
+    reason: 'The flow fails on the sheet that owns the row: the sheet that holds `attachments_add_file_row`
+      has no trigger in the UI, so the flow never reaches the row it asserts on. The
+      cause is owned by #818 and is recorded in `config/docs/maestro-debt.yaml`. The
+      flow itself was not changed by PR #3130 — what changed is the fingerprint its
+      baseline entry was written against, because the flow runs the seed helper the
+      PR changed. The requalification of 2026-11-25 failed on all three attempts with
+      the same message the debt file names.'
+    evidence: gazon1/sing#818
+  Maestro/flows/lifecycle/03-rotate-in-editor.yaml:
+    fingerprint: sha256:642d4373bce8cb0e556beccb5d2f122a4d88bb581f6df7480b44a5ee79fd2a5e
+    reason: 'The flow fails on the editor''s title field: the field is on the screen
+      but not visible after the rotation, so the flow never reaches the title it asserts
+      on. The cause is owned by #837 and is recorded in `config/docs/maestro-debt.yaml`.
+      The flow itself was not changed by PR #3130 — what changed is the fingerprint
+      its baseline entry was written against, because the flow runs the seed helper
+      the PR changed. The requalification of 2026-11-25 failed on all three attempts
+      with the same message the debt file names.'
+    evidence: gazon1/sing#837
+  Maestro/flows/pomodoro/04-skip-to-break.yaml:
+    fingerprint: sha256:320f924b4519d4b1128a585d45fbe8363210bba2f6c26da8509439a7864ab336
+    reason: 'The flow fails before it reaches the Pomodoro: the menu''s own `menu_pomodoro`
+      row is not on the screen, so the flow cannot open the destination it seeds a
+      task for. The flow itself was not changed by PR #3130 — what changed is the
+      fingerprint its baseline entry was written against, because the flow runs the
+      seed helper the PR changed. The requalification of 2026-11-25 failed on all
+      three attempts with this message; it is a cause of its own, tracked by the requalification
+      issue.'
+    evidence: gazon1/sing#3191
+  Maestro/flows/search/05-filter-pinned.yaml:
+    fingerprint: sha256:8439e2d92e75ac31144ed52fc7eb815a0d54bae60cc2c32c9397f112d2141cd7
+    reason: 'The flow fails on the editor''s pin row: `task_editor_pin_row` is not
+      on the screen, so the flow never reaches the pin it asserts on. The flow itself
+      was not changed by PR #3130 — what changed is the fingerprint its baseline entry
+      was written against, because the flow runs the seed helper the PR changed. The
+      requalification of 2026-11-25 failed on all three attempts with this message;
+      it is a cause of its own, tracked by the requalification issue.'
+    evidence: gazon1/sing#3191
+  Maestro/flows/search/12-no-results-recovery.yaml:
+    fingerprint: sha256:6d66678d2222e8dca6a9aebb1081e0fdd729b0e58f5cfbd2ea1cbf84d96e69af
+    reason: 'The flow fails on the way out of the empty state: `search_clear_query_button`
+      is on the screen but not visible, so the flow never reaches the way out it asserts
+      on. The flow itself was not changed by PR #3130 — what changed is the fingerprint
+      its baseline entry was written against, because the flow runs the seed helper
+      the PR changed. The requalification of 2026-11-25 failed on all three attempts
+      with this message; it is a cause of its own, tracked by the requalification
+      issue.'
+    evidence: gazon1/sing#3191
+  Maestro/flows/tasks/06-delete-undo.yaml:
+    fingerprint: sha256:e44b6e030b81fc353046be7189b0f0609c345ad34fc3b6e1fa6d381348fc1842
+    reason: 'The flow fails on the row it undoes: after Delete, Undo and Back the
+      row is still archived in the database, so the undo does not put the task back.
+      The cause is owned by #2723 and is recorded in `config/docs/maestro-debt.yaml`.
+      The flow itself was not changed by PR #3130 — what changed is the fingerprint
+      its baseline entry was written against, because the flow runs the seed helper
+      the PR changed. The requalification of 2026-11-25 failed on all three attempts
+      with the same message the debt file names.'
+    evidence: gazon1/sing#2723
+  Maestro/flows/tasks/09-rename-empty.yaml:
+    fingerprint: sha256:b51f5ef9d41bc3fde53ae5f8fbfe9e5e188b0c043288274f489691fc8232a184
+    reason: 'The flow fails on the row it renames: `task_item_renameme` is on the
+      screen but not visible, so the flow never reaches the title it asserts on. The
+      cause is owned by #872 and is recorded in `config/docs/maestro-debt.yaml`. The
+      flow itself was not changed by PR #3130 — what changed is the fingerprint its
+      baseline entry was written against, because the flow runs the seed helper the
+      PR changed. The requalification of 2026-11-25 failed on all three attempts with
+      the same message the debt file names.'
+    evidence: gazon1/sing#872
   Maestro/flows/tasks/13-create-full-task.yaml:
     fingerprint: sha256:ace54426abd9fd7bec3e2ffaf3ed9e6eb2bc11de9ad2a88533db09e9ab08529c
-    reason: 'This branch does not touch the flow. Main broke the baseline pin: ac4aa0f366
-      (gazon1/sing#3117) rewrote this flow''s baseline fingerprint for a comment-only
-      change and did not update BASELINE_DIGEST, so main''s own static gate reports
-      the baseline as not matching its pin. The pin still describes the map as
-      it was at 562b391923, where this flow''s entry is 142afb41. This change keeps
-      that pinned map — a baseline only shrinks, and rewriting the matching entry
-      would admit a flow nobody qualified — and records the current fingerprint
-      as an exception instead. The exception is honest about what it is: the
-      flow is unchanged by this branch, was never requalified after the comment
-      edit, and would be admitted by the repaired baseline pin either way. Delete
-      it when the flow is requalified on a documented environment or when main
-      repairs the pin itself.'
-    evidence: gazon1/sing#3117
+    reason: 'The flow fails on the editor''s due row: `task_editor_due_row` is not
+      on the screen, so the flow never reaches the due date it asserts on. The flow
+      itself was not changed by PR #3130 — what changed is the fingerprint its baseline
+      entry was written against, because the flow runs the seed helper the PR changed.
+      The requalification of 2026-11-25 failed on all three attempts with this message;
+      it is a cause of its own, tracked by the requalification issue.'
+    evidence: gazon1/sing#3191
+  Maestro/flows/tasks/21-planning-reminder.yaml:
+    fingerprint: sha256:dfe0c0225ad5e93d17087c55b93858509ca9bce2ac85247a3431ab39657d5e3d
+    reason: 'The flow fails on the editor''s reminder row: `task_editor_reminder_row_label`
+      is on the screen but not visible, so the flow never reaches the reminder it
+      asserts on. The flow itself was not changed by PR #3130 — what changed is the
+      fingerprint its baseline entry was written against, because the flow runs the
+      seed helper the PR changed. The requalification of 2026-11-25 failed on all
+      three attempts with this message; it is a cause of its own, tracked by the requalification
+      issue.'
+    evidence: gazon1/sing#3191
+  Maestro/flows/tasks/logbook/TASK-LOG-01.yaml:
+    fingerprint: sha256:f421cdddf6a6f393b08e235cc33a0267819be214610842ee8de0da98585c07d2
+    reason: 'The flow fails on the note it wrote: the logbook''s row of that title
+      is on the screen but not visible, so the flow never reaches the note it asserts
+      on. The flow itself was not changed by PR #3130 — what changed is the fingerprint
+      its baseline entry was written against, because the flow runs the seed helper
+      the PR changed. The requalification of 2026-11-25 failed on all three attempts
+      with this message; it is a cause of its own, tracked by the requalification
+      issue.'
+    evidence: gazon1/sing#3191

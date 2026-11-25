@@ -248,6 +248,14 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_item_write_spec",
     "task_item_worktask",
     "task_item_grocery_run",
+    # taskItem(...) — seeded by the seed-helper contract flow: one seed with
+    # no WAIT_FOR and one with a WAIT_FOR
+    "task_item_helperoptionalinput",
+    "task_item_helpernamedentity",
+    # taskItem(...) — the task the nav/deep-link-task flow's link addresses:
+    # the seed names it, and the helper waits for the row before the link
+    # is sent
+    "task_item_deep_link_target",
     # taskItem(...) — from the Upcoming feed's flow: its dated rows
     "task_item_due_today",
     "task_item_due_tomorrow",

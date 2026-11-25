@@ -1,0 +1,899 @@
+package com.singularity.todo.arch
+
+import com.singularity.todo.core.ui.TestTags
+import java.nio.file.Files
+import java.nio.file.Path
+import kotlin.io.path.extension
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
+
+/**
+ * How the tree's flows are read, and the rule those flows are held to.
+ *
+ * The gate reads a flow the way it runs: every command carries the path of its
+ * own place in the flow — its index in its file, behind the `runFlow` that
+ * pulled that file in — so a wait that runs *before* the seed inside a helper
+ * is before the seed, and not beside it.
+ *
+ * The rule is the one the helper's contract promises: a flow that asserts on
+ * an entity it seeded waits for that entity first. A wait covers an assertion
+ * when it names the entity — by the row the app renders it under, by the name
+ * it is called, or by the container that renders only because the entity is in
+ * it — and when it stands between the seed that wrote the entity and the
+ * assertion.
+ */
+internal object SeedWaitTree {
+    // ── The rule ─────────────────────────────────────────────────────────────
+
+    /**
+     * The assertions on a seeded entity that no wait covers.
+     *
+     * A wait covers an assertion when it names the entity — by the row the app
+     * renders it under, by the name it is called, or by the container that
+     * renders only because the entity is in it — and when it sits between the
+     * seed that wrote the entity and the assertion.
+     *
+     * The seed matters twice over. A wait before the seed says nothing about
+     * the entity, and a seed that rewrote the row needs a wait of its own: the
+     * row is the same row, but what the flow asserts on is what the *last*
+     * seed wrote.
+     */
+    fun waitViolations(
+        label: String,
+        events: List<Event>,
+    ): RuleResult {
+        val violations = mutableListOf<String>()
+        var checked = 0
+
+        val seeds = events.filterIsInstance<Event.Seed>()
+        val waits = events.filterIsInstance<Event.Wait>()
+        val asserts = events.filterIsInstance<Event.Assert>()
+
+        for (seed in seeds) {
+            val seeded = SeedEntityModel.seededEntity(SeedEntityModel.parseQuery(seed.query))
+            // The rows an earlier seed of this flow already wrote. A row that
+            // was there before the seed cannot be the evidence that this
+            // seed's write arrived: a wait for it returns at once.
+            val earlierRows = rowsBefore(seed, seeds)
+            // The sections an earlier seed of this flow brought in. A section
+            // renders because the rows in it are there, so a seed that put a
+            // row in it made it visible — and a wait for it returns at once
+            // when the later seed runs.
+            val earlierContainers = containersBefore(seed, seeds)
+            // The names an earlier seed of the same flow already gave its
+            // entities. A wait for a name that was already on screen cannot
+            // tell this seed's write from the earlier one.
+            val earlierNames = namesBefore(seed, seeds)
+            // Whether this seed writes what an earlier seed of the same flow
+            // already wrote. The same query is the same write, and the second
+            // one changes nothing on the screen.
+            val repeated = repeatedBefore(seed, seeds)
+            // A container covers an entity only while the container is the
+            // section that the seed brings in. A section the flow already
+            // named before the seed was there before the seed, and a section
+            // an earlier seed brought in was there too — a wait for either
+            // returns at once, and it cannot be the evidence that the seeded
+            // row arrived.
+            val containers =
+                seeded.containers.filter {
+                    it !in namedBefore(seed.position, waits, asserts) && it !in earlierContainers
+                }
+            for (entity in seeded.entities) {
+                // The containers of this entity: the sections its row is in. A
+                // seed that writes several kinds of entity has containers of
+                // its own, and a wait for one of them is a wait for the rows
+                // in it and for nothing else — the wait for the row of a task
+                // says nothing about the profile the same link named, and the
+                // wait for the section of that task says nothing about it
+                // either.
+                val entityContainers = entity.containers.filter { it in containers }
+                val landingContainers = entityContainers.filter { it in LANDING_CONTAINERS }
+                // The ids of the entity: what the helper's own wait names, and
+                // what a wait for the row or the container names. The names are
+                // what a wait by text names — the helper's wait is always by
+                // id, so the names are not among its targets.
+                val ids = (entity.rows + entityContainers).toSet()
+                val handles = (ids + entity.names).toSet()
+                for (assert in asserts) {
+                    // A seed in a conditional block runs only when the
+                    // condition holds, so an assertion outside that block is
+                    // not about that seed: the seed may never have run.
+                    val onEntity = assertsEntity(assert, entity)
+                    val inScope = seed.scope == null || isInside(assert.scope, seed.scope)
+                    if (onEntity && inScope) {
+                        checked++
+                        // A wait in the flow, or the helper's own wait for the entity
+                        // the caller named — either way, after the seed and before the
+                        // assert. A wait that names the element under `notVisible`
+                        // waits for it to be gone, so it covers nothing.
+                        val waited =
+                            waits.any {
+                                it.positive &&
+                                    // A wait in a conditional block runs only when
+                                    // the condition holds, so it cannot cover an
+                                    // assertion outside that block. A wait in an
+                                    // outer block covers an assertion in a block
+                                    // nested in it: the outer block ran before
+                                    // the inner one did.
+                                    (it.scope == null || isInside(assert.scope, it.scope)) &&
+                                    it.handles.any { handle ->
+                                        handle in handles &&
+                                            distinguishes(handle, entity, earlierNames, earlierRows, repeated)
+                                    } &&
+                                    compareOrder(it.position, seed.position) >= 0 &&
+                                    compareOrder(it.position, assert.position) <= 0
+                            } ||
+                                helperWaited(seed, assert, entity, landingContainers.toSet(), earlierRows)
+                        if (!waited) {
+                            violations +=
+                                "$label: asserts ${subjectOf(assert)} without waiting for it — " +
+                                "wait for the row (${entity.rows.joinToString()}), for the " +
+                                "name it is called (${entity.names.joinToString()}) or for " +
+                                "the container it is in (${entityContainers.joinToString()})"
+                        }
+                    }
+                }
+            }
+        }
+        return RuleResult(violations, checked)
+    }
+
+    /**
+     * Whether a wait that names the handle tells this seed's write from the
+     * write an earlier seed made.
+     *
+     * A wait returns at once on an element that is already on screen, so a
+     * wait for an element an earlier seed of the same flow brought in says
+     * nothing about the write the assertion is about. What tells the writes
+     * apart is what the seed changed: a row that was not there before, a name
+     * the seed gave the entity — a rename is waited for by its new name,
+     * because the row it renamed was there already — or a section that the
+     * seed's row brought in.
+     *
+     * A seed that writes what an earlier seed already wrote is the exception:
+     * the same query is the same write, the screen does not change, and the
+     * row the assertion is about is the row that is already there.
+     */
+    private fun distinguishes(
+        handle: String,
+        entity: SeedEntityModel.Entity,
+        earlierNames: Set<String>,
+        earlierRows: Set<String>,
+        repeated: Boolean,
+    ): Boolean {
+        if (repeated) return true
+        return when {
+            handle in entity.names -> handle !in earlierNames
+
+            handle in entity.rows -> handle !in earlierRows
+
+            // A container: the section the seed's row brought in. The sections
+            // an earlier seed brought in are not among the seed's containers
+            // at all — they are filtered out before they get here.
+            else -> true
+        }
+    }
+
+    /**
+     * The names the seeds that ran before this one gave their entities.
+     *
+     * A name that was on screen before the seed cannot be the evidence that
+     * this seed's write arrived: a wait for it returns at once.
+     */
+    private fun namesBefore(
+        seed: Event.Seed,
+        seeds: List<Event.Seed>,
+    ): Set<String> =
+        seeds
+            .filter { other -> compareOrder(other.position, seed.position) < 0 }
+            .flatMap { other -> SeedEntityModel.seededEntity(SeedEntityModel.parseQuery(other.query)).entities }
+            .flatMap { entity -> entity.names }
+            .toSet()
+
+    /**
+     * Whether an earlier seed of the same flow wrote what this seed writes.
+     *
+     * The same query is the same write: the row it writes is the row that is
+     * already there, with the same content, and the screen does not change.
+     */
+    private fun repeatedBefore(
+        seed: Event.Seed,
+        seeds: List<Event.Seed>,
+    ): Boolean =
+        seeds.any { other ->
+            compareOrder(other.position, seed.position) < 0 && other.query == seed.query
+        }
+
+    /**
+     * Whether the helper's own wait covers the assertion.
+     *
+     * The helper's wait runs inside the invocation of the seed that asked for
+     * it, so it is evidence for that seed and for no other: a wait the helper
+     * made for a later seed says nothing about the entity an earlier seed
+     * wrote.
+     *
+     * And it is evidence for one entity of that seed and not for the others:
+     * a link that names a task and a profile writes two entities, and a wait
+     * for the task's row says nothing about the profile. The wait has to name
+     * the entity the assertion is about — its row, or the section that holds
+     * it.
+     *
+     * The target has to be one the seed brings onto the screen the app is left
+     * on — the rows the helper may wait for and the sections that hold them.
+     *
+     * And the target has to be able to observe the write at all. A row an
+     * earlier seed of the same flow already wrote is on screen before this
+     * seed runs, so a wait for it returns at once and proves nothing about
+     * the write the assertion is about.
+     */
+    private fun helperWaited(
+        seed: Event.Seed,
+        assert: Event.Assert,
+        entity: SeedEntityModel.Entity,
+        landingContainers: Set<String>,
+        earlierRows: Set<String>,
+    ): Boolean {
+        val waitFor = seed.waitFor ?: return false
+        val onEntity =
+            (entity.helperWaitable && waitFor in entity.rows) ||
+                waitFor in landingContainers
+        if (!onEntity) return false
+        if (waitFor in earlierRows) return false
+        return compareOrder(seed.position, assert.position) <= 0
+    }
+
+    /**
+     * The rows the seeds that ran before this one already wrote.
+     *
+     * A row that was on screen before the seed cannot be the evidence that
+     * this seed's write arrived: a wait for it returns at once.
+     */
+    private fun rowsBefore(
+        seed: Event.Seed,
+        seeds: List<Event.Seed>,
+    ): Set<String> =
+        seeds
+            .filter { other -> compareOrder(other.position, seed.position) < 0 }
+            .flatMap { other -> SeedEntityModel.seededEntity(SeedEntityModel.parseQuery(other.query)).entities }
+            .flatMap { entity -> entity.rows }
+            .toSet()
+
+    /**
+     * The sections the seeds that ran before this one brought in.
+     *
+     * A section renders because the rows in it are there. An earlier seed of
+     * the same flow put a row in that section, so the section was already on
+     * screen when this seed ran: a wait for it returns at once, and it cannot
+     * be the evidence that this seed's row arrived.
+     */
+    fun containersBefore(
+        seed: Event.Seed,
+        seeds: List<Event.Seed>,
+    ): Set<String> =
+        seeds
+            .filter { other -> compareOrder(other.position, seed.position) < 0 }
+            .flatMap { other -> SeedEntityModel.seededEntity(SeedEntityModel.parseQuery(other.query)).containers }
+            .toSet()
+
+    /**
+     * The elements the flow named before the given position.
+     *
+     * This is what tells a section the seed brings in from a section that was
+     * already there: the first is named only after the seed, the second is
+     * named before it, and a wait for the second says nothing about the row
+     * the seed wrote.
+     */
+    private fun namedBefore(
+        position: List<Int>,
+        waits: List<Event.Wait>,
+        asserts: List<Event.Assert>,
+    ): Set<String> {
+        val named = mutableSetOf<String>()
+        for (wait in waits) {
+            if (compareOrder(wait.position, position) < 0) named += wait.handles
+        }
+        for (assert in asserts) {
+            if (compareOrder(assert.position, position) < 0) assert.id?.let { named += it }
+        }
+        return named
+    }
+
+    /**
+     * Whether the assertion is about the entity the seed wrote.
+     *
+     * An assertion by id is about the entity when the id is the row the app
+     * renders it under; an assertion by text is about it when the text is the
+     * name the entity is called. A text that is not the name — a count, a
+     * heading, a pattern — is not about the entity.
+     *
+     * The entity is the one the assertion names, not the seed it came from: a
+     * seed that writes several rows writes several entities, and a wait for
+     * one of them says nothing about the others.
+     */
+    private fun assertsEntity(
+        assert: Event.Assert,
+        entity: SeedEntityModel.Entity,
+    ): Boolean =
+        (assert.id != null && assert.id in entity.rows) ||
+            (assert.text != null && assert.text in entity.names)
+
+    /** What the assertion names, for the message. */
+    private fun subjectOf(assert: Event.Assert): String = assert.id?.let { "id: $it" } ?: "text: ${assert.text}"
+
+    /** What the rule found: the assertions nothing waited for, and how many it looked at. */
+    data class RuleResult(val violations: List<String>, val checked: Int)
+
+    // ── The flow as events ───────────────────────────────────────────────────
+
+    /**
+     * One thing a flow does, and where it does it.
+     *
+     * The position is the path of the command: the index of the command in its
+     * own file, prefixed by the path of the `runFlow` that pulled that file in.
+     * So the first command of the helper invoked at index 2 sits at `[2, 0]`,
+     * behind the `runFlow` at `[2]` that invoked it and ahead of the command
+     * at `[3]`.
+     *
+     * The path is what keeps the order honest inside a helper. A flat index
+     * would give every command of a helper the index of the `runFlow` that
+     * pulled it in, and a wait that ran *before* the seed inside that helper
+     * would then look like it ran after it.
+     *
+     * A helper's own seed takes the position of the `runFlow` that pulled it
+     * in: the helper runs there, so its wait is available from there.
+     */
+    sealed interface Event {
+        val position: List<Int>
+
+        /**
+         * The conditional block the event is in, when it is in one.
+         *
+         * A command under `when:` runs only when the condition holds, so a
+         * seed inside one may never have run — and an assertion outside it
+         * cannot be about that seed. The block is named by the position of the
+         * `runFlow` that carries it, so a seed and an assertion in the same
+         * block share it.
+         */
+        val scope: List<Int>?
+
+        /** A seed: the query it seeds and the entity the caller wants waited for. */
+        data class Seed(
+            override val position: List<Int>,
+            val query: String,
+            val waitFor: String?,
+            override val scope: List<Int>? = null,
+        ) : Event
+
+        /** A wait for an element — by its id, or by the text it shows. */
+        data class Wait(
+            override val position: List<Int>,
+            val handles: Set<String>,
+            val positive: Boolean,
+            override val scope: List<Int>? = null,
+        ) : Event
+
+        /** An assertion that an element is there — by its id, or by the text it shows. */
+        data class Assert(
+            override val position: List<Int>,
+            val id: String?,
+            val text: String?,
+            override val scope: List<Int>? = null,
+        ) : Event
+    }
+
+    /**
+     * The order of two command paths.
+     *
+     * A path that is a prefix of another comes first: the `runFlow` at `[2]`
+     * runs before the first command of the helper it invokes at `[2, 0]`.
+     */
+    private fun compareOrder(
+        a: List<Int>,
+        b: List<Int>,
+    ): Int {
+        for (index in 0 until minOf(a.size, b.size)) {
+            val difference = a[index].compareTo(b[index])
+            if (difference != 0) return difference
+        }
+        return a.size.compareTo(b.size)
+    }
+
+    /**
+     * Whether an event in `scope` sits inside the conditional block `outer`.
+     *
+     * A scope is the path of the `runFlow` that carries the condition, so the
+     * scopes are a hierarchy, not a flat list: a block nested in a block is
+     * inside it. An assertion in a nested block is about the seed of the block
+     * around it — the outer condition held, so the outer block ran — while a
+     * seed in a nested block says nothing about an assertion outside it, for
+     * the other way round: the inner condition may not hold, so the seed may
+     * never have run.
+     *
+     * An event that is in no conditional block is in none of them.
+     */
+    private fun isInside(
+        scope: List<Int>?,
+        outer: List<Int>,
+    ): Boolean {
+        if (scope == null) return false
+        if (scope.size < outer.size) return false
+        return scope.subList(0, outer.size) == outer
+    }
+
+    /** One top-level command of a Maestro file. */
+    private data class Command(
+        val name: String,
+        val ids: List<Selector>,
+        val texts: List<Selector>,
+        val env: Map<String, String>,
+        val file: String?,
+        /** The commands a `runFlow` carries under `commands:`. */
+        val nested: List<Command> = emptyList(),
+        /** Whether the command runs only when the condition of a `when:` holds. */
+        val conditional: Boolean = false,
+    )
+
+    /**
+     * What a command names, and whether it waits for it to be there.
+     *
+     * A wait that names an element under `notVisible` waits for the element to
+     * be *gone* — the opposite of an arrival — so it cannot cover a seed.
+     */
+    private data class Selector(val value: String, val positive: Boolean)
+
+    /** Every Maestro file, with the events it makes. */
+    fun forEachFile(
+        maestroRoot: Path,
+        action: (Path, List<Event>) -> Unit,
+    ) {
+        Files.walk(maestroRoot).use { stream ->
+            stream
+                .filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
+                .forEach { file -> action(file, eventsOf(file)) }
+        }
+    }
+
+    /** The events a file makes, helpers and all. */
+    private fun eventsOf(file: Path): List<Event> {
+        val events = mutableListOf<Event>()
+        collect(file, emptyMap(), emptyList(), events, setOf(file.normalize()))
+        return events
+    }
+
+    /**
+     * A flow written for this test, in a directory of its own.
+     *
+     * The seed helper beside it is the one the collector recognises — a file
+     * named `seed.yaml` is a seed, not a helper to descend into — so the
+     * fixture says what it seeds without restating the helper.
+     */
+    fun fixture(vararg files: Pair<String, String>): List<Event> {
+        val directory = Files.createTempDirectory("seed-helper-wait")
+        try {
+            files.forEach { (name, text) -> directory.resolve(name).writeText(text) }
+            directory.resolve(SEED_HELPER).writeText("appId: com.singularity.todo\nname: seed\n")
+            return eventsOf(directory.resolve("flow.yaml"))
+        } finally {
+            directory.toFile().deleteRecursively()
+        }
+    }
+
+    /**
+     * Reads the commands of a file and the commands of the helpers it runs.
+     *
+     * The prefix is the path of the `runFlow` that pulled this file in, or an
+     * empty path for the flow itself.
+     */
+    private fun collect(
+        file: Path,
+        env: Map<String, String>,
+        prefix: List<Int>,
+        events: MutableList<Event>,
+        seen: Set<Path>,
+        scope: List<Int>? = null,
+    ) {
+        for ((index, command) in commands(file.readText()).withIndex()) {
+            val at = prefix + index
+            val target = command.file?.let { file.parent.resolve(it).normalize() }
+            if (command.name == "runFlow" && target != null) {
+                // A `runFlow` with a `when:` of its own runs only when the
+                // condition holds, so the file it pulls in belongs to that
+                // block: a seed in the file and an assertion next to it are
+                // held to each other, and an assertion outside the block is
+                // not held to a seed that may never have run.
+                val fileScope = if (command.conditional) at else scope
+                collectRunFlow(target, command, env, at, events, seen, fileScope)
+                continue
+            }
+            // The commands a `runFlow` carries run inside it, so they come
+            // before the commands that follow it.
+            if (command.nested.isNotEmpty()) {
+                collectNested(file, command, env, at, events, seen, scope)
+            }
+            record(command, env, at, events, scope)
+        }
+    }
+
+    /**
+     * The commands a `runFlow` carries under `commands:`.
+     *
+     * They run inside the command that carries them, so they come after it and
+     * before the commands that follow it. A block with a `when:` runs only when
+     * the condition holds — the scope names the block, so that a seed in it
+     * and an assertion next to it are held to each other, and an assertion
+     * outside the block is not held to a seed that may never have run.
+     */
+    private fun collectNested(
+        file: Path,
+        command: Command,
+        env: Map<String, String>,
+        at: List<Int>,
+        events: MutableList<Event>,
+        seen: Set<Path>,
+        inheritedScope: List<Int>? = null,
+    ) {
+        // The scope of the block: the block that carries a condition of its own
+        // is the scope of the commands it carries, and a block without one
+        // leaves the scope of the block around it alone — the commands still
+        // run only when the outer condition holds.
+        val scope = if (command.conditional) at else inheritedScope
+        // The `env:` of the block is the env of the commands it carries.
+        val inner = env + command.env.mapValues { (_, value) -> substitute(value, env) }
+        for ((index, nested) in command.nested.withIndex()) {
+            val at = at + index
+            val target = nested.file?.let { file.parent.resolve(it).normalize() }
+            if (nested.name == "runFlow" && target != null) {
+                val fileScope = if (nested.conditional) at else scope
+                collectRunFlow(target, nested, inner, at, events, seen, fileScope)
+                continue
+            }
+            if (nested.nested.isNotEmpty()) {
+                collectNested(file, nested, inner, at, events, seen, scope)
+            }
+            record(nested, inner, at, events, scope)
+        }
+    }
+
+    /** The events a command makes. */
+    private fun record(
+        command: Command,
+        env: Map<String, String>,
+        at: List<Int>,
+        events: MutableList<Event>,
+        scope: List<Int>?,
+    ) {
+        val ids = command.ids.map { substitute(it.value, env) to it.positive }
+        val texts = command.texts.map { substitute(it.value, env) to it.positive }
+        when (command.name) {
+            in WAIT_COMMANDS -> {
+                events +=
+                    Event.Wait(
+                        at,
+                        (ids.map { it.first } + texts.map { it.first }).toSet(),
+                        ids.all { it.second } && texts.all { it.second },
+                        scope,
+                    )
+            }
+
+            in ASSERT_COMMANDS -> {
+                ids.forEach { events += Event.Assert(at, it.first, null, scope) }
+                texts.forEach { events += Event.Assert(at, null, it.first, scope) }
+            }
+        }
+    }
+
+    /**
+     * Runs the flow a `runFlow` names, or records the seed it is.
+     *
+     * The seed helper is not descended into: it is the one file whose own
+     * `env:` block would answer for the caller. What it does with the query it
+     * is given is a seed event — the query, and the entity the caller wants
+     * waited for.
+     */
+    private fun collectRunFlow(
+        target: Path,
+        command: Command,
+        env: Map<String, String>,
+        at: List<Int>,
+        events: MutableList<Event>,
+        seen: Set<Path>,
+        scope: List<Int>? = null,
+    ) {
+        if (!target.isRegularFile()) return
+        val inherited = env + command.env.mapValues { (_, value) -> substitute(value, env) }
+        if (target.fileName?.toString() == SEED_HELPER) {
+            events += Event.Seed(at, inherited["QUERY"].orEmpty(), inherited["WAIT_FOR"], scope)
+            return
+        }
+        val normalized = target.normalize()
+        if (normalized in seen) return
+        collect(target, inherited, at, events, seen + normalized, scope)
+    }
+
+    /**
+     * The top-level commands of a Maestro file.
+     *
+     * The commands are read as the lines they are written as — the tree's
+     * Maestro files are read the same way by `MaestroFlowTagsTest`, and a
+     * second YAML parser here would be a second dialect of the same language.
+     */
+    private fun commands(text: String): List<Command> = commandList(text.lines())
+
+    /**
+     * The commands of a list of lines.
+     *
+     * The commands are read as the lines they are written as — the tree's
+     * Maestro files are read the same way by `MaestroFlowTagsTest`, and a
+     * second YAML parser here would be a second dialect of the same language.
+     *
+     * The list may be indented: the commands of a `runFlow`'s `commands:`
+     * block are read the same way, one level in.
+     */
+    private fun commandList(lines: List<String>): List<Command> {
+        val out = mutableListOf<Command>()
+        var index = 0
+        while (index < lines.size) {
+            val header = COMMAND.matchEntire(lines[index])
+            if (header == null) {
+                index++
+                continue
+            }
+            val name = header.groupValues[1]
+            val inline = header.groupValues[2].trim()
+            val block = mutableListOf<String>()
+            index++
+            while (index < lines.size && COMMAND.matchEntire(lines[index]) == null) {
+                block += lines[index]
+                index++
+            }
+            val nested = nestedLines(block)
+            // The commands a `runFlow` carries are its own: the `file:` and the
+            // `env:` of the block belong to the commands inside it, not to the
+            // command that carries them.
+            val body = block - nested
+            val parsed = parseBlock(body)
+            val file = parsed.file ?: inline.takeIf { name == "runFlow" && it.isNotEmpty() }
+            // An assertion may be written as a scalar: `assertVisible: "Buy
+            // milk"`. The text is then the value of the command itself, and a
+            // gate that reads only the block form does not see the assertion
+            // at all.
+            val inlineText =
+                inline
+                    .takeIf { name in ASSERT_COMMANDS && it.isNotEmpty() && !it.startsWith("{") }
+                    ?.trim()
+                    ?.trim('"', '\'')
+                    ?.takeIf { it.isNotEmpty() }
+            val texts = parsed.texts + (inlineText?.let { listOf(Selector(it, true)) } ?: emptyList())
+            out +=
+                Command(
+                    name,
+                    parsed.ids,
+                    texts,
+                    parsed.env,
+                    file,
+                    commandList(dedent(nested)),
+                    body.any { line -> WHEN_KEY.matchEntire(line) != null },
+                )
+        }
+        return out
+    }
+
+    /**
+     * The lines of the commands a `runFlow` carries under `commands:`.
+     *
+     * A `runFlow` may carry commands of its own instead of the file to run:
+     * they run only when the `when:` of the block holds. The gate has to see
+     * them — a seed in such a block is a seed, and an assertion next to it is
+     * an assertion — or a flow can put both past the gate.
+     */
+    private fun nestedLines(block: List<String>): List<String> {
+        val index = block.indexOfFirst { line -> NESTED_KEY.matchEntire(line) != null }
+        if (index < 0) return emptyList()
+        val indent = indentOf(block[index])
+        return block
+            .drop(index + 1)
+            .takeWhile { line -> line.isBlank() || indentOf(line) > indent }
+    }
+
+    /** The number of leading spaces of a line. */
+    private fun indentOf(line: String): Int = line.length - line.trimStart().length
+
+    /** The lines without the indentation they all share. */
+    private fun dedent(lines: List<String>): List<String> {
+        val indent = lines.filter { it.isNotBlank() }.minOfOrNull { line -> indentOf(line) } ?: 0
+        return lines.map { line -> if (line.isBlank()) line else line.drop(indent) }
+    }
+
+    /** What the body of a command says: the ids it addresses, its env, its file. */
+    private data class Block(
+        val ids: List<Selector>,
+        val texts: List<Selector>,
+        val env: Map<String, String>,
+        val file: String?,
+    )
+
+    /** Reads the body of a command. */
+    private fun parseBlock(block: List<String>): Block {
+        var inEnv = false
+        val ids = mutableListOf<Selector>()
+        val texts = mutableListOf<Selector>()
+        val env = mutableMapOf<String, String>()
+        var file: String? = null
+        // The selector the ids and texts under it belong to: `visible` and
+        // `element` wait for the element to be there, `notVisible` and
+        // `absent` wait for it to be gone.
+        var selector = VISIBLE
+        for (line in block) {
+            val trimmed = line.trim()
+            val fileMatch = FILE_KEY.matchEntire(line)
+            val idMatch = ID_KEY.matchEntire(line)
+            val textMatch = TEXT_KEY.matchEntire(line)
+            val envMatch = ENV_KEY.matchEntire(line)
+            val selectorMatch = SELECTOR_KEY.matchEntire(line)
+            when {
+                trimmed.startsWith("#") -> {
+                    Unit
+                }
+
+                trimmed == "env:" -> {
+                    inEnv = true
+                }
+
+                selectorMatch != null -> {
+                    selector = selectorMatch.groupValues[1]
+                }
+
+                fileMatch != null && !inEnv -> {
+                    file = fileMatch.groupValues[1]
+                }
+
+                idMatch != null -> {
+                    ids += Selector(idMatch.groupValues[1], isPositive(selector))
+                }
+
+                textMatch != null -> {
+                    texts += Selector(textMatch.groupValues[1], isPositive(selector))
+                }
+
+                inEnv && envMatch != null -> {
+                    env[envMatch.groupValues[1]] = envMatch.groupValues[2]
+                }
+
+                // Another key ends the env block.
+                KEY_ONLY.matchEntire(trimmed) != null -> {
+                    inEnv = false
+                    selector = VISIBLE
+                }
+            }
+        }
+        return Block(ids, texts, env, file)
+    }
+
+    /** Whether a selector waits for the element to be there. */
+    private fun isPositive(selector: String): Boolean = selector == VISIBLE || selector == ELEMENT
+
+    /** Replaces `${NAME}` with what the caller passed for it. */
+    private fun substitute(
+        value: String,
+        env: Map<String, String>,
+    ): String = ENV_REFERENCE.replace(value) { match -> env[match.groupValues[1]] ?: match.value }
+
+    /**
+     * The elements the helper may wait for: what the seed brings onto the
+     * screen the app is left on.
+     *
+     * The helper waits on the agenda's Today tab — that is where the seed
+     * leaves the app — so a target it names has to be rendered there: the row
+     * of a task that is due today and the only row of its seed, or the
+     * section that holds it.
+     *
+     * A row of a multi-row seed is not among them: the list the seed filled is
+     * longer than the screen, so the row may be below the fold, and the helper
+     * does not scroll.
+     *
+     * An overdue row is not among them either: the Today tab collapses the
+     * overdue section once the profile holds enough overdue tasks, and the
+     * helper neither expands the section nor scrolls to the row. The section
+     * itself is: its header is rendered whether the section is expanded or
+     * collapsed.
+     *
+     * A section the flow named before the seed is not among them either: it
+     * was there before the seed, a wait for it returns at once, and it cannot
+     * be the evidence that the row the seed wrote has arrived.
+     *
+     * A section an earlier seed of the same flow brought in is not among them
+     * either, for the same reason: that seed put a row in the section, so the
+     * section was on screen before this seed ran.
+     *
+     * An entity on another screen is not among them. The helper does not
+     * navigate, so its wait would run out its timeout on an element the app
+     * never renders — and the flow would fail on the helper, before it had a
+     * chance to navigate to the entity itself.
+     */
+    fun landingTargets(
+        seeded: SeedEntityModel.Seeded,
+        position: List<Int>,
+        waits: List<Event.Wait>,
+        asserts: List<Event.Assert>,
+        staleContainers: Set<String> = emptySet(),
+    ): Set<String> {
+        val sections =
+            seeded.containers
+                .filter { it in LANDING_CONTAINERS }
+                .filter { it !in namedBefore(position, waits, asserts) }
+                .filter { it !in staleContainers }
+        return seeded.entities
+            .filter { it.helperWaitable }
+            .flatMap { it.rows }
+            .toSet() + sections
+    }
+
+    /**
+     * The path of a file, relative to the worktree root.
+     *
+     * The root is the parent of `Maestro/`, so the path is the one a reader of
+     * the repository would type.
+     */
+    fun rel(
+        maestroRoot: Path,
+        file: Path,
+    ): String = maestroRoot.parent.relativize(file).toString()
+
+    /** The helper that seeds. Its `env:` block answers for the caller. */
+    const val SEED_HELPER = "seed.yaml"
+
+    /** The commands that wait for an element. */
+    val WAIT_COMMANDS = setOf("extendedWaitUntil", "scrollUntilVisible")
+
+    /** The commands that assert an element is there. */
+    val ASSERT_COMMANDS = setOf("assertVisible")
+
+    /**
+     * The agenda sections the Today tab renders.
+     *
+     * The seed leaves the app on that tab, so the sections it renders are the
+     * containers the helper may wait for. The other sections are on the tabs
+     * the app is not on.
+     */
+    val LANDING_SECTIONS = setOf("Overdue", "Today")
+
+    /** The ids of the sections the app is left on. */
+    val LANDING_CONTAINERS: Set<String> = LANDING_SECTIONS.map { TestTags.agendaSection(it) }.toSet()
+
+    /** The selector a wait uses when it waits for an element to be there. */
+    const val VISIBLE = "visible"
+
+    /** The selector a scroll waits for. */
+    const val ELEMENT = "element"
+
+    /** The selector key a wait's target sits under. */
+    val SELECTOR_KEY = Regex("^\\s*(visible|notVisible|element|absent):\\s*$")
+
+    /** A top-level command: `- name: …`. */
+    val COMMAND = Regex("""^- ([a-zA-Z][a-zA-Z0-9]*):\s*(.*)$""")
+
+    /** The `commands:` of a `runFlow` that carries commands of its own. */
+    val NESTED_KEY = Regex("""^\s*commands:\s*$""")
+
+    /** The `when:` of a `runFlow` whose commands run only under a condition. */
+    val WHEN_KEY = Regex("""^\s*when:\s*$""")
+
+    /** The `id:` of a selector. */
+    val ID_KEY = Regex("""^\s+id:\s*"?([^"\n#]*)"?\s*$""")
+
+    /** The `text:` of a selector. */
+    val TEXT_KEY = Regex("""^\s+text:\s*"?([^"\n]*)"?\s*$""")
+
+    /** The `file:` of a `runFlow:` that carries its path in a mapping. */
+    val FILE_KEY = Regex("""^\s+file:\s*([^\s:]+)\s*$""")
+
+    /** A key of an `env:` block — the env keys are upper case. */
+    val ENV_KEY = Regex("""^\s+([A-Z_][A-Z0-9_]*):\s*"?([^"\n]*)"?\s*$""")
+
+    /** A key with no value — it ends the env block it is in. */
+    val KEY_ONLY = Regex("""^[a-zA-Z_][a-zA-Z0-9_]*:\s*$""")
+
+    /** An env reference: `${NAME}`. */
+    val ENV_REFERENCE = Regex("""\$\{([^}]*)}""")
+}

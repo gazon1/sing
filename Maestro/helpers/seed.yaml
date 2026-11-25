@@ -3,6 +3,7 @@
 # Usage:
 #   env:
 #     QUERY: "task=Buy%20milk&due=today"
+#     WAIT_FOR: "task_item_buy_milk"   # optional
 #
 # QUERY is a URL-encoded deep-link query string. The key vocabulary is owned by
 # `SeedLinkKeys` in `core/seed/`; an unknown key is logged by name and ignored,
@@ -48,9 +49,77 @@
 #
 # This helper does NOT run launch-clean — the caller decides.
 #
-# Leaves the app on the Today tab with the seeded entity visible.
+# The app comes up on the Today tab. An entity the caller names is waited for
+# there when it is on that screen — a task that is due today, and the section
+# it is in; an entity that is elsewhere — a note, a project, a task in another
+# tab — is the flow's to wait for, after it navigates. The gate holds the
+# caller to the screen: the helper does not navigate, and its wait would time
+# out on an element the app never renders on the tab it is left on.
+#
+# An overdue task is waited for by its section, not by its row: the Today tab
+# collapses the overdue section once the profile holds enough overdue tasks,
+# and the helper neither expands the section nor scrolls to the row. The
+# section's header is rendered whether the section is expanded or collapsed, so
+# it is the one handle an overdue seed has.
 #
 # The contract: a flow waits for what it seeded before it asserts on it.
+#
+# The helper waits for the shell, and — when the caller names the entity — for
+# the entity itself:
+#
+#   - runFlow:
+#       file: ../../helpers/seed.yaml
+#       env:
+#         QUERY: "task=Buy%20milk&due=today"
+#         WAIT_FOR: "task_item_buy_milk"
+#
+# WAIT_FOR is optional. It names the element the flow is going to assert on,
+# and the helper waits for that element to be visible before it returns — so
+# the arrival of the seeded entity is absorbed here, once, instead of in every
+# flow that seeds one. A flow that names no entity gets the shell wait alone.
+#
+# WAIT_FOR names an element *id*: the wait below is `visible: {id: …}`. The
+# name an entity is called is not an id the app renders, and a WAIT_FOR that
+# carries one times out on the device.
+#
+# The order of the commands below is the contract: the link opens the seed,
+# the shell wait lets the app come up, and the entity wait absorbs the
+# arrival. A wait that ran *before* the link would be satisfied by whatever
+# was on screen already — the row the seed is about to rewrite — and the flow
+# would go on to assert on a row that has not been written yet.
+#
+# How the entity is named:
+#
+#   * A title-named entity — a task, a note — is named by the element its
+#     title produces: `task_item_buy_milk`, `note_item_by_title_alpha`. The
+#     rule is `TestTags.slug`, the app's own; the repository's test holds
+#     every caller to it, so the id a flow names is the id the app renders.
+#   * An id-named entity — a project seeded with `id=` — is named by that id:
+#     `menu_project_node_roadmap`.
+#
+# What the helper's wait covers: an entity that is on the screen the seed
+# leaves the app on. The wait does not scroll, so it does not move the
+# viewport a flow is about to assert on. An entity that is elsewhere — a note,
+# a project, a row below the fold, a task in another tab — is the flow's to
+# wait for, after it navigates: the flow waits for the container that holds
+# the entity, or scrolls the row into view.
+#
+# The wait belongs to the seed that asked for it: it runs inside that seed's
+# own invocation, so it is evidence for the entity that seed wrote and for no
+# other. A wait the helper made for a later seed says nothing about an earlier
+# seed's entity — and the row the earlier seed wrote is already on screen, so
+# the later wait returns at once and proves nothing about the write the flow
+# asserts on.
+#
+# The wait covers one entity of that seed: a link that names a profile and a
+# task writes two entities — the seeder switches to the profile and writes the
+# task — and the wait for the row of the task says nothing about the profile.
+# The wait names the entity the flow asserts on: its row, or the section that
+# holds it.
+#
+# A seed that writes no entity — `session=anonymous`, `cleanup=`, `reset=` —
+# has no row to wait for: such a flow names no entity, and the helper waits
+# for the shell alone.
 #
 # There are two ways to wait, and a flow follows one of them:
 #
@@ -66,6 +135,64 @@
 # and not a proxy that might arrive without it. The container has to be the one
 # the entity belongs to — a wait on another day's section says nothing about
 # this task.
+#
+# The wait has to stand after the seed: a wait that precedes the seed says
+# nothing about the entity, because the row could have been on screen before
+# the seed wrote it. And a seed that rewrote the row needs a wait of its own —
+# the row is the same row, but what the flow asserts on is what the last seed
+# wrote. A renamed entity is waited for by its new name: a wait for the row
+# cannot tell a rename from the row it renamed.
+#
+# A wait that names what an earlier seed of the same flow already brought in
+# returns at once — that element is on screen before the seed ran. The wait has
+# to name what the seed changed: the row it wrote for the first time, the name
+# it gave the entity, or the section its row brought in. A seed that writes
+# exactly what an earlier seed wrote changes nothing on the screen, so the
+# row that is already there is the row the flow asserts on.
+#
+# This contract is written here and repeated in `Maestro/CONVENTIONS.md` and in
+# the `singularity-todo-maestro-flows` skill. The three copies state it alike,
+# and a repository test holds them to that.
+#
+# A wait that waits for the element to be *gone* — `notVisible`, `absent` —
+# says the opposite of what an assertion needs, and covers nothing.
+#
+# A node can carry both the id of the field it is and the title it holds — the
+# task editor's title field publishes its value as the node's text — so a wait
+# may address the entity by both at once:
+#
+#   - extendedWaitUntil:
+#       visible:
+#         id: task_editor_title_input
+#         text: "Buy milk"
+#       timeout: 5000
+#
+# That is one wait for one entity, and not a wait for whichever entity the
+# screen happens to show.
+#
+# A seed that writes N rows writes N entities, one row each, and one wait
+# covers one entity: a wait for one row of a many-row seed does not cover the
+# assertions on the other rows. The container is the one handle that covers a
+# whole seed, because the section that holds the rows holds every entity of it
+# — and only while the seed brought the container in. A section the flow named
+# before the seed was there before the seed: a wait for it returns at once,
+# and the row the seed wrote is still on its way.
+#
+# The same holds for a section an earlier seed of the same flow brought in:
+# that seed put a row in the section, so the section was on screen before this
+# seed ran. A wait for it returns at once, and it is no evidence of the write
+# the flow asserts on — such a flow waits for the row.
+#
+# A seed that writes more rows than a wait can outlast is written in chunks:
+# writing a row costs the seeder tens of milliseconds — 79 ms on an idle host,
+# and up to 300 ms on a host that is busy with something else — so a few hundred
+# rows take longer than the shell wait above (30 s) — the largest budget there
+# is — and a seed that outlasts the budget cannot be waited for at all. Each
+# chunk is a seed of its own, with a base title of its own (two seeds with the
+# same base title write the same rows twice), and each chunk fits inside the
+# budget; the flow then waits for the section that holds the rows once the last
+# chunk is in. `agenda/07` seeds its three hundred rows in chunks of twenty-five
+# rows for this reason.
 #
 # The container rule is also the cheap one: it does not scroll, so a step that
 # waits for the same container afterwards still finds it on screen. A row wait
@@ -91,6 +218,15 @@
 # arrival.
 appId: com.singularity.todo
 name: seed
+# The entity the caller wants waited for, if any.
+#
+# The value is read from the caller's `WAIT_FOR`, and the `typeof` guard is
+# what makes the input optional: a caller that names no entity leaves `WAIT_FOR`
+# undefined, and an undefined one is the empty target — no wait — rather than a
+# missing-variable error. The helper's own `env:` is applied on top of the
+# caller's, so the target is derived here and not taken under the caller's name.
+env:
+  WAIT_TARGET: "${typeof WAIT_FOR === 'undefined' ? '' : WAIT_FOR}"
 ---
 - openLink: "todo-debug://seed?${QUERY}"
 # A seed that failed leaves the seed activity's own screen up, with the reason
@@ -116,3 +252,20 @@ name: seed
     visible:
       id: nav_tab_today
     timeout: 30000
+# The entity the caller named, when the caller named one.
+#
+# The shell wait above says nothing about the seed: the app was already up
+# before the link arrived, so that wait returns at once and the row the seed
+# wrote is still on its way. This wait is the one that covers the row.
+#
+# It is guarded by the target being named, because a seed that writes no entity
+# — `session=anonymous`, `cleanup=`, `reset=` — has no row to wait for, and a
+# wait for an element nobody named would fail every such seed.
+- runFlow:
+    when:
+      true: "${WAIT_TARGET !== ''}"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "${WAIT_TARGET}"
+          timeout: 8000

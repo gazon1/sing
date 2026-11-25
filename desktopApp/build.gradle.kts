@@ -22,6 +22,27 @@ val desktopAppVersion = (project.findProperty("desktopAppVersion") as String?) ?
 val desktopAppVersionCode =
     (project.findProperty("desktopAppVersionCode") as String?)?.toIntOrNull() ?: 0
 
+// The sha of the checkout the desktop was built from.
+//
+// The Android app carries its sha in `versionName` ("0.1.0+g<sha>"), and the
+// phone's frame-time report names the build it measured through that string.
+// The desktop has no manifest to carry it, so the test JVM is told the sha
+// instead: the desktop frame-time report has to name the build it measured
+// just as the phone's does, or the two numbers cannot be compared.
+//
+// Read through providers.exec rather than a bare `git` call: the configuration
+// cache snapshots the filesystem, so a value read by running git at
+// configuration time goes stale exactly when the commit changes. An absent git
+// (a source tarball, a CI export) yields "unknown", and the measurement that
+// cannot name its build fails loudly instead of publishing a nameless number.
+val desktopGitSha: Provider<String> =
+    providers
+        .exec {
+            commandLine("git", "rev-parse", "--short=12", "HEAD")
+        }.standardOutput.asText
+        .map { it.trim() }
+        .orElse("unknown")
+
 val coroutinesDebugAgent =
     configurations.create("coroutinesDebugAgent") {
         isCanBeConsumed = false
@@ -139,6 +160,10 @@ sourceSets {
             // The database classes moved out of :shared into :core-database, which
             // :shared declares as `implementation`; the tests name it directly.
             implementation(project(":core-database"))
+            // The shared synthetic backup dataset generator (#3090): the desktop
+            // baseline restores the same dataset the phone measures, instead of
+            // seeding rows of its own.
+            implementation(project(":import-cli"))
         }
     }
 }
@@ -403,6 +428,16 @@ tasks.withType<Test>().configureEach {
     // asserted `false` would fail the explicitly supported host-enabled development build
     // — the configuration this module is meant to be exercised in.
     systemProperty("singularity.inspector.host.enabled", desktopInspectorHostEnabled.toString())
+
+    // The build the desktop test JVM runs, named for the measurement.
+    //
+    // The desktop frame-time report has to say which build it measured on -
+    // the issue asks for the build variant and the version next to the
+    // numbers, and a number without them describes an unknown build. The
+    // phone's report gets the same facts from the manifest; the desktop has
+    // no manifest, so the build hands them to the test JVM.
+    systemProperty("singularity.build.version", desktopAppVersion)
+    systemProperty("singularity.build.gitSha", desktopGitSha.get())
 
     // Before every class here was tagged, `includeTags("fast","slow")` selected nothing
     // and this task still reported BUILD SUCCESSFUL. Discovering zero tests is a

@@ -427,6 +427,87 @@ class AdmissionTest(unittest.TestCase):
         findings, _ = self._scan(root, catalogue, baseline, evidence)
         self.assertEqual([f.kind for f in findings], ["not qualified", "invalid exception"])
 
+    def test_stale_exception_on_a_qualified_flow_is_reported(self):
+        """An exception that admits nothing is a finding, not silence.
+
+        The flow is qualified against the current fingerprint, so the
+        exception never runs -- it names a fingerprint the flow has left
+        behind. It is read as a reason the flow was admitted *instead* of
+        being qualified, and the file elsewhere says the opposite. The record
+        has to be reissued or deleted, so the gate says so.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow])
+        fp = mod.fingerprint(flow, root)
+        write_baseline(baseline, {flow: "sha256:" + "0" * 64})
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {flow: self._qualified_record(fp, ["pass", "pass", "pass"])},
+                    "exceptions": {
+                        flow: {"fingerprint": "sha256:" + "2" * 64, "reason": "x", "evidence": "#1"}
+                    },
+                },
+                sort_keys=False,
+            )
+        )
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["stale exception"])
+        self.assertEqual(counts["qualified"], 1)
+
+    def test_stale_exception_on_a_baselined_flow_is_reported(self):
+        """The same, for a flow the baseline admits."""
+        root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow])
+        fp = mod.fingerprint(flow, root)
+        write_baseline(baseline, {flow: fp})
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {},
+                    "exceptions": {
+                        flow: {"fingerprint": "sha256:" + "2" * 64, "reason": "x", "evidence": "#1"}
+                    },
+                },
+                sort_keys=False,
+            )
+        )
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["stale exception"])
+        self.assertEqual(counts["baselined"], 1)
+
+    def test_a_current_exception_beside_a_qualification_is_not_a_finding(self):
+        """An exception that matches the current fingerprint is not stale.
+
+        The flow is qualified and also carries an exception for the current
+        fingerprint. The exception names no fingerprint the flow has left
+        behind, so the gate has nothing to say about it.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow])
+        fp = mod.fingerprint(flow, root)
+        write_baseline(baseline, {flow: "sha256:" + "0" * 64})
+        evidence.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": 1,
+                    "required_attempts": 3,
+                    "qualifications": {flow: self._qualified_record(fp, ["pass", "pass", "pass"])},
+                    "exceptions": {
+                        flow: {"fingerprint": fp, "reason": "x", "evidence": "#1"}
+                    },
+                },
+                sort_keys=False,
+            )
+        )
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual(findings, [])
+        self.assertEqual(counts["qualified"], 1)
+
     def test_manual_flow_excluded(self):
         root, _flow, catalogue, baseline, evidence = self._tree()
         flow = "Maestro/flows/auth/01-manual.yaml"

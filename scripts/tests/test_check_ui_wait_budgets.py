@@ -139,6 +139,21 @@ appId: com.singularity.todo
     timeout: 8000
 """
 
+# A wait inside the commands of a conditional runFlow — the shape the seed
+# helper waits for the entity the caller named in.
+FLOW_WITH_A_NESTED_WAIT = """\
+appId: com.singularity.todo
+---
+- runFlow:
+    when:
+      true: "${WAIT_TARGET !== ''}"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: nav_tab_today
+          timeout: 8000
+"""
+
 FLOW_WITHOUT_TIMEOUT = """\
 appId: com.singularity.todo
 ---
@@ -331,6 +346,17 @@ class ScanTest(TreeFixture):
         self.assertEqual("wait disagrees with its kind's budget", findings[0]['kind'])
         self.assertIn('nav_tab_today', findings[0]['detail'])
         self.assertIn('shell', findings[0]['detail'])
+
+    def test_a_wait_nested_in_a_conditional_run_flow_is_a_finding(self):
+        self.write_catalogue(CATALOGUE)
+        self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
+        self.write_shell_probe()
+        self.write_flow('helpers/seed.yaml', FLOW_WITH_A_NESTED_WAIT)
+        findings = mod.scan()
+        self.assertEqual(1, len(findings))
+        self.assertEqual("wait disagrees with its kind's budget", findings[0]['kind'])
+        self.assertIn('nav_tab_today', findings[0]['detail'])
 
     def test_a_maestro_wait_without_a_timeout_is_a_finding(self):
         self.write_catalogue(CATALOGUE)

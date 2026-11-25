@@ -136,7 +136,8 @@ as a successful measurement.
   the database. It was not measured separately and was not touched.
 - `TaskDao.getTagIdsForUser` asks its scope question in the same old shape. It
   was not part of this issue's measurement, and rewriting it by analogy would
-  be a guess; it is the next candidate for the same harness.
+  be a guess; it is the next candidate for the same harness, tracked as
+  https://github.com/gazon1/sing/issues/3176.
 - The harness is a program in `shared/src/jvmTest`, not a test class: a
   dataset-dependent test would either skip itself or fail for a reason that
   has nothing to do with the claim.
@@ -148,5 +149,6 @@ as a successful measurement.
 - Gradle task: `:shared:dependencyQueryPerf` in `shared/build.gradle.kts`
 - Regression test: `JvmDatabaseSeamTest` in `shared/src/jvmTest/kotlin/com/singularity/todo/core/database/`
 - Issue: https://github.com/gazon1/sing/issues/3157
+- Follow-up measurement of the tag read: https://github.com/gazon1/sing/issues/3176
 - Previous measurement: https://github.com/gazon1/sing/issues/3153
 - Dataset generator: https://github.com/gazon1/sing/issues/3090

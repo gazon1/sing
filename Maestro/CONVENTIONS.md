@@ -92,7 +92,7 @@ their logic.
 |---|---|
 | `launch-clean.yaml` | Any flow needing a fresh app state |
 | `skip-spotlight.yaml` | Dismisses the first-run spotlight tour, which covers the agenda and swallows the taps under its scrim; `launch-clean.yaml` runs it |
-| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link; it also carries the contract for waiting for what a flow seeded |
+| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link; `WAIT_FOR` names the entity to wait for, and the helper carries the contract for waiting for what a flow seeded |
 | `seed-task.yaml` | Any flow needing one task titled "Buy milk" |
 | `seed-and-open-task.yaml` | Seeds a task with `QUERY` and opens it from Inbox by `TASK_ID` |
 | `open-task.yaml` | Opens a task from Inbox by `TASK_ID` and waits for the editor |
@@ -117,8 +117,129 @@ their logic.
 
 A flow waits for the entity it seeded before it asserts on it. Which waits
 count — the entity's own row, or a container that renders only because the
-entity is in it — is written down in one place: the contract at the top of
-`helpers/seed.yaml`. Read it there; do not restate it in a flow.
+entity is in it — is written down in the contract at the top of
+`helpers/seed.yaml`. This file and the `singularity-todo-maestro-flows` skill
+repeat that contract; the three copies state it alike, and a repository test
+holds them to that. Read it there; do not restate it in a flow.
+
+Which of those waits live in the helper and which stay in the flow:
+
+- **In the helper.** The seed helper waits for the shell, and — when the flow
+  names the entity in `WAIT_FOR` — for that entity, before it returns:
+
+  ```yaml
+  - runFlow:
+      file: ../../helpers/seed.yaml
+      env:
+        QUERY: "task=Buy%20milk&due=today"
+        WAIT_FOR: "task_item_buy_milk"
+  ```
+
+  `WAIT_FOR` is the element id the flow is going to assert on — an id, not the
+  name the entity is called: the helper waits with `visible: {id: …}`. A
+  title-named entity is named by the element its title produces
+  (`TestTags.slug`); an id-named entity is named by that id. The element has to
+  be on the screen the seed leaves the app on — the agenda's Today tab, with
+  its Overdue and Today sections: a task that is due today, and the section it
+  is in. Four things are not: an element that is elsewhere (the helper does
+  not navigate), the row of an overdue task (the Today tab collapses the
+  overdue section once the profile holds enough overdue tasks, and the helper
+  neither expands it nor scrolls), a row of a seed that wrote several rows (the
+  list is longer than the screen and the helper does not scroll), and a section
+  the flow named before the seed (it was already there, so the wait for it
+  returns at once and proves nothing about the row the seed wrote). An overdue
+  seed is waited for by its section — the header is rendered whether the
+  section is expanded or collapsed. The helper's wait does not scroll, so it
+  covers an entity that is on that screen. The helper waits in this order — the
+  link, the shell wait, the entity wait — and the wait after the link is the
+  one that absorbs the arrival: a wait before it would be satisfied by the row
+  the seed is about to rewrite. The shell wait stands between the link and the
+  entity wait: it lets the app come up, and an entity wait above it would be a
+  wait for a row the seed may not have written yet.
+
+  The helper's wait belongs to the seed that asked for it: it runs inside that
+  seed's own invocation. A flow that seeds the same row twice and asks the
+  helper to wait for it only the second time has not waited for the second
+  seed — the row the first seed wrote was already on screen, so the wait
+  returns at once.
+
+  The wait covers one entity of that seed. A link that names a profile and a
+  task writes two entities — the seeder switches to the profile and writes the
+  task — and a wait for the row of the task says nothing about the profile. The
+  wait names the entity the flow asserts on: its row, or the section that holds
+  it.
+
+- **One link writes one kind.** The seeder takes the first kind the query
+  names — task, then note, then project, then the bulk projects — so a link
+  that names a task and a note writes the task and nothing else. A `count=`
+  the seeder refuses (anything outside `1..10000`) writes no row at all, and a
+  link that cleans up, resets or changes the session writes no row either —
+  the seeder answers it and returns before it writes anything. Such a seed
+  names no entity, and the helper waits for the shell alone.
+
+- **In the flow.** An entity that is elsewhere — a note, a project, a row below
+  the fold, a task in another tab — is waited for by the flow, after it
+  navigates: the flow waits for the container that holds the entity, or
+  scrolls the row into view. A seed that writes no entity
+  (`session=anonymous`, `cleanup=`, `reset=`) names no entity, and the helper
+  waits for the shell alone.
+
+Two rules make such a wait mean something:
+
+- **After the seed.** A wait that precedes the seed says nothing about the
+  entity: the row could have been on screen before the seed wrote it. And a
+  seed that *rewrote* the row needs a wait of its own — the row is the same
+  row, but what the flow asserts on is what the last seed wrote.
+- **By the name, when the entity was renamed.** A wait for the row cannot tell
+  a rename from the row it renamed: the row was already there under the old
+  name. The name can. `menu/06-tree-live` waits for the text "Renamed" and
+  then asserts on the row's id.
+- **By what the seed changed.** A wait that names what an earlier seed of the
+  same flow already brought in returns at once — that element was on screen
+  before the seed ran, so it is no evidence of this seed's write. The wait has
+  to name what the seed changed: the row it wrote for the first time, the name
+  it gave the entity, or the section its row brought in. A seed that writes
+  exactly what an earlier seed wrote changes nothing on the screen, so the row
+  that is already there is the row the flow asserts on.
+
+Two more things the gate holds a flow to:
+
+- **A wait that waits for the element to be gone covers nothing.** `notVisible`
+  and `absent` wait for the opposite of an arrival.
+- **An assertion by the entity's name is an assertion on the entity.** A flow
+  that asserts `text: "Buy milk"` on a seeded task has to wait for that task,
+  and the wait may address the node by the id of the field it is in *and* by
+  the title it holds — `visible: {id: task_editor_title_input, text: "Buy
+  milk"}` is one wait for one entity.
+
+Two more rules about what a wait covers:
+
+- **One wait covers one entity.** A seed that writes N rows writes N entities,
+  one row each. A wait for one of those rows does not cover the others: each
+  row is an entity with an assertion of its own, and each needs a wait that
+  names it. The container is the one handle that covers a whole seed, because
+  the section that holds the rows holds every entity of the seed.
+- **A container covers an entity only while the seed brought the container
+  in.** The container rule asks for a section that renders *only* because the
+  entity is in it. A section the flow named before the seed was there before
+  the seed, and a wait for it returns at once — the row the seed wrote is
+  still on its way. A section an earlier seed of the same flow brought in is
+  the same case: that seed put a row in the section, so it was on screen
+  before this seed ran, and a wait for it is no evidence of this seed's
+  write. The gate holds such a flow to the row rule. What the gate cannot
+  see is the state the app was in before the flow ran: a section a previous
+  run left behind is invisible to it, and a flow that waits for a section it
+  did not bring in owns that.
+- **A seed that outlasts every wait is written in chunks.** Writing a row
+  costs the seeder tens of milliseconds — 79 ms on an idle host, and up to
+  300 ms on a host that is busy with something else — so a few hundred rows
+  take longer than the shell wait (30 s) — the largest budget there is. A seed
+  that outlasts the budget cannot be waited for at all. Write it as several
+  seeds of its own instead, each with a base title of its own (two seeds with
+  the same base title write the same rows twice), each inside the budget; the
+  flow then waits for the section that holds the rows once the last chunk is in.
+  `agenda/07` seeds its three hundred rows in chunks of twenty-five rows for
+  this reason.
 
 ### Sessions
 
