@@ -72,6 +72,16 @@ two of them is the difference between the calls. On a shared machine the
 difference of two separately measured medians can come out negative, and a
 negative part is not a price.
 
+The four forms are **not** run in one fixed order. The order is shifted by one
+step from slot to slot, so that every form is measured in every position the
+same number of times. A fixed order is a systematic bias: the first form of a
+slot pays for the cold pool, the cold caches and the cold code path, and the
+last one is measured on whatever the earlier forms warmed up — so `flow −
+statement` and its three components would partly be the difference between
+**positions**, and no number of samples would remove that. The shift removes the
+bias and changes nothing else: the forms still run one after another in the same
+slot, under the same clock.
+
 **Every form takes its connection from the same pool — the readers' pool.** No
 form holds a connection while another is being measured, and no form is
 measured on a connection taken from a different pool: otherwise the difference
@@ -117,13 +127,26 @@ read after the write.
 
 Latencies are recorded, not asserted: a clock assertion on a shared machine is a
 flaky test wearing a benchmark's clothes. What the harness checks is what does
-not move with the machine — that the observer really did see the re-read (30
-of 30 iterations in every run), and that the four forms answered the same
-rows, so that the split compares one read and not two. The numbers are
-published as ranges over three runs, so the run-to-run spread is visible
-rather than smoothed away, and every run prints the JVM, the core count and the
-load average of the machine it ran on: a latency without the state of the
-machine is not a measurement.
+not move with the machine — that the observer really did see the re-read, and
+that the four forms answered the same rows, so that the split compares one read
+and not two. Both checks stop the run instead of publishing a number:
+
+- the wait for an emission of the observer is bounded (30 s), and a wait that
+  runs out **fails the run**: a slow machine is one thing, an observer that did
+  not see the re-read is a broken measurement, and a benchmark that publishes
+  numbers for it publishes numbers about nothing;
+- the number of re-reads the observer really produced is checked against the
+  number of iterations, so a run that saw fewer re-reads than it wrote cannot
+  present its numbers as if it had seen all of them.
+
+The arithmetic of the measurement is checked separately, without a clock, by
+`ReadOverheadMeasurementTest`: the nearest-rank percentile, the identity
+"overhead = call path + Flow plumbing + invalidation" in every slot, the refusal
+to pair forms whose samples do not have the same count, and the evenness of the
+shifted order. The numbers are published as ranges over six runs, so the
+run-to-run spread is visible rather than smoothed away, and every run prints the
+JVM, the core count and the load average of the machine it ran on: a latency
+without the state of the machine is not a measurement.
 
 ## Decision
 
@@ -132,30 +155,32 @@ machine is not a measurement.
 The measurement says the remaining price of a read is Room's own machinery, and
 that it is a per-call constant rather than a function of the database:
 
-- the statement — connection included — costs **0.05–0.14 ms** on 10k and
-  **0.05–0.13 ms** on 100k;
-- the call path costs **0.02–0.09 ms**;
-- the Flow plumbing costs **0.02–0.08 ms**;
-- the invalidation costs **0.09–0.25 ms** — the largest of the three parts, and
+- the statement — connection included — costs **0.04–0.17 ms**;
+- the call path costs **0.00–0.07 ms**;
+- the Flow plumbing costs **0.03–0.13 ms**;
+- the invalidation costs **0.09–0.30 ms** — the largest of the three parts, and
   priced in place, as a share of the Flow price rather than a lower bound;
-- the observer measured on its own costs **0.07–0.54 ms**; it is published next
+- the observer measured on its own costs **0.07–0.75 ms**; it is published next
   to the parts and not subtracted from them;
-- the whole overhead of a read costs **0.16–0.52 ms**;
-- taking a connection from the pool costs **0.05–0.44 ms** (p50) on 10k and
-  **0.05–0.11 ms** (p50) on 100k, and it is inside `statement`;
+- the whole overhead of a read costs **0.16–0.63 ms**;
+- taking a connection from the pool costs **0.06–0.31 ms** (p50), and it is
+  inside `statement`;
 - on a change, the observer's latency — the wait from the end of the write to
-  the re-read it triggers — is **0.02–0.24 ms**.
+  the re-read it triggers — is **0.02–0.56 ms**.
 
 A 10k-task profile and a 100k-task profile produce the same numbers, so
 nothing in the remaining price grows with the profile. The task detail screen
 reads four Flows (`watchByIdForUser`, `blockingDependencyIdsForUser`,
-`followUpDependencyIdsForUser`, `getTagIdsForUser` — `TaskRepositoryImpl.observe(id)`),
-which is 0.9–2.8 ms per emission, inside a 16 ms frame.
+`followUpDependencyIdsForUser`, `getTagIdsForUser` — `TaskRepositoryImpl.observe(id)`);
+the three of them measured here cost **0.92–1.59 ms** per emission together,
+inside a 16 ms frame.
 
-The runs were taken on a busy machine (load average 56–64 on 16 cores), so the
+The runs were taken on a busy machine (load average 34–45 on 16 cores), so the
 absolute numbers are larger than in the earlier round of this same issue; the
 form of the measurement and the harness itself are unchanged, and every run
-prints its load average.
+prints its load average. The published ranges are over six independent runs of
+each dataset; the observer's latency is the noisiest of the numbers, because it
+waits for the tracker's background work rather than for SQLite.
 
 The measurement harness is a program, not a test class: a dataset-dependent
 test would either skip itself or fail for a reason that has nothing to do with
@@ -170,12 +195,12 @@ the claim. It lives in
 The verdict follows from the numbers rather than from an argument about
 complexity. Two facts do the work.
 
-First, the price is not in the query any more: the statement is 0.05–0.14 ms
+First, the price is not in the query any more: the statement is 0.04–0.17 ms
 including the connection, and the query itself is 0.02–0.07 ms of that. There
 is nothing left for a rewrite of the SQL to remove.
 
 Second, the price does not grow with the database: the same reads on 10 000
-tasks and on 100 000 tasks cost the same 0.16–0.52 ms. A change to the read
+tasks and on 100 000 tasks cost the same 0.16–0.63 ms. A change to the read
 path would therefore have to buy a constant, not a curve — and the constant is
 already small enough to sit inside a frame.
 
@@ -189,7 +214,7 @@ What a change would cost is concrete too. Replacing Room's Flow machinery means
 taking on the invalidation contract — which tables invalidate which read, and
 when — and the risk of getting it wrong is a screen that stops updating or
 updates on the wrong write. The issue forbids touching that contract, and a
-measurement that prices a constant at 0.16–0.52 ms does not justify taking it
+measurement that prices a constant at 0.16–0.63 ms does not justify taking it
 on.
 
 The alternative — proposing a change with its own evidence — was not chosen
@@ -204,9 +229,9 @@ like #3194 for the checklist reads.
 - The read path is unchanged: no DAO signature, no SQL, no invalidation
   contract, no write path. The measurement is the whole deliverable.
 - The number "0.3–2.1 ms per read" in the performance report was an estimate
-  and is now a measurement: 0.16–0.52 ms per read, split into the call path
-  (0.02–0.09 ms), the Flow plumbing (0.02–0.08 ms) and the invalidation
-  (0.09–0.25 ms), with the observer measured on its own (0.07–0.54 ms)
+  and is now a measurement: 0.16–0.63 ms per read, split into the call path
+  (0.00–0.07 ms), the Flow plumbing (0.03–0.13 ms) and the invalidation
+  (0.09–0.30 ms), with the observer measured on its own (0.07–0.75 ms)
   published next to the parts rather than subtracted from them.
 - The observer's share inside a real Flow read is a **measured share**, not a
   lower bound: it is the difference between the DAO's Flow and the same Flow
@@ -219,6 +244,11 @@ like #3194 for the checklist reads.
   not of the call around it, and it stays with #3148.
 - The harness and its Gradle task are kept, so the split can be re-measured
   with the documented command when the Room version or the read path changes.
+- The order of the four forms is shifted from slot to slot, so that no form is
+  always measured first or always last. Under a fixed order the first form of a
+  slot paid for the cold pool and the cold code path, and the difference
+  between the forms was partly the difference between their positions; the
+  shift removes that bias, and a test checks that the shift is even.
 - The checklist reads, still unmeasured, are left exactly as they are — the
   same rule as before: one measured read at a time (#3194).
 
@@ -227,6 +257,7 @@ like #3194 for the checklist reads.
 - Measurement and results: `docs/architecture/dependency-query-performance.md`, section "Обвязка вызова"
 - Harness: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadPerformanceHarness.kt`
 - Read forms and write: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadForms.kt`
+- Arithmetic of the measurement: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadMeasurementTest.kt`
 - Gradle task: `:shared:readOverheadPerf` in `shared/build.gradle.kts`
 - Issue: https://github.com/gazon1/sing/issues/3196
 - Previous measurements: https://github.com/gazon1/sing/issues/3195, https://github.com/gazon1/sing/issues/3176, https://github.com/gazon1/sing/issues/3157
