@@ -190,8 +190,10 @@ The five cases, and which side each wait lives on:
   helper waits for it. The flow names it in `WAIT_FOR` and drops its own wait
   for it.
 - **A title-named entity.** A task, a note or a project whose title the query
-  fixes is named by the element that title produces (`TestTags.slug`), and the
-  helper waits for that element.
+  fixes is named by the element that title produces (`TestTags.slug`). The name
+  is the flow's to use; the helper waits for such an element only when the
+  seed leaves that entity on the Today tab — a task due today, not a note or a
+  project.
 - **An anonymous session.** `session=anonymous` writes no entity at all: the
   flow names no entity, and the helper waits for the shell alone.
 - **Several rows in one seed.** `count=`, `projects=` write rows the flow
