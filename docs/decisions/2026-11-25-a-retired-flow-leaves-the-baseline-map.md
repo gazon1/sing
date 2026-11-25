@@ -125,10 +125,12 @@ refreshed in the same change, and the diff of the change is what says
   `main` merged #3202/#3207 (`search/08-word-prefix.yaml` retired on 2026-11-25)
   into this branch, the map still carried that flow's fingerprint; the new
   orphan check refused the gate until the fingerprint was dropped and
-  `BASELINE_DIGEST` refreshed. Nothing about #3202 changes here — the entry
-  leaves the map because the rule says a retired flow leaves it, and the
-  fingerprint it carried would otherwise admit a returning flow without
-  anybody qualifying it.
+  `BASELINE_DIGEST` refreshed. The same happened for #3203/#3211
+  (`search/09-contains-mode.yaml`, retired on 2026-11-25): its fingerprint left
+  the map and `BASELINE_DIGEST` was refreshed again. Nothing about #3202 or
+  #3203 changes here — the entry leaves the map because the rule says a retired
+  flow leaves it, and the fingerprint it carried would otherwise admit a
+  returning flow without anybody qualifying it.
 
 ## Links
 

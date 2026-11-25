@@ -1621,60 +1621,6 @@ qualifications:
       apk_commit_sha: 52fe5b1d6660
       maestro_version: 2.10.0
       return_code: 0
-  Maestro/flows/search/09-contains-mode.yaml:
-    fingerprint: sha256:6216505cc5602c6974d0049689e3a5e4cdcd5f08d4a9e9ce9a0f1a4fbb296d6a
-    qualified_at: '2026-11-24'
-    environment:
-      kind: emulator
-      api: 36
-      device: sdk_gphone64_x86_64
-      serial: emulator-5568
-    commit: 52fe5b1d6660
-    apk_commit_sha: 52fe5b1d6660
-    maestro_version: 2.10.0
-    attempts:
-    - attempt: 1
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-1
-      junit: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-1/09-contains-mode.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5568
-      commit: 52fe5b1d6660
-      apk_commit_sha: 52fe5b1d6660
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 2
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-2
-      junit: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-2/09-contains-mode.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5568
-      commit: 52fe5b1d6660
-      apk_commit_sha: 52fe5b1d6660
-      maestro_version: 2.10.0
-      return_code: 0
-    - attempt: 3
-      outcome: pass
-      reason: test passed
-      results_dir: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-3
-      junit: build/maestro-qualification/Maestro/flows/search/09-contains-mode/attempt-3/09-contains-mode.xml
-      environment:
-        kind: emulator
-        api: 36
-        device: sdk_gphone64_x86_64
-        serial: emulator-5568
-      commit: 52fe5b1d6660
-      apk_commit_sha: 52fe5b1d6660
-      maestro_version: 2.10.0
-      return_code: 0
   Maestro/flows/menu/09-attach-account-entry.yaml:
     fingerprint: sha256:14c56815530b3bd506ccaae38eba27fc55cc04fcef1d2cdc18c9cdad083cd3d9
     qualified_at: '2026-11-24'
