@@ -68,15 +68,26 @@ tags:
 # 300 ms a row it takes about 7 s — either way it fits inside the 8 s the
 # item budget gives it. Twelve chunks of twenty-five rows are the three hundred
 # rows the flow is about.
+#
+# The first chunk brings the overdue section in: the helper waits for that
+# section (container rule). The count-text wait below is kept — it asserts the
+# chunk's count, not just the section's arrival.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=BigOverdue&due=-1d&count=25&id=bigoverdue"
+      WAIT_FOR: "agenda_section_overdue"
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
       text: "^Overdue .* 25$"
     timeout: 8000
+# Chunks 2-12 add rows to the overdue section chunk 1 brought in. The helper
+# cannot WAIT_FOR that section — it was already on screen before these seeds
+# ran — and the rows are overdue multi-row chunks (no row wait). Each count-text
+# wait below is the caller-side wait for that chunk's write: it observes the
+# count change the chunk produced, so it is evidence for this chunk, not for an
+# earlier one.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
@@ -176,18 +187,14 @@ tags:
       id: agenda_section_overdue
       text: "^Overdue .* 300$"
     timeout: 8000
+# Container rule: the Today section renders only because the seeded
+# TodayReachable is in it, so this wait is that task arriving — the overdue
+# section above it says nothing about it. The helper waits for that section.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=TodayReachable&due=today&id=todayreachable"
-
-# Container rule: the Today section renders only because the seeded
-# TodayReachable is in it, so this wait is that task arriving — the overdue
-# section above it says nothing about it.
-- extendedWaitUntil:
-    visible:
-      id: agenda_section_today
-    timeout: 8000
+      WAIT_FOR: "agenda_section_today"
 - assertVisible:
     id: task_item_todayreachable
 

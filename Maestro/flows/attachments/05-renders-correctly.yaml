@@ -9,7 +9,8 @@ tags:
 # Seed a task and add an attachment.
 # No `due=`: the task is undated, so it lands in the Inbox tab's "No Date"
 # section — the inbox is the tab of the tasks that are not dated yet, and the
-# flow looks the task up there.
+# flow looks the task up there. The seed helper cannot WAIT_FOR an Inbox row
+# from the Today screen; seed-and-open-task waits after navigating to Inbox.
 - runFlow:
     file: ../../helpers/seed-and-open-task.yaml
     env:

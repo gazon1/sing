@@ -6,6 +6,10 @@
 #       env:
 #         QUERY: "task=AttachTestTask2026"
 #         TASK_ID: task_item_attachtesttask2026
+#
+# The task lands in Inbox (undated seeds) — not on the Today screen the seed
+# leaves the app on. The helper cannot WAIT_FOR it; open-task.yaml waits for the
+# row after navigating to Inbox (caller-side wait).
 appId: com.singularity.todo
 name: seed-and-open-task
 ---
