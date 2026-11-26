@@ -7,6 +7,8 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.draft.FakeDraftStore
+import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -16,6 +18,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.domain.state.TaskDraft
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraft
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
@@ -798,6 +801,112 @@ class TaskCreateViewModelTest {
             runCurrent()
 
             assertEquals(1, fakeTaskRepo.tasks.value.size, "the task is created from the editor's copy")
+        }
+}
+
+/**
+ * The tag scope of the draft.
+ *
+ * The draft key carries the tags the editor was opened with, so a draft written
+ * under one set of tags must not open in an editor opened under another set —
+ * the task would land in tags the person never picked.
+ *
+ * It lives in its own class because the create-editor test class had crossed
+ * detekt's `LargeClass` limit (600 code lines) — the same reason the base-class
+ * tests are split into `DraftMviViewModelTest`, `DraftMviEffectTest` and
+ * `DraftMviSaveValidationTest`.
+ */
+@Tag("fast")
+class TaskCreateTagScopeTest {
+    private val draftStore = FakeDraftStore()
+
+    /** How often the task was created — a leak would reach this. */
+    private var createAttempts = 0
+
+    /**
+     * The editor under test.
+     *
+     * The task is never created in this class: the rows here are about which
+     * draft the editor restores, so the use case only has to be observable — the
+     * counter tells that a restored draft would have become a task.
+     */
+    private fun createVm(
+        scope: CoroutineScope,
+        initialTagIds: Set<TagId>,
+    ): TaskCreateViewModel =
+        TaskCreateViewModel(
+            deps =
+                TaskCreateDeps(
+                    createFromDraft =
+                        CreateTaskFromDraft {
+                            createAttempts += 1
+                            Either.Left(AppError.Validation("the task was not supposed to be created"))
+                        },
+                    logger = Logger.withTag("TaskCreateTagScopeTest"),
+                    draftStore = draftStore,
+                ),
+            initialDueDate = null,
+            draftKey = null,
+            initialTagIds = initialTagIds,
+            scope = AutoCloseableCoroutineScope(scope.coroutineContext),
+        )
+
+    /**
+     * The negative half of the guarantee: a draft saved under one set of tags
+     * does not open in an editor opened under another set.
+     */
+    @Test
+    fun `a draft is restored only into the tag scope it was saved in`() =
+        runTest {
+            val draft = TaskDraft(title = FieldOwnedText.empty().seeded("Tagged draft"))
+            draftStore.save(taskDraftStorageKey(null, null, setOf(TagId("tag-1"))), draft, TaskDraft.serializer())
+
+            val vm = createVm(backgroundScope, initialTagIds = setOf(TagId("tag-2")))
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(
+                "",
+                vm.state.value.draft.title.text,
+                "a draft from another tag scope must not leak into this one",
+            )
+
+            // The editor opened under another tag set starts empty, so the save is
+            // refused for the missing title — the other tag scope's draft did not
+            // leak in.
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals("Title is required", vm.state.value.error)
+            assertEquals(0, createAttempts, "no task was created out of another tag scope's draft")
+        }
+
+    /**
+     * The positive half of the guarantee: the draft saved for a set of tags is
+     * restored when the editor opens under *that* set. The order of the tags
+     * does not matter — the key sorts them — so the draft is found even when the
+     * editor was opened with the tags in another order.
+     */
+    @Test
+    fun `a draft is restored into the tag scope it was saved in`() =
+        runTest {
+            val draft = TaskDraft(title = FieldOwnedText.empty().seeded("Tagged draft"))
+            draftStore.save(
+                taskDraftStorageKey(null, null, setOf(TagId("tag-2"), TagId("tag-1"))),
+                draft,
+                TaskDraft.serializer(),
+            )
+
+            val vm = createVm(backgroundScope, initialTagIds = setOf(TagId("tag-1"), TagId("tag-2")))
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(
+                "Tagged draft",
+                vm.state.value.draft.title.text,
+                "the draft saved for this tag scope is restored into it",
+            )
         }
 }
 

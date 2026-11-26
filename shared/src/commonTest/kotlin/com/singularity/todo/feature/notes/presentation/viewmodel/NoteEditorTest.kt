@@ -573,14 +573,14 @@ class NoteEditorTest {
             advanceTimeBy(1_000)
             runCurrent()
 
-            // The editor's own flags: after an explicit save the text is on
-            // disk, so the draft is no longer dirty and the note is no longer
-            // "new". Without this the editor would still ask to discard
-            // changes for text that was already written.
+            // The editor's own flag: after an explicit save the text is on
+            // disk, so the draft is no longer dirty. Without this the editor
+            // would still ask to discard changes for text that was already
+            // written. (The "new" flag of a note the editor created itself is
+            // a separate row of the matrix — the test below.)
             val saved = vm.stateFlow.value.draft
             assertIs<EditorState.Editing>(saved)
             assertFalse(saved.isDirty, "an explicit save clears the editor's dirty flag")
-            assertFalse(saved.isNew, "an explicit save clears the editor's new-note flag")
 
             vm.closeEditor()
             runCurrent()
@@ -590,4 +590,61 @@ class NoteEditorTest {
             assertEquals("<p>Saved content</p>", state.html.value)
             assertEquals("<p>Saved content</p>", notesRepo.notes[testNote.id.value]?.bodyHtml)
         }
+
+    /**
+     * A note the editor created itself starts "new" and is written by its first
+     * save — and by that save only.
+     *
+     * The "new" flag is what tells the writer to *create* the row instead of
+     * updating it, so the save has to clear it: a note left "new" would be
+     * created a second time, and the second create would write the note over
+     * itself instead of leaving it alone.
+     */
+    @Test
+    fun `an explicit save creates a new note exactly once`() =
+        runTest {
+            val notesRepo = CountingNotesRepository()
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+            val id = vm.createNote()
+            val created = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(created)
+            assertTrue(created.isNew, "a note the editor created starts as new")
+            assertEquals(0, notesRepo.notes.size, "a new note is not written before the first save")
+
+            vm.onIntent(NotesEditorIntent.EditBody("<p>Fresh note</p>"))
+            runCurrent()
+
+            vm.onIntent(NotesEditorIntent.SaveNow)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val saved = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(saved)
+            assertFalse(saved.isNew, "an explicit save turns the new note into an existing one")
+            assertFalse(saved.isDirty, "an explicit save clears the editor's dirty flag")
+            assertEquals(1, notesRepo.createCalls, "the note is created once, not twice")
+            assertEquals("<p>Fresh note</p>", notesRepo.notes[id]?.bodyHtml)
+        }
+}
+
+/**
+ * A notes repository that counts how often a note was *created*.
+ *
+ * The count is what tells "the note was written once" from "the note was
+ * written twice under the same id" — the store itself would not show the
+ * difference, because the second write would land on the same row.
+ */
+private class CountingNotesRepository : FakeNotesRepository() {
+    var createCalls = 0
+
+    override suspend fun createWithContent(
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String,
+        bodyHtml: String,
+    ): Result<NoteId> {
+        createCalls += 1
+        return super.createWithContent(id, title, bodyMarkdown, bodyHtml)
+    }
 }
