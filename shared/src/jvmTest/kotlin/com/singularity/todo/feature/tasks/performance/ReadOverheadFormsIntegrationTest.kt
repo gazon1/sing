@@ -39,7 +39,7 @@ import kotlin.time.Duration.Companion.seconds
  * on every run:
  *
  * 1. **the forms answer the same question.** The statement, the one-shot call,
- *    the Flow without the observer and the Flow are asked for the same task,
+ *    the flow with one emission and the Flow are asked for the same task,
  *    and their answers are compared row by row. The SQL of a read is a copy of
  *    the DAO's; a copy that drifted would compare a statement with a Flow that
  *    answers a different question, and every number the harness published for
@@ -56,6 +56,11 @@ import kotlin.time.Duration.Companion.seconds
  *    something that is not there. So the control is checked against the real
  *    thing: it answers once and ends, where the DAO's Flow stays alive and
  *    answers again after the write.
+ * 4. **the scope of a read is proved, not assumed.** The copy of the SQL is
+ *    scoped to the owner of the task; the fixture carries a second user, and
+ *    the read of the foreign task as the owner must answer nothing — while the
+ *    same read as the foreign owner must answer something, so an empty answer
+ *    is evidence of the scope and not of an empty fixture.
  *
  * The database is a file, not a memory: the statement form takes a **reader**
  * connection from the pool, and that is a different connection from the one
@@ -90,7 +95,7 @@ class ReadOverheadFormsIntegrationTest {
                 val flow = flowRows(db, read, TASK_ID, OWNER)
 
                 assertEquals(statement, oneShot, "the one-shot form of ${read.label} answers another question")
-                assertEquals(statement, plumbing, "the Flow without the observer of ${read.label} answers another")
+                assertEquals(statement, plumbing, "the flow with one emission of ${read.label} answers another")
                 assertEquals(statement, flow, "the Flow form of ${read.label} answers another question")
                 assertTrue(
                     statement.answer().isNotEmpty(),
@@ -225,6 +230,12 @@ class ReadOverheadFormsIntegrationTest {
      * the DAO scopes the read through the task's own row, and so must the
      * copy. A copy that lost the predicate would answer the foreign rows, and
      * the forms would disagree.
+     *
+     * The empty answer is only evidence of the scope if the foreign rows are
+     * really there — so the same read is asked **as the foreign owner** and
+     * must answer something. Without that positive half the test would pass
+     * on an empty fixture, and a copy that lost the predicate would pass with
+     * it: nothing would be left to expose the missing predicate.
      */
     @Test
     fun `a read scoped to its owner does not answer a foreign task`() =
@@ -238,12 +249,18 @@ class ReadOverheadFormsIntegrationTest {
                 val flow = flowRows(db, read, FOREIGN_TASK_ID, OWNER)
 
                 assertTrue(
+                    statementRows(db, read, FOREIGN_TASK_ID, FOREIGN_OWNER).answer().isNotEmpty(),
+                    "the foreign task carries no row of ${read.relation} — the scope of the read is " +
+                        "not proved by an empty answer",
+                )
+
+                assertTrue(
                     statement.answer().isEmpty(),
                     "the statement form of ${read.label} answered the rows of a task owned by another user — " +
                         "the copy of the DAO's SQL has lost its user scope",
                 )
                 assertEquals(statement, oneShot, "the one-shot form of ${read.label} answers another question")
-                assertEquals(statement, plumbing, "the Flow without the observer of ${read.label} answers another")
+                assertEquals(statement, plumbing, "the flow with one emission of ${read.label} answers another")
                 assertEquals(statement, flow, "the Flow form of ${read.label} answers another question")
             }
         }

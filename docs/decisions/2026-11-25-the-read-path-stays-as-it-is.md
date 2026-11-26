@@ -204,6 +204,13 @@ predicate from the copy (keeping the number of parameters, so the failure is the
 scope and not a binding error) fails that test by name and leaves the other two
 green.
 
+An empty answer proves the scope only if the foreign rows are really there, so
+the same read is asked **as the foreign owner** and must answer something. That
+half is not vacuous either: a mutation of the fixture that stops seeding the
+foreign edge and tag fails the same test by name with «the foreign task carries
+no row of `task_dependencies` — the scope of the read is not proved by an empty
+answer».
+
 The numbers are published as ranges over six runs, so the
 run-to-run spread is visible rather than smoothed away, and every run prints the
 JVM, the core count and the load average of the machine it ran on: a latency

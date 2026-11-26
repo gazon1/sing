@@ -1207,7 +1207,9 @@ production-путь: его источник отвечает один раз и
 - `the four forms of a read answer the same rows` — четыре формы отвечают
   одними строками на задаче владельца;
 - `a read scoped to its owner does not answer a foreign task` — чужой
-  пользователь не отвечает (пустой ответ и равенство всех четырёх форм);
+  пользователь не отвечает (пустой ответ и равенство всех четырёх форм), а то
+  же чтение от имени чужого владельца отвечает непустотой — иначе пустой ответ
+  доказывал бы не область видимости, а пустую фикстуру;
 - `the observer of every read sees the write that invalidates it` — запись
   действительно вызывает перечитывание у наблюдателя;
 - `the flow with one emission has no observer of its own` — у контроля нет
@@ -1246,6 +1248,14 @@ own` падает с сообщением «the flow with one emission of
 `getBlockingEdgeIdsForUser` did not end — it has an observer of its own, and the
 invalidation source is priced on a control that has one», а остальные три теста
 проходят. Мутация откачена: harness лежит в PR без неё.
+
+Пустой ответ доказывает область видимости только если строки чужого
+пользователя действительно есть, поэтому тест спрашивает то же чтение **от
+имени чужого владельца** и требует непустой ответ. Непустота этой половины
+проверена мутацией фикстуры: если не вставлять ребро и тег чужого
+пользователя, тест `a read scoped to its owner does not answer a foreign task`
+падает с сообщением «the foreign task carries no row of `task_dependencies` —
+the scope of the read is not proved by an empty answer». Мутация откачена.
 
 ### Как воспроизвести
 
