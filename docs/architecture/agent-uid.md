@@ -44,7 +44,7 @@ worktrees it was given, and one sudoers rule that lets the *developer* re-execut
 
 | Thing | Value | Why |
 |---|---|---|
-| User | `agent`, uid auto | The boundary itself |
+| User | `agent`, uid auto — and never 0, never the developer's | The boundary itself. `apply` refuses an existing `agent` that is root or the developer, and `check` verifies both |
 | Password | none | No login. A password is a login an agent could use, and nothing needs one |
 | Shell | `/bin/bash` | A coding agent runs commands; `nologin` would make the account useless |
 | Groups | `sing-dev` (and its own primary group) | `wheel`, `docker` and `kvm` are root-equivalent or own the device — §1.4 of the inventory. A group held as the **primary** gid counts too, and `apply` reconciles it with `usermod --gid`, not only with `gpasswd` |
@@ -66,6 +66,11 @@ That is what `run` uses to become the agent. It is the *trusted* identity re-exe
 fixed binary as the sandboxed one — the direction that keeps the sandbox a sandbox. The
 inverse rule (the agent may run something as the developer) is the escalation #3239
 forbids, and `check` fails if one exists.
+
+**A failing step stops the run.** Every system operation goes through `run_cmd`, which dies on
+a non-zero exit. It used to return the status and let every caller ignore it, so a failing
+`usermod` or `setfacl` was followed by the rest of the run and a `=== done ===` line — a half
+provisioned host reported as provisioned.
 
 **What `apply` reconciles on an account that already exists.** It does not assume the
 account was created by this script. It refuses a `nologin` shell, locks a usable password
@@ -211,7 +216,9 @@ worktree created inside an authorized root later, because the default ACL is wha
 
 **Where the worktrees should live.** Outside the developer's home. A path inside it works —
 `--allow-in-home` opts in — but it is the worktree that makes the `--x` traverse grant
-load-bearing rather than incidental, and the script says so at the top of its output.
+load-bearing rather than incidental, and the script says so at the top of its output. `$HOME`
+itself counts as inside (it is checked by equality, not only by the `$HOME/*` glob), because
+`apply $HOME` would otherwise grant recursive write access over the whole home silently.
 
 ### 4.2 Migration of the agents that exist today
 

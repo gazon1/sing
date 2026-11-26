@@ -111,12 +111,27 @@ end
  
 # Runs a command, or prints it under --dry-run. One code path, so the plan a
 # reader approves is the plan that executes.
+# Run one step, or print it under --dry-run — and FAIL when it fails.
+#
+# It used to return the command's status and every caller ignored it, so a
+# `usermod` or `setfacl` that failed was followed by the rest of the run and a
+# "=== done ===" line: a half-provisioned host reported as provisioned. A verb
+# that cannot complete an essential step has to say so and stop.
+#
+# `setfacl` exits 1 when a file to be modified is already in the requested
+# state? No — it exits 0 idempotently. The tolerated non-zero is an explicit
+# opt-in (`--tolerate`), never silent.
 function run_cmd
     if test $DRY_RUN -eq 1
         string escape -- $argv | string join ' '
-    else
-        $argv
+        return 0
     end
+    $argv
+    set -l rc $status
+    if test $rc -ne 0
+        die "step failed ($rc): $argv"
+    end
+    return 0
 end
  
 function usage
@@ -148,6 +163,22 @@ end
  
 function agent_uid
     getent passwd $AGENT_USER | cut -d: -f3
+end
+
+# The invariant the whole boundary rests on: the agent is NOT root and NOT the
+# developer. Nothing in this script asked that question before: an `agent` that
+# already existed with uid 0 was provisioned as though it were unprivileged, and
+# `run` then executed commands as root while `check` compared 0 to 0 and passed.
+function require_unprivileged_uid
+    set -l uid (agent_uid)
+    test -n "$uid"; or return 0        # a fresh host has no account yet
+    if test "$uid" -eq 0
+        die "$AGENT_USER has uid 0 — that is root, not an unprivileged agent"
+    end
+    set -l dev_uid (id -u $DEV_NAME 2>/dev/null)
+    if test -n "$dev_uid"; and test "$uid" -eq "$dev_uid"
+        die "$AGENT_USER has the developer's uid $uid — it is the same identity"
+    end
 end
  
 # The object store a worktree's git operations write to. One clone with many
@@ -297,7 +328,21 @@ function provision
         end
     end
  
-    # The group is the collaboration seam: both identities, nobody else.
+    # The group is the collaboration seam: both identities, NOBODY ELSE.
+    #
+    # It only ever appended, so a pre-existing member of `sing-dev` silently
+    # received the same recursive write access to every authorized worktree and
+    # to the clone's git store. Membership is reconciled to the documented two,
+    # and an unexpected member is reported rather than quietly removed — it may
+    # be somebody's deliberate configuration.
+    set -l foreign
+    for member in (getent group $AGENT_GROUP | cut -d: -f4 | string split ,)
+        test -n "$member"; or continue
+        contains -- $member $dev $AGENT_USER; or set -a foreign $member
+    end
+    if test (count $foreign) -gt 0
+        die "$AGENT_GROUP already holds $(string join , $foreign) — it is documented as $dev and $AGENT_USER only"
+    end
     run_cmd usermod --append --groups $AGENT_GROUP $dev
     run_cmd usermod --append --groups $AGENT_GROUP $AGENT_USER
  
@@ -317,10 +362,15 @@ function provision
     if test $DRY_RUN -eq 1
         echo "printf '%s\\n' '$rule' > $sudoers"
     else
-        # Refuse to replace a file this script does not know — it might hold
-        # another administrator's grants.
-        if test -e $sudoers; and not grep -qxF -- "$rule" $sudoers
-            die "$sudoers exists and is not this script's — inspect it, then remove it by hand"
+        # Refuse to replace a file this script does not own. One matching line
+        # is not proof — a file that ALSO holds other administrators' grants
+        # would lose them to the rewrite below, and `rollback` would delete the
+        # rest. The file is ours only when it is exactly this one rule.
+        if test -e $sudoers
+            set -l existing (string trim -- (cat $sudoers))
+            if test "$existing" != "$rule"
+                die "$sudoers holds content this script did not write — inspect it, then remove it by hand"
+            end
         end
         printf '%s\n' "$rule" > $sudoers
         chmod 0440 $sudoers
@@ -364,8 +414,14 @@ end
 # one cost this design avoids — so it has to be asked for, not discovered later.
 function in_home_guard
     set -l root (readlink -f $argv[1])
-    set -l home $DEV_HOME
-    string match -q -- "$home/*" "$root"; or return 0
+    set -l home (readlink -f $DEV_HOME)
+    # `$HOME` ITSELF is the worst case, and the glob `$home/*` did not match it:
+    # `apply $HOME` granted `sing-dev:rwX` over the whole home without asking.
+    if test "$root" = "$home"
+        or string match -q -- "$home/*" "$root"
+    else
+        return 0
+    end
     if test $ALLOW_IN_HOME -eq 1
         echo "warning: authorized worktree inside the developer home: $root" >&2
         echo "         it relies on the traverse grant, which opens $home's world-readable files" >&2
@@ -457,8 +513,15 @@ function check
     set -l account (getent passwd $AGENT_USER)
     if test -n "$account"
         set -l uid (printf '%s' "$account" | cut -d: -f3)
+        # The acceptance criterion is an UNPRIVILEGED account. uid 0 is root.
+        if test "$uid" -eq 0
+            fail "$AGENT_USER has uid 0 — that is root"
+        else if test "$uid" -eq (id -u $dev 2>/dev/null)
+            fail "$AGENT_USER has the developer's uid $uid"
+        else
+            pass "$AGENT_USER is a distinct unprivileged uid ($uid)"
+        end
         set -l login_shell (printf '%s' "$account" | cut -d: -f7)
-        pass "account $AGENT_USER exists (uid $uid)"
         switch "$login_shell"
             case '*/nologin' '*/false'
                 fail "$AGENT_USER cannot run a shell"
@@ -639,6 +702,7 @@ function main
         case apply
             parse_args $argv
             resolve_dev
+            require_unprivileged_uid
             validate_roots apply
             if test $DRY_RUN -ne 1; and test (id -u) -ne 0
                 as_root apply

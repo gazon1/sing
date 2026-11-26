@@ -417,7 +417,7 @@ class RoundThreeRegressionTest(PlanTest):
         self.assertIn('/etc/sudoers.d/50-agent-account', provision)
         self.assertNotIn('/etc/sudoers.d/50-agent-run', provision)
         # And it refuses a file it does not recognise instead of overwriting it.
-        self.assertIn('is not this script', provision)
+        self.assertIn('did not write', provision, 'a file with extra grants must be refused')
 
     def test_a_bare_repo_is_rejected_before_any_write(self):
         """The predicate is separate from the resolution, so `check` cannot die mid-verdict."""
@@ -427,6 +427,55 @@ class RoundThreeRegressionTest(PlanTest):
         # `git_common_dir` may exit; it must therefore not be called inside a
         # `set -l x (…); or …` guard, where the exit ends the whole script.
         self.assertNotIn('(git_common_dir $root 2>/dev/null)', body)
+
+
+class RoundFourRegressionTest(PlanTest):
+    """The five defects of the fourth review round, one of them blocking."""
+
+    def test_an_account_with_uid_zero_is_refused(self):
+        """`agent` with uid 0 is root; nothing asked, and `run` then ran as root."""
+        getent = self.stubs / 'getent'
+        getent.write_text(
+            '#!/usr/bin/env bash\n'
+            "case \"$1 ${2:-}\" in\n"
+            "  'passwd devel') echo 'devel:x:1000:1000:Devel:" + str(self.home) + ":/bin/bash' ;;\n"
+            "  'passwd agent') echo 'agent:x:0:0::/home/agent:/bin/bash' ;;\n"
+            "  'group sing-dev') echo 'sing-dev:x:2001:devel,agent' ;;\n"
+            "  *) exit 2 ;;\n"
+            'esac\n',
+            encoding='utf-8',
+        )
+        plan = self._plan(str(self._worktree()))
+        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
+        self.assertIn('uid 0', plan.stderr)
+        self.assertNotIn('useradd', plan.stdout)
+
+    def test_the_home_itself_needs_the_explicit_opt_in(self):
+        """The glob `$HOME/*` did not match `$HOME`."""
+        plan = self._plan(str(self.home))
+        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
+        self.assertIn('--allow-in-home', plan.stderr)
+
+    def test_a_sudoers_file_with_extra_grants_is_refused(self):
+        """One matching line is not proof the whole file is ours."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('did not write', provision)
+        self.assertIn('!= "$rule"', provision)
+
+    def test_a_foreign_member_of_the_group_is_reported(self):
+        """`sing-dev` is documented as two identities; it only ever appended."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('set -a foreign $member', provision)
+        self.assertIn('already holds', provision)
+
+    def test_a_failed_step_stops_the_run(self):
+        """A failing `usermod` used to be followed by `=== done ===`."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        helper = body.split('function run_cmd', 1)[1].split('\nend', 1)[0]
+        self.assertIn('die', helper, 'run_cmd must not swallow a failed step')
+        self.assertIn('$status', helper)
 
 
 class RunTest(AgentAccountTest):
