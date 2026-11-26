@@ -22,6 +22,7 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeProposalRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.filterIsInstance
@@ -490,6 +491,70 @@ class NoteEditorTest {
             // The autosave's echo of our own content is not a rewrite: the editor did
             // not learn anything it did not already know.
             assertEquals(0L, state.title.revision)
+        }
+
+    /**
+     * The production shape of the checkpoint race, in the editor that actually runs it.
+     *
+     * `NoteEditor.onSaved` clears `Editing.isDirty`, and `NoteEditorScreen.guardedBack`
+     * reads *that* field — not `DraftUiState.isDirty`. The editor stays editable while
+     * `persist()` suspends, so text typed during the write used to have its dirty flag
+     * wiped by the hook: Back navigated away without asking, and the keystrokes were
+     * lost. The base class's own checkpoint cannot prevent that — the flag lives in the
+     * draft, and only the subclass writes it.
+     */
+    @Test
+    fun `a save does not clear the dirty flag of text typed while it was writing`() =
+        runTest {
+            val writeStarted = CompletableDeferred<Unit>()
+            val releaseWrite = CompletableDeferred<Unit>()
+            // A write that stays open: the editor has to be mid-save for the window this
+            // test is about to exist at all. Subclassed rather than driven through
+            // `updateContentOverride`, because that field holds a finished `Result` and
+            // would run the gate at assignment instead of when the store is written.
+            val notesRepo =
+                object : FakeNotesRepository() {
+                    override suspend fun updateContent(
+                        id: NoteId,
+                        title: String,
+                        bodyMarkdown: String,
+                        bodyHtml: String,
+                    ): Result<Unit> {
+                        writeStarted.complete(Unit)
+                        releaseWrite.await()
+                        return super.updateContent(id, title, bodyMarkdown, bodyHtml)
+                    }
+                }
+            notesRepo.seed(testNote)
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+            vm.openEditor(testNote.id.value)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.onIntent(NotesEditorIntent.EditBody("<p>saved</p>"))
+            runCurrent()
+            vm.onIntent(NotesEditorIntent.SaveNow)
+            runCurrent()
+            writeStarted.await()
+
+            // The user keeps typing while the write is in flight.
+            vm.onIntent(NotesEditorIntent.EditBody("<p>typed during the save</p>"))
+            releaseWrite.complete(Unit)
+            // Past the write, but *not* past the autosave debounce: letting the debounce
+            // fire would autosave the newer text, which clears the flag legitimately and
+            // would make the assertion below prove nothing.
+            advanceTimeBy(100)
+            runCurrent()
+
+            val state = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(state)
+            assertEquals("<p>typed during the save</p>", state.html.value)
+            assertTrue(
+                state.isDirty,
+                "the back guard reads this flag: clearing it for unstored text navigates away " +
+                    "without asking, and the note loses the keystrokes",
+            )
         }
 
     // ─── The note editor's rows of the draft behavior matrix ─────────────────

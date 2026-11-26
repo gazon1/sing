@@ -77,6 +77,14 @@ persisted value. It never reads the live draft for that.
 **`DraftState.revisions` was removed.** It existed for that inference and went
 with it: one state value and one checkpoint, no second counter to keep honest.
 
+**A subclass that owns a dirty flag clears it only when the live draft is still
+the one that was written.** `NoteEditor` keeps `Editing.isDirty`, and the
+screen's back guard reads *that* field, not `DraftUiState.isDirty`. Clearing it
+unconditionally marked text typed during the write as saved, and Back then
+navigated away without asking — the base class's correct checkpoint cannot save
+the subclass from that, because the flag lives in the draft. `onSaved` and
+`onAutosaved` both guard on `draft == saved`.
+
 **Fatal `Error`s escape `save()`; ordinary failures become the error banner.**
 Rejected drafts (validation), refusals (`Either.Left`) and thrown `Exception`s
 set `DraftUiState.error` and never touch the draft, so a failed save keeps the
@@ -115,7 +123,10 @@ editors get it.
   `reportingScope(crashReporter)` being the production scope; a scope built
   without a handler has no such policy, and `CancellationException` always
   propagates.
-- `DraftState` is `internal`: the base class's bookkeeping, not extension API.
+- `DraftState` is `internal`: the base class's bookkeeping, not extension API, and
+  `checkpoint(saved)` — which takes the value — is its only checkpoint setter.
+  The no-argument overload is gone: after this change nothing may checkpoint the
+  live draft.
 
 ## What was not done
 

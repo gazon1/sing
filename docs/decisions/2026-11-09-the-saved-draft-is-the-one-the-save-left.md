@@ -40,13 +40,18 @@ not before it.
 checkpointed.** The saved state is the state the save left, and `isDirty` is
 false right after it.
 
-> **Superseded in part by
-> `2026-11-26-the-draft-keeps-one-value-and-one-snapshot.md`.** The adjustment is
-> no longer inferred from the live draft: `onSaved` is handed the persisted draft
-> and returns the one the save should be compared against, because the editor
-> stays editable while the hook suspends and a keystroke during that window is
-> unsaved text. The guarantee below still holds — an adjustment returns clean —
-> but the mechanism is the hook's return value, not a read of `draftState.value`.
+### Amended by `2026-11-26-the-draft-keeps-one-value-and-one-snapshot.md`
+
+**The guarantee stands; the mechanism changed.** An adjustment still returns
+clean — that is the whole point of this decision and it is not withdrawn. What
+changed is *how* the base learns the adjustment: not by reading the live draft
+after `onSaved()` returns, but from the value the hook returns. The editor stays
+editable while the hook suspends, and a keystroke during that window is unsaved
+text — reading the live draft blessed it.
+
+This document is therefore **not** marked `superseded`: nothing here is wrong
+about what the save should consider saved. Read the mechanism below as history
+and the signature in the newer decision as the contract.
 
 ## Rationale
 

@@ -133,16 +133,6 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     /** Current draft value. Use inside [updateDraft] transforms. */
     protected val draft: D get() = draftState.value
 
-    /**
-     * The draft [onSaved] says it left behind, when it says anything.
-     *
-     * A hook that adjusts the draft cannot be recognised by comparing revisions: the
-     * editor keeps accepting keystrokes while the hook suspends, and inside that window a
-     * user's edit and the hook's own are the same event. So the hook states its result
-     * instead, and [save] checkpoints exactly that value — never the live draft.
-     */
-    private var savedByHook: D? = null
-
     init {
         vmScope.launch {
             // 1. Restore persisted draft first — seed-if-empty, run to completion

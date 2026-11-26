@@ -244,11 +244,15 @@ internal class NoteEditor(
         // back press right after an explicit Save still asked "Discard changes?"
         // about text that was already on disk.
         //
-        // The adjustment is computed from [saved], never from the live draft, and
-        // returned: the user may type while this hook runs, and that keystroke is
-        // not part of what the save wrote.
+        // **Only when the live draft is still the one that was written.** The editor
+        // stays editable while `persist()` suspends, so the user may have typed since —
+        // and `NoteEditorScreen.guardedBack` reads *this* field, not
+        // `DraftUiState.isDirty`. Clearing it unconditionally marked that later text
+        // saved: Back navigated away without asking, and the keystrokes were lost.
+        // The returned value is computed from [saved] for the same reason — the base
+        // checkpoints it, and the live draft is not what the save wrote.
         val adjusted = saved.copy(isDirty = false, isNew = false)
-        updateDraft { it.copy(isDirty = false, isNew = false) }
+        if (draft == saved) updateDraft { it.copy(isDirty = false, isNew = false) }
         emit(NotesUiEvent.SavedPulse)
         return adjusted
     }
@@ -276,7 +280,11 @@ internal class NoteEditor(
         // (mirroring the derived DraftUiState.isDirty which the base clears via
         // baseline) and the isNew flag — the note now exists in the repo, so a
         // subsequent save is an update, not a create.
-        updateDraft { it.copy(isDirty = false, isNew = false) }
+        //
+        // Only when the live draft is still the one that was written, for the same reason
+        // as [onSaved]: the write suspends, `guardedBack` reads this flag, and clearing it
+        // for text a later keystroke produced navigates away without asking.
+        if (draft == current) updateDraft { it.copy(isDirty = false, isNew = false) }
     }
 
     override fun onIntent(intent: NotesEditorIntent) {

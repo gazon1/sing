@@ -62,24 +62,14 @@ internal class DraftState<S>(initial: S) {
     }
 
     /**
-     * Declares the current value as saved: future [isDirty] checks and
-     * future [discard] calls are relative to this new checkpoint.
-     *
-     * Call this after a successful explicit save — never from autosave,
-     * which must persist `current` silently without moving the checkpoint
-     * (see [DraftMviViewModel]'s autosave-is-silent contract).
-     */
-    fun checkpoint() {
-        checkpointValue = _current.value
-    }
-
-    /**
      * Declares [saved] as the saved value, which need not be [current].
      *
-     * A save is asynchronous and the editor stays editable while it runs, so the draft
-     * the store received and the draft on screen can differ by the time the write
-     * returns. The checkpoint is the one that was *written*; passing it here keeps
-     * [isDirty] honest about a keystroke that arrived during the save.
+     * **The only way to move the checkpoint.** A save is asynchronous and the editor stays
+     * editable while it runs, so the draft the store received and the draft on screen
+     * differ by the time the write returns: taking `current` would bless a keystroke as
+     * saved. Call this after a successful explicit save — never from autosave, which must
+     * persist [value] silently without moving the checkpoint (see [DraftMviViewModel]'s
+     * autosave-is-silent contract).
      */
     fun checkpoint(saved: S) {
         checkpointValue = saved
