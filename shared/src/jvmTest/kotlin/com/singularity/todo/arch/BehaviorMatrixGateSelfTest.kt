@@ -182,34 +182,61 @@ class BehaviorMatrixGateSelfTest {
     }
 
     @Test
-    fun `a pipe-less line without a test is prose, not a malformed row`() {
-        // The gate cannot tell "a row whose test cell was emptied" from "a
-        // sentence that happens to contain a pipe", because nothing but the
-        // test name distinguishes the two: an emptied row and a prose line
-        // have the same shape. So a pipe-less line counts as a row only when
-        // it carries a test — the case above — and a line that does not is
-        // prose. The row that *lost* a test keeps its leading pipe, and the
-        // malformed-row check catches that one.
-        val matrix = matrix("initial draft | no test")
+    fun `a pipe-less row whose test cell was emptied is malformed`() {
+        // Both outer pipes and the test name gone: the line is still inside the
+        // table, so it is a row, and a row without a test is the defect the
+        // malformed check exists for. Recognizing rows by their contents would
+        // filter exactly this line out — the test is what it lost.
+        val matrix =
+            "| Row | Test |\n" +
+                "|--|--|\n" +
+                "| initial draft | `Owner.a test` |\n" +
+                "| initial draft | \n" +
+                "| another row | `Owner.another test` |\n"
 
         val parsed = BehaviorMatrixGate.parse(matrix)
 
-        assertTrue(
-            parsed.malformed.isEmpty(),
-            "a pipe-less line with no test is prose: ${parsed.malformed}",
-        )
+        assertEquals(1, parsed.malformed.size, "a row that lost its test is a defect: ${parsed.malformed}")
+        assertEquals(2, parsed.rows.size, "the rows around it are still rows: ${parsed.rows}")
     }
 
     @Test
-    fun `a prose line that mentions a pipe is not a row`() {
+    fun `prose after a table is not a row`() {
+        // The table ends where the prose starts; a sentence with a pipe after
+        // it must not become a malformed row.
         val matrix =
-            matrix("| a | `Owner.a test` |") +
-                " * the draft is stored as a key | scoped by project\n"
+            "| Row | Test |\n" +
+                "|--|--|\n" +
+                "| a | `Owner.a test` |\n" +
+                "\n" +
+                "The expression is a | b, see `someHelper`.\n"
 
         val parsed = BehaviorMatrixGate.parse(matrix)
 
-        assertEquals(1, parsed.rows.size, "prose is not a row: ${parsed.rows}")
-        assertTrue(parsed.malformed.isEmpty(), "prose is not a malformed row either: ${parsed.malformed}")
+        assertEquals(1, parsed.rows.size, "prose after the table is not a row: ${parsed.rows}")
+        assertTrue(parsed.malformed.isEmpty(), "prose is not a malformed row: ${parsed.malformed}")
+    }
+
+    @Test
+    fun `a second table of the same source is read as its own table`() {
+        val matrix =
+            "| Row | Test |\n" +
+                "|--|--|\n" +
+                "| a | `Owner.a test` |\n" +
+                "\n" +
+                "Prose between the tables.\n" +
+                "\n" +
+                "| Row | Test |\n" +
+                "|--|--|\n" +
+                "| b | `Owner.b test` |\n"
+
+        val parsed = BehaviorMatrixGate.parse(matrix)
+
+        assertEquals(
+            listOf("a test", "b test"),
+            parsed.rows.map { it.testName },
+            "both tables are read, and the prose between them is not: ${parsed.rows}",
+        )
     }
 
     @Test

@@ -102,13 +102,21 @@ internal object BehaviorMatrixGate {
      * header of a table is the line right above the separator, and the
      * separator itself names no test.
      *
-     * A line that carries the separator but not at its start is a table line
-     * too. Markdown does not require the outer pipes, so a row written
-     * `guarantee | \`test\`` renders as one, and dropping it for its missing
-     * leading pipe would take the row out of the check silently — the row
-     * would survive the death of its test, which is the defect this gate
-     * exists for. Such a line is read as a row, and a test that is not in its
-     * last cell makes it malformed.
+     * Rows are found by their *table*, not by their own shape. Markdown does
+     * not require the outer pipes, so a row may be written
+     * `guarantee | \`test\`` or `| guarantee | |` — and a row whose test cell
+     * has been emptied must still be reported, not filtered out for looking
+     * less like a row than the others. So the table is located first: a
+     * separator line marks it, the line above the separator is its header,
+     * and the lines that follow it *and start with a cell boundary* belong to
+     * it, whatever their cells hold. The table ends at the first line that is
+     * not one — a blank line, a prose paragraph, the end of the comment.
+     *
+     * A line that begins with a cell boundary is one that starts with the
+     * separator, or one whose first cell is separated from the second by it:
+     * `guarantee | \`test\``. A sentence that merely mentions a pipe —
+     * `the value is a | b` — has no cell boundary at its first separator
+     * followed by another cell, so it is prose and ends the table.
      *
      * The test is read from the *last* cell — the column the header calls
      * "Test" — not from anywhere in the line. A backtick in the row label is
@@ -118,19 +126,7 @@ internal object BehaviorMatrixGate {
      * supposed to reject.
      */
     fun parse(matrixSource: String): Matrix {
-        val tableLines =
-            matrixSource
-                .lineSequence()
-                .map { it.trim().removePrefix("*").trim() }
-                .filter { it.startsWith("|") || it.isTableRow() }
-                .toList()
-        val dataLines =
-            tableLines
-                .withIndex()
-                .filterNot { (_, line) -> isSeparator(line) }
-                .filterNot { (index, _) ->
-                    index + 1 < tableLines.size && isSeparator(tableLines[index + 1])
-                }.map { (_, line) -> line }
+        val dataLines = tableRows(matrixSource)
         val rows =
             dataLines.mapNotNull { line ->
                 val entry = testCell(line) ?: return@mapNotNull null
@@ -158,15 +154,54 @@ internal object BehaviorMatrixGate {
     }
 
     /**
-     * Whether [line] is a table row that happens to omit its outer pipes.
+     * The data rows of the Markdown tables of [matrixSource].
      *
-     * Markdown does not require them, so `guarantee | \`test\`` is a row. It is
-     * recognized by the separator it carries and by the cells on both sides of
-     * it: prose that merely mentions a pipe — a sentence with `a | b` in it —
-     * has no backticked span in its last cell, so it is not a table line and
-     * does not become a malformed row.
+     * A table is its separator line — dashes, colons and pipes — plus the
+     * lines around it that carry a cell boundary. The separator itself and the
+     * header above it are not data rows. A table is read on its own: the walk
+     * restarts after it, so a second table is read as one, and prose between
+     * two tables is never mistaken for a row.
      */
-    private fun String.isTableRow(): Boolean = contains('|') && testCell(this) != null
+    private fun tableRows(matrixSource: String): List<String> {
+        val lines =
+            matrixSource
+                .lineSequence()
+                .map { it.trim().removePrefix("*").trim() }
+                .toList()
+        return lines.indices
+            .filter { isSeparator(lines[it]) }
+            .flatMap { separator ->
+                val columns = lines.getOrNull(separator - 1)?.cellCount() ?: return emptyList()
+                lines.drop(separator + 1).takeWhile { it.belongsToTable(columns) }
+            }
+    }
+
+    /**
+     * Whether [line] still belongs to a table whose header declares [columns].
+     *
+     * A line that opens with the column separator belongs to the table — that
+     * shape is unambiguous table syntax, and a row whose test cell was emptied
+     * looks exactly like it. A line that merely *holds* separators has to
+     * match the header's width, which is what ends a table in Markdown: prose
+     * is not the same width as the row it follows.
+     */
+    private fun String.belongsToTable(columns: Int): Boolean = startsWith("|") || cellCount() == columns
+
+    /**
+     * How many cells [line] holds, by the separators that divide it.
+     *
+     * `| a | b |` and `a | b` both hold two. An outer pipe that is not matched
+     * at the other end still separates a cell: `a |` is two cells, the second
+     * empty — which is how a row that lost its test name reads.
+     */
+    private fun String.cellCount(): Int {
+        if (!contains('|')) return 1
+        val trimmed = trim()
+        val opened = trimmed.startsWith("|")
+        var body = if (opened) trimmed.drop(1) else trimmed
+        if (opened && body.endsWith("|")) body = body.dropLast(1)
+        return body.split('|').size
+    }
 
     /**
      * The bodies of the classes of [source], by class name.
