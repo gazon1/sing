@@ -509,6 +509,33 @@ class RoundFiveRegressionTest(PlanTest):
         self.assertIn('#effective:r', helper)
 
 
+class RoundSixRegressionTest(PlanTest):
+    """The sixth round: rollback must not delete what `apply` only adopted."""
+
+    def test_ownership_is_recorded_before_anything_is_created(self):
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        # Both branches record, so a pre-existing identity is known to be adopted.
+        self.assertIn('record_ownership user created', provision)
+        self.assertIn('record_ownership user adopted', provision)
+        self.assertIn('record_ownership group created', provision)
+        self.assertIn('record_ownership group adopted', provision)
+
+    def test_rollback_deletes_only_what_it_owned(self):
+        body = SCRIPT.read_text(encoding='utf-8')
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('owned_by_script user', rollback)
+        self.assertIn('owned_by_script group', rollback)
+        self.assertIn('adopted it rather than created it', rollback)
+
+    def test_rollback_rechecks_the_sudoers_content(self):
+        """Provisioning refuses a foreign file; rollback must refuse it too."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('NOPASSWD: /usr/bin/env', rollback, 'rollback must know what it wrote')
+        self.assertIn('kept $sudoers', rollback)
+
+
 class RunTest(AgentAccountTest):
     def test_run_hands_the_command_over_and_drops_the_callers_environment(self):
         """The agent gets a built environment; `env -i` is the mechanism."""

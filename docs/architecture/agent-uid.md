@@ -244,11 +244,17 @@ It removes **only the entries this script wrote** — `setfacl -x u:agent` and
 `-x d:u:agent`, which name one subject and leave a foreign default entry alone. A bare
 `--remove-default` would take every default entry with it, and would silently change the
 modes of files nobody here wrote (measured on a throwaway tree: a `docker` default entry
-disappeared with the agent's). It then removes the sudoers rule, the account and the group. Grants are **recorded** (one line
-per target, in `/var/lib/agent-account/grants`), because a linked worktree's object store lives
-outside it: once the worktree is removed the store's path cannot be re-derived, and a rollback
-that skipped it would leave a recursive group ACL on the main checkout pointing at a GID that
-may later be reused.
+disappeared with the agent's). It then removes the sudoers rule, the account and the group — **only if this script created
+them**. `apply` deliberately adopts a pre-existing `agent`, `sing-dev` or sudoers file, so it
+records which of the three it created (`/var/lib/agent-account/state`, written before the first
+write); `rollback` deletes an owned one and keeps an adopted one, saying so. The sudoers file is
+re-checked against its exact content before deletion, because an administrator may have added a
+rule to it after `apply` ran.
+
+Grants are recorded too (one line per target, in `/var/lib/agent-account/grants`), because a
+linked worktree's object store lives outside it: once the worktree is removed the store's path
+cannot be re-derived, and a rollback that skipped it would leave a recursive group ACL on the
+main checkout pointing at a GID that may later be reused.
 
 `check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
 named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported

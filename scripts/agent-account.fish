@@ -184,6 +184,32 @@ end
 # The object store a worktree's git operations write to. One clone with many
 # worktrees shares exactly one of these, and it is NOT under the worktree: a
 # linked worktree only carries a `.git` file pointing here.
+# What this script CREATED, as opposed to what it reconciled.
+#
+# `apply` deliberately adopts a pre-existing `agent`, `sing-dev` or sudoers file.
+# `rollback` deleted all three unconditionally, so a host that already had an
+# `agent` account lost it — and its home directory — to a rollback of a change
+# that only touched its group memberships. The record is written before the
+# first write of `apply`, so a host that already carries the file is protected
+# by the same rule that protects the sudoers file: content we did not write.
+function state_file
+    echo /var/lib/agent-account/state
+end
+
+# "created" when this script created it, "adopted" when it was already there.
+function record_ownership
+    set -l file (state_file)
+    test $DRY_RUN -eq 1; and return 0
+    test -e $file; or run_cmd install --directory --owner=root --group=root --mode=0755 (dirname $file)
+    printf '%s\t%s\n' $argv[1] $argv[2] >> $file
+end
+
+function owned_by_script
+    set -l file (state_file)
+    test -e $file; or return 1
+    test (grep -F -- (printf '%s\tcreated' $argv[1]) $file | wc -l) -gt 0
+end
+
 # What `apply` granted, so `rollback` can still undo it after a worktree is
 # removed. A linked worktree's object store is NOT under the worktree, and the
 # path cannot be re-derived once the worktree is gone.
@@ -321,11 +347,19 @@ function provision
     # agent has to run one.
     set -l account (getent passwd $AGENT_USER)
     if test -z "$account"
+        record_ownership user created
+        record_ownership group created
         run_cmd groupadd --system $AGENT_GROUP
         run_cmd useradd --create-home --user-group --shell /bin/bash $AGENT_USER
         run_cmd chmod 700 $agent_home_dir
     else
-        echo "account exists: $account"
+        echo "account exists: $account (adopted, not created by this script)"
+        record_ownership user adopted
+        if getent group $AGENT_GROUP >/dev/null
+            record_ownership group adopted
+        else
+            record_ownership group created
+        end
         set -l login_shell (printf '%s' "$account" | cut -d: -f7)
         switch "$login_shell"
             case '*/nologin' '*/false'
@@ -741,11 +775,30 @@ function rollback
         end
     end
  
-    run_cmd rm --force /etc/sudoers.d/50-agent-account
+    # Undo only what `apply` wrote. A pre-existing account, group or sudoers
+    # file is ADOPTED, not owned: deleting it would destroy host configuration
+    # this script never created, and the account's home lives in it.
+    set -l sudoers /etc/sudoers.d/50-agent-account
+    if test -e $sudoers; and test (string trim -- (cat $sudoers 2>/dev/null)) = "$DEV_NAME ALL=($AGENT_USER) NOPASSWD: /usr/bin/env"
+        run_cmd rm --force $sudoers
+    else if test -e $sudoers
+        echo "kept $sudoers: its content is not what this script wrote — inspect it by hand" >&2
+    end
     run_cmd rm --force (grants_file)
-    run_cmd gpasswd --delete $AGENT_USER $AGENT_GROUP
-    run_cmd userdel --remove $AGENT_USER
-    run_cmd groupdel $AGENT_GROUP
+
+    if owned_by_script user
+        run_cmd userdel --remove $AGENT_USER
+    else
+        echo "kept the $AGENT_USER account: this script adopted it rather than created it" >&2
+        in_group $AGENT_GROUP $AGENT_USER; and run_cmd gpasswd --delete $AGENT_USER $AGENT_GROUP
+    end
+    if owned_by_script group
+        run_cmd groupdel $AGENT_GROUP
+    else
+        echo "kept the $AGENT_GROUP group: this script adopted it rather than created it" >&2
+        run_cmd gpasswd --delete $DEV_NAME $AGENT_GROUP 2>/dev/null || true
+    end
+    run_cmd rm --force (state_file)
     echo "=== rolled back; the worktrees, their branches and their git data were not touched ==="
 end
  
