@@ -78,8 +78,8 @@ class BehaviorMatrixDriftTest {
     private val classBodies: Map<String, List<String>> by lazy {
         val bodies = mutableMapOf<String, MutableList<String>>()
         for (file in testSources) {
-            for ((name, body) in BehaviorMatrixGate.classBodies(file.readText())) {
-                bodies.getOrPut(name) { mutableListOf() }.add(body)
+            for ((name, fileBodies) in BehaviorMatrixGate.classBodies(file.readText())) {
+                bodies.getOrPut(name) { mutableListOf() }.addAll(fileBodies)
             }
         }
         bodies

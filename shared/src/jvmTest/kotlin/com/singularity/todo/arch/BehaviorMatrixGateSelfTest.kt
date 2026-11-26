@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
  * fallback that a missing owner class used to hide behind, a test that
  * belongs to another class of the same file, an annotation and a declaration
  * that exist only inside a string, a table line that names no test, and a
- * class name that two packages share.
+ * class name that two classes share.
  *
  * ## What a green run here means
  *
@@ -203,6 +203,29 @@ class BehaviorMatrixGateSelfTest {
         )
     }
 
+    @Test
+    fun `two classes of one file that share a name are ambiguous`() {
+        val source =
+            "class First {\n" +
+                "    class Owner {\n" +
+                "        @Test\n" +
+                "        fun `a test`() {}\n" +
+                "    }\n" +
+                "}\n" +
+                "class Second {\n" +
+                "    class Owner {\n" +
+                "    }\n" +
+                "}\n"
+
+        val bodies = BehaviorMatrixGate.classBodies(source)
+
+        assertEquals(
+            setOf("Owner"),
+            BehaviorMatrixGate.ambiguousClassNames(bodies),
+            "a name two classes of the same file claim is ambiguous: $bodies",
+        )
+    }
+
     /** The rows of [matrix] that do not name a test that exists. */
     private fun missing(
         matrix: String,
@@ -214,7 +237,7 @@ class BehaviorMatrixGateSelfTest {
         return BehaviorMatrixGate.missingRows(
             rows = parsed.rows,
             matrixClassBody = matrixClassBody,
-            ownerBody = { bodies[it] },
+            ownerBody = { bodies[it]?.singleOrNull() },
         )
     }
 
@@ -222,7 +245,7 @@ class BehaviorMatrixGateSelfTest {
     private fun body(
         source: String,
         className: String,
-    ): String? = BehaviorMatrixGate.classBodies(source)[className]
+    ): String? = BehaviorMatrixGate.classBodies(source)[className]?.singleOrNull()
 
     /** The source of a class that declares `a test`, with or without a test annotation. */
     private fun owner(annotated: Boolean): String {

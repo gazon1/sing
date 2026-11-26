@@ -33,10 +33,11 @@ package com.singularity.todo.arch
  * satisfied by a test of `DraftMviViewModelTest` that happens to live in the
  * same file.
  *
- * The class name alone is not an identity either: two packages may hold a
- * class of the same name, and a row that names such a class resolves to
- * nothing — the gate refuses to guess which of the two classes the row means,
- * because a wrong guess turns a missing test into a green gate.
+ * The class name alone is not an identity either: two classes may share a
+ * name — in different packages, or as two nested classes of one file — and a
+ * row that names such a class resolves to nothing. The gate refuses to guess
+ * which of the two classes the row means, because a wrong guess turns a
+ * missing test into a green gate.
  *
  * ## What counts as a test
  *
@@ -107,18 +108,20 @@ internal object BehaviorMatrixGate {
     /**
      * The bodies of the classes of [source], by class name.
      *
-     * A class that cannot be found is simply absent from the map — a caller
-     * reads that as "no such class here", not as "an empty class".
+     * A name that more than one class claims holds more than one body — a
+     * class that appears twice in the same file (two nested classes of the
+     * same name, say) counts as often as it is declared. The gate refuses to
+     * pick one of them, so the caller can see the ambiguity instead of
+     * resolving a name by luck.
      */
-    fun classBodies(source: String): Map<String, String> {
+    fun classBodies(source: String): Map<String, List<String>> {
         val code = KotlinText.stripCode(source)
         return classDeclaration
             .findAll(code)
             .mapNotNull { declaration ->
                 val body = classBody(code, declaration.range.last + 1) ?: return@mapNotNull null
                 declaration.groupValues[1] to body
-            }.distinctBy { it.first }
-            .toMap()
+            }.groupBy({ it.first }, { it.second })
     }
 
     /**
