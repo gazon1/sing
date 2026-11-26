@@ -558,6 +558,11 @@ val perfDatasetPath = providers.gradleProperty("perf.dataset").getOrElse("")
 val perfIterations = providers.gradleProperty("perf.iterations").getOrElse("10")
 val perfWarmup = providers.gradleProperty("perf.warmup").getOrElse("3")
 val perfOwner = providers.gradleProperty("perf.owner").getOrElse("perf-owner")
+// Which experiment the dependency-query harness runs. The harness is one
+// program with one dataset pipeline and one set of arguments; the experiments
+// it can run differ in what they ask of the database, not in how the dataset is
+// restored or how the arguments are read.
+val perfExperiment = providers.gradleProperty("perf.experiment").getOrElse("sql-forms")
 val relatedTaskPickerPerf =
     tasks.register<JavaExec>("relatedTaskPickerPerf") {
         description = "Measures the Related Tasks picker on a restored synthetic dataset."
@@ -589,6 +594,16 @@ val relatedTaskPickerPerf =
 //
 //   ./gw :import-cli:run --args="generate --profile 100k --seed 4242 --output $PWD/build/perf/100k.zip"
 //   ./gw :shared:dependencyQueryPerf -Pperf.archive=$PWD/build/perf/100k.zip
+//
+// The same task runs the second experiment of #3196 — the per-read overhead, the
+// call around the statement — with `-Pperf.experiment=read-overhead`. One
+// program, one dataset pipeline, one set of arguments: the experiments differ
+// in what they ask of the database, not in how the dataset is restored.
+//
+//   ./gw :import-cli:run --args="generate --profile 100k --seed 4242 --tags 30 \
+//     --dependency-density 0.1 --format dir --output $PWD/build/perf/100k-tags"
+//   ./gw :shared:dependencyQueryPerf -Pperf.experiment=read-overhead \
+//     -Pperf.dataset=$PWD/build/perf/100k-tags
 val dependencyQueryPerf =
     tasks.register<JavaExec>("dependencyQueryPerf") {
         description = "Measures the user-scoped dependency reads on a restored synthetic dataset."
@@ -599,6 +614,7 @@ val dependencyQueryPerf =
         maxHeapSize = testTaskHeap
         outputs.upToDateWhen { false }
         args(
+            "--experiment=$perfExperiment",
             "--archive=${if (perfArchivePath.isBlank()) "" else File(perfArchivePath).absolutePath}",
             "--dataset=${if (perfDatasetPath.isBlank()) "" else File(perfDatasetPath).absolutePath}",
             "--iterations=$perfIterations",
