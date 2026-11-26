@@ -64,6 +64,7 @@ class ReadOverheadMeasurementTest {
                 oneShot = listOf(2.milliseconds, 4.milliseconds, 6.milliseconds),
                 plumbing = listOf(3.milliseconds, 6.milliseconds, 9.milliseconds),
                 flow = listOf(4.milliseconds, 8.milliseconds, 12.milliseconds),
+                sql = listOf(0.5.milliseconds, 1.milliseconds, 1.5.milliseconds),
                 tracker = listOf(5.milliseconds),
             )
 
@@ -90,12 +91,32 @@ class ReadOverheadMeasurementTest {
                 oneShot = listOf(2.milliseconds),
                 plumbing = listOf(3.milliseconds),
                 flow = listOf(4.milliseconds),
+                sql = listOf(0.5.milliseconds),
                 tracker = listOf(5.milliseconds),
             )
 
         assertFailsWith<IllegalStateException> {
             timings.overhead
         }
+    }
+
+    @Test
+    fun `the connection share is what the statement paid over the SQL work`() {
+        val timings =
+            FormTimings(
+                statement = listOf(1.milliseconds, 2.milliseconds, 3.milliseconds),
+                oneShot = listOf(2.milliseconds, 4.milliseconds, 6.milliseconds),
+                plumbing = listOf(3.milliseconds, 6.milliseconds, 9.milliseconds),
+                flow = listOf(4.milliseconds, 8.milliseconds, 12.milliseconds),
+                sql = listOf(0.5.milliseconds, 1.milliseconds, 1.5.milliseconds),
+                tracker = listOf(5.milliseconds),
+            )
+
+        assertEquals(
+            listOf(0.5.milliseconds, 1.milliseconds, 1.5.milliseconds),
+            timings.connection,
+            "the connection share is the statement over the SQL work of the same slot",
+        )
     }
 
     @Test
@@ -139,6 +160,7 @@ class ReadOverheadMeasurementTest {
                 oneShot = listOf(2.milliseconds, 3.milliseconds),
                 plumbing = listOf(3.milliseconds, 4.milliseconds),
                 flow = listOf(4.milliseconds, 5.milliseconds),
+                sql = listOf(0.5.milliseconds, 1.milliseconds),
                 tracker = listOf(5.milliseconds, 6.milliseconds),
             )
 

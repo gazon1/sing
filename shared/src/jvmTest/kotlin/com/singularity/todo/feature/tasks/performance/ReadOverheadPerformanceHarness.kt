@@ -76,6 +76,14 @@ import kotlin.time.Duration
  * pool and giving it back, with no query. Every form pays it inside its
  * statement, and the report says how much of a read it is.
  *
+ * The statement form is timed twice in the same call: the whole call, and the
+ * **SQL work** inside the connection — the preparation, the binding, the
+ * execution and the mapping. What is left of the whole call is the
+ * connection's share, paired by slot with the SQL work. The SQL work is
+ * therefore a measurement of its own, and not the difference of two separately
+ * measured percentiles: such a difference is not the percentile of the
+ * difference.
+ *
  * A seventh number prices the observer on a *change* rather than on an
  * opening: a live collector, a write, and the wait for the re-read the observer
  * triggers. The observer's latency — the time from the end of the write to the
@@ -102,6 +110,11 @@ import kotlin.time.Duration
  * number of iterations, so a run that saw fewer re-reads than it wrote cannot
  * publish its numbers as if it had seen all of them.
  *
+ * Both claims — the forms answer the same rows, and the observer sees the
+ * write — are checked a second time by a test on a real Room database
+ * (`ReadOverheadFormsIntegrationTest`), so they are verified on every run of
+ * the test suite and not only when this program is run.
+ *
  * ## How to run it
  *
  * The dataset comes from the shared generator of [#3090]:
@@ -116,18 +129,23 @@ import kotlin.time.Duration
  * measured the same way:
  *
  * ```
- * ./gw :shared:readOverheadPerf -Pperf.archive=$PWD/build/perf/10k-tags.zip
- * ./gw :shared:readOverheadPerf -Pperf.dataset=$PWD/build/perf/100k-tags
+ * ./gw :shared:dependencyQueryPerf -Pperf.experiment=read-overhead \
+ *   -Pperf.archive=$PWD/build/perf/10k-tags.zip
+ * ./gw :shared:dependencyQueryPerf -Pperf.experiment=read-overhead \
+ *   -Pperf.dataset=$PWD/build/perf/100k-tags
  * ```
  *
  * One invocation produces one set of percentiles. The published ranges come
- * from three independent invocations of each dataset, kept as they were, so
+ * from six independent invocations of each dataset, kept as they were, so
  * that the spread between runs stays visible instead of being averaged away.
  *
  * A dataset that fits a backup archive is measured the same way, through
  * `-Pperf.archive`.
+ *
+ * The experiment runs through the harness of the SQL comparison (#3174) — one
+ * program, one dataset pipeline, one task: `:shared:dependencyQueryPerf`.
  */
-fun main(args: Array<String>) {
+internal fun readOverheadMain(args: Array<String>) {
     val config = ReadOverheadConfig.parse(args)
     println(runBlocking { measure(config) })
 }
@@ -234,6 +252,7 @@ internal data class FormTimings(
     val oneShot: List<Duration>,
     val plumbing: List<Duration>,
     val flow: List<Duration>,
+    val sql: List<Duration>,
     val tracker: List<Duration>,
 ) {
     /** The overhead of a read: what the Flow costs over the statement alone. */
@@ -253,6 +272,18 @@ internal data class FormTimings(
      * where the Flow really uses it.
      */
     val invalidation: List<Duration> get() = paired(flow, plumbing, "flow and flow plumbing")
+
+    /**
+     * The connection's share of the statement, in the same slot.
+     *
+     * The statement form is timed as a whole and, inside the same call, as the
+     * SQL work alone. What is left of the whole call is what the call paid
+     * before the statement was prepared: the hop to the database's dispatcher,
+     * taking a connection from the pool and handing it back. The two numbers are
+     * paired by slot, so this is the difference of the samples of one slot and
+     * not the difference of two separately measured percentiles.
+     */
+    val connection: List<Duration> get() = paired(statement, sql, "statement and SQL work")
 
     /**
      * The observer's price, measured on its own.
@@ -332,6 +363,8 @@ private suspend fun measure(config: ReadOverheadConfig): String {
             measurements += priced(read, ReadForm.OneShot.label, timings.oneShot)
             measurements += priced(read, ReadForm.Plumbing.label, timings.plumbing)
             measurements += priced(read, ReadForm.Flow.label, timings.flow)
+            measurements += priced(read, "SQL work", timings.sql)
+            measurements += priced(read, "connection in slot", timings.connection)
             measurements += priced(read, "observer alone", timings.tracker)
             measurements += priced(read, "call path", timings.callPath)
             measurements += priced(read, "Flow plumbing", timings.flowPlumbing)
@@ -414,84 +447,142 @@ private suspend fun render(
     connection: List<Duration>,
 ): String =
     buildString {
-        appendLine("## Per-read overhead — measurement")
-        appendLine()
-        appendLine("- dataset: `${dataset.file.absolutePath}` (${dataset.form.name.lowercase()})")
-        appendLine("- tasks: $tasks")
-        appendLine("- edges: ${db.scalarInt("SELECT count(*) FROM task_dependencies")}")
-        appendLine("- tag rows: ${db.scalarInt("SELECT count(*) FROM task_tags")}")
-        appendLine("- owner: `${config.owner.value}`")
-        appendLine("- jvm: ${System.getProperty("java.version")} (${System.getProperty("java.vm.name")})")
-        appendLine("- machine: ${Runtime.getRuntime().availableProcessors()} cores, load ${loadAverage()}")
+        appendHeader(dataset, tasks, db, config)
+        appendFormsTable(measurements)
+        appendPartsTable(measurements)
+        appendStatementSection(measurements)
+        appendConnectionSection(connection)
+        appendObserverSection(changes)
+    }
+
+/** The header of the report: what was measured, on what, on which machine. */
+private suspend fun StringBuilder.appendHeader(
+    dataset: PerfDataset,
+    tasks: Int,
+    db: AppDatabase,
+    config: ReadOverheadConfig,
+) {
+    appendLine("## Per-read overhead — measurement")
+    appendLine()
+    appendLine("- dataset: `${dataset.file.absolutePath}` (${dataset.form.name.lowercase()})")
+    appendLine("- tasks: $tasks")
+    appendLine("- edges: ${db.scalarInt("SELECT count(*) FROM task_dependencies")}")
+    appendLine("- tag rows: ${db.scalarInt("SELECT count(*) FROM task_tags")}")
+    appendLine("- owner: `${config.owner.value}`")
+    appendLine("- jvm: ${System.getProperty("java.version")} (${System.getProperty("java.vm.name")})")
+    appendLine("- machine: ${Runtime.getRuntime().availableProcessors()} cores, load ${loadAverage()}")
+    appendLine(
+        "- rows checked: the statement, the one-shot call, the Flow without the observer and " +
+            "the Flow answered the same rows",
+    )
+    appendLine()
+}
+
+/** Every priced form of every read. */
+private fun StringBuilder.appendFormsTable(measurements: List<OverheadMeasurement>) {
+    appendLine("| read | form | p50 ms | p95 ms | samples |")
+    appendLine("|---|---|---|---|---|")
+    for (m in measurements) {
+        appendLine("| ${m.read.label} | ${m.form} | ${millis(m.p50)} | ${millis(m.p95)} | ${m.samples} |")
+    }
+    appendLine()
+}
+
+/** The parts of the overhead, read by read. */
+private fun StringBuilder.appendPartsTable(measurements: List<OverheadMeasurement>) {
+    appendLine(
+        "| read | statement | one-shot | flow w/o observer | flow | call path | Flow plumbing | " +
+            "invalidation | overhead | observer alone |",
+    )
+    appendLine("|---|---|---|---|---|---|---|---|---|---|")
+    for (read in Read.entries) {
+        val statement = measurements.median(read, ReadForm.Statement.label)
+        val oneShot = measurements.median(read, ReadForm.OneShot.label)
+        val plumbing = measurements.median(read, ReadForm.Plumbing.label)
+        val flow = measurements.median(read, ReadForm.Flow.label)
+        val tracker = measurements.median(read, "observer alone")
+        val callPath = measurements.median(read, "call path")
+        val machinery = measurements.median(read, "Flow plumbing")
+        val invalidation = measurements.median(read, "invalidation")
+        val overhead = measurements.median(read, "overhead")
         appendLine(
-            "- rows checked: the statement, the one-shot call, the Flow without the observer and " +
-                "the Flow answered the same rows",
-        )
-        appendLine()
-        appendLine("| read | form | p50 ms | p95 ms | samples |")
-        appendLine("|---|---|---|---|---|")
-        for (m in measurements) {
-            appendLine("| ${m.read.label} | ${m.form} | ${millis(m.p50)} | ${millis(m.p95)} | ${m.samples} |")
-        }
-        appendLine()
-        appendLine(
-            "| read | statement | one-shot | flow w/o observer | flow | call path | Flow plumbing | " +
-                "invalidation | overhead | observer alone |",
-        )
-        appendLine("|---|---|---|---|---|---|---|---|---|---|")
-        for (read in Read.entries) {
-            val statement = measurements.median(read, ReadForm.Statement.label)
-            val oneShot = measurements.median(read, ReadForm.OneShot.label)
-            val plumbing = measurements.median(read, ReadForm.Plumbing.label)
-            val flow = measurements.median(read, ReadForm.Flow.label)
-            val tracker = measurements.median(read, "observer alone")
-            val callPath = measurements.median(read, "call path")
-            val machinery = measurements.median(read, "Flow plumbing")
-            val invalidation = measurements.median(read, "invalidation")
-            val overhead = measurements.median(read, "overhead")
-            appendLine(
-                "| ${read.label} | ${millis(statement)} | ${millis(oneShot)} | ${millis(plumbing)} | " +
-                    "${millis(flow)} | ${millis(callPath)} | ${millis(machinery)} | ${millis(invalidation)} | " +
-                    "${millis(overhead)} | ${millis(tracker)} |",
-            )
-        }
-        appendLine()
-        appendLine(
-            "The overhead is the call path plus the Flow plumbing plus the invalidation, in every " +
-                "iteration. All four forms take their connection from the readers' pool, so no part of " +
-                "a difference is a difference of pools. The order of the forms is rotated from slot to " +
-                "slot, so that no form is always measured first or always last: the position a form was " +
-                "measured in is not part of its price. The invalidation is priced in place: the Flow " +
-                "and the Flow without the observer differ only in the observer. The observer alone is " +
-                "published, not subtracted: it is the price of one registration, in a pass of its own.",
-        )
-        appendLine()
-        appendLine("### The connection every form pays")
-        appendLine()
-        appendLine(
-            "Every form takes a reader connection of its own, so the price of taking one is inside " +
-                "the statement: p50 ${millis(nearestRank(connection, 0.5))} ms, " +
-                "p95 ${millis(nearestRank(connection, 0.95))} ms, ${connection.size} samples.",
-        )
-        appendLine()
-        appendLine("### The observer on a change")
-        appendLine()
-        appendLine("| read | write alone ms | write + observer ms | observer's latency ms | re-reads seen |")
-        appendLine("|---|---|---|---|---|")
-        for (change in changes) {
-            appendLine(
-                "| ${change.read.label} | ${millis(change.writeAlone)} | ${millis(change.writeAndObserve)} | " +
-                    "${millis(change.observerLatency)} | ${change.reEmissions} |",
-            )
-        }
-        appendLine()
-        appendLine(
-            "The observer's latency is the time from the end of the write to the emission the observer " +
-                "triggers — how long a screen waits for the re-read. The number of re-reads is checked " +
-                "against the number of iterations: a run that saw fewer re-reads than it wrote would " +
-                "fail instead of publishing its numbers.",
+            "| ${read.label} | ${millis(statement)} | ${millis(oneShot)} | ${millis(plumbing)} | " +
+                "${millis(flow)} | ${millis(callPath)} | ${millis(machinery)} | ${millis(invalidation)} | " +
+                "${millis(overhead)} | ${millis(tracker)} |",
         )
     }
+    appendLine()
+    appendLine(
+        "The overhead is the call path plus the Flow plumbing plus the invalidation, in every " +
+            "iteration. All four forms take their connection from the readers' pool, so no part of " +
+            "a difference is a difference of pools. The order of the forms is rotated from slot to " +
+            "slot, so that no form is always measured first or always last: the position a form was " +
+            "measured in is not part of its price. The invalidation is priced in place: the Flow " +
+            "and the Flow without the observer differ only in the observer. The observer alone is " +
+            "published, not subtracted: it is the price of one registration, in a pass of its own.",
+    )
+    appendLine()
+}
+
+/** What the statement is made of: the SQL work and the connection's share of the slot. */
+private fun StringBuilder.appendStatementSection(measurements: List<OverheadMeasurement>) {
+    appendLine("### What the statement is made of")
+    appendLine()
+    appendLine("| read | statement | SQL work | connection in slot |")
+    appendLine("|---|---|---|---|")
+    for (read in Read.entries) {
+        val statement = measurements.median(read, ReadForm.Statement.label)
+        val sql = measurements.median(read, "SQL work")
+        val connection = measurements.median(read, "connection in slot")
+        appendLine(
+            "| ${read.label} | ${millis(statement)} | ${millis(sql)} | ${millis(connection)} |",
+        )
+    }
+    appendLine()
+    appendLine(
+        "The statement form is timed twice in the same call: the whole call, and the SQL work " +
+            "inside the connection — the preparation, the binding, the execution and the mapping. " +
+            "The connection's share is what is left of the whole call, paired by slot. The SQL work " +
+            "is therefore a measurement of its own and not the difference of two separately measured " +
+            "percentiles.",
+    )
+    appendLine()
+}
+
+/** The price of taking a connection, measured on its own as a cross-check. */
+private fun StringBuilder.appendConnectionSection(connection: List<Duration>) {
+    appendLine("### The connection every form pays")
+    appendLine()
+    appendLine(
+        "Every form takes a reader connection of its own, so the price of taking one is inside " +
+            "the statement. Measured on its own — taking a reader from the pool and giving it back, " +
+            "with no query: p50 ${millis(nearestRank(connection, 0.5))} ms, " +
+            "p95 ${millis(nearestRank(connection, 0.95))} ms, ${connection.size} samples. The " +
+            "connection's share of a statement, paired by slot, is in the table above.",
+    )
+    appendLine()
+}
+
+/** The observer's price on a change, and the re-reads it saw. */
+private fun StringBuilder.appendObserverSection(changes: List<ChangeMeasurement>) {
+    appendLine("### The observer on a change")
+    appendLine()
+    appendLine("| read | write alone ms | write + observer ms | observer's latency ms | re-reads seen |")
+    appendLine("|---|---|---|---|---|")
+    for (change in changes) {
+        appendLine(
+            "| ${change.read.label} | ${millis(change.writeAlone)} | ${millis(change.writeAndObserve)} | " +
+                "${millis(change.observerLatency)} | ${change.reEmissions} |",
+        )
+    }
+    appendLine()
+    appendLine(
+        "The observer's latency is the time from the end of the write to the emission the observer " +
+            "triggers — how long a screen waits for the re-read. The number of re-reads is checked " +
+            "against the number of iterations: a run that saw fewer re-reads than it wrote would " +
+            "fail instead of publishing its numbers.",
+    )
+}
 
 /** The p50 of one form of one read. */
 private fun List<OverheadMeasurement>.median(

@@ -53,13 +53,54 @@ internal suspend fun statementRows(
     read: Read,
     taskId: String,
     owner: UserId,
-): ReadRows =
-    db.useConnection(isReadOnly = true) { transactor ->
-        transactor.usePrepared(read.sql) { statement ->
-            read.bind(statement, taskId, owner)
-            read.mapRows(statement)
+): ReadRows = statementSample(db, read, taskId, owner).rows
+
+/**
+ * The statement form, timed inside.
+ *
+ * The form is two prices, not one: the **SQL work** — the preparation, the
+ * binding, the execution and the mapping of the rows — and everything the call
+ * around it pays before the statement is even prepared, which is the hop to the
+ * database's dispatcher, taking a connection from the pool and handing it back.
+ *
+ * The two are timed in the same call, on the same connection, in the same slot:
+ * the SQL work is measured *inside* the connection block, and the connection's
+ * share is what is left of the whole call. That is the only way the SQL work
+ * can be published as a number of its own — the difference of two separately
+ * measured percentiles is not the percentile of the difference, and a report
+ * that claims the price of the SQL from such a difference is claiming something
+ * the measurement does not establish.
+ */
+internal suspend fun statementSample(
+    db: AppDatabase,
+    read: Read,
+    taskId: String,
+    owner: UserId,
+): StatementSample {
+    var sql = Duration.ZERO
+    val rows =
+        db.useConnection(isReadOnly = true) { transactor ->
+            val mark = TimeSource.Monotonic.markNow()
+            val answer =
+                transactor.usePrepared(read.sql) { statement ->
+                    read.bind(statement, taskId, owner)
+                    read.mapRows(statement)
+                }
+            sql = mark.elapsedNow()
+            answer
         }
-    }
+    return StatementSample(rows = rows, sql = sql)
+}
+
+/**
+ * One statement form: the rows it answered with, and the SQL work alone.
+ *
+ * [sql] is the time inside the connection: the preparation, the binding, the
+ * execution and the mapping. The connection's share is
+ * `total − sql`, where `total` is the whole call — the same slot, the same
+ * connection, the same moment.
+ */
+internal data class StatementSample(val rows: ReadRows, val sql: Duration)
 
 /**
  * The same SQL as a suspend call.
@@ -203,6 +244,7 @@ internal suspend fun measureForms(
 ): FormTimings {
     val tracker = measureTracker(db, read, probes.size, config)
     val samples = ReadForm.entries.associateWith { mutableListOf<Duration>() }
+    val sqlWork = mutableListOf<Duration>()
     var slot = 0
     for (index in 0 until config.warmup) {
         for (taskId in probes) {
@@ -216,9 +258,17 @@ internal suspend fun measureForms(
         for (taskId in probes) {
             for (form in rotatedForms(slot)) {
                 val mark = TimeSource.Monotonic.markNow()
-                runForm(form, db, read, taskId, config.owner)
-                val bucket = samples.getValue(form)
-                bucket += mark.elapsedNow()
+                if (form == ReadForm.Statement) {
+                    // The statement form is timed twice in the same call: the
+                    // whole call, and the SQL work inside the connection. The
+                    // connection's share is what is left of the difference.
+                    val sample = statementSample(db, read, taskId, config.owner)
+                    samples.getValue(form) += mark.elapsedNow()
+                    sqlWork += sample.sql
+                } else {
+                    runForm(form, db, read, taskId, config.owner)
+                    samples.getValue(form) += mark.elapsedNow()
+                }
             }
             slot++
         }
@@ -228,6 +278,7 @@ internal suspend fun measureForms(
         oneShot = samples.getValue(ReadForm.OneShot).toList(),
         plumbing = samples.getValue(ReadForm.Plumbing).toList(),
         flow = samples.getValue(ReadForm.Flow).toList(),
+        sql = sqlWork.toList(),
         tracker = tracker,
     )
 }

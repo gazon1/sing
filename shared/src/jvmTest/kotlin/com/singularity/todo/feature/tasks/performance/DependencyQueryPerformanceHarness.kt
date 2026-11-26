@@ -72,14 +72,33 @@ import kotlin.time.TimeSource
  * ```
  */
 fun main(args: Array<String>) {
-    val config = DependencyPerfConfig.parse(args)
-    val outcome = runBlocking { measure(config) }
-    println(outcome.report)
-    // A mismatch is a failed run, not a line in the report: the report is
-    // printed first so the operator sees what was measured, and the exit code
-    // tells the caller that the candidate did not answer the same question.
-    check(outcome.mismatch == null) {
-        "row equivalence failed — the candidate form does not answer the current one: ${outcome.mismatch}"
+    // One program, one dataset pipeline, one set of arguments — two
+    // experiments. The second one (#3196) asks a different question of the
+    // database, not a different question of the dataset, so it runs through
+    // the same entry point and the same task.
+    when (perfArgs(args)["experiment"] ?: "sql-forms") {
+        "sql-forms" -> {
+            val config = DependencyPerfConfig.parse(args)
+            val outcome = runBlocking { measure(config) }
+            println(outcome.report)
+            // A mismatch is a failed run, not a line in the report: the report is
+            // printed first so the operator sees what was measured, and the exit code
+            // tells the caller that the candidate did not answer the same question.
+            check(outcome.mismatch == null) {
+                "row equivalence failed — the candidate form does not answer the current one: ${outcome.mismatch}"
+            }
+        }
+
+        "read-overhead" -> {
+            readOverheadMain(args)
+        }
+
+        else -> {
+            error(
+                "unknown experiment: ${perfArgs(args)["experiment"]} — " +
+                    "the harness runs \"sql-forms\" and \"read-overhead\"",
+            )
+        }
     }
 }
 
