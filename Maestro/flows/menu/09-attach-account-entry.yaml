@@ -11,6 +11,9 @@ tags:
 # E2E build reports `Session.SignedIn` from the first frame — so without this
 # step the flow waits for an entry that cannot be there. The agenda is visible
 # afterwards: an anonymous session is not blocked by the auth screen.
+#
+# The seed changes the session and writes no entity, so the flow names no
+# entity to wait for: the helper waits for the shell alone.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:

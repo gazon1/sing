@@ -121,6 +121,25 @@
 # has no row to wait for: such a flow names no entity, and the helper waits
 # for the shell alone.
 #
+# The five cases, and which side each wait lives on:
+#
+#   * A single named entity — one seed, one entity the flow can name — is
+#     waited for by the helper: the flow names it in `WAIT_FOR` and drops its
+#     own wait for it.
+#   * A title-named entity — a task, a note, a project whose title the query
+#     fixes — is named by the element that title produces (`TestTags.slug`).
+#     The name is the flow's to use; the helper waits for such an element only
+#     when the seed leaves that entity on the Today tab — a task due today,
+#     not a note or a project.
+#   * An anonymous session — `session=anonymous` — writes no entity at all:
+#     the flow names no entity, and the helper waits for the shell alone.
+#   * Several rows in one seed — `count=`, `projects=` — are entities the flow
+#     cannot name one by one: the flow keeps its own wait and says why in a
+#     comment.
+#   * An entity that is not on the screen the seed leaves the app on — a note,
+#     a project, a profile, a task in another tab — is the flow's to wait for,
+#     after it navigates; the flow says why in a comment.
+#
 # There are two ways to wait, and a flow follows one of them:
 #
 #   * The row rule — wait for the entity's own row. For a task that is

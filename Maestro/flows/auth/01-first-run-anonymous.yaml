@@ -34,6 +34,10 @@ tags:
       QUERY: "task=Anonymous%20task"
 
 # The task appears in Inbox. Scroll to it: tasks from other runs may sit above it.
+#
+# The seed writes an undated task, so the row is on the Inbox tab and not on the
+# screen the seed leaves the app on — the helper does not navigate, so it cannot
+# wait for it. The wait is the flow's.
 - tapOn:
     id: nav_tab_inbox
 - scrollUntilVisible:

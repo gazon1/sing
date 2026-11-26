@@ -212,7 +212,7 @@ class <Feature>ViewModel(
 ```kotlin
 @Composable
 fun <Feature>Screen(viewModel: <Feature>ViewModel = koinViewModel()) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     when (val s = state) {
         is <Feature>UiState.Loading -> LoadingIndicator()
         is <Feature>UiState.Content -> <Feature>List(items = s.items)
@@ -358,10 +358,10 @@ Before merging:
 
 If test is hard to write, the VM is wrong.
 
-- [ ] `state` is `MutableStateFlow<X>` — plain, no `.stateIn(...)`
+- [ ] Public state is read-only — callers get `StateFlow<X>`, only the VM writes (`MviViewModel`: `updateState` / `setState`)
 - [ ] `init` uses injected `CoroutineScope` — primary constructor takes `scope`
-- [ ] No `combine(...)` — extract to `init { scope.launch { _state.value = computed } }`
-- [ ] No side effects in flow operators — never `_state.value = ...` inside `map`, `combine`
+- [ ] No `combine(...)` — extract to `init { scope.launch { updateState { computed } } }`
+- [ ] No side effects in flow operators — never `updateState { }` inside `map`, `combine`
 - [ ] Editable state in `*State` class (e.g., `DraftState`)
 - [ ] Test passes `this` (test scope), NOT `backgroundScope`
 

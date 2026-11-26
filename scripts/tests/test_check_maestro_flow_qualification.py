@@ -264,6 +264,40 @@ class AdmissionTest(unittest.TestCase):
         self.assertEqual(findings, [])
         self.assertEqual(counts["baselined"], 1)
 
+    def test_a_baseline_entry_for_a_retired_flow_is_reported(self):
+        """A fingerprint of a flow that left the catalogue is reported.
+
+        The map answers "which flow content may enter a blocking scope
+        without being qualified". A fingerprint of a flow that no longer
+        exists answers nothing while it is gone, and admits it again the
+        moment it comes back with the same content. Retiring a flow
+        therefore drops its fingerprint in the same change that removes it
+        from the catalogue — and the gate says so when it did not.
+        """
+        root, flow, catalogue, baseline, evidence = self._tree()
+        retired = "Maestro/flows/tasks/09-retired.yaml"
+        write_flow(root / retired, FLOW_OK)
+        write_initial_set(self._initial(root), [flow, retired])
+        write_baseline(
+            baseline,
+            {flow: mod.fingerprint(flow, root), retired: mod.fingerprint(retired, root)},
+        )
+        # The retired flow is gone from the catalogue: only the map still
+        # remembers it.
+        catalogue.write_text(flow + "\n")
+        findings, _ = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual([f.kind for f in findings], ["orphaned baseline entry"])
+        self.assertEqual(findings[0].flow, retired)
+
+    def test_a_baseline_entry_for_a_catalogue_flow_is_not_reported(self):
+        """The counterpart: an entry that points at a live flow is fine."""
+        root, flow, catalogue, baseline, evidence = self._tree()
+        write_initial_set(self._initial(root), [flow])
+        write_baseline(baseline, {flow: mod.fingerprint(flow, root)})
+        findings, counts = self._scan(root, catalogue, baseline, evidence)
+        self.assertEqual(findings, [])
+        self.assertEqual(counts["baselined"], 1)
+
     def test_baseline_that_names_its_own_frozen_set_is_rejected(self):
         """A baseline that carries `initial_flows` is refused.
 

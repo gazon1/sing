@@ -249,11 +249,11 @@ class AcpExternalAgentViewModel(
     // ── The conversation ────────────────────────────────────────────────────────
 
     private fun connect() {
-        if (_state.value.connection is AcpConnection.Connecting) return
+        if (currentState.connection is AcpConnection.Connecting) return
         updateState { it.copy(connection = AcpConnection.Connecting) }
 
         vmScope.launch {
-            val agent = _state.value.selectedAgent
+            val agent = currentState.selectedAgent
             if (agent == null) {
                 updateState { it.copy(connection = AcpConnection.Failed("That agent is not in the registry.")) }
                 return@launch
@@ -360,11 +360,11 @@ class AcpExternalAgentViewModel(
 
     private fun send() {
         val text =
-            _state.value.input.text
+            currentState.input.text
                 .trim()
         if (text.isEmpty()) return
         val openSession = conversation.openSession ?: return
-        if (_state.value.isRunning) {
+        if (currentState.isRunning) {
             // The refusal is a message, not a silence: the reader pressed Send and
             // nothing happened, and "nothing happened" is the answer that leaves the
             // reader pressing it again.
@@ -538,7 +538,7 @@ class AcpExternalAgentViewModel(
     }
 
     private fun answerPermission(decision: PermissionDecision) {
-        val request: AcpPermissionRequest = _state.value.permission ?: return
+        val request: AcpPermissionRequest = currentState.permission ?: return
         permissions.answer(decision)
         updateState { it.copy(permissionAnswer = AcpPermissionAnswer(request, decision)) }
     }

@@ -17,6 +17,10 @@ tags:
   - scenario:MENU-07
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+# The seed writes a hundred and twenty projects at once, so the flow cannot
+# name them one by one to the helper — and their rows are in the menu sheet
+# anyway, not on the Today screen the seed leaves the app on. The waits below
+# are the flow's own.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
