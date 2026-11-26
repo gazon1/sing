@@ -8,7 +8,6 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -169,7 +168,7 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | save clears the autosave     | `a successful save clears the autosave store and a failed one does not` |
  * | discard → last checkpoint    | `discard resets to baseline`                               |
  * | entity switch                | `switching entities autosaves the new draft, not the old one` |
- * | entity switch, in flight     | `an autosave in flight when the entity switches does not leave the old draft in the store` |
+ * | entity switch, in flight     | `an autosave in flight when the entity switches is superseded by the new entity's write` |
  * | duplicate save               | `save blocked when already saving`                         |
  * | keyed effect                 | `DraftMviEffectTest.launchDraftEffect cancels prior with same key` |
  *
@@ -367,27 +366,24 @@ class DraftMviViewModelTest {
     @Test
     fun `autosave does not start before the restore settles`() =
         testVm {
-            var restored = false
+            val restoreGate = CompletableDeferred<TestDraft?>()
             var autosaved = false
             val vm =
                 testVm(
                     initialDraft = TestDraft(title = "initial"),
-                    restoreBlock = {
-                        delay(100L)
-                        restored = true
-                        TestDraft(title = "restored")
-                    },
+                    restoreBlock = { restoreGate.await() },
                     autosaveBlock = { autosaved = true },
                     autosaveDebounceMs = 10L,
                 )
             advanceTimeBy(50L)
             runCurrent()
-            assertFalse(restored, "the restore has not answered yet")
+            assertFalse(restoreGate.isCompleted, "the restore has not answered yet")
             assertFalse(autosaved, "no autosave may run while the restore is in flight")
 
-            advanceTimeBy(100L)
+            restoreGate.complete(TestDraft(title = "restored"))
+            advanceTimeBy(20L)
             runCurrent()
-            assertTrue(restored, "the restore has answered")
+            assertTrue(restoreGate.isCompleted, "the restore has answered")
             assertFalse(autosaved, "the restored draft is the collector's first value — it is dropped, not written")
 
             // The collector is live now: an edit autosaves.
@@ -627,21 +623,32 @@ class DraftMviViewModelTest {
         }
 
     /**
-     * The same guarantee, but for an autosave that is already running when the
-     * editor switches: the write for the old entity may still land (the kdoc of
-     * `open()` promises a cancellation the implementation does not perform), but
-     * it is followed by the new entity's write — so the store never ends up
-     * holding the entity the editor has left.
+     * The second half of the entity-switch guarantee — for an autosave that is
+     * already *running* when the editor switches.
+     *
+     * The kdoc of `open()` promises that the in-flight autosave of the old
+     * entity is cancelled. The implementation does not cancel it: the write
+     * that is already under way runs to the end, and the new entity's write
+     * follows it. This test pins that behaviour as it is — the old write
+     * lands, the new one lands after it, and the store ends up on the entity
+     * the editor is showing.
+     *
+     * It pins the behaviour, not the promise: if the cancellation is ever
+     * implemented, this test has to change with it. The discrepancy is
+     * recorded in issue #3229.
      */
     @Test
-    fun `an autosave in flight when the entity switches does not leave the old draft in the store`() =
+    fun `an autosave in flight when the entity switches is superseded by the new entity's write`() =
         testVm {
             val saved = mutableListOf<TestDraft>()
+            val oldWriteStarted = CompletableDeferred<Unit>()
+            val releaseOldWrite = CompletableDeferred<Unit>()
             val vm =
                 testVm(
                     initialDraft = TestDraft(title = "first"),
                     autosaveBlock = { draft ->
-                        delay(100L)
+                        oldWriteStarted.complete(Unit)
+                        releaseOldWrite.await()
                         saved += draft
                     },
                     autosaveDebounceMs = 10L,
@@ -652,15 +659,17 @@ class DraftMviViewModelTest {
             vm.updateDraft { it.copy(title = "first-edited") }
             advanceTimeBy(50L)
             runCurrent()
+            oldWriteStarted.await()
 
             vm.open(TestDraft(title = "second"))
-            advanceTimeBy(500L)
+            releaseOldWrite.complete(Unit)
+            advanceTimeBy(200L)
             runCurrent()
 
             assertEquals(
-                TestDraft(title = "second"),
-                saved.lastOrNull(),
-                "the store must end up on the entity the editor is showing",
+                listOf(TestDraft(title = "first-edited"), TestDraft(title = "second")),
+                saved.toList(),
+                "the running write of the old entity lands, and the new entity's write follows it",
             )
         }
 
@@ -858,6 +867,7 @@ class DraftMviViewModelTest {
             runCurrent()
 
             assertEquals(1, failures.size, "the failed autosave reaches the editor")
+            assertEquals("store is down", failures.single().message, "the editor learns what went wrong")
             assertTrue(events.isEmpty(), "a failed autosave is silent — it never reports a save")
 
             // The contrast that makes the assertion above meaningful: the same
@@ -889,6 +899,7 @@ class DraftMviEffectTest {
     fun `launchDraftEffect cancels prior with same key`() =
         testVm {
             val firstStarted = CompletableDeferred<Unit>()
+            val releaseFirst = CompletableDeferred<Unit>()
             var firstFinished = false
             var secondFinished = false
             val vm =
@@ -902,7 +913,7 @@ class DraftMviEffectTest {
                 key = "op",
                 operation = {
                     firstStarted.complete(Unit)
-                    delay(100L)
+                    releaseFirst.await()
                     firstFinished = true
                     "result1"
                 },
@@ -918,6 +929,7 @@ class DraftMviEffectTest {
                 },
                 onResult = { _, _ -> null },
             )
+            releaseFirst.complete(Unit)
             advanceTimeBy(200L)
             runCurrent()
 
