@@ -298,9 +298,10 @@ class ChatConversationRepositoryImplTest {
             // Room executes the restore's queries on its own dispatcher, off the virtual-time
             // scheduler the test drives, so `advanceUntilIdle` returns before the read lands; the
             // restore writes the state from that thread, so wait for it before asserting.
-            val messages = restored.stateFlow.value.messages
+            var messages = restored.stateFlow.value.messages
             while (messages.isEmpty()) {
                 withContext(Dispatchers.Default) { delay(10L) }
+                messages = restored.stateFlow.value.messages
             }
             assertEquals(listOf("what is due today?", "nothing is due today."), messages.map { it.content })
             assertTrue(messages.none { it.interrupted }, "a completed turn is not restored as interrupted")
@@ -343,9 +344,10 @@ class ChatConversationRepositoryImplTest {
             // Room executes the restore's queries on its own dispatcher, off the virtual-time
             // scheduler the test drives, so `advanceUntilIdle` returns before the read lands; the
             // restore writes the state from that thread, so wait for it before asserting.
-            val messages = restored.stateFlow.value.messages
+            var messages = restored.stateFlow.value.messages
             while (messages.isEmpty()) {
                 withContext(Dispatchers.Default) { delay(10L) }
+                messages = restored.stateFlow.value.messages
             }
 
             val answer =
