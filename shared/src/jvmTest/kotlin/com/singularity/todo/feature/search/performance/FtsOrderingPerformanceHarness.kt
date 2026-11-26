@@ -1310,7 +1310,11 @@ private const val TWO_PHASE_IDS_SQL = """
 """
 
 // The same statement with the tiebreaker the DAO adds: among the tasks updated
-// at the same moment, the most recently inserted one comes first.
+// at the same moment, the one with the greater rowid comes first.
+//
+// The rule is local to the database as it is: `rowid` is SQLite's own row
+// number, and a table whose primary key is a text column has no durable
+// insertion chronology to promise.
 //
 // This is the statement the DAO runs now, and it is measured as it ships. The
 // difference between it and `TWO_PHASE_IDS_SQL` is the price of the tiebreaker —

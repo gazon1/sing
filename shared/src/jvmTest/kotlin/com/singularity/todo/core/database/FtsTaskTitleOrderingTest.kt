@@ -31,8 +31,11 @@ import kotlin.test.assertTrue
  *    tasks, in the same order. The split is an implementation detail and must
  *    not be visible from the outside.
  * 2. the order among tasks updated at the same moment is a rule and not an
- *    accident: the most recently inserted one comes first, and it comes first
- *    every time the door is asked.
+ *    accident: the greater `rowid` comes first, and it comes first every time
+ *    the door is asked. The rule is local to the database as it is — `rowid` is
+ *    SQLite's own row number, and a table whose primary key is a text column
+ *    has no durable insertion chronology to promise — so the test asserts the
+ *    rule, not a creation date.
  * 3. the rows of the survivors are read by their id and not by a scan of the
  *    table — that is what makes the second read cheap. The rows have to be
  *    found by their primary key: the ownership filter may not become the way
@@ -98,11 +101,12 @@ class FtsTaskTitleOrderingTest {
         }
 
     @Test
-    fun `among tasks updated at the same moment the most recently inserted comes first`() =
+    fun `among tasks updated at the same moment the greater rowid comes first`() =
         runTest {
             // Three tasks, one moment, three rows. Before the change the order
             // among them was the order SQLite's sorter happened to give them —
-            // the order of the bytes of the rows. Now it is a rule.
+            // the order of the bytes of the rows. Now it is a rule: the greater
+            // rowid first, and the same rule every time.
             listOf("t1", "t2", "t3").forEach { id ->
                 db.taskDao().upsert(task(id = id, title = "A record that carries the needle", updatedAt = 1_000L))
             }
@@ -112,7 +116,7 @@ class FtsTaskTitleOrderingTest {
             assertEquals(
                 listOf("t3", "t2", "t1"),
                 ids,
-                "the most recently inserted task comes first among the tasks updated at the " +
+                "the task with the greater rowid comes first among the tasks updated at the " +
                     "same moment",
             )
         }

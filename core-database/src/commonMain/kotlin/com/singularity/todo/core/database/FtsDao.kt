@@ -161,8 +161,16 @@ interface FtsDao {
      * same moment have no order between them, and the order SQLite's sorter
      * happened to give them was not a rule anybody could rely on — it was the
      * order of the bytes of the rows. The tiebreaker makes it a rule: among the
-     * tasks updated at the same moment, the most recently inserted one comes
+     * tasks updated at the same moment, the one with the greater `rowid` comes
      * first.
+     *
+     * The rule is local to the database as it is, and it is worth saying what it
+     * is not: `rowid` is SQLite's own row number. The primary key of the table
+     * is a text column, so the table has no `INTEGER PRIMARY KEY` alias, and
+     * SQLite does not promise that a `rowid` is the insertion order for good —
+     * a `VACUUM` may renumber the rows of such a table. The door therefore
+     * promises a deterministic order for the rows of one database, not a
+     * creation date.
      */
     @Query(
         """
