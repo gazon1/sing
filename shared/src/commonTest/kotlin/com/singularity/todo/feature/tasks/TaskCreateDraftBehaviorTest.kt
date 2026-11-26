@@ -261,18 +261,17 @@ class TaskCreateDraftBehaviorTest {
         }
 
     /**
-     * The cleanup is not final while an autosave is still pending.
+     * A pending autosave must not undo the save's cleanup: the save cleared the stored
+     * draft, and the write the debounce was still holding for that draft would put it back
+     * — the next editor then opens the text of a task that already exists, and saving it
+     * creates a *second* task, because `TaskDraft` carries no task id (#3256).
      *
-     * The autosave is debounced, and the save does not cancel the pending
-     * write: the debounce fires after the cleanup and puts the draft back into
-     * the store. The row pins that order — the cleanup happens, and then the
-     * pending write lands on top of it — because a draft that comes back after
-     * the task was created is a real gap, and the parent issue (#3225) owns the
-     * decision about it. What is *not* pinned here is the in-memory draft: the
-     * row is about what the store holds.
+     * The assertion also has to hold on the last value the pending write carried: a store
+     * that kept the stale "Stored" snapshot would pass a bare not-null check and still
+     * resurrect the task.
      */
     @Test
-    fun `a pending autosave rewrites the draft after the save`() =
+    fun `a pending autosave cannot resurrect the draft the save cleared`() =
         runTest {
             val projectId = ProjectId("project-1")
             val vm = createVm(initialProjectId = projectId)
@@ -288,8 +287,8 @@ class TaskCreateDraftBehaviorTest {
                 "the autosave stored the draft under the scope's key",
             )
 
-            // The next edit starts a new debounce, which the save below does
-            // not cancel: the write is still pending when the save runs.
+            // The next edit starts a new debounce, so a write for it is pending when the
+            // save runs — the very window this issue is about.
             vm.onIntent(TaskCreateIntent.TitleChanged("Pending"))
             runCurrent()
 
@@ -300,29 +299,21 @@ class TaskCreateDraftBehaviorTest {
                 "the save cleared the persisted draft",
             )
 
+            // Past the debounce, past the write that was scheduled for the discarded draft.
             advanceTimeBy(1_000)
             runCurrent()
-            // Not merely "something came back": the row is about the text the
-            // pending write carries. A store that received the stale "Stored"
-            // snapshot instead of the user's latest edit would satisfy a
-            // not-null assertion and still lose the edit.
-            assertEquals(
-                "Pending",
-                fakeDraftStore.load(scopedKey, TaskDraft.serializer())?.title?.text,
-                "the pending autosave wrote the draft again, after the save cleared it",
+            assertNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the pending autosave must not put the submitted draft back",
             )
         }
 
     /**
-     * The same window, seen from the discard intent: the branch clears the
-     * persisted drafts and does not cancel the pending autosave either, so the
-     * pending write puts the thrown-away text back into the store.
-     *
-     * Like the row above, this pins the order that exists today and leaves the
-     * decision about it to the parent issue (#3225).
+     * The same window on the discard path: the editor threw the text away and cleared the
+     * store, and the write that was already scheduled must not bring it back.
      */
     @Test
-    fun `a pending autosave rewrites the draft after the discard`() =
+    fun `a pending autosave cannot resurrect the draft the discard cleared`() =
         runTest {
             val projectId = ProjectId("project-1")
             val vm = createVm(initialProjectId = projectId)
@@ -350,10 +341,49 @@ class TaskCreateDraftBehaviorTest {
 
             advanceTimeBy(1_000)
             runCurrent()
+            assertNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the pending autosave must not put the thrown-away draft back",
+            )
+        }
+
+    /**
+     * The end of the sequence #3256 describes, on the editor's own terms: save inside the
+     * debounce, advance past it, reopen the create editor. The store must be empty, so the
+     * reopened editor starts blank and the person cannot submit the same draft twice.
+     *
+     * The rows above assert the store; this one asserts what the *next* editor does with
+     * it — a restored draft is exactly how the second task used to come into existence.
+     */
+    @Test
+    fun `a reopened editor starts blank after a save inside the debounce`() =
+        runTest {
+            val projectId = ProjectId("project-1")
+            val vm = createVm(initialProjectId = projectId)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.onIntent(TaskCreateIntent.TitleChanged("Submitted once"))
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(1, fakeTaskRepo.tasks.value.size, "the save created the task")
+
+            // A fresh editor on the same scope — the screen was reopened.
+            val reopened = createVm(initialProjectId = projectId)
+            advanceTimeBy(1_000)
+            runCurrent()
+
             assertEquals(
-                "Pending",
-                fakeDraftStore.load(scopedKey, TaskDraft.serializer())?.title?.text,
-                "the pending autosave wrote the draft again, after the discard cleared it",
+                "",
+                reopened.state.value.draft.title.text,
+                "the reopened editor must not restore the submitted draft",
+            )
+            assertEquals(
+                1,
+                fakeTaskRepo.tasks.value.size,
+                "and therefore has nothing to submit a second time",
             )
         }
 

@@ -246,8 +246,9 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | TaskCreate: failed save → no navigate | `TaskCreateDraftBehaviorTest.a failed save emits no Saved event` |
  * | TaskCreate: save clears the draft | `TaskCreateDraftBehaviorTest.a successful save clears the persisted draft` |
  * | TaskCreate: discard clears the draft | `TaskCreateDraftBehaviorTest.discard clears the persisted draft` |
- * | TaskCreate: pending autosave after the save | `TaskCreateDraftBehaviorTest.a pending autosave rewrites the draft after the save` |
- * | TaskCreate: pending autosave after the discard | `TaskCreateDraftBehaviorTest.a pending autosave rewrites the draft after the discard` |
+ * | TaskCreate: pending autosave cannot resurrect the saved draft | `TaskCreateDraftBehaviorTest.a pending autosave cannot resurrect the draft the save cleared` |
+ * | TaskCreate: pending autosave cannot resurrect the discarded draft | `TaskCreateDraftBehaviorTest.a pending autosave cannot resurrect the draft the discard cleared` |
+ * | TaskCreate: save inside the debounce leaves nothing to reopen | `TaskCreateDraftBehaviorTest.a reopened editor starts blank after a save inside the debounce` |
  * | TaskCreate: scoped restore   | `TaskCreateDraftBehaviorTest.a draft is restored only into the scope it was saved in` |
  * | TaskCreate: restore into scope | `TaskCreateDraftBehaviorTest.a draft is restored into the scope it was saved in` |
  * | TaskCreate: tag-scoped restore | `TaskCreateTagScopeTest.a draft is restored only into the tag scope it was saved in` |
@@ -282,9 +283,13 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  *   is the row above it;
  * - `an edit made while the restore was in flight is not persisted afterwards`
  *   — the autosave collector starts after the restore settles and drops the
- *   first value it sees, so that edit survives only until the editor closes;
- * - `a pending autosave rewrites the draft after the save` and the same after
- *   the discard — neither the save nor the discard cancels the pending debounce.
+ *   first value it sees, so that edit survives only until the editor closes.
+ *
+ * The pending autosave that used to rewrite a cleared draft is no longer a
+ * discrepancy: `forgetPendingAutosave` makes the save and the create editor's
+ * discard drop the write that is still scheduled for the draft they cleared
+ * (#3256). The rows above the table that name it are the *contract*, not a
+ * characterization.
  */
 @Tag("fast")
 class DraftMviViewModelTest {
