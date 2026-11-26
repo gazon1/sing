@@ -682,6 +682,31 @@ class NotesRepositoryImpl(
         }
     }
 
+    override fun watchKnowledgeArticlesForProject(
+        projectId: ProjectId,
+        limit: Int,
+    ): Flow<List<Note>> {
+        // Same rule as the task read: a negative LIMIT means "unbounded" to SQLite.
+        require(limit > 0) { "A bounded read needs a positive limit, got $limit" }
+        return currentUser.observeForCurrentUser { uid ->
+            noteDao
+                .watchKnowledgeArticlesForProjectForUser(projectId.value, uid.value, limit)
+                .map { list -> list.map { it.toNote() } }
+        }
+    }
+
+    override fun watchKnowledgeArticlesForTask(
+        taskId: TaskId,
+        limit: Int,
+    ): Flow<List<Note>> {
+        require(limit > 0) { "A bounded read needs a positive limit, got $limit" }
+        return currentUser.observeForCurrentUser { uid ->
+            noteDao
+                .watchKnowledgeArticlesForTaskForUser(taskId.value, uid.value, limit)
+                .map { list -> list.map { it.toNote() } }
+        }
+    }
+
     override suspend fun createForTask(
         id: NoteId,
         taskId: TaskId,

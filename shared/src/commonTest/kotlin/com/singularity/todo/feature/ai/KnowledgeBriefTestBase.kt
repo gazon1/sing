@@ -116,7 +116,7 @@ abstract class KnowledgeBriefTestBase {
     /**
      * A note, with the provenance section a brief carries by default.
      *
-     * The section is what makes a note a brief — see `KnowledgeBriefShape` — so the
+     * The section is what makes a note a brief — see `KnowledgeArticle` — so the
      * fixtures that stand for briefs carry it and a test that wants an ordinary logbook
      * note says so with [withSources] = false.
      */
