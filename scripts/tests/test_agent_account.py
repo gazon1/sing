@@ -498,12 +498,12 @@ class RoundFiveRegressionTest(PlanTest):
         """A linked worktree's store lives outside it; the path cannot be re-derived."""
         body = SCRIPT.read_text(encoding='utf-8')
         provision = body.split('function provision', 1)[1]
-        self.assertIn('record_grant $root $target', provision)
+        self.assertIn('record_acl $target tree', provision)
         rollback = body.split('function rollback', 1)[1]
         # Every recorded target is walked, not only the roots passed in: undoing
         # wt1 left wt2 writable, and the group whose gid those entries named was
         # deleted right afterwards.
-        self.assertIn('set recorded (cut -f2 (grants_file) | sort -u)', rollback)
+        self.assertIn('set recorded (cat (targets_file))', rollback)
         self.assertIn('for target in $recorded $targets', rollback)
 
     def test_check_reads_the_effective_permission_not_the_raw_entry(self):
@@ -546,11 +546,12 @@ class RoundSevenRegressionTest(PlanTest):
     def test_a_pre_existing_acl_is_restored_not_deleted(self):
         """`--modify` overwrites an entry that existed; `-x` deleted it."""
         body = SCRIPT.read_text(encoding='utf-8')
-        self.assertIn('prior_acl $target $subject', body)
         rollback = body.split('function rollback', 1)[1]
         self.assertIn('restore_acl', rollback)
-        # Deletion is reserved for the case where nothing was there before.
-        self.assertIn("test \"$target_state\" = '-'", rollback)
+        # Deletion is reserved for the case where no snapshot was taken.
+        helper = body.split('function restore_acl', 1)[1].split('\nend', 1)[0]
+        self.assertIn('setfacl --restore=$file', helper, 'the dump is the inverse, not a hand-written record')
+        self.assertIn('test -e $file; or return 1', helper, 'no snapshot means the old path')
 
     def test_the_group_owner_is_checked_independently_of_the_account(self):
         """A host may carry `sing-dev` and no `agent`."""
@@ -559,6 +560,259 @@ class RoundSevenRegressionTest(PlanTest):
         branch = provision.split('if test -z "$account"', 1)[1].split('else', 1)[0]
         self.assertIn('getent group $AGENT_GROUP', branch)
         self.assertIn('record_ownership group adopted', branch)
+
+
+class RoundEightRegressionTest(PlanTest):
+    """The eighth round: the record could not express what `--recursive` writes.
+
+    Every finding here is one the previous record format *could not* hold, so
+    each test checks the property on a real tree rather than the code that
+    reads it — a hand-written record format passes its own tests.
+    """
+
+    def test_the_snapshot_is_taken_before_the_write_and_covers_the_tree(self):
+        """A cap of 200 directories is not a snapshot of a tree granted at every file."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
+        self.assertIn('--recursive', record, 'the write is recursive, so the snapshot must be')
+        code = '\n'.join(line for line in body.splitlines() if not line.lstrip().startswith('#'))
+        self.assertNotIn('head -200', code, 'a capped walk is not a snapshot')
+        # Taken before, or it records the state `apply` itself wrote.
+        provision = body.split('function provision', 1)[1]
+        for target, write in (
+            ('record_acl $dev_home_dir node', 'setfacl --modify "user:$AGENT_USER:--x"'),
+            ('record_acl $target tree', 'setfacl --recursive --modify "group:$AGENT_GROUP:rwX"'),
+        ):
+            self.assertLess(provision.index(target), provision.index(write), f'{target} must precede {write}')
+
+    def test_the_home_and_the_toolchain_are_snapshotted_too(self):
+        """The home is granted non-recursively and the toolchain recursively."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('record_acl $dev_home_dir node', provision, 'the traverse grant needs a snapshot')
+        self.assertIn('record_acl $dev_home_dir/$rel tree', provision, 'the SDK and mise grants are recursive')
+
+    def test_a_snapshot_is_the_tools_own_dump(self):
+        """The inverse must be `setfacl --restore`, or every delimiter is a guess."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
+        self.assertIn('getfacl $flags $target > $file', record)
+        self.assertIn('--physical', record, 'a dump that follows symlinks is not a dump of this tree')
+        # The old format could not round-trip a path containing `;` or `=`.
+        self.assertNotIn("string split ';'", body)
+        self.assertNotIn("string split '='", body)
+
+    def test_a_path_maps_to_a_file_name_injectively(self):
+        """`;` and `=` are legal in paths, so the dump's name cannot be the path."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        helper = body.split('function acl_dump_file', 1)[1].split('\nend', 1)[0]
+        self.assertIn('--style=var', helper)
+        # Escaping is only useful if it round-trips: the third test below runs it.
+        escaped = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c',
+             'echo (string unescape --style=var -- (string escape --style=var -- "/tmp/a;b=c d"))'],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        self.assertEqual('/tmp/a;b=c d', escaped)
+
+    def test_a_second_apply_does_not_overwrite_the_first_snapshot(self):
+        """Otherwise rollback faithfully restores what apply itself wrote."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
+        self.assertIn('if not test -e $file', record)
+
+    def test_a_group_membership_apply_did_not_add_is_not_removed(self):
+        """`usermod --append` is not reversible by deleting the membership."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('record_membership $dev $AGENT_GROUP', provision)
+        self.assertIn('record_membership $AGENT_USER $AGENT_GROUP', provision)
+        # Recorded before the append that makes it true for everyone.
+        self.assertLess(
+            provision.index('record_membership $dev $AGENT_GROUP'),
+            provision.index('run_cmd usermod --append --groups $AGENT_GROUP $dev'),
+        )
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('not was_member $AGENT_USER $AGENT_GROUP', rollback)
+        self.assertIn('not was_member $DEV_NAME $AGENT_GROUP', rollback)
+
+    def test_a_privileged_group_taken_away_comes_back(self):
+        """`apply` has to remove `docker`; rollback must not also erase the fact."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('record_removed_group $group', provision)
+        self.assertLess(
+            provision.index('record_removed_group $group'),
+            provision.index('remove_group $group'),
+        )
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('previously_removed_groups', rollback)
+        self.assertIn('usermod --append --groups $group $AGENT_USER', rollback)
+
+    def test_the_records_are_tab_separated_with_real_tabs(self):
+        """`$subject\\t$group` in a word is a literal backslash-t, not a separator."""
+        state = self.tmp / 'state'
+        state.write_text('', encoding='utf-8')
+        # `string join \\t` in the writer, `printf '...\\t...'` in the reader: the
+        # two must agree on a real tab, or the record is unreadable by whoever
+        # wrote it — which is exactly what happened.
+        script = (
+            f'printf "%s\\n" (string join \\t -- member devel sing-dev) >> {state}'
+            '; '
+            f'grep -qF -- (printf "member\\tdevel\\tsing-dev") {state}; or echo MISS'
+        )
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual('', result.stdout.strip(), 'the record must be greppable by its own writer')
+
+
+class AclRoundTripTest(AgentAccountTest):
+    """The snapshot really restores a host that had ACLs BEFORE `apply` ran.
+
+    The eighth review asked for exactly this: rollback tested against a host
+    carrying pre-existing ACLs, not against a code-reading assertion. These
+    tests run the script's own `record_acl` / `restore_acl` — extracted, with
+    the real `setfacl` and `getfacl`, on a throwaway tree — and compare the
+    `getfacl` dump byte for byte.
+
+    The tree carries every thing the record has to hold: a named entry that
+    `--modify` will OVERWRITE, a `mask::` that limits it, a `default:` block
+    that `-x` takes wholesale, and a path containing `;` and `=` — the two
+    characters the old line format used as delimiters.
+    """
+
+    #: The functions under test, lifted verbatim from the script so the fixture
+    #: exercises the shipped code and not a copy of it.
+    SUBJECT = 'nobody'
+
+    def _functions(self) -> str:
+        body = SCRIPT.read_text(encoding='utf-8')
+        parts = []
+        for name in ('acl_dump_file', 'record_acl', 'restore_acl'):
+            # The signature line carries `--argument-names`, so the marker is the
+            # newline before it and the name is kept: a function without its
+            # name is a syntax error, not a smaller copy of the code.
+            tail = body.split(f'\nfunction {name}', 1)[1]
+            signature, _, _ = tail.partition('\nend')
+            parts.append(f'function {name}{signature}\nend')
+        return '\n'.join(parts)
+
+    #: What the lifted functions call, defined here so the fixture needs no root
+    #: and writes nothing outside its temp directory. `run_cmd` keeps the
+    #: script's shape — fail loudly instead of continuing — but the record lives
+    #: in the fixture: `install --owner=root` is `Operation not permitted`
+    #: unprivileged (measured), and the real script is root-only by design.
+    PRELUDE = """
+set -g DRY_RUN 0
+function die
+    echo "fixture: $argv" >&2
+    exit 2
+end
+function run_cmd
+    if test $DRY_RUN -eq 1
+        string escape -- $argv | string join ' '
+        return 0
+    end
+    switch $argv[1]
+        case install
+            mkdir --parents --mode=0700 (acl_dir)
+        case chmod
+            command chmod $argv[2..-1]
+        case '*'
+            $argv
+    end
+    or die "step failed: $argv"
+end
+function acl_dir
+    echo $ACL_DIR
+end
+function targets_file
+    echo $TARGETS
+end
+"""
+
+    def _tree(self) -> pathlib.Path:
+        """A worktree-shaped tree with grants that are NOT this script's."""
+        root = self.tmp / 'tree;with=chars'
+        (root / 'src' / 'nested').mkdir(parents=True)
+        (root / 'src' / 'file.txt').write_text('x', encoding='utf-8')
+        # A named entry `apply` will overwrite, plus the mask that limits it.
+        self._setfacl(['-m', f'u:{self.SUBJECT}:r-x', str(root / 'src')])
+        # A default block `-x` would take wholesale, and a foreign group entry.
+        self._setfacl(['-m', f'd:u:{self.SUBJECT}:r-x', str(root / 'src')])
+        self._setfacl(['-m', 'd:g:nobody:r-x', str(root / 'src')])
+        self._setfacl(['-m', 'u:nobody:rwx', str(root)])
+        return root
+
+    def _setfacl(self, args: list[str]) -> None:
+        result = subprocess.run(['setfacl', *args], capture_output=True, text=True, check=False)
+        self.assertEqual(0, result.returncode, f'setfacl {args}: {result.stdout}{result.stderr}')
+
+    def _dump(self, root: pathlib.Path) -> str:
+        return subprocess.run(
+            ['getfacl', '--recursive', '--physical', '--absolute-names', str(root)],
+            capture_output=True, text=True, check=True,
+        ).stdout
+
+    def _fish(self, script: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+            env={**os.environ, 'ACL_DIR': str(self.tmp / 'acl'), 'TARGETS': str(self.tmp / 'targets')},
+        )
+
+    def _harness(self, root: pathlib.Path, name: str, kind: str = '') -> subprocess.CompletedProcess:
+        """Run the script's own function with the record beside the fixture.
+
+        `--argument-names target kind`, so the path is the FIRST argument — the
+        fixture passes what the shipped call sites pass, in their order.
+        """
+        call = f'{name} "{root}"' + (f' {kind}' if kind else '')
+        return self._fish(self.PRELUDE + self._functions() + f'\n{call}\n')
+
+    def test_a_host_with_preexisting_acls_is_restored_exactly(self):
+        """`apply` overwrites a named entry and adds a default block; rollback undoes it."""
+        root = self._tree()
+        before = self._dump(root)
+
+        # What `apply` does: record first, then the recursive write.
+        recorded = self._harness(root, 'record_acl', 'tree')
+        self.assertEqual(0, recorded.returncode, recorded.stdout + recorded.stderr)
+        self._setfacl(['--recursive', '-m', f'u:{self.SUBJECT}:rwX', '-m', f'd:u:{self.SUBJECT}:rwX', str(root)])
+        self.assertNotIn(before, self._dump(root), 'the fixture must actually change the tree')
+
+        restored = self._harness(root, 'restore_acl')
+        self.assertEqual(0, restored.returncode, restored.stdout + restored.stderr)
+        self.assertEqual(
+            before, self._dump(root),
+            'rollback must put back the named entry, the mask and the default block',
+        )
+
+    def test_the_restored_tree_keeps_the_foreign_grant_it_had(self):
+        """A grant `apply` did not write must survive a full round trip."""
+        root = self._tree()
+        self._harness(root, 'record_acl', 'tree')
+        self._setfacl(['--recursive', '-m', f'u:{self.SUBJECT}:rwX', str(root)])
+        self._harness(root, 'restore_acl')
+
+        after = subprocess.run(
+            ['getfacl', '--omit-header', str(root)],
+            capture_output=True, text=True, check=True,
+        ).stdout
+        self.assertIn('user:nobody:rwx', after)
+
+    def test_the_snapshot_file_name_survives_a_path_with_delimiters(self):
+        """`;` and `=` are legal in paths, so the dump name cannot be the path."""
+        root = self._tree()
+        self.assertIn(';', str(root))
+        recorded = self._harness(root, 'record_acl', 'tree')
+        self.assertEqual(0, recorded.returncode, recorded.stdout + recorded.stderr)
+
+        dumps = list((self.tmp / 'acl').iterdir())
+        self.assertEqual(1, len(dumps), dumps)
+        self.assertNotIn(';', dumps[0].name, 'the file name must not carry the raw delimiters')
 
 
 class RunTest(AgentAccountTest):

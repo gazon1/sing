@@ -197,11 +197,15 @@ function state_file
 end
 
 # "created" when this script created it, "adopted" when it was already there.
+#
+# `argv` is taken whole and joined with REAL tabs: `$subject\t$group` in a word
+# is a literal backslash-t, not a separator (measured), so a caller that passed
+# its own `\t` wrote a record no lookup matched.
 function record_ownership
     set -l file (state_file)
     test $DRY_RUN -eq 1; and return 0
     test -e $file; or run_cmd install --directory --owner=root --group=root --mode=0755 (dirname $file)
-    printf '%s\t%s\n' $argv[1] $argv[2] >> $file
+    printf '%s\n' (string join \t -- $argv) >> $file
 end
 
 function owned_by_script
@@ -210,82 +214,119 @@ function owned_by_script
     test (grep -F -- (printf '%s\tcreated' $argv[1]) $file | wc -l) -gt 0
 end
 
-# What `apply` granted, so `rollback` can still undo it after a worktree is
-# removed. A linked worktree's object store is NOT under the worktree, and the
-# path cannot be re-derived once the worktree is gone.
-#
-# One line per granted target. It is a record of THIS script's own writes, kept
-# beside the sudoers file it already manages, not a configuration file.
-function grants_file
-    echo /var/lib/agent-account/grants
-end
-
-function recorded_targets
-    set -l file (grants_file)
-    test -e $file; or return 0
-    grep -F -- (printf '%s\t' $argv[1]) $file | cut -f2
-end
-
-# The prior entries recorded for one target, or `-` when the record has none.
-function recorded_state
-    set -l file (grants_file)
-    test -e $file; or echo -; and return 0
-    set -l lines (grep -F -- (printf '\t%s\t' $argv[1]) $file)
-    test (count $lines) -gt 0; or echo -; and return 0
-    echo (string split \t -- $lines[1])[4]
-end
-
-# Puts a recorded prior ACL back, entry by entry, at the paths it named.
-function restore_acl
-    set -l target $argv[1]
-    set -l state $argv[2]
-    for pair in (string split ';' -- $state)
-        set -l path (string split '=' -- $pair)[1]
-        set -l entry (string split '=' -- $pair)[2]
-        test -n "$path"; and test -n "$entry"; or continue
-        test -e "$path"; or continue
-        run_cmd setfacl --modify "$entry" $path
-    end
-end
-
-# Records a target AND the ACL entries that were already there, so rollback can
-# put them back instead of deleting them.
-#
-# `setfacl --modify` overwrites a named entry that already existed, and the
-# rollback's `-x` removed it outright: a host that granted `sing-dev` rwx on a
-# worktree before `apply` ran lost that grant to a rollback of a change this
-# script did not make. The record keeps enough to restore the previous value.
-function record_grant
-    set -l root $argv[1]
-    set -l target $argv[2]
-    set -l subject $argv[3]           # `u:agent` or `g:sing-dev`
-    set -l file (grants_file)
-    test $DRY_RUN -eq 1; and echo "record $root $target (previous $subject entries kept)" >&2
+# Membership is not reversible by symmetry. `apply` appends to both sides of the
+# seam and takes the privileged groups away from the agent; `rollback` deleting
+# either would take a membership somebody else configured. So the state that a
+# rollback may NOT undo is recorded before `apply` changes it — a developer who
+# was already in `sing-dev` keeps it, and the `wheel` the agent used to hold
+# comes back, because losing a group is exactly the change this script reports.
+function record_membership --argument-names subject group
     test $DRY_RUN -eq 1; and return 0
-    run_cmd install --directory --owner=root --group=root --mode=0755 (dirname $file)
-    # The previous value of the entry at the top of the tree, and at its
-    # directories. `getfacl` prints `# file:` lines, so they are asked per path
-    # and joined; an entry that was absent is recorded as `-`.
-    set -l previous (prior_acl $target $subject)
-    printf '%s\t%s\t%s\t%s\n' $root $target $subject $previous >> $file
+    in_group $group $subject; or return 0
+    record_ownership member $subject $group
 end
 
-# Every value `subject` held under `target`, as `path=value` pairs, or `-`.
-function prior_acl
-    set -l target $argv[1]
-    set -l subject $argv[2]
-    set -l found
-    # The target first, then every directory under it: `--recursive --modify`
-    # writes the entry at each, and the tree is capped so a huge worktree does
-    # not turn a provisioning run into a filesystem walk.
-    for path in $target (find $target -type d 2>/dev/null | head -200 | sort -u)
-        set -l line (getfacl --omit-header --absolute-names $path 2>/dev/null |
-            string match -r "^$subject:[^\t]*")
-        test -n "$line"; or continue
-        contains -- "$path=$line" $found; and continue
-        set -a found "$path=$line"
+function was_member --argument-names subject group
+    set -l file (state_file)
+    test -e $file; or return 1
+    grep -qF -- (printf 'member\t%s\t%s' $subject $group) $file
+end
+
+# The privileged groups taken from a pre-existing agent, so rollback can give
+# them back. The boundary has to be removed; the host it was removed from is
+# the host's own configuration.
+function record_removed_group --argument-names group
+    test $DRY_RUN -eq 1; and return 0
+    record_ownership removed-group $group
+end
+
+function previously_removed_groups
+    set -l file (state_file)
+    test -e $file; or return 0
+    grep -F -- (printf 'removed-group\t') $file | cut -f2
+end
+
+# What the ACLs looked like BEFORE `apply` wrote to them, so `rollback` can put
+# them back instead of deleting what it finds.
+#
+# The record is `getfacl`'s own output, restored by `setfacl --restore`. Three
+# attempts at a hand-written record failed for the same reason: the write is
+# `--recursive`, so "the subject's entry at the target" is not the state that
+# changed. Measured on a throwaway tree:
+#
+#   - `--modify` OVERWRITES a named entry that was already there, so a host that
+#     granted `sing-dev` rwx on a worktree lost it to a rollback of a change
+#     this script did not make;
+#   - `-x` does not undo `--modify`: it leaves `mask::r-x` behind and takes the
+#     WHOLE `default:` block with it, so "remove our entry" silently rewrote the
+#     modes of files nobody here named — and `chmod g=rx` does not drop the mask
+#     either (measured);
+#   - a snapshot capped at 200 directories (`find | head -200`) is not a
+#     snapshot of a tree `--recursive` wrote at every file of.
+#
+# The dump is the tool's own inverse, so there is no delimiter to guess at — a
+# path may legally contain `;` and `=`, which is why the old line format could
+# not round-trip one. A path maps to its dump file through
+# `string escape --style=var`, which is injective for every byte.
+function acl_dir
+    echo /var/lib/agent-account/acl
+end
+
+# The targets whose ACL `apply` changed, so `rollback` can walk all of them even
+# after a worktree is removed: a linked worktree's object store is NOT under the
+# worktree, and the path cannot be re-derived once the worktree is gone.
+function targets_file
+    echo /var/lib/agent-account/targets
+end
+
+function acl_dump_file
+    echo (acl_dir)/(string escape --style=var -- $argv[1]).acl
+end
+
+# Snapshot a target BEFORE it is modified. `path` is one node (`$HOME`, which is
+# granted non-recursively); `tree` is everything under it, because `--recursive`
+# writes at every one of them.
+function record_acl --argument-names target kind
+    set -l file (acl_dump_file $target)
+    set -l flags --absolute-names --physical
+    test "$kind" = tree; and set -a flags --recursive
+    if test $DRY_RUN -eq 1
+        echo "getfacl "(string join ' ' $flags)" $target > $file"
+        return 0
     end
-    test (count $found) -gt 0; and string join ';' $found; or echo -
+    run_cmd install --directory --owner=root --group=root --mode=0700 (acl_dir)
+    # The FIRST snapshot is the one taken before `apply` ever ran. A second
+    # `apply` would otherwise record the state `apply` itself wrote, and the
+    # rollback would faithfully restore that instead of the host's own setup.
+    if not test -e $file
+        getfacl $flags $target > $file
+        or die "could not snapshot the ACL of $target"
+        run_cmd chmod 0600 $file
+    end
+    set -l listed
+    test -e (targets_file); and set listed (cat (targets_file))
+    contains -- $target $listed; or printf '%s\n' $target >> (targets_file)
+end
+
+# Puts a snapshot back — the inverse of the dump, so a grant, a `mask::` or a
+# `default:` block that was already there comes back instead of vanishing.
+#
+# A path named in the dump may be gone by rollback time: a file, or a whole
+# worktree, removed since `apply` ran is normal and not a failure. `setfacl`
+# exits 1 for that alone (measured: it still restored every path that remained),
+# so only an error OTHER than the missing path is fatal.
+function restore_acl --argument-names target
+    set -l file (acl_dump_file $target)
+    test -e $file; or return 1
+    set -l output (setfacl --restore=$file --physical 2>&1)
+    test $status -eq 0; and return 0
+    set -l errors (printf '%s\n' $output | string match -rv '^\s*$' |
+        string match -rv 'No such file or directory')
+    if test (count $errors) -gt 0
+        die "could not restore the ACL of $target: "(string join '; ' $errors)
+    end
+    echo "note: $target's ACL restored in part; some of its paths are gone" >&2
+    return 0
 end
 
 # Is the path a WORKING TREE? `--git-common-dir` cannot answer: on a bare
@@ -443,6 +484,7 @@ function provision
         # is what a human re-runs, so it reconciles instead of only reporting.
         for group in wheel docker kvm
             in_group $group $AGENT_USER; or continue
+            record_removed_group $group
             remove_group $group
         end
     end
@@ -473,6 +515,10 @@ function provision
     if test (count $foreign) -gt 0
         die "$AGENT_GROUP already holds $(string join , $foreign) — it is documented as $dev and $AGENT_USER only"
     end
+    # Recorded BEFORE the append: a rollback that deleted a membership this
+    # script did not add would remove the developer from a group they chose.
+    record_membership $dev $AGENT_GROUP
+    record_membership $AGENT_USER $AGENT_GROUP
     run_cmd usermod --append --groups $AGENT_GROUP $dev
     run_cmd usermod --append --groups $AGENT_GROUP $AGENT_USER
  
@@ -509,15 +555,23 @@ function provision
     end
  
     # Traverse the developer home: path access, never a listing.
+    #
+    # Snapshotted before the write, not after: `rollback` puts this ACL back, and
+    # a snapshot taken afterwards would record the entry `apply` itself wrote.
+    record_acl $dev_home_dir node
     run_cmd setfacl --modify "user:$AGENT_USER:--x" $dev_home_dir
  
     # Read the SDK and the toolchain. `--recursive` covers today's files; the
     # default entry covers the files sdkmanager and mise write tomorrow.
+    #
+    # Both carry grants of their own on a host that provisioned them, and the
+    # `default:` entry below rewrites those. The snapshot is what puts them back.
     for rel in $SDK_DIR_REL $TOOLCHAIN_RELS
         if not test -d $dev_home_dir/$rel
             echo "skipped (not on this host): $dev_home_dir/$rel"
             continue
         end
+        record_acl $dev_home_dir/$rel tree
         run_cmd setfacl --recursive --modify "user:$AGENT_USER:rX" \
             --modify "default:user:$AGENT_USER:rX" $dev_home_dir/$rel
     end
@@ -532,7 +586,7 @@ function provision
     # used to verify a grant `provision` never wrote.
     for root in $ROOTS
         for target in $root (git_common_dir $root)
-            record_grant $root $target "group:$AGENT_GROUP"
+            record_acl $target tree
             run_cmd setfacl --recursive --modify "group:$AGENT_GROUP:rwX" \
                 --modify "default:group:$AGENT_GROUP:rwX" $target
         end
@@ -803,43 +857,48 @@ function rollback
     end
  
     set -l home $DEV_HOME
- 
-    # Grants first: they sit on the developer's paths, and removing the account
-    # while they are there leaves entries nobody can resolve.
-    # Remove only the entries this script wrote. A plain `--remove-default`
-    # takes EVERY default entry with it — including one another tool put there,
-    # which would silently change the modes of files nobody here wrote.
-    # `-x d:u:NAME` names the default entry; `-m` cannot (measured: "Option -m
-    # incomplete"), and `--remove-default` alone is the all-or-nothing form.
-    for rel in $SDK_DIR_REL $TOOLCHAIN_RELS
-        test -e $home/$rel; or continue
-        run_cmd setfacl --recursive -x "u:$AGENT_USER" -x "d:u:$AGENT_USER" $home/$rel
-    end
-    run_cmd setfacl --remove-user $AGENT_USER $home
 
-    # Every target the record names, NOT only the roots passed in. Undoing the
-    # grants of wt1 left wt2 writable, and then deleted the group whose gid those
-    # entries named. A target that was not recorded is still cleaned from the
-    # roots given, so a host provisioned before the record existed can be undone.
+    # Every target this script ever touched, NOT only the roots passed in.
+    # Undoing the grants of wt1 left wt2 writable, and then deleted the group
+    # whose gid those entries named. A target with no snapshot was granted
+    # before the record existed, or by a run that could not write it: its entry
+    # is still removed, by subject, from the roots given.
     set -l recorded
-    test -e (grants_file); and set recorded (cut -f2 (grants_file) | sort -u)
+    test -e (targets_file); and set recorded (cat (targets_file))
     set -l targets
     for root in $ROOTS
-        test -d "$root"; and set -a targets $root (git_common_dir $root 2>/dev/null)
+        test -d "$root"; or continue
+        set -a targets $root
+        # A root whose worktree was removed is normal on a rollback, and
+        # `git_common_dir` EXITS on a non-worktree — inside a command
+        # substitution that ends the whole script, so it is asked first.
+        is_worktree $root; and set -a targets (git_common_dir $root)
     end
+    # The developer's own paths are not passed to `rollback`; they are where the
+    # traverse and read grants sit, and they are undone the same way — including
+    # `$HOME` itself, which `apply` grants non-recursively. A target both
+    # recorded and passed is not deduplicated: restoring a snapshot twice is
+    # idempotent, and the loop below already skips what is gone.
+    test -d $home; and set -a targets $home
+    for rel in $SDK_DIR_REL $TOOLCHAIN_RELS
+        test -d $home/$rel; and set -a targets $home/$rel
+    end
+
     for target in $recorded $targets
         test -n "$target"; or continue
-        set -l target_state (recorded_state $target)
-        if test -e "$target"
-            if test "$target_state" = '-'
-                # Nothing was there before: the entry is ours to remove.
-                run_cmd setfacl --recursive -x "g:$AGENT_GROUP" -x "d:g:$AGENT_GROUP" $target
-            else
-                # Something was there: put it back instead of deleting it.
-                restore_acl $target "$target_state"
-            end
-        else
+        test -e "$target"; or begin
             echo "note: recorded target $target no longer exists" >&2
+            continue
+        end
+        if restore_acl $target
+            echo "restored $target (the ACL it had before apply)"
+        else
+            # No snapshot: the entry is ours to remove. `-x` leaves the `mask::`
+            # and the `default:` block it created, which is why a snapshot is
+            # taken in the first place; without one there is nothing to say
+            # those were not the host's own.
+            run_cmd setfacl --recursive -x "u:$AGENT_USER" -x "d:u:$AGENT_USER" $target
+            run_cmd setfacl --recursive -x "g:$AGENT_GROUP" -x "d:g:$AGENT_GROUP" $target
         end
     end
  
@@ -852,19 +911,36 @@ function rollback
     else if test -e $sudoers
         echo "kept $sudoers: its content is not what this script wrote — inspect it by hand" >&2
     end
-    run_cmd rm --force (grants_file)
+    run_cmd rm --force (targets_file)
+    run_cmd rm --force --recursive (acl_dir)
 
     if owned_by_script user
         run_cmd userdel --remove $AGENT_USER
     else
         echo "kept the $AGENT_USER account: this script adopted it rather than created it" >&2
-        in_group $AGENT_GROUP $AGENT_USER; and run_cmd gpasswd --delete $AGENT_USER $AGENT_GROUP
+        # A membership `apply` did not add is not `apply`'s to remove. Both
+        # sides of the seam are checked separately: the developer was in the
+        # group as often as the agent was.
+        if in_group $AGENT_GROUP $AGENT_USER; and not was_member $AGENT_USER $AGENT_GROUP
+            run_cmd gpasswd --delete $AGENT_USER $AGENT_GROUP
+        end
+        # A privileged group `apply` took away comes back: removing the
+        # boundary is what `rollback` is for, but this account held the group
+        # before `apply` ran, and that is the host's own configuration.
+        for group in (previously_removed_groups)
+            in_group $group $AGENT_USER; and continue
+            getent group $group >/dev/null; or continue
+            run_cmd usermod --append --groups $group $AGENT_USER
+            echo "returned $AGENT_USER to $group (it held it before apply)"
+        end
     end
     if owned_by_script group
         run_cmd groupdel $AGENT_GROUP
     else
         echo "kept the $AGENT_GROUP group: this script adopted it rather than created it" >&2
-        run_cmd gpasswd --delete $DEV_NAME $AGENT_GROUP 2>/dev/null || true
+        if in_group $AGENT_GROUP $DEV_NAME; and not was_member $DEV_NAME $AGENT_GROUP
+            run_cmd gpasswd --delete $DEV_NAME $AGENT_GROUP
+        end
     end
     run_cmd rm --force (state_file)
     echo "=== rolled back; the worktrees, their branches and their git data were not touched ==="

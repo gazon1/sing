@@ -240,25 +240,46 @@ is unguarded *and* trusted to write:
 ./scripts/agent-account.fish rollback ~/work/wt1
 ```
 
-It removes **only the entries this script wrote** — `setfacl -x u:agent` and
-`-x d:u:agent`, which name one subject and leave a foreign default entry alone. A bare
-`--remove-default` would take every default entry with it, and would silently change the
-modes of files nobody here wrote (measured on a throwaway tree: a `docker` default entry
-disappeared with the agent's). It then removes the sudoers rule, the account and the group — **only if this script created
+It puts back the ACL **the target had before `apply` ran**, from a snapshot taken first. Three
+attempts at removing "our entry" instead failed for one reason: the write is `--recursive`, so
+"the subject's entry" is not the state that changed. Measured on a throwaway tree:
+
+- `--modify` OVERWRITES a named entry that was already there, so a host that granted `sing-dev`
+  on a worktree before `apply` ran lost that grant to a rollback of a change it never made;
+- `-x` does not undo `--modify`. It leaves `mask::r-x` behind and takes the **whole `default:`
+  block** with it, silently rewriting the modes of files nobody here named (`chmod g=rx` does not
+  drop the mask either);
+- a snapshot capped at 200 directories is not a snapshot of a tree that was written at every file.
+
+So the record is `getfacl --recursive --physical`'s own output, one file per target in
+`/var/lib/agent-account/acl/`, restored with `setfacl --restore` — the tool's own inverse, with
+no delimiter to guess at. A path may legally contain `;` and `=`, which is why the old
+`path=entry;path=entry` lines could not round-trip one; a path now maps to its file name through
+`string escape --style=var`. The snapshot is taken **once**, before the first write: a second
+`apply` would otherwise record the state `apply` itself wrote, and rollback would faithfully
+restore that. The cost is honest — `getfacl -R` walks the SDK and the toolchain (~68–87 s each
+on this host, ~25 MB of dumps) — and it is paid only by `apply`, which already walks them to
+write the grants.
+
+Targets are the `$HOME` traverse grant (non-recursive), the SDK and the toolchain, and every
+worktree **and** its common git dir. The list lives in `/var/lib/agent-account/targets`, so
+rollback walks every one of them and not only the roots it is passed — undoing one worktree used
+to leave another writable.
+
+It then removes the sudoers rule, the account and the group — **only if this script created
 them**. `apply` deliberately adopts a pre-existing `agent`, `sing-dev` or sudoers file, so it
 records which of the three it created (`/var/lib/agent-account/state`, written before the first
 write); `rollback` deletes an owned one and keeps an adopted one, saying so. The sudoers file is
 re-checked against its exact content before deletion, because an administrator may have added a
 rule to it after `apply` ran.
 
-Grants are recorded too (one line per target and subject, in `/var/lib/agent-account/grants`,
-with the entries that were **already** there), for two reasons. A linked worktree's object store
-lives outside it, so once the worktree is removed the store's path cannot be re-derived. And
-`setfacl --modify` overwrites a named entry that already existed: a host that granted `sing-dev`
-on a worktree before `apply` ran must get that grant **back** on rollback, not lose it. Rollback
-walks every recorded target — not only the roots passed in, since undoing one worktree used to
-leave another writable — and restores the recorded value where there was one, removing the entry
-only where there was none.
+**Membership and privileged groups are not reversible by symmetry**, so they are recorded too.
+`apply` appends the developer and the agent to `sing-dev` and takes `wheel`, `docker` and `kvm`
+away from a pre-existing agent. A rollback that deleted the membership would remove a developer
+from a group they chose, and one that left the privileged groups gone would erase the fact that
+they were there. Both are recorded before the change (`member\t<user>\t<group>` and
+`removed-group\t<group>` in the state file), and rollback keeps a membership it did not add and
+returns a group `apply` took away.
 
 `check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
 named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported
