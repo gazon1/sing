@@ -161,29 +161,44 @@ function agent_home
     printf '%s' $home
 end
 
-# The agent's home has to be its OWN. An adopted `agent` whose passwd entry
-# points at `/home/devel`, `/`, or the developer's home makes `apply` chmod 700
-# and install `.gradle`/`.android`/`.cache` INSIDE the developer's home — the
-# exact separation this script exists to create, undone by one stale record.
-# Nothing asked this question, and the grants it writes then land in a home the
-# agent could already write.
-function require_own_home --argument-names home
-    test -n "$home"; or die "$AGENT_USER has no home directory in the passwd database"
+# Why the agent's home is unusable, or empty when it is fine. ONE predicate, so
+# `apply` and `check` cannot disagree: a check that stayed silent would certify
+# a host provisioning rejects.
+#
+# An adopted `agent` whose passwd entry points at `/home/devel`, `/`, or the
+# developer's home makes `apply` chmod 700 and install `.gradle`/`.android`
+# `.cache` INSIDE the developer's home — the exact separation this script exists
+# to create, undone by one stale record.
+function home_problem --argument-names home
+    test -n "$home"; or begin
+        echo "$AGENT_USER has no home directory in the passwd database"
+        return 0
+    end
     # The glob has to be QUOTED: `string match -q -- /* $home` matches nothing,
     # because an unquoted `/*` is expanded by the shell before the test sees it.
-    string match -q -- '/*' "$home"; or die "$AGENT_USER's home is not absolute: $home"
+    string match -q -- '/*' "$home"; or begin
+        echo "it is not absolute: $home"
+        return 0
+    end
     set -l resolved (readlink -f -- $home 2>/dev/null)
     test -n "$resolved"; or set resolved (string replace -r '/*$' '' -- $home)
     if test "$resolved" = /
-        die "$AGENT_USER's home is / — apply would write the agent's state into the root"
+        echo "it is / — apply would write the agent's state into the root"
+        return 0
     end
     set -l dev_home (readlink -f -- $DEV_HOME 2>/dev/null)
     test -n "$dev_home"; or set dev_home $DEV_HOME
     for forbidden in $DEV_HOME $dev_home
         if test "$resolved" = "$forbidden"; or string match -q -- "$forbidden/*" "$resolved"
-            die "$AGENT_USER's home is inside the developer's home ($resolved) — it is the same identity's files"
+            echo "it is inside the developer's home ($resolved) — it is the same identity's files"
+            return 0
         end
     end
+end
+
+function require_own_home --argument-names home
+    set -l problem (home_problem $home)
+    test -n "$problem"; and die "$AGENT_USER's home: $problem"
 end
  
 function agent_uid
@@ -813,6 +828,16 @@ function check
                 fail "$AGENT_USER cannot run a shell"
             case '*'
                 pass "$AGENT_USER has a shell"
+        end
+        # The home `apply` refuses to provision into. A `check` that stayed
+        # silent would certify a host provisioning rejects — and `run` would
+        # build the agent's environment from the developer's own directory.
+        set -l agent_home_dir (printf '%s' "$account" | cut -d: -f6)
+        set -l home_error (home_problem $agent_home_dir)
+        if test -n "$home_error"
+            fail "$AGENT_USER's home: $home_error"
+        else
+            pass "$AGENT_USER's home is its own ($agent_home_dir)"
         end
     else
         fail "no $AGENT_USER account — run '$SELF_NAME apply'"

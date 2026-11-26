@@ -861,10 +861,14 @@ class RoundNineRegressionTest(PlanTest):
     def test_the_root_as_an_agent_home_is_refused(self):
         """`chmod 700 /` on an adopted account whose home is the root."""
         body = SCRIPT.read_text(encoding='utf-8')
-        guard = body.split('function require_own_home', 1)[1].split('\nend', 1)[0]
+        guard = body.split('function home_problem', 1)[1].split('\nend', 1)[0]
         self.assertIn('"$resolved" = /', guard)
         # Quoted: an unquoted `/*` is expanded before `string match` sees it.
         self.assertIn("string match -q -- '/*'", guard)
+        # ONE predicate, or `apply` rejects a host `check` certifies.
+        self.assertIn('home_problem $agent_home_dir', body)
+        check = body.split('function check\n', 1)[1]
+        self.assertIn('home_problem $agent_home_dir', check)
 
     def test_an_adopted_accounts_sudo_rule_stops_the_run(self):
         """Group reconciliation does not touch a sudoers rule, and that is the escalation."""
