@@ -185,7 +185,7 @@ RUNTIME_ARTIFACTS = {
 
 # A backticked token that looks like a file path.
 PATH_RE = re.compile(
-    r"`([A-Za-z0-9_][A-Za-z0-9_./@-]*\.(?:kt|py|sh|md|yml|yaml|kts|json|toml|sql))`"
+    r"`([A-Za-z0-9_][A-Za-z0-9_./@-]*\.(?:kt|py|sh|fish|md|yml|yaml|kts|json|toml|sql))`"
 )
 # A backticked dated ADR slug, cited without its `.md`: `2026-10-05-some-finding`.
 #
