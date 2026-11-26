@@ -184,8 +184,8 @@ class BehaviorMatrixGateSelfTest {
             mapOf(
                 "Owner" to
                     listOf(
-                        "class Owner {\n    @Test\n    fun `a test`() {}\n}\n",
-                        "class Owner {\n}\n",
+                        "\n    @Test\n    fun `a test`() {}\n",
+                        "\n",
                     ),
             )
 
@@ -345,6 +345,69 @@ class BehaviorMatrixGateSelfTest {
         assertTrue(
             missing.isEmpty(),
             "a supertype that merely ends in a keyword is still a supertype: $missing",
+        )
+    }
+
+    @Test
+    fun `a row is not satisfied by a test of a class nested in the owner`() {
+        val matrix = matrix("| a | `Owner.a test` |")
+        val owner =
+            "class Owner {\n" +
+                "    class Nested {\n" +
+                "        @Test\n" +
+                "        fun `a test`() {}\n" +
+                "    }\n" +
+                "}\n"
+
+        val missing = missing(matrix, matrixClassBody = null, owner = owner)
+
+        assertEquals(
+            1,
+            missing.size,
+            "a test of a nested class belongs to that class, not to its owner: $missing",
+        )
+    }
+
+    @Test
+    fun `a row is not satisfied by a test of an object nested in the owner`() {
+        val matrix = matrix("| a | `Owner.a test` |")
+        val owner =
+            "class Owner {\n" +
+                "    companion object {\n" +
+                "        @Test\n" +
+                "        fun `a test`() {}\n" +
+                "    }\n" +
+                "}\n"
+
+        val missing = missing(matrix, matrixClassBody = null, owner = owner)
+
+        assertEquals(
+            1,
+            missing.size,
+            "a test of a companion object belongs to it, not to its owner: $missing",
+        )
+    }
+
+    @Test
+    fun `a row is satisfied by a test declared beside a nested class`() {
+        val matrix = matrix("| a | `Owner.a test` |")
+        val owner =
+            "class Owner {\n" +
+                "    class Nested {\n" +
+                "        fun helper() {}\n" +
+                "    }\n" +
+                "    @Test\n" +
+                "    fun `a test`() = runTest {\n" +
+                "        val block = { 1 }\n" +
+                "    }\n" +
+                "}\n"
+
+        val missing = missing(matrix, matrixClassBody = null, owner = owner)
+
+        assertTrue(
+            missing.isEmpty(),
+            "a direct member is a member even when a nested class and a lambda block share the " +
+                "body: $missing",
         )
     }
 

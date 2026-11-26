@@ -236,11 +236,37 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | TaskCreate: restore into scope | `TaskCreateDraftBehaviorTest.a draft is restored into the scope it was saved in` |
  * | TaskCreate: tag-scoped restore | `TaskCreateTagScopeTest.a draft is restored only into the tag scope it was saved in` |
  * | TaskCreate: restore into tag scope | `TaskCreateTagScopeTest.a draft is restored into the tag scope it was saved in` |
- * | TaskCreate: failed autosave keeps the editor usable | `TaskCreateDraftBehaviorTest.a failed autosave leaves the editor usable` |
- * | TaskCreate: failed autosave is silent | `TaskCreateDraftBehaviorTest.a failed autosave leaves the editor usable` |
+ * | TaskCreate: failed autosave keeps the editor usable and silent | `TaskCreateDraftBehaviorTest.a failed autosave leaves the editor usable` |
  * | NoteEditor: autosave failure | `NoteEditorTest.a failed autosave tells the user`          |
  * | NoteEditor: save is a checkpoint | `NoteEditorTest.after an explicit save, closing the editor keeps the saved text` |
  * | NoteEditor: new note is created once | `NoteEditorTest.an explicit save creates a new note exactly once` |
+ *
+ * ## What this table is not
+ *
+ * The table proves that every guarantee it names still has a test behind it. It
+ * does not prove that the test asserts the guarantee — a row can name a real,
+ * green test that has quietly stopped proving the thing the row claims. The gate
+ * checks names; the meaning of a row is what the review of this pull request
+ * checks, and what a reader has to check again when they change the test.
+ *
+ * Some rows deliberately pin behaviour that issue #3229 records as a
+ * discrepancy to be settled by the parent issue #3225, not as something this
+ * issue approves. That applies in particular to:
+ *
+ * - `an autosave in flight when the entity switches is superseded by the write
+ *   of the new entity` — this row is *not* proof of stale-job cancellation. It
+ *   is the characterization of what `open()` does today: the write that is
+ *   already under way runs to the end, and the new entity's write follows it.
+ *   The kdoc of `open()` promises cancellation, and the implementation does not
+ *   provide it; a test that asserted cancellation would have to change the
+ *   product, which is out of scope here. Read the row as "a running autosave is
+ *   superseded, not cancelled" — the pending debounce *is* cancelled, and that
+ *   is the row above it;
+ * - `an edit made while the restore was in flight is not persisted afterwards`
+ *   — the autosave collector starts after the restore settles and drops the
+ *   first value it sees, so that edit survives only until the editor closes;
+ * - `a pending autosave rewrites the draft after the save` and the same after
+ *   the discard — neither the save nor the discard cancels the pending debounce.
  */
 @Tag("fast")
 class DraftMviViewModelTest {

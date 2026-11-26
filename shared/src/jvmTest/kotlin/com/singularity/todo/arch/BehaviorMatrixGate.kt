@@ -45,6 +45,13 @@ package com.singularity.todo.arch
  * it. A function that lost its annotation is no longer a test, and a row
  * that names it claims coverage that nothing runs any more.
  *
+ * The function must also be a *member* of the class, not a function of a
+ * class or object nested inside it. A nested class is its own owner, and a
+ * test in it is looked up under that owner's name; a row that names the
+ * enclosing class is not satisfied by it. Without that distinction a row
+ * survived the removal of the test it names whenever a nested declaration
+ * happened to hold a function of the same name.
+ *
  * ## What reading sources costs
  *
  * No type resolution: this is a name check, and a name is what the table
@@ -158,9 +165,12 @@ internal object BehaviorMatrixGate {
      * Literal contents are blanked before the search, so an annotation and a
      * declaration written inside a string are not an annotation and not a
      * declaration.
+     *
+     * The search runs on the *direct members* of the body — see [directMembers]
+     * — so a test of a class or object nested in it does not answer for it.
      */
     fun testFunctionNames(source: String): Set<String> {
-        val code = KotlinText.stripCode(source)
+        val code = directMembers(KotlinText.stripCode(source))
         return testAnnotation
             .findAll(code)
             .mapNotNull { annotation ->
@@ -169,6 +179,48 @@ internal object BehaviorMatrixGate {
                     functionDeclaration.find(tail)?.takeIf { it.range.first <= LOOKAHEAD }
                 declaration?.groupValues?.get(1)?.trim('`')
             }.toSet()
+    }
+
+    /**
+     * [body] with everything inside a nested block blanked out, one character
+     * per source character.
+     *
+     * The body of a class holds its members and, in the same breath, the
+     * members of every class, object and interface declared inside it. A test
+     * of a nested declaration belongs to *that* declaration: it is looked up
+     * under its own name, and a row that names the enclosing class must not be
+     * satisfied by it. Blanking the nested blocks leaves the direct members,
+     * and only them.
+     *
+     * The braces themselves are blanked as well — the class body passed here
+     * excludes its own pair — so a function whose body is empty still reads
+     * as a declaration.
+     */
+    private fun directMembers(body: String): String {
+        val blanked = StringBuilder(body)
+        var depth = 0
+        for (index in body.indices) {
+            when (body[index]) {
+                '{' -> {
+                    depth++
+                    blanked.setCharAt(index, ' ')
+                }
+
+                '}' -> {
+                    blanked.setCharAt(index, ' ')
+                    depth--
+                }
+
+                '\n' -> {
+                    Unit
+                }
+
+                else -> {
+                    if (depth > 0) blanked.setCharAt(index, ' ')
+                }
+            }
+        }
+        return blanked.toString()
     }
 
     /**

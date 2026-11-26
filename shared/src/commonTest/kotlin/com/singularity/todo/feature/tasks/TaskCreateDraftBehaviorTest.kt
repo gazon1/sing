@@ -452,7 +452,9 @@ class TaskCreateDraftBehaviorTest {
      * while the note editor surfaces it to the user as a `SaveFailed` event. That
      * divergence between the two editors is the parent's to decide (#3225), so
      * this row pins the half that is the editor's own promise — the editor stays
-     * usable — and states the silence instead of leaving it implicit.
+     * usable — and states the silence instead of leaving it implicit. Both halves
+     * are asserted here, so the matrix names this one test for both of them
+     * rather than claiming two rows of coverage for a single test.
      */
     @Test
     fun `a failed autosave leaves the editor usable`() =
