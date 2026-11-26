@@ -19,6 +19,15 @@
 задачи `:shared:dependencyQueryPerf` (`-Pperf.experiment=read-overhead`),
 раздел «Обвязка вызова» ниже.
 
+Все процедуры замера этого пакета делят один словарь хелперов —
+`shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/PerfBenchmarkSupport.kt`:
+перцентиль по ближайшему рангу, миллисекунды, которыми публикуются числа,
+состояние машины и строки/числа, прочитанные прямо из базы. Раньше у каждой
+процедуры была своя копия каждого хелпера, и копии разъезжались: один и тот же
+перцентиль считался под двумя именами, одни и те же миллисекунды печатались
+двумя способами. Число, опубликованное под двумя определениями, — это два
+числа, и читатель не может понять, какое из них он видит.
+
 Предыдущий замер ([#3153]) переписал третий запрос той же формы,
 `getOrderingEdgeIdsForUser`, и оставил эти два «не измеренными — не
 трогаем». Этот документ закрывает тот долг: каждый из двух запросов измерен
@@ -997,6 +1006,7 @@ join-а по-прежнему оставляет SQLite право вести ч
 
 Замер — `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadPerformanceHarness.kt`
 (оркестрация и отчёт) и `ReadOverheadForms.kt` (формы чтения и изменение),
+общие хелперы пакета — в `PerfBenchmarkSupport.kt`,
 задача Gradle — `:shared:dependencyQueryPerf` с `-Pperf.experiment=read-overhead`:
 тот же harness и тот же датасет-конвейер, что и замеры выше, второй эксперимент
 (эксперимент по умолчанию — `sql-forms`, формы SQL). Датасеты — те же, что и
@@ -1478,6 +1488,7 @@ SQL стало плоско», но чем именно плоско — теп�
 - Замер обвязки вызова: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadPerformanceHarness.kt`
 - Формы чтения и изменение: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadForms.kt`
 - Арифметика замера: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadMeasurementTest.kt`
+- Общие хелперы замера: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/PerfBenchmarkSupport.kt`
 - Формы и наблюдатель на настоящей базе: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadFormsIntegrationTest.kt`
 - Отчёт по предыдущему замеру: `docs/architecture/related-task-picker-performance.md`
 

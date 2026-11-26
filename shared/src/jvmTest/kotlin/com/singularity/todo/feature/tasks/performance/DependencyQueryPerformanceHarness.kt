@@ -14,8 +14,6 @@ import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import java.util.Locale
-import kotlin.math.ceil
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 
@@ -534,8 +532,8 @@ private suspend fun measureOne(
         query = query,
         group = group.name,
         form = form,
-        p50 = percentile(durations, 0.5),
-        p95 = percentile(durations, 0.95),
+        p50 = nearestRank(durations, 0.5),
+        p95 = nearestRank(durations, 0.95),
         rows = rows,
         samples = durations.size,
     )
@@ -827,20 +825,6 @@ private suspend fun plans(
     }
 
 /**
- * The nearest-rank percentile of a set of durations: the value at rank
- * `ceil(fraction × n)` of the sorted sample.
- */
-private fun percentile(
-    values: List<Duration>,
-    fraction: Double,
-): Duration {
-    check(values.isNotEmpty()) { "a percentile of an empty sample is not a number" }
-    val sorted = values.sorted()
-    val rank = ceil(fraction * sorted.size).toInt().coerceIn(1, sorted.size)
-    return sorted[rank - 1]
-}
-
-/**
  * The rows of a statement, as text — one string per row.
  *
  * The projection is read off the statement itself: the blocking-tasks read
@@ -927,27 +911,6 @@ private suspend fun AppDatabase.plan(
         }
     }
 
-/** One column of text per row. */
-private suspend fun AppDatabase.texts(sql: String): List<String> =
-    useConnection(isReadOnly = true) { transactor ->
-        transactor.usePrepared(sql) { statement ->
-            buildList {
-                while (statement.step()) {
-                    add(statement.getText(0))
-                }
-            }
-        }
-    }
-
-/** The single number of a query. */
-private suspend fun AppDatabase.scalarInt(sql: String): Int =
-    useConnection(isReadOnly = true) { transactor ->
-        transactor.usePrepared(sql) { statement ->
-            check(statement.step()) { "the query has to answer: $sql" }
-            statement.getLong(0).toInt()
-        }
-    }
-
 /** The report. */
 private fun render(
     dataset: PerfDataset,
@@ -1007,7 +970,3 @@ private fun render(
             appendLine("THE ROWS DISAGREE — this run failed.")
         }
     }
-
-/** A duration in milliseconds, with two decimals. */
-private fun millis(duration: Duration): String =
-    String.format(Locale.ROOT, "%.2f", duration.inWholeMicroseconds / 1000.0)

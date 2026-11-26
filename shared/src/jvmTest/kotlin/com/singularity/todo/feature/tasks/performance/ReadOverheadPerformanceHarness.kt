@@ -10,8 +10,6 @@ import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.runBlocking
-import java.util.Locale
-import kotlin.math.ceil
 import kotlin.time.Duration
 
 /**
@@ -663,59 +661,3 @@ private fun List<OverheadMeasurement>.median(
     read: Read,
     form: String,
 ): Duration = first { it.read == read && it.form == form }.p50
-
-/**
- * The load average of the machine, as the kernel sees it.
- *
- * The latencies of a shared machine are only readable together with the state
- * of the machine: the same harness on an idle host and on a loaded one gives
- * different numbers for the same work. The load goes into the report, so that
- * a number is never published without the state it was taken in.
- */
-private fun loadAverage(): String =
-    runCatching {
-        java.io
-            .File("/proc/loadavg")
-            .readText()
-            .substringBefore(' ')
-            .trim()
-    }.getOrDefault("unknown")
-
-/**
- * The nearest-rank percentile of a set of durations: the value at rank
- * `ceil(fraction × n)` of the sorted sample.
- */
-internal fun nearestRank(
-    values: List<Duration>,
-    fraction: Double,
-): Duration {
-    check(values.isNotEmpty()) { "a percentile of an empty sample is not a number" }
-    val sorted = values.sorted()
-    val rank = ceil(fraction * sorted.size).toInt().coerceIn(1, sorted.size)
-    return sorted[rank - 1]
-}
-
-/** One column of text per row. */
-private suspend fun AppDatabase.texts(sql: String): List<String> =
-    useConnection(isReadOnly = true) { transactor ->
-        transactor.usePrepared(sql) { statement ->
-            buildList {
-                while (statement.step()) {
-                    add(statement.getText(0))
-                }
-            }
-        }
-    }
-
-/** The single number a query returns. */
-private suspend fun AppDatabase.scalarInt(sql: String): Int =
-    useConnection(isReadOnly = true) { transactor ->
-        transactor.usePrepared(sql) { statement ->
-            check(statement.step()) { "the query has to answer: $sql" }
-            statement.getLong(0).toInt()
-        }
-    }
-
-/** A duration in milliseconds, with two decimals. */
-private fun millis(duration: Duration): String =
-    String.format(Locale.ROOT, "%.2f", duration.inWholeMicroseconds / 1000.0)

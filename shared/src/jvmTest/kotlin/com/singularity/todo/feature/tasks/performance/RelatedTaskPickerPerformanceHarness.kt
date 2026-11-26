@@ -37,8 +37,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.io.File
-import java.util.Locale
-import kotlin.math.ceil
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.TimeSource
@@ -612,33 +610,14 @@ private suspend fun timeVariant(
     return Measurement(
         scenario = scenario,
         variant = variant,
-        p50 = percentile(durations, 0.5),
-        p95 = percentile(durations, 0.95),
+        p50 = nearestRank(durations, 0.5),
+        p95 = nearestRank(durations, 0.95),
         ftsSearches = counts.ftsSearches,
         edgeReads = counts.edgeReads,
         candidates = outcome.candidates,
         results = outcome.results,
         fetchLimits = counts.ftsLimits.toList(),
     )
-}
-
-/**
- * The nearest-rank percentile of a set of durations: the value at rank
- * `ceil(fraction × n)` of the sorted sample.
- *
- * Nearest rank, not an interpolated quantile — the sample is small (ten
- * iterations), and an interpolated value would be a number no iteration
- * produced. With ten samples p50 is the fifth smallest duration and p95 the
- * tenth.
- */
-private fun percentile(
-    values: List<Duration>,
-    fraction: Double,
-): Duration {
-    check(values.isNotEmpty()) { "a percentile of an empty sample is not a number" }
-    val sorted = values.sorted()
-    val rank = ceil(fraction * sorted.size).toInt().coerceIn(1, sorted.size)
-    return sorted[rank - 1]
 }
 
 /** The rows of a query, two columns of text. */
@@ -654,19 +633,6 @@ private suspend fun AppDatabase.rows(
                     add(Row(statement.getText(0), statement.getText(1)))
                 }
             }
-        }
-    }
-
-/** The single number of a query. */
-private suspend fun AppDatabase.scalarInt(
-    sql: String,
-    arg: String? = null,
-): Int =
-    useConnection(isReadOnly = true) { transactor ->
-        transactor.usePrepared(sql) { statement ->
-            if (arg != null) statement.bindText(1, arg)
-            check(statement.step()) { "the query has to answer: $sql" }
-            statement.getLong(0).toInt()
         }
     }
 
@@ -783,10 +749,6 @@ private fun render(
             }
         }
     }
-
-/** A duration in milliseconds, with two decimals. */
-private fun millis(duration: Duration): String =
-    String.format(Locale.ROOT, "%.2f", duration.inWholeMicroseconds / 1000.0)
 
 /** How many index reads the picker's fetch expansion may make: 50, 100, 200, 400, 500. */
 private const val MAX_FETCH_STEPS = 5

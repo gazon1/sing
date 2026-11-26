@@ -179,8 +179,9 @@ and not two. Both checks stop the run instead of publishing a number:
 The arithmetic of the measurement is checked separately, without a clock, by
 `ReadOverheadMeasurementTest`: the nearest-rank percentile, the identity
 "overhead = call path + Flow operators + invalidation source" in every slot, the
-refusal to pair forms whose samples do not have the same count, and the evenness
-of the shifted order. The forms themselves, the observer's reaction and the
+difference of two forms taken slot by slot, the refusal to pair forms whose
+samples do not have the same count, and the evenness of the shifted order. The
+forms themselves, the observer's reaction and the
 absence of an observer in the control are checked on a **real Room database** by
 `ReadOverheadFormsIntegrationTest`: all four forms answer the same rows, the write
 that invalidates the read really does trigger a re-read — with a bounded wait, so
@@ -289,7 +290,11 @@ the claim. It lives in
 `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadPerformanceHarness.kt`
 (orchestration and report) and
 `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadForms.kt`
-(the read forms and the write). It runs through the harness of the SQL
+(the read forms and the write), next to the helpers every harness of the
+package shares —
+`shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/PerfBenchmarkSupport.kt`
+(the percentile, the milliseconds, the rows and the numbers read straight from
+the database). It runs through the harness of the SQL
 comparison (#3174) as its second experiment —
 `:shared:dependencyQueryPerf -Pperf.experiment=read-overhead` — so that the
 measurement does not add a second benchmark framework to the repository: one
@@ -381,6 +386,7 @@ like #3194 for the checklist reads.
 - Harness: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadPerformanceHarness.kt`
 - Read forms and write: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadForms.kt`
 - Arithmetic of the measurement: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadMeasurementTest.kt`
+- Shared helpers of the perf harnesses: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/PerfBenchmarkSupport.kt`
 - Forms and observer on a real database: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadFormsIntegrationTest.kt`
 - Gradle task: `:shared:dependencyQueryPerf -Pperf.experiment=read-overhead` in `shared/build.gradle.kts`
 - Issue: https://github.com/gazon1/sing/issues/3196
