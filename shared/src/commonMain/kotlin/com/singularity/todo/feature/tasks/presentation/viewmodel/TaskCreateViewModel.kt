@@ -233,7 +233,16 @@ class TaskCreateViewModel(
             }
 
             TaskCreateIntent.Discard -> {
-                vmScope.launch { clearDrafts() }
+                // Captured before the launch: the value the pending autosave carries is the
+                // one the person threw away, not whatever the editor holds by the time the
+                // coroutine runs.
+                val discarded = draft
+                vmScope.launch {
+                    // Under the same lock as the autosave: the write the debounce still
+                    // holds for this draft would otherwise land after the clear and bring
+                    // the thrown-away task back (#3256).
+                    forgetPendingAutosave(discarded) { clearDrafts() }
+                }
             }
         }
     }

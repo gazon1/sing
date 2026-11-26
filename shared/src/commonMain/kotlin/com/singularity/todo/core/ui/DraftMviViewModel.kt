@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.concurrent.Volatile
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -146,6 +147,47 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      */
     private val writeLock = Mutex()
 
+    /**
+     * The draft whose stored copy is being cleared — by an explicit [save], or by an intent
+     * that throws the draft away and navigates (the create editor's Discard). The write the
+     * debounce still holds for it lands *after* the clear and puts the draft back: the
+     * create editor then restores text the person already submitted, and saving it creates a
+     * second task, because its draft carries no entity id (#3256). Ordering is not
+     * cancellation — [writeLock] makes the two writes take turns, it does not cancel one.
+     *
+     * A value, not a flag: only the write carrying the cleared draft is stale. Text typed
+     * while a save suspends is a *different* draft and still has to reach the store — it is
+     * the text no store holds.
+     *
+     * Volatile because [forgetPendingAutosave] runs on the caller's thread while the
+     * collector reads it on the VM's.
+     */
+    @Volatile
+    private var forgottenDraft: D? = null
+
+    /**
+     * Forgets the autosave still scheduled for [draft], and clears its stored copy with
+     * [clear], so the write cannot undo the clear.
+     *
+     * The two happen under [writeLock] — the same lock the autosave takes. A write already
+     * in flight therefore lands *before* the clear, which removes it; a write that starts
+     * afterwards sees the marker. Marking outside the lock leaves the window where a write
+     * passed the check, suspends, and lands on top of the clear (#3256).
+     *
+     * Only where the store is really cleared: the base [discard] deliberately does not call
+     * this — it keeps its autosave entry as a safety net, and dropping a pending write there
+     * would lose the last keystrokes instead (#2724).
+     */
+    protected suspend fun forgetPendingAutosave(
+        draft: D,
+        clear: suspend () -> Unit,
+    ) {
+        writeLock.withLock {
+            forgottenDraft = draft
+            clear()
+        }
+    }
+
     /** Current draft value. Use inside [updateDraft] transforms. */
     protected val draft: D get() = draftState.value
 
@@ -181,14 +223,28 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                 .drop(1)
                 .debounce(autosaveDebounceMs.milliseconds)
                 .collect { current ->
-                    runCatchingCancellable { writeLock.withLock { autosave(current) } }
-                        .fold(
-                            onSuccess = {
+                    // The decision and the write take the same lock: a clear that raced this
+                    // write would otherwise be read as stale, and the draft comes back.
+                    runCatchingCancellable {
+                        writeLock.withLock {
+                            if (current == forgottenDraft) {
+                                false
+                            } else {
+                                autosave(current)
+                                true
+                            }
+                        }
+                    }.fold(
+                        onSuccess = { written ->
+                            // A draft that was skipped never reached storage, so the subclass
+                            // is not told that it did.
+                            if (written) {
                                 runCatchingCancellable { onAutosaved(current) }
                                     .onFailure { onAutosaveError(it) }
-                            },
-                            onFailure = { onAutosaveError(it) },
-                        )
+                            }
+                        },
+                        onFailure = { onAutosaveError(it) },
+                    )
                 }
         }
     }
@@ -392,7 +448,9 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                         // saved would leave `isDirty` false over text no store holds.
                         draftState.checkpoint(currentDraft)
                         pushUiState()
-                        clearAutosave()
+                        // With the clear, under one lock: the write the debounce may still
+                        // hold for this draft would otherwise put it back.
+                        forgetPendingAutosave(currentDraft) { clearAutosave() }
                         // The hook tells us what to compare against, and can only speak
                         // about the draft it was given — never about the live one. That is
                         // how NoteEditor's own dirty-flag adjustment is still honoured while
