@@ -83,7 +83,11 @@ class TaskCreateTagScopeTest {
     @Test
     fun `a draft is restored only into the tag scope it was saved in`() =
         runTest {
-            val draft = TaskDraft(title = FieldOwnedText.empty().seeded("Tagged draft"))
+            val draft =
+                TaskDraft(
+                    title = FieldOwnedText.empty().seeded("Tagged draft"),
+                    tagIds = listOf(TagId("tag-1").value),
+                )
             draftStore.save(taskDraftStorageKey(null, null, setOf(TagId("tag-1"))), draft, TaskDraft.serializer())
 
             val vm = testVm(initialTagIds = setOf(TagId("tag-2")))
@@ -94,6 +98,11 @@ class TaskCreateTagScopeTest {
                 "",
                 vm.state.value.draft.title.text,
                 "a draft from another tag scope must not leak into this one",
+            )
+            assertEquals(
+                listOf(TagId("tag-2").value),
+                vm.state.value.draft.tagIds,
+                "the draft keeps the tags the editor was opened with, not the other scope's",
             )
 
             // The editor opened under another tag set starts empty, so the save is
@@ -116,7 +125,11 @@ class TaskCreateTagScopeTest {
     @Test
     fun `a draft is restored into the tag scope it was saved in`() =
         runTest {
-            val draft = TaskDraft(title = FieldOwnedText.empty().seeded("Tagged draft"))
+            val draft =
+                TaskDraft(
+                    title = FieldOwnedText.empty().seeded("Tagged draft"),
+                    tagIds = listOf(TagId("tag-1").value, TagId("tag-2").value),
+                )
             draftStore.save(
                 taskDraftStorageKey(null, null, setOf(TagId("tag-2"), TagId("tag-1"))),
                 draft,
@@ -131,6 +144,14 @@ class TaskCreateTagScopeTest {
                 "Tagged draft",
                 vm.state.value.draft.title.text,
                 "the draft saved for this tag scope is restored into it",
+            )
+            // The restored draft is the whole draft: the tags it was written with
+            // come back with it. A restore that kept only the title would show the
+            // title and still create the task without the tags the person picked.
+            assertEquals(
+                listOf(TagId("tag-1").value, TagId("tag-2").value),
+                vm.state.value.draft.tagIds,
+                "the restored draft keeps the tags it was written under",
             )
         }
 }

@@ -152,7 +152,10 @@ class TaskCreateDraftBehaviorTest {
         runTest {
             fakeDraftStore.save(
                 taskDraftStorageKey(null, ProjectId("project-1"), emptySet()),
-                TaskDraft(title = FieldOwnedText.empty().seeded("Scoped draft")),
+                TaskDraft(
+                    title = FieldOwnedText.empty().seeded("Scoped draft"),
+                    projectId = ProjectId("project-1").value,
+                ),
                 TaskDraft.serializer(),
             )
 
@@ -168,6 +171,11 @@ class TaskCreateDraftBehaviorTest {
 
             assertEquals(0, fakeTaskRepo.tasks.value.size, "a draft from another scope must not leak into this one")
             assertEquals("Title is required", vm.state.value.error)
+            assertEquals(
+                ProjectId("project-2").value,
+                vm.state.value.draft.projectId,
+                "the draft keeps the scope the editor was opened in, not the other scope's",
+            )
         }
 
     /**
@@ -180,7 +188,10 @@ class TaskCreateDraftBehaviorTest {
         runTest {
             fakeDraftStore.save(
                 taskDraftStorageKey(null, ProjectId("project-1"), emptySet()),
-                TaskDraft(title = FieldOwnedText.empty().seeded("Scoped draft")),
+                TaskDraft(
+                    title = FieldOwnedText.empty().seeded("Scoped draft"),
+                    projectId = ProjectId("project-1").value,
+                ),
                 TaskDraft.serializer(),
             )
 
@@ -193,18 +204,33 @@ class TaskCreateDraftBehaviorTest {
                 vm.state.value.draft.title.text,
                 "the draft saved for this scope is restored into it",
             )
+            // The restored draft is the whole draft, not only its title: the
+            // project the draft was written under comes back with it. A restore
+            // that dropped the associations would show the title and still create
+            // the task in the wrong project.
+            assertEquals(
+                ProjectId("project-1").value,
+                vm.state.value.draft.projectId,
+                "the restored draft keeps the project it was written under",
+            )
 
             vm.onIntent(TaskCreateIntent.SaveClicked)
             advanceTimeBy(1_000)
             runCurrent()
 
             assertEquals(1, fakeTaskRepo.tasks.value.size)
-            assertEquals(
-                "Scoped draft",
+            val created =
                 fakeTaskRepo.tasks.value.values
                     .first()
-                    .title,
+            assertEquals(
+                "Scoped draft",
+                created.title,
                 "the task is created from the restored draft",
+            )
+            assertEquals(
+                ProjectId("project-1"),
+                created.projectId,
+                "the task lands in the project the draft was written under",
             )
         }
 
