@@ -415,7 +415,11 @@ end
 function scrub_unrecorded --argument-names target
     set -l file (acl_dump_file $target)
     test -e $file; or return 0
-    for path in (find $target -mindepth 1 2>/dev/null)
+    # NUL-separated, because a path may contain a newline: `find` without
+    # `-print0` emits such a path as TWO entries, and the second half then looks
+    # like a file the dump never covered — it would be scrubbed, and the first
+    # half would not. Measured on a file named `a\nb`.
+    for path in (find $target -mindepth 1 -print0 2>/dev/null | string split0)
         grep -qF -- "# file: $path" $file; and continue
         setfacl -x "u:$AGENT_USER" -x "d:u:$AGENT_USER" $path 2>/dev/null
         setfacl -x "g:$AGENT_GROUP" -x "d:g:$AGENT_GROUP" $path 2>/dev/null

@@ -327,7 +327,9 @@ Four things `rollback` and `check` must not take on trust, each measured:
 - a path the agent created **after** the snapshot cannot be named by the dump, so it keeps the
   grant the default entry gave it while the group is deleted underneath it. Those paths are
   scrubbed by subject; the ones the dump covered were just restored, and are left exactly as
-  the restore put them.
+  the restore put them. The walk is NUL-separated (`find -print0` + `string split0`), because a
+  path may contain a newline and a plain `find` then emits it as two half-paths — one of which
+  would be scrubbed while the other was skipped.
 
 `run` refuses an account with uid 0 or the developer's uid before it crosses. `apply` asking
 that question is not enough: `run` is independently callable, and it is the verb that

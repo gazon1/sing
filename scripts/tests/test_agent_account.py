@@ -1199,6 +1199,57 @@ class RoundTwelveRegressionTest(PlanTest):
         self.assertIn('usermod --gid $gid $AGENT_USER', rollback)
 
 
+    def test_setfacl_recursive_accepts_a_default_entry_on_a_tree_of_files(self):
+        """A review claimed this aborts provisioning; measured, it does not.
+
+        `setfacl --recursive --modify default:...` over a tree that contains
+        regular files exits 0 — the default entry simply applies to the
+        directories only. The claim was that `run_cmd` would die mid-provision,
+        which would be a P1; the test exists so the claim has to be re-measured
+        rather than re-asserted.
+        """
+        tree = self.tmp / 'defaults'
+        (tree / 'sub').mkdir(parents=True)
+        (tree / 'file').write_text('x', encoding='utf-8')
+        (tree / 'sub' / 'nested').write_text('x', encoding='utf-8')
+        result = subprocess.run(
+            ['setfacl', '--recursive', '--modify', 'user:nobody:rX', '--modify', 'default:user:nobody:rX', str(tree)],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        # The file got the ACCESS entry and no default one, which is what the
+        # script relies on: files must be readable, not inheritable.
+        entries = subprocess.run(
+            ['getfacl', '--omit-header', str(tree / 'file')],
+            capture_output=True, text=True, check=True,
+        ).stdout
+        # `rX` on a regular file prints as `r--`: `X` is "execute if a
+        # directory", which is why the entry is matched by SUBJECT elsewhere.
+        self.assertIn('user:nobody:r', entries)
+        self.assertNotIn('default:', entries)
+
+    def test_the_scrub_survives_a_path_containing_a_newline(self):
+        """`find` without `-print0` splits such a path into two entries."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        helper = body.split('function scrub_unrecorded', 1)[1].split('\nend', 1)[0]
+        self.assertIn('-print0', helper)
+        self.assertIn('string split0', helper)
+
+        # The property itself, on a real file whose name holds a newline: the
+        # walk must name it ONCE, since two halves would have one half scrubbed.
+        tree = self.tmp / 'nl'
+        tree.mkdir()
+        nasty = tree / 'a\nb'
+        nasty.write_text('x', encoding='utf-8')
+        script = f'echo (count (find "{tree}" -mindepth 1 -print0 | string split0))\n'
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual('1', result.stdout.strip(), f'one path must be one entry: {result.stdout!r}')
+
+
 class RunTest(AgentAccountTest):
     def test_run_hands_the_command_over_and_drops_the_callers_environment(self):
         """The agent gets a built environment; `env -i` is the mechanism."""
