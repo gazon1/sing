@@ -102,18 +102,20 @@ editors get it.
 
 ## Consequences
 
-- Both editors keep the shape they have; no editor code changed.
 - A keystroke that arrives during a save — while `persist()`, `clearAutosave()`
   or `onSaved()` suspends — leaves the draft dirty, so the back guard still asks
   and `discard()` still reverts to the saved value.
-- `onSaved` changed signature: `suspend fun onSaved(saved: D): D?`. Both
-  subclasses were updated; a subclass that adjusts the draft must now say so
-  instead of relying on the base reading its side effect.
+- **`onSaved` changed signature: `suspend fun onSaved(saved: D): D?`.** Both
+  production editors were updated. `NoteEditor` computes its dirty/new flags from
+  `saved`, applies them to the live draft, and returns the adjusted value;
+  `TaskCreateViewModel` returns `null` and its behaviour is unchanged apart from
+  the signature.
 - A fatal `Error` during a save is now handled by the scope's failure policy
-  instead of being swallowed into a banner. On Android that path reports and
-  keeps the process alive; it does not kill it.
-- `DraftState.revisions` is new public surface. It is a counter, not a second
-  copy of the value.
+  instead of being swallowed into a banner. That follows from
+  `reportingScope(crashReporter)` being the production scope; a scope built
+  without a handler has no such policy, and `CancellationException` always
+  propagates.
+- `DraftState` is `internal`: the base class's bookkeeping, not extension API.
 
 ## What was not done
 
