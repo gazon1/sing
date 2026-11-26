@@ -780,7 +780,8 @@ class TaskCreateViewModelTest {
     @Test
     fun `a failed autosave leaves the editor usable`() =
         runTest {
-            val vm = createVm(backgroundScope, draftStore = FailingDraftStore())
+            val store = FailingDraftStore()
+            val vm = createVm(backgroundScope, draftStore = store)
             advanceTimeBy(1_000)
             runCurrent()
 
@@ -788,6 +789,7 @@ class TaskCreateViewModelTest {
             advanceTimeBy(1_000)
             runCurrent()
 
+            assertTrue(store.saveAttempts > 0, "the autosave really reached the broken store")
             assertEquals("Survives", vm.state.value.draft.title.text, "the text is the editor's, not the store's")
             assertTrue(vm.state.value.isDirty, "a failed autosave is not a checkpoint")
 
@@ -806,6 +808,10 @@ class TaskCreateViewModelTest {
  * store must not take the editor down with it.
  */
 private class FailingDraftStore : DraftStore {
+    /** How many writes were attempted — a failure the editor never saw proves nothing. */
+    var saveAttempts = 0
+        private set
+
     override suspend fun <T> load(
         key: String,
         deserializer: DeserializationStrategy<T>,
@@ -815,7 +821,10 @@ private class FailingDraftStore : DraftStore {
         key: String,
         value: T,
         serializer: SerializationStrategy<T>,
-    ): Unit = throw IllegalStateException("the store is down")
+    ) {
+        saveAttempts++
+        throw IllegalStateException("the store is down")
+    }
 
     override suspend fun clear(key: String) = Unit
 

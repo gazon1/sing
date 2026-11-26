@@ -529,6 +529,7 @@ class NoteEditorTest {
             runCurrent()
 
             assertEquals(1, failures.size, "a failed autosave must reach the user")
+            assertEquals("db is down", failures.single().message, "the editor learns what went wrong")
             job.cancel()
         }
 
