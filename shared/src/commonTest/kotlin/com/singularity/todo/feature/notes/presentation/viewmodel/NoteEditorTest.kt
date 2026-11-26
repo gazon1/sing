@@ -551,9 +551,23 @@ class NoteEditorTest {
 
             vm.onIntent(NotesEditorIntent.EditBody("<p>Saved content</p>"))
             runCurrent()
+
+            val edited = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(edited)
+            assertTrue(edited.isDirty, "the edit makes the draft dirty")
+
             vm.onIntent(NotesEditorIntent.SaveNow)
             advanceTimeBy(1_000)
             runCurrent()
+
+            // The editor's own flags: after an explicit save the text is on
+            // disk, so the draft is no longer dirty and the note is no longer
+            // "new". Without this the editor would still ask to discard
+            // changes for text that was already written.
+            val saved = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(saved)
+            assertFalse(saved.isDirty, "an explicit save clears the editor's dirty flag")
+            assertFalse(saved.isNew, "an explicit save clears the editor's new-note flag")
 
             vm.closeEditor()
             runCurrent()

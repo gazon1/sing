@@ -182,7 +182,7 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | save clears the autosave     | `a successful save clears the autosave store and a failed one does not` |
  * | discard → last checkpoint    | `discard resets to baseline`                               |
  * | entity switch                | `switching entities autosaves the new draft, not the old one` |
- * | entity switch, in flight     | `an autosave in flight when the entity switches is superseded by the new entity's write` |
+ * | entity switch, in flight     | `an autosave in flight when the entity switches is superseded by the write of the new entity` |
  * | duplicate save               | `save blocked when already saving`                         |
  * | keyed effect                 | `DraftMviEffectTest.launchDraftEffect cancels prior with same key` |
  *
@@ -671,7 +671,7 @@ class DraftMviViewModelTest {
      * recorded in issue #3229.
      */
     @Test
-    fun `an autosave in flight when the entity switches is superseded by the new entity's write`() =
+    fun `an autosave in flight when the entity switches is superseded by the write of the new entity`() =
         testVm {
             val saved = mutableListOf<TestDraft>()
             val oldWriteStarted = CompletableDeferred<Unit>()
