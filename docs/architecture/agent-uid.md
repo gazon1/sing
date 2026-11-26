@@ -192,10 +192,13 @@ one file (`AcpAgentLauncher.kt`) and one DI binding (`AcpDiModule.jvm.kt:35`).
 
 Prerequisites: `fish` (pinned in `mise.toml` — `mise install` puts it on `PATH`) and
 `acl` (`setfacl`/`getfacl`, present on Fedora by default). `apply` is idempotent: it creates
-what is missing and reconciles what is there. The
-worktree paths are the **authorized** ones — the roots an agent may write. Passing one more
-is how a new worktree group is opened; nothing has to be re-run for a worktree created
-inside an authorized root later, because the default ACL is what covers it.
+what is missing and reconciles what is there. Before the first write it validates every root:
+a directory that is not a git worktree is refused with **nothing created**, because a host
+that is half-provisioned is worse than a refused run. `rollback` is the exception — it accepts
+a worktree that was removed, since the grants it cleans up live on the developer's paths and
+outlive the worktree. The worktree paths are the **authorized** ones — the roots an agent may
+write. Passing one more is how a new worktree group is opened; nothing has to be re-run for a
+worktree created inside an authorized root later, because the default ACL is what covers it.
 
 **Where the worktrees should live.** Outside the developer's home. A path inside it works —
 `--allow-in-home` opts in — but it is the worktree that makes the `--x` traverse grant
