@@ -147,14 +147,14 @@ actions(TagsIntent.Delete(id))
 
 ### `DraftState<S>`
 
-For editor VMs with local dirty state:
-
-```kotlin
-class TaskDraftState : DraftState<Task?>(null) {
-    fun updateTitle(title: String) = update { it?.copy(title = title) }
-    fun resetTo(task: Task) = reset(task)
-}
-```
+The draft value plus the checkpoint it is compared against — used by
+`DraftMviViewModel` and nowhere else. Four operations, one job each: `edit`,
+`discard` (back to the checkpoint), `checkpoint`, `open` (different entity).
+`isDirty` is the one question it answers. Do **not** wrap it in a subclass;
+editors extend `DraftMviViewModel` and override its seams instead
+(`validate`, `persist`, `onSaved`, `onAutosaved`, `onAutosaveError`,
+`clearAutosave`). The mutation path is final on purpose — see
+`docs/decisions/2026-11-26-the-draft-keeps-one-value-and-one-snapshot.md`.
 
 ## Intent method naming
 

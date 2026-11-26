@@ -12,8 +12,11 @@ import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.test.helpers.VmScope
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -43,6 +46,7 @@ private data class TestDraft(val title: String = "")
 private class TestHooks(
     val onSaved: (suspend () -> Unit)? = null,
     val onAutosaveError: ((Throwable) -> Unit)? = null,
+    val onAutosaved: ((TestDraft) -> Unit)? = null,
     val clearAutosave: (suspend () -> Unit)? = null,
 )
 
@@ -85,6 +89,10 @@ private class TestDraftVm(
 
     override suspend fun clearAutosave() {
         hooks.clearAutosave?.invoke()
+    }
+
+    override fun onAutosaved(current: TestDraft) {
+        hooks.onAutosaved?.invoke(current)
     }
 
     override fun onIntent(intent: TestIntent) { /* no-op for tests */ }
@@ -194,7 +202,8 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * `TaskCreateDraftBehaviorTest`, `TaskCreateTagScopeTest` and `NoteEditorTest`. The
  * rows about the restore live in `DraftMviRestoreTest`, the rows about the async
  * effects in `DraftMviEffectTest`, and the validation row in
- * `DraftMviSaveValidationTest` — all three in this same file.
+ * `DraftMviSaveValidationTest` and the failure-policy rows in `DraftMviFailurePolicyTest`
+ * — all of them in this same file.
  *
  * | Row                          | Test                                                       |
  * |------------------------------|------------------------------------------------------------|
@@ -208,6 +217,7 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | debounced autosave           | `a burst of edits autosaves once with the latest value`    |
  * | autosave ≠ checkpoint        | `a successful autosave does not move the save checkpoint`  |
  * | autosave failure             | `a failed autosave reports the failure and keeps the draft dirty` |
+ * | autosave callback throws     | `DraftMviFailurePolicyTest.a throwing onAutosaved callback does not kill the autosave loop` |
  * | autosave stays silent        | `autosave failure does not emit Saved event`               |
  * | explicit save                | `save validates then persists and calls onSaved`           |
  * | explicit save, invalid draft | `DraftMviSaveValidationTest.save does not persist a draft that validation rejects` |
@@ -215,6 +225,8 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | save → subclass callback     | `a subclass that edits the draft in onSaved leaves it clean` |
  * | failed save                  | `save surfaces persist failure as error`                   |
  * | failed save, thrown          | `save surfaces a thrown persist exception as an error`       |
+ * | failed save, fatal `Error`   | `DraftMviFailurePolicyTest.save lets a fatal error escape instead of reporting it as a failure` |
+ * | keystroke during a save      | `DraftMviFailurePolicyTest.a keystroke during a save stays dirty and is not blessed by the checkpoint` |
  * | save clears the autosave     | `a successful save clears the autosave store and a failed one does not` |
  * | discard → last checkpoint    | `discard resets to baseline`                               |
  * | entity switch                | `switching entities autosaves the new draft, not the old one` |
@@ -1253,5 +1265,154 @@ class DraftMviSaveValidationTest {
             assertEquals("Title required", vm.stateFlow.value.error, "the editor says why the save was refused")
             assertFalse(vm.stateFlow.value.isSaveEnabled, "an invalid draft cannot be saved")
             assertFalse(vm.stateFlow.value.isSaving, "the editor is not left in the saving state")
+        }
+}
+
+/**
+ * The failure-policy rows of the same behavior matrix (#3232): which failures become a
+ * snackbar, which escape, and which must not be swallowed.
+ *
+ * The rows live in their own class because the matrix of the draft lifecycle itself does
+ * not fit into one file-sized class any more.
+ */
+@Tag("fast")
+class DraftMviFailurePolicyTest {
+    /**
+     * The save is asynchronous and the editor stays editable while it runs. A keystroke
+     * that lands during `persist()` is *not* saved, so the checkpoint must be the draft
+     * that was written. Taking the checkpoint from the live draft instead marked that
+     * keystroke saved: `isDirty` went false with text on screen no store held, and the
+     * back guard stopped asking before dropping it (#3230).
+     *
+     * The second half — the post-`onSaved` checkpoint — is why this cannot simply be
+     * "never checkpoint after onSaved": the next test covers that guarantee, and a
+     * subclass's own adjustment must still count as saved.
+     */
+    @Test
+    fun `a keystroke during a save stays dirty and is not blessed by the checkpoint`() =
+        testVm {
+            val writeStarted = CompletableDeferred<Unit>()
+            val releaseWrite = CompletableDeferred<Unit>()
+            lateinit var vm: TestDraftVm
+            vm =
+                testVm(
+                    initialDraft = TestDraft(title = "original"),
+                    persistBlock = {
+                        writeStarted.complete(Unit)
+                        releaseWrite.await()
+                        Either.Right(Unit)
+                    },
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "saved") }
+            vm.save()
+            advanceTimeBy(20L)
+            runCurrent()
+            writeStarted.await()
+
+            // The user keeps typing while the write is in flight.
+            vm.updateDraft { it.copy(title = "saved, then typed") }
+            releaseWrite.complete(Unit)
+            advanceTimeBy(50L)
+            runCurrent()
+
+            assertEquals("saved, then typed", vm.stateFlow.value.draft.title)
+            assertTrue(
+                vm.stateFlow.value.isDirty,
+                "text typed during a save is not stored — the draft must still read as dirty",
+            )
+            vm.discard()
+            assertEquals(
+                "saved",
+                vm.stateFlow.value.draft.title,
+                "discard reverts to the draft the save wrote, dropping only the later keystroke",
+            )
+        }
+
+    /**
+     * A fatal `Error` is not a save failure the user could act on (#3232). It must leave
+     * the save coroutine and reach the scope's handler, the way
+     * [com.singularity.todo.core.error.runCatchingCancellable] treats one — and the save
+     * button still has to come back.
+     *
+     * The scope carries its own handler because that is what the ViewModel is given in
+     * production (`reportingScope(crashReporter)`); a test scope without one would route
+     * the escape to the dispatcher and prove something else.
+     */
+    @Test
+    fun `save lets a fatal error escape instead of reporting it as a failure`() =
+        runTest {
+            val escaped = mutableListOf<Throwable>()
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "Hello"),
+                    persistBlock = { throw AssertionError("fatal") },
+                    // A scope that owns its failure policy, the way every production VM
+                    // does (`reportingScope(crashReporter)`). Borrowing the background
+                    // scope's job would put the failure where `runTest` collects it, and
+                    // the test would prove the harness rather than the ViewModel.
+                    scope =
+                        AutoCloseableCoroutineScope(
+                            StandardTestDispatcher(testScheduler) +
+                                SupervisorJob() +
+                                CoroutineExceptionHandler { _, e -> escaped += e },
+                        ),
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.save()
+            advanceTimeBy(50L)
+            runCurrent()
+
+            assertEquals(1, escaped.size, "a fatal Error must leave the save coroutine")
+            assertTrue(escaped.single() is AssertionError, "and it must be the error that escaped")
+            assertNull(
+                vm.stateFlow.value.error,
+                "a fatal error is not a snackbar — no edit could repair it",
+            )
+            assertFalse(vm.stateFlow.value.isSaving, "the save button still has to come back")
+        }
+
+    /**
+     * The autosave collector is the only writer of the draft store for the editor's whole
+     * life. A subclass callback that throws must not end it, or autosave stops silently
+     * while the editor still looks alive.
+     */
+    @Test
+    fun `a throwing onAutosaved callback does not kill the autosave loop`() =
+        testVm {
+            var autosaves = 0
+            val failures = mutableListOf<Throwable>()
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "original"),
+                    autosaveBlock = { autosaves++ },
+                    hooks =
+                        TestHooks(
+                            onAutosaved = { throw IllegalStateException("callback exploded") },
+                            onAutosaveError = { failures += it },
+                        ),
+                    autosaveDebounceMs = 10L,
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "first") }
+            advanceTimeBy(50L)
+            runCurrent()
+            assertEquals(1, autosaves)
+            assertEquals(1, failures.size, "the throwing callback is reported, not swallowed")
+
+            vm.updateDraft { it.copy(title = "second") }
+            advanceTimeBy(50L)
+            runCurrent()
+            assertEquals(
+                2,
+                autosaves,
+                "the loop is still alive: the editor keeps autosaving after a callback threw",
+            )
         }
 }

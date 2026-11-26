@@ -41,12 +41,25 @@ class DraftState<S>(initial: S) {
     /** Snapshot of the current draft value. Prefer [current] for reactive consumers. */
     val value: S get() = _current.value
 
+    /**
+     * Counts mutations, so a save that started before one can tell that it did.
+     *
+     * Comparing values is not enough: an edit that puts the draft back to the value the
+     * save wrote still has to leave the draft dirty, because the store never received the
+     * intermediate state and the user's next keystroke would be the only trace of it.
+     */
+    private var edits: Long = 0L
+
+    /** How many mutations [value] has seen. Read before a save, compared after. */
+    val revisions: Long get() = edits
+
     /** True when [value] differs from the last [checkpoint]. */
     val isDirty: Boolean get() = _current.value != checkpointValue
 
     /** Mutates the current value via [reducer]. Does not move the checkpoint. */
     fun edit(reducer: (S) -> S) {
         _current.update(reducer)
+        edits++
     }
 
     /** Reverts [current] to the last checkpoint, discarding any edits since. */
@@ -64,6 +77,18 @@ class DraftState<S>(initial: S) {
      */
     fun checkpoint() {
         checkpointValue = _current.value
+    }
+
+    /**
+     * Declares [saved] as the saved value, which need not be [current].
+     *
+     * A save is asynchronous and the editor stays editable while it runs, so the draft
+     * the store received and the draft on screen can differ by the time the write
+     * returns. The checkpoint is the one that was *written*; passing it here keeps
+     * [isDirty] honest about a keystroke that arrived during the save.
+     */
+    fun checkpoint(saved: S) {
+        checkpointValue = saved
     }
 
     /**

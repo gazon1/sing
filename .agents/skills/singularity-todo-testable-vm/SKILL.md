@@ -369,29 +369,30 @@ private fun emitEditingState() {
 
 ## The DraftState Pattern
 
-When the VM has **editable draft state** (a form, an editor, anything with local dirty tracking), extract it into a separate pure class:
+For an editor with **dirty tracking against a saved checkpoint**, extend
+`DraftMviViewModel` — do not hand-roll a draft holder. It already owns the
+draft value, the debounced autosave, the explicit save and the checkpoint:
 
 ```kotlin
-class DraftState(initial: Draft = Draft.empty()) {
-    private val _state = MutableStateFlow(initial)
-    val state: StateFlow<Draft> = _state.asStateFlow()
-    val current: Draft get() = _state.value
-
-    /** Idempotent seed — only sets if not already initialized. */
-    fun seed(draft: Draft) {
-        if (_state.value.initialized) return
-        _state.value = draft
-    }
-
-    fun setName(name: String) { _state.update { it.copy(name = name) } }
+class TaskCreateViewModel(...) :
+    DraftMviViewModel<TaskDraft, TaskCreateIntent, TaskCreateUiEvent>(
+        initialDraft = seed, autosave = {...}, restore = {...}, logger = log, scope = scope,
+    ) {
+    override fun validate(draft: TaskDraft): String? = ...
+    override suspend fun persist(draft: TaskDraft): Either<AppError, Unit> = ...
 }
 ```
 
-**Why extract DraftState?**
+**Why the base class, not a fresh class?**
 
-- **Pure unit testing** — `DraftStateTest` exercises seed/setName/reorderSections with NO mocks, NO DI, NO ViewModel.
-- **Single source of truth** — no risk of `_draft.value` getting out of sync with what `combine` produces.
-- **Easy to mock** — in screen previews, replace the VM with a fake that holds a hand-rolled DraftState.
+- **The checkpoint is subtle** — autosave must not move it, a save must, and a
+  keystroke during a save must not be blessed. `DraftState` is that logic, and it
+  is unit-tested on its own (`DraftMviViewModelTest`).
+- **Single source of truth** — the UI state's `draft` is a snapshot published by
+  the base, never a second owner. See
+  `docs/decisions/2026-11-26-the-draft-keeps-one-value-and-one-snapshot.md`.
+- **What you may override** — `validate`, `persist`, `onSaved`, `onAutosaved`,
+  `onAutosaveError`, `clearAutosave`. The mutation path is final.
 
 ---
 
