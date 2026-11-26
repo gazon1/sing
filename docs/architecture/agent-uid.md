@@ -361,8 +361,12 @@ cannot answer "can the agent actually open this": SELinux, the mode on a parent 
 read-only mount all defeat a perfectly correct ACL, and none of them appears in `getfacl`. So
 `check` also runs probes **as the agent**, where `test -r` / `test -w` are `access(2)`:
 
-- `test -r` on the SDK and every toolchain directory it was granted;
-- `test -w` on each authorized worktree;
+- `test -r` **and** `test -x` on the SDK and every toolchain directory it was granted. Both bits,
+  because on a directory they answer different questions: a mode-`0644` directory passes
+  `test -r` and cannot be entered at all (measured), so a read-only probe certified an SDK the
+  agent could not walk into;
+- `test -w` **and** `test -x` on each authorized worktree, for the same reason — write without
+  traverse cannot create a file inside it;
 - `test -r` on `~/.ssh` and `~/.gnupg` — **must** fail, and this is what makes the `--x` traverse
   grant's cost concrete rather than theoretical;
 - `sudo -n true` and `docker ps` — **must** fail; and `test -w /dev/kvm`, which is #3240's

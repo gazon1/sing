@@ -1572,6 +1572,34 @@ class RoundSeventeenRegressionTest(PlanTest):
         self.assertNotIn('not-reached', result.stdout)
 
 
+class ProbeTraverseTest(PlanTest):
+    """`test -r` on a directory does not mean it can be entered.
+
+    Measured: a mode-0644 directory answers `test -r` with 0 and `test -x` with
+    1 — readable, untraversable. A read-only probe therefore certified an SDK
+    the agent could not walk into, and a write-only probe a worktree it could
+    not create a file in.
+    """
+
+    def test_the_probes_ask_for_execute_as_well(self):
+        body = SCRIPT.read_text(encoding='utf-8')
+        probes = body.split('function behaviour_probes', 1)[1].split('\nend', 1)[0]
+        self.assertIn('test -r $path -a -x $path', probes, 'read without traverse proves nothing')
+        self.assertIn('test -w $root -a -x $root', probes, 'write without traverse cannot create a file')
+
+    def test_read_alone_passes_on_a_directory_that_cannot_be_entered(self):
+        """The property the probes exist for, measured on a real directory."""
+        tree = self.tmp / 'rt644'
+        tree.mkdir()
+        tree.chmod(0o644)
+        self.assertEqual(0, subprocess.run(['/usr/bin/test', '-r', str(tree)], check=False).returncode)
+        self.assertEqual(1, subprocess.run(['/usr/bin/test', '-x', str(tree)], check=False).returncode)
+        # And the combined form the probe uses fails, which is the point.
+        self.assertNotEqual(
+            0, subprocess.run(['/usr/bin/test', '-r', str(tree), '-a', '-x', str(tree)], check=False).returncode,
+        )
+
+
 class RunTest(AgentAccountTest):
     def test_run_hands_the_command_over_and_drops_the_callers_environment(self):
         """The agent gets a built environment; `env -i` is the mechanism."""

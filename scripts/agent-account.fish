@@ -1088,25 +1088,29 @@ function behaviour_probes
         return 0
     end
 
-    # May READ what it is granted. `test -r` is `access(2)`.
+    # May READ and may TRAVERSE what it is granted. Both bits, because on a
+    # DIRECTORY they are different questions: `test -r` passes on a mode-0644
+    # directory that cannot be entered at all, so a read-only probe certified an
+    # SDK the agent could not walk into. Measured.
     for path in $home/$SDK_DIR_REL $home/$TOOLCHAIN_RELS
         test -e $path; or continue
-        set -l rc (as_agent test -r $path)
+        set -l rc (as_agent test -r $path -a -x $path)
         if test "$rc" = 0
-            pass "$AGENT_USER can read $path (kernel, not ACL text)"
+            pass "$AGENT_USER can read and traverse $path (kernel, not ACL text)"
         else
-            fail "$AGENT_USER cannot read $path — the ACL is present but the kernel refuses (SELinux, a parent directory's mode, or a mount option)"
+            fail "$AGENT_USER cannot read or traverse $path — the ACL is present but the kernel refuses (SELinux, a parent directory's mode, or a mount option)"
         end
     end
 
-    # May WRITE where it is granted.
+    # May WRITE where it is granted — and traverse, or it cannot create a file
+    # inside the directory it may write.
     for root in $ROOTS
         test -d "$root"; or continue
-        set -l rc (as_agent test -w $root)
+        set -l rc (as_agent test -w $root -a -x $root)
         if test "$rc" = 0
-            pass "$AGENT_USER can write $root (kernel, not ACL text)"
+            pass "$AGENT_USER can write and traverse $root (kernel, not ACL text)"
         else
-            fail "$AGENT_USER cannot write $root — the grant is present but the kernel refuses"
+            fail "$AGENT_USER cannot write or traverse $root — the grant is present but the kernel refuses"
         end
     end
 
