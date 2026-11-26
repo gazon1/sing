@@ -113,13 +113,18 @@ internal object BehaviorMatrixGate {
      * same name, say) counts as often as it is declared. The gate refuses to
      * pick one of them, so the caller can see the ambiguity instead of
      * resolving a name by luck.
+     *
+     * A class without a body — `class Owner` — is a class that claims the
+     * name too, so it is kept with an empty body rather than dropped: a name
+     * that one bodied class and one bodyless class share is still a name two
+     * classes claim.
      */
     fun classBodies(source: String): Map<String, List<String>> {
         val code = KotlinText.stripCode(source)
         return classDeclaration
             .findAll(code)
-            .mapNotNull { declaration ->
-                val body = classBody(code, declaration.range.last + 1) ?: return@mapNotNull null
+            .map { declaration ->
+                val body = classBody(code, declaration.range.last + 1) ?: ""
                 declaration.groupValues[1] to body
             }.groupBy({ it.first }, { it.second })
     }
@@ -227,8 +232,9 @@ internal object BehaviorMatrixGate {
      * Walks the rest of the class header until the brace that opens the body.
      *
      * A class without a body (`abstract class Owner`) would otherwise swallow
-     * the body of the class that follows it, so the next class declaration
-     * ends the search and the class is reported as "no such class".
+     * the body of the class that follows it — or the body of the function that
+     * follows it — so the next class or function declaration ends the search
+     * and the class is reported as "no such class".
      */
     private fun scanHeader(
         code: String,
@@ -260,6 +266,7 @@ internal object BehaviorMatrixGate {
             return close.takeIf { it >= 0 }?.plus(1)
         }
         if (startsWithWord(code, index, "class")) return null
+        if (startsWithWord(code, index, "fun")) return null
         return index + 1
     }
 
@@ -342,7 +349,7 @@ internal object BehaviorMatrixGate {
     private val backticked = Regex("`([^`]+)`")
 
     /** A test annotation — `kotlin.test.Test` or a qualified variant of it. */
-    private val testAnnotation = Regex("""@(?:[A-Za-z0-9_]+\.)?Test\b""")
+    private val testAnnotation = Regex("""@(?:[A-Za-z0-9_]+\.)*Test\b""")
 
     /** A function declaration, with the name it declares. */
     private val functionDeclaration =

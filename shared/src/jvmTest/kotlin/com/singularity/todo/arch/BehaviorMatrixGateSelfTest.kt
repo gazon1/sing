@@ -226,6 +226,56 @@ class BehaviorMatrixGateSelfTest {
         )
     }
 
+    @Test
+    fun `a fully qualified test annotation is a test annotation`() {
+        val matrix = matrix("| a | `Owner.a test` |")
+        val owner =
+            "class Owner {\n" +
+                "    @org.junit.jupiter.api.Test\n" +
+                "    fun `a test`() {}\n" +
+                "}\n"
+
+        val missing = missing(matrix, matrixClassBody = null, owner = owner)
+
+        assertTrue(missing.isEmpty(), "a fully qualified annotation is an annotation: $missing")
+    }
+
+    @Test
+    fun `a class without a body claims its name too`() {
+        val source =
+            "class Owner\n" +
+                "class Owner {\n" +
+                "    @Test\n" +
+                "    fun `a test`() {}\n" +
+                "}\n"
+
+        val bodies = BehaviorMatrixGate.classBodies(source)
+
+        assertEquals(
+            setOf("Owner"),
+            BehaviorMatrixGate.ambiguousClassNames(bodies),
+            "a class without a body claims the name as well: $bodies",
+        )
+    }
+
+    @Test
+    fun `a class without a body does not swallow the function that follows it`() {
+        val source =
+            "class Owner\n" +
+                "fun helper() {\n" +
+                "    @Test\n" +
+                "    fun `a test`() {}\n" +
+                "}\n"
+
+        val bodies = BehaviorMatrixGate.classBodies(source)
+
+        assertEquals(
+            listOf(""),
+            bodies["Owner"],
+            "the body of the function that follows a bodyless class is not its body: $bodies",
+        )
+    }
+
     /** The rows of [matrix] that do not name a test that exists. */
     private fun missing(
         matrix: String,
