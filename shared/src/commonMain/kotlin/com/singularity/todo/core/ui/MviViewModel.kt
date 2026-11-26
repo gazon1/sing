@@ -72,7 +72,10 @@ import kotlinx.coroutines.launch
  *   failure in a ViewModel collector is reported to the same place as a `catchTo` failure
  *   rather than escalating to the platform's uncaught-exception handler — which on Android
  *   kills the process. Override it to pass a test scope or a shared one; the policy still
- *   has to be chosen, never inherited from a process-wide default.
+ *   has to be chosen, never inherited from a process-wide default. The base registers the
+ *   scope with the ViewModel's `addCloseable` mechanism and closes it when the ViewModel is
+ *   cleared, so cancelling the scope *is* the teardown — a Tier-1 ViewModel needs no
+ *   `onCleared()` override for it. A test that passes its own scope owns closing it.
  * @param crashReporter Sink for the failures that pass through [catchTo]. Defaults to a
  *   no-op, so a ViewModel built in a test is silent and nothing reaches for a global —
  *   but a ViewModel that handles real errors should pass the injected port instead of
