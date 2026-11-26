@@ -124,11 +124,18 @@ import kotlin.time.TimeSource
  * - `two_phase` — order by the ids alone and read the rows of the survivors in
  *   a second statement. The sorter carries an id instead of a whole task row,
  *   and the rows of the survivors are read once, not once per matched row.
- *   Measured against the schema as it is.
+ *   The second statement is the production one, filters included. Measured
+ *   against the schema as it is.
  * - `two_phase_tiebreak` — the same two-phase, with the tiebreaker the DAO
  *   adds to the order. This is the statement the DAO runs now, measured as it
  *   ships; the difference between it and `two_phase` is the price of the
  *   tiebreaker.
+ * - `two_phase_flat_filters` — the same two-phase, but with the ownership and
+ *   the archive filter written as conditions on the row instead of as a
+ *   correlated check of the row by its id. The two read the same rows and
+ *   answer the same question, and the planner answers them differently: the
+ *   flat one walks the rows of the user and checks the id of each of them.
+ *   The pair prices that difference, and the plans of both are on the record.
  * - `subquery_candidate` — the same idea in one statement: the ordering moves
  *   into a subquery that sorts the ids alone, and the outer query reads the
  *   rows of the survivors. The columns and the order are the ones of the
@@ -279,6 +286,7 @@ private enum class Variant(
     Current("current", CURRENT_SQL, 3, true, Phase.Baseline, Phase.Baseline),
     CurrentNoOrder("current_no_order", CURRENT_NO_ORDER_SQL, 3, false, Phase.Baseline, Phase.Baseline),
     TwoPhase("two_phase", TWO_PHASE_IDS_SQL, 3, true, Phase.Baseline, Phase.Baseline),
+    TwoPhaseFlatFilters("two_phase_flat_filters", TWO_PHASE_IDS_SQL, 3, true, Phase.Baseline, Phase.Baseline),
     TwoPhaseTiebreak("two_phase_tiebreak", TWO_PHASE_TIEBREAK_IDS_SQL, 3, true, Phase.Baseline, Phase.Baseline),
     TwoPhaseOffsets("two_phase_offsets", TWO_PHASE_IDS_SQL, 3, true, Phase.Baseline, Phase.Baseline),
     SubqueryCandidate("subquery_candidate", SUBQUERY_CANDIDATE_SQL, 6, true, Phase.Baseline, Phase.Baseline),
@@ -414,7 +422,8 @@ private suspend fun planRecords(
                             db.queryPlan(variant, match, userId, scenario.limit) +
                             listOf("read the rows:") +
                             db.planOf("EXPLAIN QUERY PLAN ${rowsByIdsSql(scenario.limit)}") { statement ->
-                                statement.bindText(1, "id")
+                                repeat(scenario.limit) { index -> statement.bindText(index + 1, "id") }
+                                statement.bindText(scenario.limit + 1, userId)
                             }
                     }
 
@@ -425,7 +434,20 @@ private suspend fun planRecords(
                             db.planOf("EXPLAIN QUERY PLAN ${rowsWithOffsetsSql(scenario.limit)}") { statement ->
                                 statement.bindText(1, match)
                                 statement.bindText(2, userId)
-                                statement.bindText(3, "id")
+                                repeat(scenario.limit) { index -> statement.bindText(index + 3, "id") }
+                            }
+                    }
+
+                    // The same two phases, but with the ownership filter written
+                    // as a condition on the row: the plan of the second phase is
+                    // the thing that differs, and it is on the record.
+                    Variant.TwoPhaseFlatFilters -> {
+                        listOf("order the ids:") +
+                            db.queryPlan(variant, match, userId, scenario.limit) +
+                            listOf("read the rows with the filters on the row:") +
+                            db.planOf("EXPLAIN QUERY PLAN ${rowsByIdsFlatSql(scenario.limit)}") { statement ->
+                                repeat(scenario.limit) { index -> statement.bindText(index + 1, "id") }
+                                statement.bindText(scenario.limit + 1, userId)
                             }
                     }
 
@@ -610,11 +632,15 @@ private suspend fun runVariant(
         }
 
         Variant.TwoPhase -> {
-            db.runTwoPhase(TWO_PHASE_IDS_SQL, match, userId, limit)
+            db.runTwoPhase(TWO_PHASE_IDS_SQL, ::rowsByIdsSql, match, userId, limit)
+        }
+
+        Variant.TwoPhaseFlatFilters -> {
+            db.runTwoPhase(TWO_PHASE_IDS_SQL, ::rowsByIdsFlatSql, match, userId, limit)
         }
 
         Variant.TwoPhaseTiebreak -> {
-            db.runTwoPhase(TWO_PHASE_TIEBREAK_IDS_SQL, match, userId, limit)
+            db.runTwoPhase(TWO_PHASE_TIEBREAK_IDS_SQL, ::rowsByIdsSql, match, userId, limit)
         }
 
         Variant.TwoPhaseOffsets -> {
@@ -750,16 +776,22 @@ private fun bindVariant(
  * offsets are carried through the sorter for nothing. That is why the two-phase
  * candidate is the cheapest of the candidates and also the one that changes the
  * contract of the DAO.
+ *
+ * The second statement is the production one — `FtsDao.searchTasksByIds` —
+ * filters and all: a benchmark that measured a shorter statement would measure
+ * a different thing. The second statement is passed in, because the harness
+ * prices two shapes of it: the production one and the flat one.
  */
 private suspend fun AppDatabase.runTwoPhase(
-    sql: String,
+    idsSql: String,
+    rowsSql: (Int) -> String,
     match: String,
     userId: String,
     limit: Int,
 ): Int {
     val ids =
         useConnection(isReadOnly = true) { transactor ->
-            transactor.usePrepared(sql) { statement ->
+            transactor.usePrepared(idsSql) { statement ->
                 statement.bindText(1, match)
                 statement.bindText(2, userId)
                 statement.bindLong(3, limit.toLong())
@@ -771,22 +803,61 @@ private suspend fun AppDatabase.runTwoPhase(
             }
         }
     if (ids.isEmpty()) return 0
-    useConnection(isReadOnly = true) { transactor ->
-        transactor.usePrepared(rowsByIdsSql(ids.size)) { statement ->
+    return useConnection(isReadOnly = true) { transactor ->
+        transactor.usePrepared(rowsSql(ids.size)) { statement ->
             ids.forEachIndexed { index, id -> statement.bindText(index + 1, id) }
+            statement.bindText(ids.size + 1, userId)
             var count = 0
             while (statement.step()) count++
             count
         }
     }
-    return ids.size
 }
 
-/** The second statement of the two-phase candidate, with room for the ids. */
+/**
+ * The second statement of the two-phase candidate, with room for the ids.
+ *
+ * The statement is the production one — `FtsDao.searchTasksByIds` — and not a
+ * shorter form of it: the ownership and the archive check are stated again
+ * there, and a benchmark that measured a different statement would measure a
+ * different thing.
+ *
+ * The check is written as a correlated one, exactly as production writes it:
+ * the planner has to find the rows by their primary key, and the ownership of
+ * every row is checked in the database before the row is handed out. The flat
+ * form — the same filters as conditions on the row — is priced by its own
+ * variant, [rowsByIdsFlatSql], because it is not the same statement to the
+ * planner: it answers with a scan of the rows of the user.
+ *
+ * The owner is the last placeholder, after the ids.
+ */
 private fun rowsByIdsSql(ids: Int): String =
     """
     SELECT t.* FROM tasks t
     WHERE t.id IN (${List(ids) { "?" }.joinToString(", ")})
+      AND EXISTS (
+        SELECT 1 FROM tasks o
+        WHERE o.id = t.id
+          AND o.user_id = ?
+          AND o.archived_at IS NULL
+      )
+    """
+
+/**
+ * The second statement of the two-phase candidate, with the filters written as
+ * conditions on the row.
+ *
+ * This is the shape the ownership filter takes when it is written the obvious
+ * way, and it is priced separately because the planner answers it differently:
+ * with `index_tasks_user_id` it walks the rows of the user and checks the id of
+ * each of them, so reading twenty rows becomes a scan of the user's tasks.
+ */
+private fun rowsByIdsFlatSql(ids: Int): String =
+    """
+    SELECT t.* FROM tasks t
+    WHERE t.id IN (${List(ids) { "?" }.joinToString(", ")})
+      AND t.user_id = ?
+      AND t.archived_at IS NULL
     """
 
 /**
@@ -832,7 +903,7 @@ private suspend fun AppDatabase.runTwoPhaseWithOffsets(
             }
         }
     if (ids.isEmpty()) return 0
-    useConnection(isReadOnly = true) { transactor ->
+    return useConnection(isReadOnly = true) { transactor ->
         transactor.usePrepared(rowsWithOffsetsSql(ids.size)) { statement ->
             statement.bindText(1, match)
             statement.bindText(2, userId)
@@ -842,7 +913,6 @@ private suspend fun AppDatabase.runTwoPhaseWithOffsets(
             count
         }
     }
-    return ids.size
 }
 
 /**
@@ -1039,6 +1109,7 @@ private fun StringBuilder.appendHeader(
     appendLine("Candidates, measured after the baseline:")
     appendLine()
     appendLine("- `two_phase` — order by the ids, then read the rows of the survivors.")
+    appendLine("- `two_phase_flat_filters` — the same, with the ownership filter written on the row.")
     appendLine("- `two_phase_tiebreak` — the same, with the tiebreaker the DAO adds to the order.")
     appendLine("- `two_phase_offsets` — the same, with the match offsets read back from the index.")
     appendLine("- `subquery_candidate` — the same in one statement: the ordering in a subquery.")
