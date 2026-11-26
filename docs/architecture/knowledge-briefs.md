@@ -190,6 +190,11 @@ that answer it are `watchKnowledgeArticlesForProject` and
   article cannot disappear behind newer ordinary notes;
 - the read is **scoped** to the active profile and to the exact owner, and it leaves
   out archived and deleted notes;
+- the owner is **exactly one**: a note attached to a project *and* to a task is in
+  neither library. The note model says a note hangs on a project or on a task, never
+  on both, and the write path refuses the pair — but a row can still arrive from a
+  remote document, so the reads answer for the owner the row names alone. An article
+  under two owners would answer two questions with the same note;
 - the page is **bounded** by a limit the caller states;
 - the order is deterministic: newest first, then by ascending id, so two reads cannot
   swap two articles written in the same second.

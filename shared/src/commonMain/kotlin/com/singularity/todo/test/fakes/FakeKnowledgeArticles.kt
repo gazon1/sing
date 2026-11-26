@@ -24,20 +24,21 @@ internal class FakeKnowledgeArticles(
     fun observeForProject(
         projectId: ProjectId,
         limit: Int,
-    ): Flow<List<Note>> = observe(limit) { it.projectId == projectId }
+    ): Flow<List<Note>> = observe(limit) { it.projectId == projectId && it.taskId == null }
 
     /** The articles attached directly to a task. */
     fun observeForTask(
         taskId: TaskId,
         limit: Int,
-    ): Flow<List<Note>> = observe(limit) { it.taskId == taskId }
+    ): Flow<List<Note>> = observe(limit) { it.taskId == taskId && it.projectId == null }
 
     /**
      * The articles whose owner [belongsTo] — plain, non-folder notes carrying the
      * `## Sources` section, classified before the page is cut.
      *
      * The same rule as the production read: a non-positive limit is rejected instead
-     * of reading an unbounded page.
+     * of reading an unbounded page, and an article hangs on one owner — a note
+     * attached to a project and to a task is in neither library.
      */
     private fun observe(
         limit: Int,

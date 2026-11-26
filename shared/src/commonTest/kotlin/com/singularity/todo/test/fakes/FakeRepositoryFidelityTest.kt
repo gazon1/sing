@@ -363,4 +363,30 @@ class FakeRepositoryFidelityTest {
                 "production searches title only; body matches are a product question, not fake behaviour",
             )
         }
+
+    @Test
+    fun `an article attached to a project and to a task is in neither fake library`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeNotesRepository(
+                    currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+                )
+            repo.seed(
+                note("both", alice, title = "Both", body = "## Sources\n\n- https://example.com\n").copy(
+                    projectId = ProjectId("p1"),
+                    taskId = TaskId("t1"),
+                ),
+            )
+            advanceUntilIdle()
+
+            assertTrue(
+                repo.watchKnowledgeArticlesForProject(ProjectId("p1"), 20).first().isEmpty(),
+                "production reads only the notes that hang on the project alone; the fake answered for both",
+            )
+            assertTrue(
+                repo.watchKnowledgeArticlesForTask(TaskId("t1"), 20).first().isEmpty(),
+                "production reads only the notes that hang on the task alone; the fake answered for both",
+            )
+        }
 }

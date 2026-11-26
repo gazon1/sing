@@ -276,6 +276,23 @@ class KnowledgeArticleRepositoryTest {
         }
 
     @Test
+    fun `a note attached to a project and to a task is in neither library`() =
+        runTest {
+            // The note model says a note hangs on a project or on a task, never on
+            // both, and the write path refuses the pair. A row that says otherwise
+            // can still arrive from a remote document, so the reads answer for the
+            // owner it names alone: an article under two owners would answer two
+            // questions with the same note.
+            seed("both-owners", projectId = project, taskId = task, createdAtMs = 1_000)
+
+            val byProject = repo.watchKnowledgeArticlesForProject(project, 20).first()
+            val byTask = repo.watchKnowledgeArticlesForTask(task, 20).first()
+
+            assertTrue(byProject.isEmpty(), "the project does not own a note that hangs on a task")
+            assertTrue(byTask.isEmpty(), "the task does not own a note that hangs on a project")
+        }
+
+    @Test
     fun `the statement and the code agree on what carries the section`() =
         runTest {
             val bodies =

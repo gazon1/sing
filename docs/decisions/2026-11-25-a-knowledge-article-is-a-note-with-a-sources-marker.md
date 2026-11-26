@@ -168,6 +168,11 @@ the newest brief, and now there may be more than one.
   and deleted notes, and are bounded by a limit the caller states. The order is
   `created_at DESC, id ASC` — the id breaks the tie, so two reads cannot swap two
   articles written in the same second.
+- The owner is exactly one. The note model says a note hangs on a project or on a
+  task, never on both, and the write path refuses the pair — but a row can still
+  arrive from a remote document, so each read answers for the owner the row names
+  alone (`task_id IS NULL` for a project's articles, `project_id IS NULL` for a task's).
+  An article under two owners would answer two questions with the same note.
 - The legacy briefs are articles: same rows, same bodies, no migration, no rewrite.
 - Nothing changed in the database schema, the sync payload or the backup format, so
   there is no compatibility story to tell a second device — the body is what makes a

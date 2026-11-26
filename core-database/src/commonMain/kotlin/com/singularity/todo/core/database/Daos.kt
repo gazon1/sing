@@ -1414,11 +1414,17 @@ interface NoteDao {
      *
      * The order is `created_at DESC, id ASC`: the id breaks the tie, so two calls
      * cannot swap two articles written in the same second.
+     *
+     * An article hangs on **one** owner. A note attached to a project *and* to a task
+     * is in neither library: the note model says a note hangs on a project or on a
+     * task, never on both, and a row that says otherwise would answer two questions
+     * with the same article.
      */
     @Query(
         """
         SELECT * FROM notes
         WHERE project_id = :projectId
+          AND task_id IS NULL
           AND user_id = :userId
           AND deleted_at IS NULL
           AND archived_at IS NULL
@@ -1442,11 +1448,15 @@ interface NoteDao {
      * The same contract as [watchKnowledgeArticlesForProjectForUser], for the other
      * owner: an article of a task hangs on the task, and the notes of the task's
      * project are a different question.
+     *
+     * One owner, again: a note attached to a task *and* to a project is in neither
+     * library, for the same reason.
      */
     @Query(
         """
         SELECT * FROM notes
         WHERE task_id = :taskId
+          AND project_id IS NULL
           AND user_id = :userId
           AND deleted_at IS NULL
           AND archived_at IS NULL
