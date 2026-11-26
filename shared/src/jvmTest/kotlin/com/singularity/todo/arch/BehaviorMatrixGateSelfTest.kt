@@ -125,6 +125,28 @@ class BehaviorMatrixGateSelfTest {
     }
 
     @Test
+    fun `a table whose last column is not Test contributes no rows`() {
+        // The rows are read by position, so the position is taken from the
+        // header. A column reorder that leaves the Test cell elsewhere must not
+        // let a backticked guarantee answer for a test.
+        // Both cells are backticked and both read like a test name, so a gate
+        // that ignored the header would take the reordered one as the test.
+        val matrix =
+            "| Test | Row |\n" +
+                "|--|--|\n" +
+                "| `Owner.a test` | `Owner.a test` |\n"
+
+        val parsed = BehaviorMatrixGate.parse(matrix)
+
+        assertTrue(parsed.rows.isEmpty(), "its rows name no test in the column that was read: ${parsed.rows}")
+        assertEquals(
+            1,
+            parsed.malformed.size,
+            "a table that does not declare its Test column last fails the gate: ${parsed.malformed}",
+        )
+    }
+
+    @Test
     fun `a table line that names no test is malformed`() {
         val matrix = matrix("| a row without a test |")
 

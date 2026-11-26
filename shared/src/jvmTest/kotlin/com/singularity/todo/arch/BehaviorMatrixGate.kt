@@ -127,8 +127,9 @@ internal object BehaviorMatrixGate {
      */
     fun parse(matrixSource: String): Matrix {
         val dataLines = tableRows(matrixSource)
+        val readable = dataLines.filter { (_, testColumnIsLast) -> testColumnIsLast }.map { it.first }
         val rows =
-            dataLines.mapNotNull { line ->
+            readable.mapNotNull { line ->
                 val entry = testCell(line) ?: return@mapNotNull null
                 Row(
                     line = line,
@@ -136,7 +137,8 @@ internal object BehaviorMatrixGate {
                     testName = entry.substringAfter('.', entry),
                 )
             }
-        val malformed = dataLines.filter { testCell(it) == null }
+        val unreadable = dataLines.filterNot { (_, testColumnIsLast) -> testColumnIsLast }.map { it.first }
+        val malformed = readable.filter { testCell(it) == null } + unreadable
         return Matrix(rows, malformed)
     }
 
@@ -171,7 +173,7 @@ internal object BehaviorMatrixGate {
      * restarts after it, so a second table is read as one, and prose between
      * two tables is never mistaken for a row.
      */
-    private fun tableRows(matrixSource: String): List<String> {
+    private fun tableRows(matrixSource: String): List<Pair<String, Boolean>> {
         val lines =
             matrixSource
                 .lineSequence()
@@ -180,10 +182,29 @@ internal object BehaviorMatrixGate {
         return lines.indices
             .filter { isSeparator(lines[it]) }
             .flatMap { separator ->
-                val columns = lines.getOrNull(separator - 1)?.cellCount() ?: return emptyList()
-                lines.drop(separator + 1).takeWhile { it.belongsToTable(columns) }
+                val header = lines.getOrNull(separator - 1) ?: return emptyList()
+                val columns = header.cellCount()
+                val testColumnIsLast = header.testColumnIsLast()
+                val rows = lines.drop(separator + 1).takeWhile { it.belongsToTable(columns) }
+                rows.map { it to testColumnIsLast }
             }
     }
+
+    /**
+     * Whether the header of a table names its Test column, last.
+     *
+     * The rows are read by position, so the position has to be *declared*: a
+     * table whose last column is not the one it calls "Test" would have its
+     * rows read against the wrong column, and a backticked guarantee could
+     * answer for a test — the false positive this gate exists to rule out. The
+     * rows of such a table are reported as malformed rather than dropped, so a
+     * column reorder fails the gate instead of quietly emptying it.
+     */
+    private fun String.testColumnIsLast(): Boolean =
+        split('|')
+            .lastOrNull { it.isNotBlank() }
+            ?.trim()
+            ?.equals("Test", ignoreCase = true) == true
 
     /**
      * Whether [line] still belongs to a table whose header declares [columns].
