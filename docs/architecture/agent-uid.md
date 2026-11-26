@@ -47,7 +47,7 @@ worktrees it was given, and one sudoers rule that lets the *developer* re-execut
 | User | `agent`, uid auto | The boundary itself |
 | Password | none | No login. A password is a login an agent could use, and nothing needs one |
 | Shell | `/bin/bash` | A coding agent runs commands; `nologin` would make the account useless |
-| Groups | `sing-dev` (and its own primary group) | `wheel`, `docker` and `kvm` are root-equivalent or own the device — §1.4 of the inventory |
+| Groups | `sing-dev` (and its own primary group) | `wheel`, `docker` and `kvm` are root-equivalent or own the device — §1.4 of the inventory. A group held as the **primary** gid counts too, and `apply` reconciles it with `usermod --gid`, not only with `gpasswd` |
 | Home | `/home/agent`, 0700 | The agent's Gradle home, AVD home and cache live here and nowhere else |
 | sudo | **nothing** | An agent that can escalate is not sandboxed. The only rule is the developer's |
 | SELinux domain | unchanged, still `unconfined_t` | Confinement is #3241's scope. This issue gives it a UID to confine; it does not confine it |
@@ -64,6 +64,13 @@ That is what `run` uses to become the agent. It is the *trusted* identity re-exe
 fixed binary as the sandboxed one — the direction that keeps the sandbox a sandbox. The
 inverse rule (the agent may run something as the developer) is the escalation #3239
 forbids, and `check` fails if one exists.
+
+**What `apply` reconciles on an account that already exists.** It does not assume the
+account was created by this script. It refuses a `nologin` shell, locks a usable password
+(`passwd --lock` when `passwd -S` says `P`), moves the primary group off `wheel`/`docker`/`kvm`
+if the account holds one of them there, drops those groups from the supplementary list, and
+resolves the home through the same `agent_home` helper `run` uses — so the state it creates is
+the state the transition looks for.
 
 **What is not shared.** The developer's Gradle home is not shared with the agent, and
 `run` points `GRADLE_USER_HOME` at `/home/agent/.gradle`. The consequence is stated rather

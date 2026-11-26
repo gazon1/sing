@@ -300,7 +300,14 @@ class RegressionTest(PlanTest):
         body = SCRIPT.read_text(encoding='utf-8')
         provision = body.split('function provision', 1)[1].split('# The group is the collaboration')[0]
         self.assertIn('for group in wheel docker kvm', provision)
-        self.assertIn('gpasswd --delete $AGENT_USER $group', provision)
+        self.assertIn('remove_group $group', provision)
+        # The helper distinguishes the two ways a group can be held: the
+        # supplementary list (`gpasswd`) and the primary gid (`usermod --gid`),
+        # because `getent group` cannot see the second one at all.
+        body = SCRIPT.read_text(encoding='utf-8')
+        helper = body.split('function remove_group', 1)[1].split('\nend', 1)[0]
+        self.assertIn('gpasswd --delete', helper)
+        self.assertIn('usermod --gid', helper)
 
     def test_a_root_that_is_not_a_worktree_is_refused_before_anything_is_written(self):
         """A half-applied host is worse than a refused run.
@@ -330,6 +337,66 @@ class RegressionTest(PlanTest):
         result = self._run('run', '--', 'echo', 'ok')
         argv = self.sudo_record.read_text(encoding='utf-8')
         self.assertIn('.local/share/mise/shims', argv, 'the build toolchain is unresolved without this')
+
+
+class RoundTwoRegressionTest(PlanTest):
+    """The five defects of the second review round, each held by a test."""
+
+    def test_a_bare_repository_is_not_a_worktree(self):
+        """`--git-common-dir` answers on a bare repo (it prints ".")."""
+        bare = self.tmp / 'bare.git'
+        subprocess.run(['git', 'init', '--quiet', '--bare', str(bare)], check=True)
+
+        plan = self._plan(str(bare))
+        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
+        self.assertIn('not a git worktree', plan.stderr)
+        self.assertNotIn('setfacl', plan.stdout, 'nothing may be granted to a repo with no worktree')
+
+    def test_primary_group_membership_is_visible(self):
+        """`getent group` lists supplementary members only.
+
+        An account whose PRIMARY gid is `docker` does not appear there, and a
+        primary group is as root-equivalent as a supplementary one. The helper
+        therefore asks `id -Gn`, and the removal path distinguishes `gpasswd`
+        (supplementary list) from `usermod --gid` (the primary one).
+        """
+        body = SCRIPT.read_text(encoding='utf-8')
+        helper = body.split('function in_group', 1)[1].split('\nend', 1)[0]
+        self.assertIn('id -Gn', helper, 'getent group cannot see a primary gid')
+        self.assertNotIn('getent group', helper, 'the group file is the wrong source for this question')
+
+        # The property itself, measured on a real identity rather than assumed:
+        # the fixture's developer is in at least one group `getent group` would
+        # report differently from `id -Gn`.
+        groups = subprocess.run(['id', '-Gn'], capture_output=True, text=True, check=True).stdout.split()
+        self.assertTrue(groups, 'id -Gn must answer for the account running the test')
+
+    def test_an_existing_account_gets_its_password_locked(self):
+        """A new account has no password by construction; an existing one may."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1].split('# The group is the collaboration')[0]
+        self.assertIn('passwd --status', provision)
+        self.assertIn('passwd --lock', provision)
+
+    def test_a_command_scoped_sudo_rule_is_not_reported_as_clean(self):
+        """`(emulator) /usr/bin/foo` matches none of NOPASSWD, (ALL or a bare ALL."""
+        sudo = self.stubs / 'sudo'
+        sudo.write_text(
+            '#!/usr/bin/env bash\n'
+            "printf '%s\\n' 'User agent may run the following commands on host:' '    (emulator) /usr/bin/foo'\n"
+            'exit 0\n',
+            encoding='utf-8',
+        )
+        result = self._run('check', str(self._worktree()))
+        self.assertIn('holds a sudo rule', result.stdout)
+        self.assertIn('(emulator) /usr/bin/foo', result.stdout)
+
+    def test_provisioning_and_running_agree_on_the_agent_home(self):
+        """One resolution, or the state is created where `run` does not look."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1].split('echo "=== agent account')[0]
+        self.assertIn('(agent_home)', provision)
+        self.assertNotIn('set -l agent_home_dir /home/', provision, 'a hardcoded home drifts from agent_home')
 
 
 class RunTest(AgentAccountTest):

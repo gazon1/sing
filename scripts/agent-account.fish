@@ -154,6 +154,11 @@ end
 # worktrees shares exactly one of these, and it is NOT under the worktree: a
 # linked worktree only carries a `.git` file pointing here.
 function git_common_dir
+    # `--git-common-dir` answers on a BARE repository too — it prints "." — so
+    # it cannot decide whether the path is a worktree. Measured: `git init
+    # --bare` gives common-dir "." and `--is-inside-work-tree false`.
+    test (git -C $argv[1] rev-parse --is-inside-work-tree 2>/dev/null) = true
+    or die "$argv[1] is not a git worktree"
     set -l common (git -C $argv[1] rev-parse --git-common-dir 2>/dev/null)
     test -n "$common"; or die "$argv[1] is not a git worktree"
     string match -q -- '/*' "$common"; or set common $argv[1]/$common
@@ -238,7 +243,11 @@ end
 function provision
     set -l dev $DEV_NAME
     set -l dev_home_dir $DEV_HOME
-    set -l agent_home_dir /home/$AGENT_USER
+    # The SAME resolution `run` uses, so the state this verb creates is the state
+    # the transition looks for. It used to be a hardcoded /home/agent, while
+    # `run` asked the passwd database — an account with any other home got its
+    # .gradle created in one directory and its environment built from another.
+    set -l agent_home_dir (agent_home)
  
     echo "=== agent account: $AGENT_USER (group $AGENT_GROUP) for $dev ==="
  
@@ -256,6 +265,16 @@ function provision
             case '*/nologin' '*/false'
                 die "$AGENT_USER has no shell ($login_shell); an agent cannot run in it"
         end
+
+        # "No password, so no login" is the invariant, and a NEW account has it
+        # by construction — an existing one may not. `passwd -S` reports the
+        # password state: locked (L), usable (P), no password (NP).
+        set -l password_state (passwd --status $AGENT_USER 2>/dev/null | string split ' ')[2]
+        if test "$password_state" = P
+            test $DRY_RUN -eq 1; and echo "passwd --lock $AGENT_USER"
+            test $DRY_RUN -eq 1; or run_cmd passwd --lock $AGENT_USER
+            or die "could not lock $AGENT_USER's password"
+        end
         getent group $AGENT_GROUP >/dev/null; or run_cmd groupadd --system $AGENT_GROUP
 
         # A pre-existing account that still holds a privileged group is the
@@ -263,10 +282,7 @@ function provision
         # is what a human re-runs, so it reconciles instead of only reporting.
         for group in wheel docker kvm
             in_group $group $AGENT_USER; or continue
-            test $DRY_RUN -eq 1; and echo "gpasswd --delete $AGENT_USER $group"
-            test $DRY_RUN -eq 1; and continue
-            gpasswd --delete $AGENT_USER $group
-            or die "could not remove $AGENT_USER from $group"
+            remove_group $group
         end
     end
  
@@ -337,6 +353,21 @@ function in_home_guard
     die "$root is inside $home; pass --allow-in-home to accept the traverse grant"
 end
  
+# Takes `group` away from the agent, whether it holds it as a supplementary
+# group or as its primary one. `gpasswd --delete` only edits the supplementary
+# list; a primary gid is changed by `usermod --gid`.
+function remove_group
+    set -l group $argv[1]
+    set -l primary (id -gn $AGENT_USER 2>/dev/null)
+    if test "$primary" = "$group"
+        run_cmd usermod --gid $AGENT_USER $AGENT_USER
+        echo "moved $AGENT_USER's primary group off $group"
+        return 0
+    end
+    run_cmd gpasswd --delete $AGENT_USER $group
+    or die "could not remove $AGENT_USER from $group"
+end
+
 # ---------------------------------------------------------------------------
 # check — every acceptance criterion as a verdict. Unprivileged.
 # ---------------------------------------------------------------------------
@@ -354,11 +385,17 @@ function note
     echo "NOTE $argv"
 end
  
-# Membership is a comma-separated field, so the name has to match whole: a grep
-# for the bare name would also pass for `agent-smith`.
+# Is `member` in `group` — as a SUPPLEMENTARY group or as the PRIMARY one?
+#
+# `getent group` lists supplementary members only: an account whose primary gid
+# is `docker` does not appear there at all, and a primary group is exactly as
+# root-equivalent as a supplementary one. Measured: `id -Gn max` answers
+# "max wheel kvm docker", while `getent group docker` names the members
+# separately. So the question is asked of the identity, not of the group file:
+# `id -Gn` prints every group, primary first.
 function in_group --argument-names group member
-    set -l entry (getent group $group | cut -d: -f4); or return 1
-    string split , -- "$entry" | string match -q -- $member
+    set -l groups (id -Gn $member 2>/dev/null | string split ' ')
+    contains -- $group $groups
 end
  
 function check_acl
@@ -428,8 +465,22 @@ function check
     # a PASS: a check that could not run is not a clean bill of health.
     set -l sudo_agent_rules (sudo --non-interactive --list --other-user=$AGENT_USER 2>/dev/null)
     if test $status -eq 0
-        if printf '%s\n' $sudo_agent_rules | grep -qE 'NOPASSWD|\(ALL|ALL\s*$'
-            fail "$AGENT_USER holds a sudo rule — it can leave its account"
+        # The question is "is there a rule at all", not "does it look dangerous".
+        # A password-required, command-scoped, run-as rule — `(emulator)
+        # /usr/bin/foo` — matches none of NOPASSWD, "(ALL" or a trailing ALL and
+        # would have been reported as a clean account. `sudo -l` prints
+        # `Matching Defaults entries` and `User X may run the following
+        # commands` even when it grants nothing, so the rule lines are the ones
+        # that follow the latter.
+        # Count the rule lines: collecting them produced an EMPTY list element
+        # for a rule-free account, which printed as a `PASS ` with no verdict.
+        set -l rules (printf '%s\n' $sudo_agent_rules |
+            sed -n '/may run the following commands/,$p' |
+            string match -rv -- '^\s*$' |
+            string match -rv -- '^User ' |
+            string match -rv -- '^\s*may run')
+        if test (count $rules) -gt 0
+            fail "$AGENT_USER holds a sudo rule — it can leave its account: "(string join '; ' $rules)
         else
             pass "$AGENT_USER holds no sudo rule"
         end
