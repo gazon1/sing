@@ -15,6 +15,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -130,6 +132,20 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      */
     private val effectJobs = mutableMapOf<Any, Job>()
 
+    /**
+     * Serialises the two writers: the debounced autosave and the explicit [save].
+     *
+     * They write the same entity, and they are started independently — the editor stays
+     * editable while a save suspends, and the debounce fires on its own schedule. Without
+     * this, a save that captured draft A can still be in flight when the autosave writes
+     * the newer B, and A then lands on top of B: the store keeps the *older* text, the
+     * user sees the newer text on screen and reads "dirty", and a process death loses it.
+     *
+     * The lock is what makes the later write the last write. It does not make a write
+     * cancellable — see [save] on what is still not cancelled.
+     */
+    private val writeLock = Mutex()
+
     /** Current draft value. Use inside [updateDraft] transforms. */
     protected val draft: D get() = draftState.value
 
@@ -165,7 +181,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                 .drop(1)
                 .debounce(autosaveDebounceMs.milliseconds)
                 .collect { current ->
-                    runCatchingCancellable { autosave(current) }
+                    runCatchingCancellable { writeLock.withLock { autosave(current) } }
                         .fold(
                             onSuccess = {
                                 runCatchingCancellable { onAutosaved(current) }
@@ -357,7 +373,9 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                     updateState { it.copy(error = validationError, isSaving = false) }
                     return@launch
                 }
-                when (val result = persist(currentDraft)) {
+                // Under the same lock as the autosave: the two write the same entity, and
+                // an in-flight save must not be overtaken by — or overtake — a newer write.
+                when (val result = writeLock.withLock { persist(currentDraft) }) {
                     is Either.Left -> {
                         val message = result.error.toMessage("Save failed")
                         // With the cause, so the log carries the stack and not just the

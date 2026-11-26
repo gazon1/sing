@@ -94,6 +94,15 @@ questions, and conflating them costs a note or a task:
 enforce it — the flags live in the draft, and what the base protects is its own
 checkpoint.
 
+**The two writers are serialised by one lock.** The debounced autosave and the
+explicit `save()` write the same entity, and they start independently: the editor
+stays editable while a save suspends, and the debounce fires on its own
+schedule. Unserialised, a save that captured draft A can still be in flight when
+the autosave writes the newer B, and A then lands **on top of B** — the store
+keeps the older text while the screen shows the newer one, and a process death
+loses it. `writeLock` covers both writes, so the later write is the last write.
+It does not cancel a write (see below); it orders them.
+
 **Fatal `Error`s escape `save()`; ordinary failures become the error banner.**
 Rejected drafts (validation), refusals (`Either.Left`) and thrown `Exception`s
 set `DraftUiState.error` and never touch the draft, so a failed save keeps the
@@ -143,6 +152,10 @@ editors get it.
   `DraftState`. They re-seed from a repository rewrite and carry `Revisioned`
   values; `DraftState` has no repository and no revisions. Merging them would
   add two responsibilities to a class that has one.
+- **A write is ordered, not cancelled.** `writeLock` makes the autosave and the
+  save take turns, so neither overwrites the other; it does not stop a write that
+  is already scheduled or already running. Cancelling one is the separate
+  question below.
 - **The pending autosave is still not cancelled by a save or a discard.** This is
   a real defect, and this change does not close it: the write that is already
   scheduled lands after `TaskCreateViewModel` cleared its draft store, so a

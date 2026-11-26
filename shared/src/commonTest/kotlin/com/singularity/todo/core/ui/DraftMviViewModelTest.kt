@@ -227,6 +227,7 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | failed save, thrown          | `save surfaces a thrown persist exception as an error`       |
  * | failed save, fatal `Error`   | `DraftMviFailurePolicyTest.save lets a fatal error escape instead of reporting it as a failure` |
  * | keystroke during a save      | `DraftMviFailurePolicyTest.a keystroke during a save stays dirty and is not blessed by the checkpoint` |
+ * | save overtaken by autosave   | `DraftMviFailurePolicyTest.an explicit save started before an autosave does not overwrite it` |
  * | keystroke during onSaved    | `DraftMviFailurePolicyTest.a keystroke during onSaved is not blessed by the second checkpoint` |
  * | keystroke during clearAutosave | `DraftMviFailurePolicyTest.a keystroke during clearAutosave is not blessed by the second checkpoint` |
  * | save clears the autosave     | `a successful save clears the autosave store and a failed one does not` |
@@ -1451,6 +1452,68 @@ class DraftMviFailurePolicyTest {
             )
             vm.discard()
             assertEquals("saved", vm.stateFlow.value.draft.title)
+        }
+
+    /**
+     * The two writers are concurrent: the editor stays editable while a save suspends,
+     * so the debounce can write text the explicit save never saw — and the save, which
+     * captured the *older* draft, can land on top of it.
+     *
+     * The store then holds the older text, the screen shows the newer one, and a process
+     * death loses it. The dirty flag keeps the user from navigating away, but it cannot
+     * keep the newer text, so the writes are serialised.
+     */
+    @Test
+    fun `an explicit save started before an autosave does not overwrite it`() =
+        testVm {
+            val saved = mutableListOf<TestDraft>()
+            val saveStarted = CompletableDeferred<Unit>()
+            val releaseSave = CompletableDeferred<Unit>()
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "A"),
+                    autosaveBlock = { saved += it },
+                    persistBlock = {
+                        // The explicit save is deliberately slow, so the autosave of the
+                        // newer text would land first if the two were not serialised.
+                        saveStarted.complete(Unit)
+                        releaseSave.await()
+                        saved += it
+                        Either.Right(Unit)
+                    },
+                    autosaveDebounceMs = 10L,
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.save()
+            advanceTimeBy(20L)
+            runCurrent()
+            saveStarted.await()
+
+            // The user keeps typing while the explicit save is in flight; the debounce
+            // then writes that newer text.
+            vm.updateDraft { it.copy(title = "B") }
+            advanceTimeBy(50L)
+            runCurrent()
+
+            releaseSave.complete(Unit)
+            advanceTimeBy(200L)
+            runCurrent()
+
+            assertEquals(
+                TestDraft(title = "B"),
+                saved.last(),
+                "the store must end on the newest text, not on the draft the save captured",
+            )
+            // And the *order* is what the lock buys: the save's write lands first, then
+            // the autosave it was holding. Unserialised, the autosave lands first and the
+            // older draft is written over it — `saved.last()` would be A.
+            assertEquals(
+                listOf(TestDraft(title = "A"), TestDraft(title = "B")),
+                saved.toList(),
+                "the save's write precedes the autosave of the text it never saw",
+            )
         }
 
     /**
