@@ -165,6 +165,54 @@ class BehaviorMatrixGateSelfTest {
     }
 
     @Test
+    fun `a table row that omits its outer pipes is still a row`() {
+        // Markdown renders `guarantee | `test`` as a row of the table. Dropping
+        // it for its missing leading pipe would take the row out of the check
+        // without saying so.
+        val matrix = matrix("initial draft | `Owner.a test`")
+
+        val parsed = BehaviorMatrixGate.parse(matrix)
+
+        assertEquals(
+            listOf("a test"),
+            parsed.rows.map { it.testName },
+            "a row without outer pipes is a row: $matrix",
+        )
+        assertTrue(parsed.malformed.isEmpty(), "a row with a test is not malformed: ${parsed.malformed}")
+    }
+
+    @Test
+    fun `a pipe-less line without a test is prose, not a malformed row`() {
+        // The gate cannot tell "a row whose test cell was emptied" from "a
+        // sentence that happens to contain a pipe", because nothing but the
+        // test name distinguishes the two: an emptied row and a prose line
+        // have the same shape. So a pipe-less line counts as a row only when
+        // it carries a test — the case above — and a line that does not is
+        // prose. The row that *lost* a test keeps its leading pipe, and the
+        // malformed-row check catches that one.
+        val matrix = matrix("initial draft | no test")
+
+        val parsed = BehaviorMatrixGate.parse(matrix)
+
+        assertTrue(
+            parsed.malformed.isEmpty(),
+            "a pipe-less line with no test is prose: ${parsed.malformed}",
+        )
+    }
+
+    @Test
+    fun `a prose line that mentions a pipe is not a row`() {
+        val matrix =
+            matrix("| a | `Owner.a test` |") +
+                " * the draft is stored as a key | scoped by project\n"
+
+        val parsed = BehaviorMatrixGate.parse(matrix)
+
+        assertEquals(1, parsed.rows.size, "prose is not a row: ${parsed.rows}")
+        assertTrue(parsed.malformed.isEmpty(), "prose is not a malformed row either: ${parsed.malformed}")
+    }
+
+    @Test
     fun `a class that extends another class is found`() {
         val matrix = matrix("| a | `Owner.a test` |")
         val owner =

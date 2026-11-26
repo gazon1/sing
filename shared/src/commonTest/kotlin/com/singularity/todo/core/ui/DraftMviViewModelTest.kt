@@ -501,6 +501,14 @@ class DraftMviViewModelTest {
 
             assertEquals(1, failures.size, "a failed autosave has to reach the editor")
             assertTrue(vm.stateFlow.value.isDirty, "a failed autosave is not a checkpoint")
+            // The edit survives the failed write. A class that restored the
+            // baseline on failure but left the dirty flag alone would pass the
+            // two assertions above and still throw the user's text away.
+            assertEquals(
+                "edited",
+                vm.stateFlow.value.draft.title,
+                "a failed autosave keeps the text the user typed",
+            )
             vm.discard()
             assertEquals("original", vm.stateFlow.value.draft.title)
         }

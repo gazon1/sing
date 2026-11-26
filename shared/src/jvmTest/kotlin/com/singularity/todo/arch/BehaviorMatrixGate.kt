@@ -102,10 +102,18 @@ internal object BehaviorMatrixGate {
      * header of a table is the line right above the separator, and the
      * separator itself names no test.
      *
+     * A line that carries the separator but not at its start is a table line
+     * too. Markdown does not require the outer pipes, so a row written
+     * `guarantee | \`test\`` renders as one, and dropping it for its missing
+     * leading pipe would take the row out of the check silently — the row
+     * would survive the death of its test, which is the defect this gate
+     * exists for. Such a line is read as a row, and a test that is not in its
+     * last cell makes it malformed.
+     *
      * The test is read from the *last* cell — the column the header calls
      * "Test" — not from anywhere in the line. A backtick in the row label is
      * a name of the guarantee, not a name of a test: taking the first
-     * backticked span of the line would let `| `a test` | no test |` pass as a
+     * backticked span of the line would let `| \`a test\` | no test |` pass as a
      * row that names the test `a test`, which is the row this table is
      * supposed to reject.
      */
@@ -114,7 +122,7 @@ internal object BehaviorMatrixGate {
             matrixSource
                 .lineSequence()
                 .map { it.trim().removePrefix("*").trim() }
-                .filter { it.startsWith("|") }
+                .filter { it.startsWith("|") || it.isTableRow() }
                 .toList()
         val dataLines =
             tableLines
@@ -148,6 +156,17 @@ internal object BehaviorMatrixGate {
         val last = cells.lastOrNull { it.isNotBlank() } ?: return null
         return backticked.find(last)?.groupValues?.get(1)
     }
+
+    /**
+     * Whether [line] is a table row that happens to omit its outer pipes.
+     *
+     * Markdown does not require them, so `guarantee | \`test\`` is a row. It is
+     * recognized by the separator it carries and by the cells on both sides of
+     * it: prose that merely mentions a pipe — a sentence with `a | b` in it —
+     * has no backticked span in its last cell, so it is not a table line and
+     * does not become a malformed row.
+     */
+    private fun String.isTableRow(): Boolean = contains('|') && testCell(this) != null
 
     /**
      * The bodies of the classes of [source], by class name.
