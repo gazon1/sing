@@ -21,6 +21,10 @@ import com.singularity.todo.core.sync.SyncShadowDao
 import com.singularity.todo.core.sync.SyncShadowEntity
 import com.singularity.todo.core.sync.SyncStateDao
 import com.singularity.todo.core.sync.SyncStateEntity
+import com.singularity.todo.feature.ai.chat.data.ChatConversationDao
+import com.singularity.todo.feature.ai.chat.data.ChatConversationEntity
+import com.singularity.todo.feature.ai.chat.data.ChatMessageDao
+import com.singularity.todo.feature.ai.chat.data.ChatMessageEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventDao
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncStateDao
@@ -48,7 +52,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
  * The tests now read this. A migration that forgot to bump the annotation still
  * fails them, which is the behaviour worth keeping.
  */
-const val SCHEMA_VERSION = 55
+const val SCHEMA_VERSION = 56
 
 /**
  * Room database for Android.
@@ -86,6 +90,8 @@ const val SCHEMA_VERSION = 55
         CalendarSyncStateEntity::class,
         GoogleEventShadowEntity::class,
         CalendarImportEventEntity::class,
+        ChatConversationEntity::class,
+        ChatMessageEntity::class,
         TaskFtsEntity::class,
         NoteFtsEntity::class,
         ProjectFtsEntity::class,
@@ -147,6 +153,9 @@ const val SCHEMA_VERSION = 55
         // column keeps feeding the full-text index; this column carries the
         // editor's HTML. Room derives the column from the entity.
         AutoMigration(from = 53, to = 54, spec = Migration53To54::class),
+        // 55 -> 56 adds the built-in chat transcript tables. Room derives the
+        // tables, indices and foreign key from the entities.
+        AutoMigration(from = 55, to = 56, spec = Migration55To56::class),
     ],
     exportSchema = true,
 )
@@ -212,6 +221,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun proposalDao(): ProposalDao
 
     abstract fun proposalItemDao(): ProposalItemDao
+
+    abstract fun chatConversationDao(): ChatConversationDao
+
+    abstract fun chatMessageDao(): ChatMessageDao
 
     abstract fun ownerEraseDao(): OwnerEraseDao
 

@@ -53,7 +53,8 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
                     bounds.left <= dpToPx(COMPACT_EDGE_TOLERANCE_DP),
                 )
 
-                assertMenuContentReachable(device.awaitTag(TestTags.MENU_SHEET, "the app menu sheet", TAB_TIMEOUT_MS))
+                device.awaitTag(TestTags.MENU_SHEET, "the app menu sheet", TAB_TIMEOUT_MS)
+                assertMenuContentReachable()
             } finally {
                 scenario.close()
             }
@@ -87,7 +88,8 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
                     bounds.left >= railBounds.right - dpToPx(RAIL_CLEARANCE_TOLERANCE_DP),
                 )
 
-                assertMenuContentReachable(device.awaitTag(TestTags.MENU_SHEET, "the app menu sheet", TAB_TIMEOUT_MS))
+                device.awaitTag(TestTags.MENU_SHEET, "the app menu sheet", TAB_TIMEOUT_MS)
+                assertMenuContentReachable()
             } finally {
                 scenario.close()
             }
@@ -126,7 +128,7 @@ class MenuSheetBoundsTest : InstrumentedTestBase() {
         )
     }
 
-    private fun assertMenuContentReachable(sheet: UiObject2) {
+    private fun assertMenuContentReachable() {
         val required = requiredMenuTags()
         scrollToTop()
         val found = linkedSetOf<String>()

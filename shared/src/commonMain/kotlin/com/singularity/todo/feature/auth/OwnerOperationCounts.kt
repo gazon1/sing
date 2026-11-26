@@ -36,6 +36,8 @@ interface OwnerOperationCounts {
     val projectReminders: Int
     val timeEntries: Int
     val agendaViews: Int
+    val chatConversations: Int
+    val chatMessages: Int
 
     // ── Sync rows ───────────────────────────────────────────────────────────
 
@@ -57,11 +59,12 @@ interface OwnerOperationCounts {
         get() = outbox + deadLetter + shadows
 
     companion object {
-        /** Sum of the 12 shared data/sync counters. */
+        /** Sum of the 14 shared data/sync counters. */
         fun sum(counts: OwnerOperationCounts): Int =
             with(counts) {
                 tasks + notes + projects + tags + tagGroups +
                     taskReminders + projectReminders + timeEntries + agendaViews +
+                    chatConversations + chatMessages +
                     outbox + deadLetter + shadows
             }
     }

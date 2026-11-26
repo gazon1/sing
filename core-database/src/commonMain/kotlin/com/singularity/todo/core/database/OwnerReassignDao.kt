@@ -100,6 +100,18 @@ interface OwnerReassignDao {
         to: String,
     ): Int
 
+    @Query("UPDATE chat_conversations SET user_id = :to WHERE user_id = :from")
+    suspend fun reassignChatConversations(
+        from: String,
+        to: String,
+    ): Int
+
+    @Query("UPDATE chat_messages SET user_id = :to WHERE user_id = :from")
+    suspend fun reassignChatMessages(
+        from: String,
+        to: String,
+    ): Int
+
     // ── Ownership itself: bare owner id, moved once ─────────────────────────
 
     /**
@@ -191,6 +203,14 @@ interface OwnerReassignDao {
     /** Count agenda_views the [scopedUserIds] hold. See [countTasks]. */
     @Query("SELECT COUNT(*) FROM agenda_views WHERE user_id IN (:scopedUserIds)")
     suspend fun countAgendaViews(scopedUserIds: List<String>): Int
+
+    /** Count chat_conversations the [scopedUserIds] hold. See [countTasks]. */
+    @Query("SELECT COUNT(*) FROM chat_conversations WHERE user_id IN (:scopedUserIds)")
+    suspend fun countChatConversations(scopedUserIds: List<String>): Int
+
+    /** Count chat_messages the [scopedUserIds] hold. See [countTasks]. */
+    @Query("SELECT COUNT(*) FROM chat_messages WHERE user_id IN (:scopedUserIds)")
+    suspend fun countChatMessages(scopedUserIds: List<String>): Int
 
     /** Count profiles the [ownerId] holds. See [countTasks]. */
     @Query("SELECT COUNT(*) FROM profiles WHERE user_id = :ownerId")

@@ -33,6 +33,8 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.core.sync.SyncShadowEntity
 import com.singularity.todo.core.sync.SyncStateEntity
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
+import com.singularity.todo.feature.ai.chat.data.ChatConversationEntity
+import com.singularity.todo.feature.ai.chat.data.ChatMessageEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncStateEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapEntity
@@ -330,6 +332,8 @@ class ProfileResetReachesTheWholeProfileTest {
             "attachment_annotations" to { db.annotationDao().listAllForUser(alice.value).size },
             "calendar_import_event" to { db.calendarImportEventDao().getAll(alice.value).size },
             "calendar_sync_task_map" to { db.calendarSyncTaskMapDao().getAll(alice.value).size },
+            "chat_conversations" to { db.chatConversationDao().listAllForUser(alice.value).size },
+            "chat_messages" to { db.chatMessageDao().listAllForUser(alice.value).size },
             "checklist_items" to { db.checklistDao().listAllForUser(alice.value).size },
             "google_event_shadow" to { db.googleEventShadowDao().getAll(alice.value).size },
             "notes" to { db.noteDao().listAllForUser(alice.value).size },
@@ -417,6 +421,31 @@ class ProfileResetReachesTheWholeProfileTest {
         seedSearchesAndAttachments(uid)
         seedProposals(uid)
         seedCalendar(uid)
+        seedChat(uid)
+    }
+
+    private suspend fun seedChat(uid: String) {
+        db.chatConversationDao().upsertConversation(
+            ChatConversationEntity(
+                id = "chat-conv-$uid",
+                userId = uid,
+                createdAt = 0L,
+                updatedAt = 0L,
+            ),
+        )
+        db.chatMessageDao().insertMessage(
+            ChatMessageEntity(
+                id = "chat-msg-$uid",
+                conversationId = "chat-conv-$uid",
+                userId = uid,
+                role = "User",
+                content = "hello",
+                status = "Completed",
+                position = 0,
+                createdAt = 0L,
+                updatedAt = 0L,
+            ),
+        )
     }
 
     private suspend fun seedTaskGraph(uid: String) {
@@ -788,6 +817,8 @@ class ProfileResetReachesTheWholeProfileTest {
                     calendarImportEventDao = db.calendarImportEventDao(),
                     calendarSyncTaskMapDao = db.calendarSyncTaskMapDao(),
                     googleEventShadowDao = db.googleEventShadowDao(),
+                    chatConversationDao = db.chatConversationDao(),
+                    chatMessageDao = db.chatMessageDao(),
                     attachmentStorage = AttachmentStorage(fs = JvmFileSystem(), dir = fixture.directory().absolutePath),
                     // The real one, so that the reset's own transaction is a real
                     // transaction: a fake would run the block without a transaction and

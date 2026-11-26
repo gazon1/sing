@@ -9,6 +9,8 @@ import com.singularity.todo.core.database.SavedSearchDao
 import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.feature.ai.chat.data.ChatConversationDao
+import com.singularity.todo.feature.ai.chat.data.ChatMessageDao
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventDao
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapDao
 import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowDao
@@ -46,6 +48,8 @@ data class ProfileWipeDeps(
     val calendarImportEventDao: CalendarImportEventDao,
     val calendarSyncTaskMapDao: CalendarSyncTaskMapDao,
     val googleEventShadowDao: GoogleEventShadowDao,
+    val chatConversationDao: ChatConversationDao,
+    val chatMessageDao: ChatMessageDao,
     val attachmentStorage: AttachmentStorage,
     /**
      * The transaction the whole reset runs in.
@@ -129,6 +133,9 @@ class ProfileContentResetter(
                 deps.calendarImportEventDao.deleteAllForUser(uid)
                 deps.calendarSyncTaskMapDao.clearAll(uid)
                 deps.googleEventShadowDao.deleteAllForUser(uid)
+                // Messages carry a foreign key to conversations, so wipe them first.
+                deps.chatMessageDao.deleteAllForUser(uid)
+                deps.chatConversationDao.deleteAllForUser(uid)
 
                 // The rows that are the profile's content proper.
                 deps.tagsRepository.deleteAllForCurrentProfile().getOrThrow()

@@ -50,6 +50,7 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.ai.ui.AgentPlanCard
 import com.singularity.todo.feature.ai.ui.humanToolName
@@ -254,6 +255,19 @@ private fun ChatMessagesList(
                 MessageBubble(
                     role = if (msg.role == ChatRole.User) BubbleRole.User else BubbleRole.Assistant,
                     content = msg.content,
+                )
+            } else if (msg.interrupted) {
+                MessageBubble(
+                    role = BubbleRole.Assistant,
+                    content = "Response interrupted.",
+                )
+            }
+            if (msg.interrupted && msg.content.isNotBlank()) {
+                SelectableText(
+                    text = "Interrupted — partial response kept",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp),
                 )
             }
             // A reply may be a sentence and a screen at once. The surface is drawn inside the

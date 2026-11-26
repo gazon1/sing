@@ -2,6 +2,7 @@ package com.singularity.todo.feature.ai.chat
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.llm.AgentActivityState
 import com.singularity.todo.core.llm.AgentEvent
@@ -15,6 +16,12 @@ import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.ai.TextGenPort
+import com.singularity.todo.feature.ai.chat.persistence.ChatConversationRepository
+import com.singularity.todo.feature.ai.chat.persistence.ChatMessageId
+import com.singularity.todo.feature.ai.chat.persistence.ChatMessageRecord
+import com.singularity.todo.feature.ai.chat.persistence.ChatMessageStatus
+import com.singularity.todo.feature.ai.chat.persistence.ChatTranscriptWriter
+import com.singularity.todo.feature.ai.chat.persistence.PersistedChatRole
 import com.singularity.todo.feature.genui.engine.SurfaceTurn
 import com.singularity.todo.feature.genui.engine.SurfaceTurnFactory
 import com.singularity.todo.feature.genui.surface.SurfaceId
@@ -23,9 +30,12 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlin.coroutines.coroutineContext
+import kotlin.time.Clock
 
 /**
  * AI chat state and intents.
@@ -47,6 +57,10 @@ class ChatViewModel(
      * text and a screen is the exception rather than the rule.
      */
     private val surfaces: SurfaceTurnFactory? = null,
+    private val conversationRepository: ChatConversationRepository? = null,
+    /** The transaction a turn's two rows are written in, when a transcript is kept. */
+    private val unitOfWork: UnitOfWork? = null,
+    private val clock: Clock = Clock.System,
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ChatViewModel.State, ChatViewModel.Intent, ChatUiEvent>(
         initialState = State(),
@@ -130,6 +144,45 @@ class ChatViewModel(
      * the model keeps talking to a socket nobody reads.
      */
     private var turnJob: Job? = null
+    private var restoreJob: Job? = null
+
+    /** Writes the transcript, or null on a platform (and in a test) that keeps none. */
+    private val transcript: ChatTranscriptWriter? =
+        conversationRepository?.let { repository: ChatConversationRepository ->
+            unitOfWork?.let { transaction: UnitOfWork ->
+                ChatTranscriptWriter(
+                    repository = repository,
+                    unitOfWork = transaction,
+                    clock = clock,
+                    log = log,
+                )
+            }
+        }
+
+    init {
+        // Below the properties it reads: a `restoreJob` assigned from an earlier `init` would be
+        // overwritten by the declaration's own `= null`, and the turn would stop waiting for the
+        // restoration it just started. `transcript` has the same problem — the earlier `init`
+        // saw null and restored nothing.
+        restoreLatestConversation()
+    }
+
+    private fun restoreLatestConversation() {
+        val writer = transcript ?: return
+        restoreJob =
+            vmScope.launch {
+                val records: List<ChatMessageRecord> = writer.restore()
+                if (records.isEmpty()) return@launch
+                updateState { state ->
+                    // Never overwrite an active turn; restoration is only for initial open.
+                    if (state.isLoading || state.messages.isNotEmpty()) {
+                        state
+                    } else {
+                        state.copy(messages = records.map { it.toChatMessage() }.toImmutableList())
+                    }
+                }
+            }
+    }
 
     override fun onIntent(intent: Intent) {
         when (intent) {
@@ -181,7 +234,16 @@ class ChatViewModel(
         prompt: String,
         showUserMessage: Boolean,
     ) = vmScope.launch {
-        if (currentState.isLoading) return@launch
+        restoreJob?.join()
+        // A restoration that could not read the transcript leaves the earlier turns unknown, so
+        // the conversation must not be asked over: appending a question to a conversation whose
+        // context the reader does not hold would silently continue a conversation with less
+        // context than the reader remembers. The reader is told, and the turn is not started.
+        if (transcript?.restoreFailed == true) {
+            emit(ChatUiEvent.Error(TRANSCRIPT_RESTORE_FAILED))
+            return@launch
+        }
+        if (!claimTurn()) return@launch
 
         val assistantId = newId()
         // A fresh identifier per answer: a screen belongs to the answer that drew it. Two
@@ -192,20 +254,41 @@ class ChatViewModel(
         // The conversation as it was before this question, so the turn is asked in the context
         // of the questions that came before it and not in the context of itself.
         val history: List<ChatTurnRecord> = historyRecords()
+        val trimmedUserText = userText.trim()
+        // One identifier for the question, shared by its row and its bubble: two would make a
+        // restored transcript and the screen it came from two conversations.
+        val question: ChatTranscriptWriter.Question? =
+            if (showUserMessage) {
+                ChatTranscriptWriter.Question(
+                    id = ChatMessageId.fromString(newId()),
+                    text = trimmedUserText,
+                )
+            } else {
+                null
+            }
+
+        val started: Boolean =
+            transcript?.beginTurn(
+                question = question,
+                assistantId = ChatMessageId.fromString(assistantId),
+            ) ?: true
+        if (!started) {
+            // The question could not be recorded, so the turn is not started: a turn nobody
+            // can restore is a turn that silently vanishes from the conversation on restart.
+            updateState { it.copy(isLoading = false) }
+            emit(ChatUiEvent.Error(TRANSCRIPT_START_FAILED))
+            return@launch
+        }
 
         updateState { current ->
             current.copy(
                 input = current.input.cleared(),
-                isLoading = true,
-                surfaceError = null,
-                activity = AgentActivityState(),
-                turnOutcome = null,
                 messages =
                     (
                         current.messages +
                             (
-                                if (showUserMessage) {
-                                    listOf(ChatMessage(newId(), ChatRole.User, userText.trim()))
+                                if (question != null) {
+                                    listOf(ChatMessage(question.id.value, ChatRole.User, question.text))
                                 } else {
                                     emptyList()
                                 }
@@ -217,13 +300,45 @@ class ChatViewModel(
 
         turnJob = coroutineContext[Job]
         try {
-            runTurn(assistantId, prompt, surfaceId, history)
+            runTurn(
+                assistantUiId = assistantId,
+                prompt = prompt,
+                surfaceId = surfaceId,
+                history = history,
+            )
         } finally {
             // The loading state is cleared on every path, including a cancellation: a turn
             // that was cancelled while the spinner was up must not leave the spinner up.
             updateState { it.copy(isLoading = false) }
             turnJob = null
         }
+    }
+
+    /**
+     * Claims the turn slot, or reports that one is already running.
+     *
+     * A compare-and-set rather than a read followed by a write: two sends that arrive in the
+     * same frame both read `isLoading == false`, and the one that writes second would start a
+     * second turn over the first one's messages. [updateState] retries the transform until the
+     * compare-and-set succeeds, so `claimed` reflects the successful attempt.
+     */
+    private fun claimTurn(): Boolean {
+        var claimed = false
+        updateState { current ->
+            if (current.isLoading) {
+                claimed = false
+                current
+            } else {
+                claimed = true
+                current.copy(
+                    isLoading = true,
+                    surfaceError = null,
+                    activity = AgentActivityState(),
+                    turnOutcome = null,
+                )
+            }
+        }
+        return claimed
     }
 
     /**
@@ -286,7 +401,7 @@ class ChatViewModel(
      */
     @Suppress("NoSwallowedCancellation", "TooGenericExceptionCaught")
     private suspend fun runTurn(
-        assistantId: String,
+        assistantUiId: String,
         prompt: String,
         surfaceId: SurfaceId,
         history: List<ChatTurnRecord>,
@@ -300,7 +415,9 @@ class ChatViewModel(
                 when (event) {
                     is AgentEvent.TextDelta -> {
                         collected.append(event.text)
-                        applyReply(assistantId, collected.toString().trim(), null)
+                        val text = collected.toString().trim()
+                        applyReply(assistantUiId, text, null, interrupted = false)
+                        transcript?.onDelta(text)
                     }
 
                     is AgentEvent.ToolCallUpdated -> {
@@ -320,11 +437,15 @@ class ChatViewModel(
             }
         } catch (cancellation: CancellationException) {
             // A cancelled turn is cancelled, not failed. The partial answer stays on screen.
+            withContext(NonCancellable) {
+                settle(assistantUiId, collected.toString().trim(), ChatMessageStatus.Interrupted, surfaceId = null)
+            }
             setOutcome(AgentTurnOutcome.Cancelled)
             throw cancellation
         } catch (error: Throwable) {
             log.e(error) { "AI stream failed" }
             crashReporter.report(error, CHAT_STREAM_FAILED)
+            settle(assistantUiId, collected.toString().trim(), ChatMessageStatus.Interrupted, surfaceId = null)
             emit(ChatUiEvent.Error(error.message ?: "AI request failed"))
             setOutcome(AgentTurnOutcome.Failed(error.message ?: "AI request failed"))
             return
@@ -333,9 +454,8 @@ class ChatViewModel(
         // The screen, if the answer drew one. The identifier is filed on the answer only now:
         // an answer that drew nothing must not point at a screen, and an answer that drew one
         // must not point at nothing.
-        if (surface?.drawn == true) {
-            applyReply(assistantId, collected.toString(), surfaceId)
-        }
+        val finalText = collected.toString().trim()
+        val drawnSurface: SurfaceId? = if (surface?.drawn == true) surfaceId else null
         val rejections = surface?.rejections.orEmpty()
         if (rejections.isNotEmpty()) {
             val feedback: String = surface?.readerFeedback().orEmpty()
@@ -348,10 +468,29 @@ class ChatViewModel(
         // that as a completed turn would tell the reader the answer is complete when it is
         // not — and the missing text would be the very thing they needed to know.
         if (!completed) {
+            settle(assistantUiId, finalText, ChatMessageStatus.Interrupted, surfaceId = null)
             setOutcome(AgentTurnOutcome.Failed("The response ended before it was complete."))
         } else {
+            settle(assistantUiId, finalText, ChatMessageStatus.Completed, drawnSurface)
             setOutcome(AgentTurnOutcome.Completed())
         }
+    }
+
+    /**
+     * Shows the answer's final text and writes the state the turn ended in.
+     *
+     * One function for both terminal states because the difference between them is the
+     * [status] and the screen: a cancelled turn and a failed turn say the same thing about the
+     * text — this is what arrived — and differ only in the word the transcript carries.
+     */
+    private suspend fun settle(
+        assistantUiId: String,
+        content: String,
+        status: ChatMessageStatus,
+        surfaceId: SurfaceId?,
+    ) {
+        applyReply(assistantUiId, content, surfaceId, interrupted = status == ChatMessageStatus.Interrupted)
+        transcript?.finish(content, status)
     }
 
     /**
@@ -383,6 +522,7 @@ class ChatViewModel(
         assistantId: String,
         text: String,
         surfaceId: SurfaceId?,
+        interrupted: Boolean,
     ) {
         updateState { state ->
             state.copy(
@@ -392,16 +532,34 @@ class ChatViewModel(
                             if (message.id != assistantId) {
                                 message
                             } else {
-                                message.copy(content = text, surfaceId = surfaceId)
+                                message.copy(content = text, surfaceId = surfaceId, interrupted = interrupted)
                             }
                         }.toImmutableList(),
             )
         }
     }
 
+    private fun ChatMessageRecord.toChatMessage(): ChatMessage =
+        ChatMessage(
+            id = id.value,
+            role =
+                when (role) {
+                    PersistedChatRole.User -> ChatRole.User
+                    PersistedChatRole.Assistant -> ChatRole.Assistant
+                },
+            content = content,
+            interrupted = status == ChatMessageStatus.Interrupted,
+        )
+
     private companion object {
         /** Machine-shaped grouping key — it leaves the device. */
         const val CHAT_STREAM_FAILED = "chat.stream_failed"
+
+        /** What the reader is told when the question could not be recorded. */
+        const val TRANSCRIPT_START_FAILED = "The conversation could not be saved. Please try again."
+
+        /** What the reader is told when the conversation could not be read back. */
+        const val TRANSCRIPT_RESTORE_FAILED = "The conversation could not be loaded. Please try again."
     }
 
     private fun newId(): String = idGen.next()
@@ -415,8 +573,17 @@ enum class ChatRole { User, Assistant }
  * @param surfaceId the surface drawn alongside this message, when the model produced one. Null for
  *   the overwhelming majority of messages, which is why it is a field here rather than a separate
  *   concept: a reply that is text and a screen at once is still one reply.
+ * @param interrupted true when an assistant response was left unfinished by cancellation or
+ *   process death and its partial content was kept. Transcript restoration is not execution
+ *   restoration: the message is a record, not a running turn.
  */
-data class ChatMessage(val id: String, val role: ChatRole, val content: String, val surfaceId: SurfaceId? = null)
+data class ChatMessage(
+    val id: String,
+    val role: ChatRole,
+    val content: String,
+    val surfaceId: SurfaceId? = null,
+    val interrupted: Boolean = false,
+)
 
 /**
  * One-shot events emitted by [ChatViewModel].

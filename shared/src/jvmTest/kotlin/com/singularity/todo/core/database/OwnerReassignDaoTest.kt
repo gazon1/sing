@@ -3,6 +3,8 @@
 package com.singularity.todo.core.database
 
 import com.singularity.todo.core.sync.SyncOutboxEntity
+import com.singularity.todo.feature.ai.chat.data.ChatConversationEntity
+import com.singularity.todo.feature.ai.chat.data.ChatMessageEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
@@ -133,6 +135,52 @@ class OwnerReassignDaoTest {
             assertEquals(0, db.ownerScopeDao().countTasks(listOf("prof-b/acct-1")))
         }
 
+    @Test
+    fun `chat conversations and messages move to the paired scope and leave others untouched`() =
+        runTest {
+            val from = "local:abc"
+            val to = "acct-1"
+            db.chatConversationDao().upsertConversation(conversation("c1", from))
+            db.chatConversationDao().upsertConversation(conversation("c2", "somebody-else"))
+            db.chatMessageDao().insertMessage(message("m1", "c1", from, position = 0))
+            db.chatMessageDao().insertMessage(message("m2", "c1", from, position = 1))
+            db.chatMessageDao().insertMessage(message("m3", "c2", "somebody-else", position = 0))
+
+            val movedConversations = dao.reassignChatConversations(from, to)
+            val movedMessages = dao.reassignChatMessages(from, to)
+
+            assertEquals(1, movedConversations)
+            assertEquals(2, movedMessages)
+            assertEquals(to, db.chatConversationDao().getByIdForUser("c1", to)?.userId)
+            assertEquals(null, db.chatConversationDao().getByIdForUser("c1", from))
+            assertEquals(
+                "somebody-else",
+                db.chatConversationDao().getByIdForUser("c2", "somebody-else")?.userId,
+            )
+            assertEquals(2, db.chatMessageDao().listByConversationForUser("c1", to).size)
+            assertEquals(0, db.chatMessageDao().listByConversationForUser("c1", from).size)
+            assertEquals(1, db.chatMessageDao().listByConversationForUser("c2", "somebody-else").size)
+        }
+
+    @Test
+    fun `chat conversation and message counts report only the scopes asked about`() =
+        runTest {
+            val fromA = "local:abc"
+            val fromB = "prof-b/local:abc"
+            val other = "acct-9"
+            db.chatConversationDao().upsertConversation(conversation("c1", fromA))
+            db.chatConversationDao().upsertConversation(conversation("c2", fromB))
+            db.chatConversationDao().upsertConversation(conversation("c3", other))
+            db.chatMessageDao().insertMessage(message("m1", "c1", fromA, position = 0))
+            db.chatMessageDao().insertMessage(message("m2", "c2", fromB, position = 0))
+            db.chatMessageDao().insertMessage(message("m3", "c3", other, position = 0))
+
+            assertEquals(2, dao.countChatConversations(listOf(fromA, fromB)))
+            assertEquals(2, dao.countChatMessages(listOf(fromA, fromB)))
+            assertEquals(1, dao.countChatConversations(listOf(other, "missing")))
+            assertEquals(1, dao.countChatMessages(listOf(other)))
+        }
+
     /**
      * The owner [patchId] is filed under, read through the queue's own scoped query.
      *
@@ -188,5 +236,33 @@ class OwnerReassignDaoTest {
         createdAt = 0L,
         updatedAt = 0L,
         userId = owner,
+    )
+
+    private fun conversation(
+        id: String,
+        owner: String,
+        updatedAt: Long = 0L,
+    ) = ChatConversationEntity(
+        id = id,
+        userId = owner,
+        createdAt = 0L,
+        updatedAt = updatedAt,
+    )
+
+    private fun message(
+        id: String,
+        conversationId: String,
+        owner: String,
+        position: Int = 0,
+    ) = ChatMessageEntity(
+        id = id,
+        conversationId = conversationId,
+        userId = owner,
+        role = "User",
+        content = "message $id",
+        status = "Completed",
+        position = position,
+        createdAt = 0L,
+        updatedAt = 0L,
     )
 }
