@@ -10,6 +10,13 @@ import kotlinx.coroutines.flow.update
  * it is compared against, and answers the one question a `DraftState` exists
  * for: **is the draft different from what's saved?**
  *
+ * **Internal on purpose.** It is the base class's own bookkeeping, not an API an
+ * editor or a screen may reach for: [DraftMviViewModel] is the only consumer, and
+ * a second one that wrote the draft here directly would publish nothing to the UI.
+ * The extension surface editors actually use is `DraftMviViewModel`'s
+ * (`validate`, `persist`, `onSaved`, `onAutosaved`, `onAutosaveError`,
+ * `clearAutosave`) — see `2026-11-26-what-a-draft-subclass-may-override.md`.
+ *
  * This factors the `baseline` bookkeeping that used to live as a private var
  * inside [DraftMviViewModel] into its own unit, testable without coroutines
  * or a `TestScope`. It intentionally does **not** grow into an undo/redo
@@ -30,7 +37,7 @@ import kotlinx.coroutines.flow.update
  * @param S The draft's value type.
  * @param initial Starting value, used as both `current` and the initial checkpoint.
  */
-class DraftState<S>(initial: S) {
+internal class DraftState<S>(initial: S) {
     private val _current = MutableStateFlow(initial)
 
     /** Reactive view of the current draft value. */
@@ -55,15 +62,17 @@ class DraftState<S>(initial: S) {
     }
 
     /**
-     * Declares the current value as saved: future [isDirty] checks and
-     * future [discard] calls are relative to this new checkpoint.
+     * Declares [saved] as the saved value, which need not be [current].
      *
-     * Call this after a successful explicit save — never from autosave,
-     * which must persist `current` silently without moving the checkpoint
-     * (see [DraftMviViewModel]'s autosave-is-silent contract).
+     * **The only way to move the checkpoint.** A save is asynchronous and the editor stays
+     * editable while it runs, so the draft the store received and the draft on screen
+     * differ by the time the write returns: taking `current` would bless a keystroke as
+     * saved. Call this after a successful explicit save — never from autosave, which must
+     * persist [value] silently without moving the checkpoint (see [DraftMviViewModel]'s
+     * autosave-is-silent contract).
      */
-    fun checkpoint() {
-        checkpointValue = _current.value
+    fun checkpoint(saved: S) {
+        checkpointValue = saved
     }
 
     /**

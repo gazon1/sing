@@ -40,6 +40,19 @@ not before it.
 checkpointed.** The saved state is the state the save left, and `isDirty` is
 false right after it.
 
+### Amended by `2026-11-26-the-draft-keeps-one-value-and-one-snapshot.md`
+
+**The guarantee stands; the mechanism changed.** An adjustment still returns
+clean — that is the whole point of this decision and it is not withdrawn. What
+changed is *how* the base learns the adjustment: not by reading the live draft
+after `onSaved()` returns, but from the value the hook returns. The editor stays
+editable while the hook suspends, and a keystroke during that window is unsaved
+text — reading the live draft blessed it.
+
+This document is therefore **not** marked `superseded`: nothing here is wrong
+about what the save should consider saved. Read the mechanism below as history
+and the signature in the newer decision as the contract.
+
 ## Rationale
 
 **The first checkpoint stays first.** It is what makes a throwing hook safe:

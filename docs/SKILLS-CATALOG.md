@@ -62,7 +62,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-monthly-doc-audit` | 113 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |
 | `singularity-todo-multi-profile` | 423 | Namespace-based multi-profile pattern for Singularity Todo KMP. |
 | `singularity-todo-multi-select` | 327 | Long-press multi-selection pattern for Compose Multiplatform list screens. |
-| `singularity-todo-mvi-framework` | 275 | Local MVI framework for Singularity Todo KMP. |
+| `singularity-todo-mvi-framework` | 282 | Local MVI framework for Singularity Todo KMP. |
 | `singularity-todo-nav3-decorators` | 68 | Nav3 entry decorators — ViewModelStore vs SaveableStateHolder scoping. |
 | `singularity-todo-nav3-nested-graphs` | 493 | Full architecture of Nav3 two-level nested navigation in this KMP project: the common *NavGraph pattern with three platform seams (rememberAppNavBackStack, SystemBackHandler, rememberAppEntryDecorators), sealed Route hierarchies, Local*Navigator providers, per-feature entry contributors, and how the outer shell integrates nested graphs. |
 | `singularity-todo-nav3-savedstate` | 153 | Nav3 back stack persistence in this KMP project. |
@@ -79,7 +79,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-room-multi-instance` | 150 | Cross-process SQLite access for Singularity Todo KMP. |
 | `singularity-todo-scheduled-maintenance` | 74 | Runtime measurement and periodic health checks for the Singularity Todo desktop (JVM) app. |
 | `singularity-todo-secure-storage` | 175 | Secure storage port pattern for KMP using expect/actual with libsecret shell-out on JVM, AES-GCM encrypted file fallback, and EncryptedSharedPreferences on Android. |
-| `singularity-todo-selectable-text` | 248 | How to render text a person can copy, and how to make the links in it tappable, in Singularity Todo. |
+| `singularity-todo-selectable-text` | 249 | How to render text a person can copy, and how to make the links in it tappable, in Singularity Todo. |
 | `singularity-todo-shared-ui-components` | 46 | Screen decomposition and the shared widget library for Singularity Todo Compose screens. |
 | `singularity-todo-sheet-extraction` | 411 | Sheet extraction workflow for Singularity Todo. |
 | `singularity-todo-stable-json` | 177 | When adding kotlinx.serialization to a KMP project, always use StableJson instead of local `Json { . |
@@ -90,7 +90,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-test-flaky-prevention` | 303 | Rules to prevent test flakiness in the Singularity Todo project. |
 | `singularity-todo-test-helpers` | 382 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 273 | Decide which JUnit tag a test class carries, and how the fast/slow split is applied in Gradle, CI and local runs. |
-| `singularity-todo-testable-vm` | 474 | Testable ViewModel pattern for Singularity Todo KMP app. |
+| `singularity-todo-testable-vm` | 479 | Testable ViewModel pattern for Singularity Todo KMP app. |
 | `singularity-todo-text-field-states` | 313 | How to add or change a text field in Singularity Todo. |
 | `singularity-todo-top-bar-entry` | 158 | Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). |
 | `singularity-todo-ui-event-vs-state` | 62 | How to model one-shot UI events, routing state and continuous state separately in Singularity Todo ViewModels. |

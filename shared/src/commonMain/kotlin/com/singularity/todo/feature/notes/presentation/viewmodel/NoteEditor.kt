@@ -237,14 +237,32 @@ internal class NoteEditor(
 
     override fun validate(draft: Editing): String? = null
 
-    override suspend fun onSaved() {
+    override suspend fun onSaved(saved: Editing): Editing? {
         // Explicit save: the text is stored, so the draft is no longer dirty and no
         // longer "new" — subsequent saves go through update. The dirty flag has to
         // go here too: only the autosave used to clear it (onAutosaved), so a
         // back press right after an explicit Save still asked "Discard changes?"
         // about text that was already on disk.
-        updateDraft { it.copy(isDirty = false, isNew = false) }
+        //
+        // The two flags answer different questions, and only one of them depends on
+        // content:
+        //
+        // - **`isNew` means the note does not exist yet.** The write just created it, so
+        //   this is false unconditionally. Guarding it on equality would leave a keystroke
+        //   during the save looking like an unsaved new note, and the next save would
+        //   CREATE the note a second time — `writeNote` keys on exactly this flag.
+        // - **`isDirty` means the text on screen differs from what is stored.** Only true
+        //   when the live draft is still the one that was written: the editor stays
+        //   editable while `persist()` suspends, and `NoteEditorScreen.guardedBack` reads
+        //   *this* field, so clearing it for later text navigates away without asking.
+        //
+        // The returned value is computed from [saved] for the same reason — the base
+        // checkpoints it, and the live draft is not what the save wrote.
+        val adjusted = saved.copy(isDirty = false, isNew = false)
+        val unchangedSinceWrite = draft == saved
+        updateDraft { it.copy(isDirty = if (unchangedSinceWrite) false else it.isDirty, isNew = false) }
         emit(NotesUiEvent.SavedPulse)
+        return adjusted
     }
 
     override suspend fun persist(draft: Editing): Either<AppError, Unit> =
@@ -270,7 +288,14 @@ internal class NoteEditor(
         // (mirroring the derived DraftUiState.isDirty which the base clears via
         // baseline) and the isNew flag — the note now exists in the repo, so a
         // subsequent save is an update, not a create.
-        updateDraft { it.copy(isDirty = false, isNew = false) }
+        //
+        // `isNew` is false unconditionally, for the reason [onSaved] documents: the note
+        // exists now, and a keystroke during the write must not make the next save create
+        // it again. `isDirty` only when the live draft is still the one that was written.
+        val unchangedSinceWrite = draft == current
+        updateDraft {
+            it.copy(isDirty = if (unchangedSinceWrite) false else it.isDirty, isNew = false)
+        }
     }
 
     override fun onIntent(intent: NotesEditorIntent) {

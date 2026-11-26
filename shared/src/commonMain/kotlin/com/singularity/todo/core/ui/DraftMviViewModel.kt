@@ -15,6 +15,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -41,6 +43,21 @@ import kotlin.time.Duration.Companion.milliseconds
  * persistence-layer failures (autosave/save), which is the only kind of error
  * that needs to survive across an `updateDraft` call.
  *
+ * **The draft value is owned by [draftState]; [DraftUiState.draft] is its published
+ * snapshot.** Exactly one function writes the snapshot — [pushUiState] — and every
+ * mutation ([updateDraft], [open], [discard], restore, [save]) ends with it. The copy
+ * is what makes a snapshot atomic for the UI; deriving it from two flows would
+ * reintroduce the stale-pairing window above. See
+ * `2026-11-26-the-draft-keeps-one-value-and-one-snapshot.md`.
+ *
+ * ## What a subclass may override
+ * Six seams, each with a production consumer: [validate] and [persist] (abstract — the
+ * editor's own logic), and [onSaved] / [onAutosaved] / [onAutosaveError] / [clearAutosave]
+ * for reporting and storage side effects. The mutation path itself ([updateDraft], [open],
+ * [discard], [dismissError], [launchDraftEffect], [save]) is **final**: an overridable
+ * writer can skip [pushUiState] and leave the snapshot describing a draft the ViewModel no
+ * longer holds — the same bypass that made [save] non-`open`.
+ *
  * ## Usage
  * ```
  * class TaskCreateViewModel(
@@ -64,8 +81,9 @@ import kotlin.time.Duration.Companion.milliseconds
  *         deps.draftStore.clear(DRAFT_KEY)
  *     }
  *
- *     override suspend fun onSaved() {
+ *     override suspend fun onSaved(saved: TaskDraft): TaskDraft? {
  *         emit(TaskCreateUiEvent.Saved)
+ *         return null
  *     }
  * }
  * ```
@@ -114,6 +132,20 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      */
     private val effectJobs = mutableMapOf<Any, Job>()
 
+    /**
+     * Serialises the two writers: the debounced autosave and the explicit [save].
+     *
+     * They write the same entity, and they are started independently — the editor stays
+     * editable while a save suspends, and the debounce fires on its own schedule. Without
+     * this, a save that captured draft A can still be in flight when the autosave writes
+     * the newer B, and A then lands on top of B: the store keeps the *older* text, the
+     * user sees the newer text on screen and reads "dirty", and a process death loses it.
+     *
+     * The lock is what makes the later write the last write. It does not make a write
+     * cancellable — see [save] on what is still not cancelled.
+     */
+    private val writeLock = Mutex()
+
     /** Current draft value. Use inside [updateDraft] transforms. */
     protected val draft: D get() = draftState.value
 
@@ -138,13 +170,25 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
             pushUiState(includeValidationError = false)
 
             // 3. Debounced silent autosave loop — starts only after restore settles.
+            //
+            // The catches here are [runCatchingCancellable]'s and [Exception]-bounded on
+            // purpose: cancellation propagates, a fatal `Error` propagates to vmScope's
+            // handler, and everything an autosave or a callback can throw ordinarily ends
+            // up in [onAutosaveError]. A callback that threw *outside* the guard would end
+            // this collector and take autosave with it for the rest of the editor's life —
+            // silently, since the editor would look alive while nothing was being stored.
             draftState.current
                 .drop(1)
                 .debounce(autosaveDebounceMs.milliseconds)
                 .collect { current ->
-                    runCatchingCancellable { autosave(current) }
-                        .onSuccess { onAutosaved(current) }
-                        .onFailure { onAutosaveError(it) }
+                    runCatchingCancellable { writeLock.withLock { autosave(current) } }
+                        .fold(
+                            onSuccess = {
+                                runCatchingCancellable { onAutosaved(current) }
+                                    .onFailure { onAutosaveError(it) }
+                            },
+                            onFailure = { onAutosaveError(it) },
+                        )
                 }
         }
     }
@@ -177,7 +221,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * there is no window where the UI can observe the new draft paired with a
      * stale error flag.
      */
-    open fun updateDraft(transform: (D) -> D) {
+    fun updateDraft(transform: (D) -> D) {
         draftState.edit(transform)
         pushUiState()
     }
@@ -187,7 +231,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * Cancels any in-flight autosave for the old entity.
      * Caller is responsible for checking [isDirty] and prompting save if needed.
      */
-    open fun open(newDraft: D) {
+    fun open(newDraft: D) {
         if (sameEntity(draftState.value, newDraft)) return
         draftState.open(newDraft)
         updateState { it.copy(isSaving = false, error = null) }
@@ -195,11 +239,19 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     }
 
     /**
-     * Compare two drafts to determine if they refer to the same entity.
-     * Default is identity equality. Override for draft types that wrap an entity ID.
-     * Example: `current.id == incoming.id` for a NoteDraft that wraps a [Note].
+     * Whether [incoming] is the entity the editor already holds, which makes [open] a
+     * no-op.
+     *
+     * **Private, not an extension point.** It was `protected open` and promised as the
+     * seam for draft types that wrap an entity id — the repo has none. Both real editors
+     * ([TaskDraft] carries the scope in its draft, `Editing` carries the note id) want
+     * "a different draft is a different open", which is plain equality. An override was
+     * also unenforceable where it mattered: [open] calls it *before* the draft moves, so
+     * a wrong implementation wedges the editor on the first entity, and no caller can
+     * observe the difference until then. Restore it as a seam when a draft type exists
+     * whose two *edited* copies of one entity must not reset each other.
      */
-    protected open fun sameEntity(
+    private fun sameEntity(
         current: D,
         incoming: D,
     ): Boolean = current == incoming
@@ -215,6 +267,10 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * keystroke, and from `save()`. Both are reachable from `onIntent`, which the
      * UI calls directly, so a throwing validator used to propagate out of a text
      * change and take the composition down rather than mark the draft invalid.
+     *
+     * The catch is [Exception], matching [runCatchingCancellable]: a validator has no
+     * business failing fatally, and turning an `Error` into a snackbar would leave the
+     * user to "fix" the draft against a failure no edit can repair.
      */
     @Suppress("TooGenericExceptionCaught") // the point is to catch *anything* an open fun throws
     private fun safeValidate(draft: D): String? =
@@ -222,7 +278,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
             validate(draft)
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             logger.e(e) { "validate failed: ${e.toMessage()}" }
             e.toMessage("Validation failed")
         }
@@ -230,8 +286,22 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     /** Persist the draft. Return [Either.Right] on success, [Either.Left] on failure. */
     protected abstract suspend fun persist(draft: D): Either<AppError, Unit>
 
-    /** Called after a successful explicit [save]. Default is a no-op. */
-    protected open suspend fun onSaved() {}
+    /**
+     * Called after a successful explicit [save], with the draft that was persisted.
+     *
+     * **Return the draft the save should be compared against, or null to leave the
+     * checkpoint on [saved] as it is.** A subclass that adjusts the draft here — NoteEditor
+     * clears its own dirty flag, because the text is on disk — returns the adjusted value,
+     * computed from `saved`. It must **not** read the live draft for that: the editor keeps
+     * accepting keystrokes while this hook suspends, and a keystroke that lands in that
+     * window is unsaved text, not part of what the save stored.
+     *
+     * The return value is the whole guard against the subtle bug this replaced: taking the
+     * checkpoint from the live draft after the hook blessed whatever the user typed
+     * meanwhile, `isDirty` went false with text no store held, and the back guard stopped
+     * asking before dropping it.
+     */
+    protected open suspend fun onSaved(saved: D): D? = null
 
     /**
      * Called once, right after a successful explicit [save], to clear whatever
@@ -265,6 +335,16 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * autosave storage, calls [onSaved].
      * Guarded against concurrent calls (race condition prevention).
      *
+     * ## Which failures become a snackbar and which escape
+     * Ordinary failures — a refused [persist], a `Left`, a thrown [Exception], a
+     * rejected draft — become [DraftUiState.error] and the draft is left untouched, so
+     * the user's text survives a failed save. A fatal [Error] (OOM, StackOverflow) is
+     * **not** caught here: it propagates out of this coroutine to [vmScope]'s
+     * `CoroutineExceptionHandler`, which reports it as `background.coroutine_failed` and
+     * does not kill the process. Swallowing it instead would show the user a snackbar
+     * about a failure no edit can repair. This `finally` still re-enables the button.
+     * See `2026-11-26-the-draft-keeps-one-value-and-one-snapshot.md`.
+     *
      * **Not `open`, deliberately.** The failure handling below — the `catch`
      * that turns a thrown [persist] into a visible error — is the whole point of
      * this method, and an overridable one can be bypassed: a subclass that
@@ -293,7 +373,9 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                     updateState { it.copy(error = validationError, isSaving = false) }
                     return@launch
                 }
-                when (val result = persist(currentDraft)) {
+                // Under the same lock as the autosave: the two write the same entity, and
+                // an in-flight save must not be overtaken by — or overtake — a newer write.
+                when (val result = writeLock.withLock { persist(currentDraft) }) {
                     is Either.Left -> {
                         val message = result.error.toMessage("Save failed")
                         // With the cause, so the log carries the stack and not just the
@@ -304,25 +386,28 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                     }
 
                     is Either.Right -> {
-                        // Move the checkpoint *before* clearing autosave / calling
-                        // onSaved, so isDirty is correct even if either of those throws.
-                        draftState.checkpoint()
+                        // The checkpoint is the draft that was *written*, not whatever the
+                        // draft holds now: the editor stays editable through every suspension
+                        // below, so a keystroke can arrive at any of them, and blessing it as
+                        // saved would leave `isDirty` false over text no store holds.
+                        draftState.checkpoint(currentDraft)
                         pushUiState()
                         clearAutosave()
-                        onSaved()
-                        // And again after onSaved: a subclass may adjust the draft
-                        // there — NoteEditor clears its own dirty flag, because an
-                        // explicit save stores the text — and the checkpoint taken
-                        // above no longer matches the draft then. Without the second
-                        // one the saved draft would read as dirty, and the editor
-                        // would ask to discard text it had just written.
-                        draftState.checkpoint()
-                        pushUiState()
+                        // The hook tells us what to compare against, and can only speak
+                        // about the draft it was given — never about the live one. That is
+                        // how NoteEditor's own dirty-flag adjustment is still honoured while
+                        // a keystroke during the same hook stays unsaved
+                        // (`2026-11-09-the-saved-draft-is-the-one-the-save-left.md`).
+                        val asSaved = onSaved(currentDraft)
+                        if (asSaved != null) {
+                            draftState.checkpoint(asSaved)
+                            pushUiState()
+                        }
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Throwable) {
+            } catch (e: Exception) {
                 // `validate` and `persist` are open functions an implementation
                 // may satisfy by throwing rather than by returning Either.Left.
                 // Without this the throw cancelled the save coroutine, `finally`
@@ -330,6 +415,10 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                 // state, no snackbar, no log. That is how a Compose UI test for
                 // the task editor presented: every assertion on the editor was
                 // green and the saved task simply never appeared.
+                //
+                // Bounded at [Exception] on purpose: a fatal `Error` is not a save
+                // failure the user could act on, and the kdoc's policy is that it
+                // escapes to vmScope's handler instead of becoming a snackbar.
                 logger.e(e) { "save failed: ${e.toMessage()}" }
                 crashReporter.report(e, "draft.save_failed")
                 updateState { it.copy(error = e.toMessage("Save failed")) }
@@ -348,14 +437,14 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * reset that also forgets the autosaved copy, call [clearAutosave]
      * explicitly after [discard].
      */
-    open fun discard() {
+    fun discard() {
         draftState.discard()
         updateState { it.copy(isSaving = false, error = null) }
         pushUiState()
     }
 
     /** Dismisses the current error banner. */
-    open fun dismissError() {
+    fun dismissError() {
         updateState { it.copy(error = null) }
     }
 
@@ -369,7 +458,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      *   update the editor, or null to leave the draft unchanged.
      * @param onEvent Optional — return an event to emit after a successful result.
      */
-    open fun <R> launchDraftEffect(
+    fun <R> launchDraftEffect(
         key: Any,
         operation: suspend (current: D) -> R,
         onResult: (current: D, result: R) -> D?,

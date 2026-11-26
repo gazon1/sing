@@ -147,14 +147,21 @@ actions(TagsIntent.Delete(id))
 
 ### `DraftState<S>`
 
-For editor VMs with local dirty state:
+The draft value plus the checkpoint it is compared against — used by
+`DraftMviViewModel` and nowhere else. Four operations, one job each: `edit`,
+`discard` (back to the checkpoint), `checkpoint`, `open` (different entity).
+`isDirty` is the one question it answers. Do **not** wrap it in a subclass;
+editors extend `DraftMviViewModel` and override its seams instead
+(`validate`, `persist`, `onSaved`, `onAutosaved`, `onAutosaveError`,
+`clearAutosave`). The mutation path is final on purpose — see
+`docs/decisions/2026-11-26-the-draft-keeps-one-value-and-one-snapshot.md`.
 
-```kotlin
-class TaskDraftState : DraftState<Task?>(null) {
-    fun updateTitle(title: String) = update { it?.copy(title = title) }
-    fun resetTo(task: Task) = reset(task)
-}
-```
+**`onSaved` returns, it does not mutate.** Its signature is
+`suspend fun onSaved(saved: D): D?`: the hook is handed the draft that was
+persisted, and returns the draft the save should be compared against (or `null`
+to keep the persisted one). Compute that value **from `saved`**, never from the
+live draft — the editor keeps accepting keystrokes while the hook suspends, so
+`draftState.value` may already hold text this save never wrote.
 
 ## Intent method naming
 
