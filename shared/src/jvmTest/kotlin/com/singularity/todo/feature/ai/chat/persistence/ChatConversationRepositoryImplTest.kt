@@ -12,9 +12,12 @@ import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.feature.ai.chat.ChatViewModel
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.SequenceIdGenerator
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
@@ -182,6 +185,21 @@ class ChatConversationRepositoryImplTest {
         }
 
     @Test
+    fun `a message cannot be filed into a conversation that is not the caller's own`() =
+        runTest {
+            // Ownership is a property of the conversation, resolved at the write, so a writer
+            // holding a conversation handle cannot file a message into one it does not own.
+            val repository = repository()
+
+            val result =
+                repository.insertMessage(
+                    message("m1", position = 0, conversationId = ChatConversationId.fromString("missing")),
+                )
+
+            assertTrue(result.isFailure, "a writer must not file a message into a conversation it cannot resolve")
+        }
+
+    @Test
     fun `the latest conversation is the most recently touched one`() =
         runTest {
             val repository = repository()
@@ -277,8 +295,13 @@ class ChatConversationRepositoryImplTest {
                     scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
                 )
             advanceUntilIdle()
-
+            // Room executes the restore's queries on its own dispatcher, off the virtual-time
+            // scheduler the test drives, so `advanceUntilIdle` returns before the read lands; the
+            // restore writes the state from that thread, so wait for it before asserting.
             val messages = restored.stateFlow.value.messages
+            while (messages.isEmpty()) {
+                withContext(Dispatchers.Default) { delay(10L) }
+            }
             assertEquals(listOf("what is due today?", "nothing is due today."), messages.map { it.content })
             assertTrue(messages.none { it.interrupted }, "a completed turn is not restored as interrupted")
         }
@@ -317,9 +340,16 @@ class ChatConversationRepositoryImplTest {
                     scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
                 )
             advanceUntilIdle()
+            // Room executes the restore's queries on its own dispatcher, off the virtual-time
+            // scheduler the test drives, so `advanceUntilIdle` returns before the read lands; the
+            // restore writes the state from that thread, so wait for it before asserting.
+            val messages = restored.stateFlow.value.messages
+            while (messages.isEmpty()) {
+                withContext(Dispatchers.Default) { delay(10L) }
+            }
 
             val answer =
-                restored.stateFlow.value.messages
+                messages
                     .last()
             assertEquals("half an ans", answer.content, "the partial answer is kept")
             assertTrue(answer.interrupted, "an answer the process did not finish is interrupted")

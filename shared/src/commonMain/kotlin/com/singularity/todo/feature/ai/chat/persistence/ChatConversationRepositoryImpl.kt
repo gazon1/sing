@@ -43,6 +43,10 @@ class ChatConversationRepositoryImpl(
     override suspend fun insertMessage(message: ChatMessageRecord): Result<Unit> =
         runCatchingCancellable {
             val uid = currentUser.scopedUserId.value.value
+            // Ownership is a property of the conversation, not of the caller: a writer that cached
+            // a conversation from another profile must not file a message into it under this one.
+            val conversation = conversationDao.getByIdForUser(message.conversationId.value, uid)
+            require(conversation != null) { "Chat conversation not found: ${message.conversationId.value}" }
             messageDao.insertMessage(message.copy(userId = uid).toEntity())
         }
 
