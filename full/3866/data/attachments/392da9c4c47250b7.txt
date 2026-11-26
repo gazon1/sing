@@ -1,0 +1,53 @@
+Semantic nodes with testTag (19 total)
+Highlighted: shell_back_button [NOTE: 2 semantics roots; overlay roots appended]
+
+  archive_empty
+    bounds=(445,423) w=135 h=19
+  archive_overflow
+    bounds=(976,60) w=40 h=40
+  archive_notification_host
+    bounds=(0,48) w=1024 h=720
+  nav_menu_button
+    bounds=(4,4) w=40 h=40
+  desktop_drawer
+    bounds=(0,0) w=0 h=0
+  menu_statistics
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_notes
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_aichat
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_proposals
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_search
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_archive
+    selected=true
+    bounds=(0,0) w=0 h=0
+  menu_pomodoro
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_profiles
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_settings
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_ai_usage
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_attach_account
+    selected=false
+    bounds=(0,0) w=0 h=0
+  menu_projects_header
+    bounds=(0,0) w=0 h=0
+  menu_projects_expand
+    bounds=(0,0) w=0 h=0
+  menu_all_projects
+    selected=false
+    bounds=(0,0) w=0 h=0
