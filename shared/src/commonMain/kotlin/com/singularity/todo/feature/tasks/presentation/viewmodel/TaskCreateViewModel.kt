@@ -80,10 +80,13 @@ class TaskCreateViewModel(
             is Either.Right -> Either.Right(Unit)
         }
 
-    override suspend fun onSaved() {
+    override suspend fun onSaved(saved: TaskDraft): TaskDraft? {
         deps.logger.i(tag = "TaskCreateViewModel") { "task created, clearing draft" }
         clearDrafts()
         emit(TaskCreateUiEvent.Saved)
+        // The create editor does not adjust the draft: the stored task is what was
+        // submitted, and the screen navigates away.
+        return null
     }
 
     override fun onAutosaveError(e: Throwable) {

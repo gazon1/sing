@@ -57,16 +57,25 @@ only writer of the snapshot, and every mutation ends there. No other code may
 set either.
 
 **`save()` checkpoints the draft that was persisted, not the draft on screen.**
-The editor stays editable while `persist()` suspends, so a keystroke can arrive
-mid-save. The old code took the checkpoint after the write, which marked that
-keystroke saved: `isDirty` went false with text on screen that no store held,
-and the back guard stopped asking before dropping it. The checkpoint is now the
-value that was written, and the post-`onSaved` checkpoint — which exists so a
-subclass's own adjustment does not read as dirty
-(`2026-11-09-the-saved-draft-is-the-one-the-save-left.md`) — is taken only when
-no mutation happened during the write. `DraftState.revisions` counts mutations,
-because comparing values cannot distinguish "the user typed and typed back" from
-"nothing happened".
+The editor stays editable while `persist()`, `clearAutosave()` and `onSaved()`
+suspend, so a keystroke can arrive at any of them. The old code took the
+checkpoint after the write, which marked that keystroke saved: `isDirty` went
+false with text on screen that no store held, and the back guard stopped asking
+before dropping it. The checkpoint is now the value that was written.
+
+**`onSaved` reports the draft the save should be compared against.**
+`2026-11-09-the-saved-draft-is-the-one-the-save-left.md` requires that a
+subclass's own adjustment in `onSaved` (NoteEditor clears its dirty flag, because
+the text is on disk) does not read as dirty. That adjustment cannot be inferred:
+the editor keeps accepting keystrokes while the hook suspends, and inside that
+window the hook's edit and the user's are the same event — a revision counter
+tried to separate them and could not, which the first review of this change
+proved with a failing test. So the hook is handed the draft it was asked to save
+and returns the draft the save should be compared against, or null to keep the
+persisted value. It never reads the live draft for that.
+
+**`DraftState.revisions` was removed.** It existed for that inference and went
+with it: one state value and one checkpoint, no second counter to keep honest.
 
 **Fatal `Error`s escape `save()`; ordinary failures become the error banner.**
 Rejected drafts (validation), refusals (`Either.Left`) and thrown `Exception`s
@@ -94,11 +103,12 @@ editors get it.
 ## Consequences
 
 - Both editors keep the shape they have; no editor code changed.
-- A keystroke that arrives during a save leaves the draft dirty, so the back
-  guard still asks and `discard()` still reverts to the saved value.
-- The post-`onSaved` checkpoint now depends on `DraftState.revisions`, so a
-  subclass that edits the draft *and* a user who types during the same save are
-  told apart rather than conflated.
+- A keystroke that arrives during a save — while `persist()`, `clearAutosave()`
+  or `onSaved()` suspends — leaves the draft dirty, so the back guard still asks
+  and `discard()` still reverts to the saved value.
+- `onSaved` changed signature: `suspend fun onSaved(saved: D): D?`. Both
+  subclasses were updated; a subclass that adjusts the draft must now say so
+  instead of relying on the base reading its side effect.
 - A fatal `Error` during a save is now handled by the scope's failure policy
   instead of being swallowed into a banner. On Android that path reports and
   keeps the process alive; it does not kill it.

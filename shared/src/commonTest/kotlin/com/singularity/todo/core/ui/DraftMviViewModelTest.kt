@@ -44,7 +44,7 @@ private data class TestDraft(val title: String = "")
  * a parameter list detekt accepts.
  */
 private class TestHooks(
-    val onSaved: (suspend () -> Unit)? = null,
+    val onSaved: (suspend (TestDraft) -> TestDraft?)? = null,
     val onAutosaveError: ((Throwable) -> Unit)? = null,
     val onAutosaved: ((TestDraft) -> Unit)? = null,
     val clearAutosave: (suspend () -> Unit)? = null,
@@ -75,12 +75,12 @@ private class TestDraftVm(
 
     override suspend fun persist(draft: TestDraft): Either<AppError, Unit> = persistImpl(draft)
 
-    override suspend fun onSaved() {
+    override suspend fun onSaved(saved: TestDraft): TestDraft? {
         // The test VM plays the role of a subclass that reports a finished save
         // (TaskCreateViewModel emits `Saved` here) — so a test can tell an
         // explicit save apart from a silent autosave.
         emit(TestEvent.Saved)
-        hooks.onSaved?.invoke()
+        return hooks.onSaved?.invoke(saved)
     }
 
     override fun onAutosaveError(e: Throwable) {
@@ -227,6 +227,8 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | failed save, thrown          | `save surfaces a thrown persist exception as an error`       |
  * | failed save, fatal `Error`   | `DraftMviFailurePolicyTest.save lets a fatal error escape instead of reporting it as a failure` |
  * | keystroke during a save      | `DraftMviFailurePolicyTest.a keystroke during a save stays dirty and is not blessed by the checkpoint` |
+ * | keystroke during onSaved    | `DraftMviFailurePolicyTest.a keystroke during onSaved is not blessed by the second checkpoint` |
+ * | keystroke during clearAutosave | `DraftMviFailurePolicyTest.a keystroke during clearAutosave is not blessed by the second checkpoint` |
  * | save clears the autosave     | `a successful save clears the autosave store and a failed one does not` |
  * | discard → last checkpoint    | `discard resets to baseline`                               |
  * | entity switch                | `switching entities autosaves the new draft, not the old one` |
@@ -358,7 +360,11 @@ class DraftMviViewModelTest {
                         persisted += draft
                         Either.Right(Unit)
                     },
-                    hooks = TestHooks(onSaved = { onSavedCalled = true }),
+                    hooks =
+                        TestHooks(onSaved = {
+                            onSavedCalled = true
+                            null
+                        }),
                 )
             advanceTimeBy(20L)
             runCurrent()
@@ -563,7 +569,15 @@ class DraftMviViewModelTest {
             vm =
                 testVm(
                     initialDraft = TestDraft(title = "original"),
-                    hooks = TestHooks(onSaved = { vm.updateDraft { it.copy(title = "saved-and-normalized") } }),
+                    hooks =
+                        TestHooks(
+                            onSaved = { saved ->
+                                // What NoteEditor does: adjust the draft, and say so — the
+                                // base checkpoints this value, not the live draft.
+                                vm.updateDraft { it.copy(title = "saved-and-normalized") }
+                                saved.copy(title = "saved-and-normalized")
+                            },
+                        ),
                 )
             advanceTimeBy(20L)
             runCurrent()
@@ -1250,7 +1264,11 @@ class DraftMviSaveValidationTest {
                         persisted += draft
                         Either.Right(Unit)
                     },
-                    hooks = TestHooks(onSaved = { onSavedCalled = true }),
+                    hooks =
+                        TestHooks(onSaved = {
+                            onSavedCalled = true
+                            null
+                        }),
                 )
             advanceTimeBy(20L)
             runCurrent()
@@ -1329,6 +1347,108 @@ class DraftMviFailurePolicyTest {
                 vm.stateFlow.value.draft.title,
                 "discard reverts to the draft the save wrote, dropping only the later keystroke",
             )
+        }
+
+    /**
+     * The gap the first review of this change found: the revision was compared only
+     * across `persist()`, but `onSaved()` suspends too — and `TaskCreateViewModel` clears
+     * its draft store inside it while `NoteEditor` edits the draft. A keystroke during
+     * that window reached the second checkpoint unblessed, so text no store held was
+     * marked saved and the back guard stopped asking.
+     *
+     * `onSaved()` *itself* edits the draft (NoteEditor clears its dirty flag), so the
+     * distinction cannot come from when the hook returns — it comes from attributing
+     * each edit: the base counts the ones made inside the hook and blesses only those.
+     */
+    @Test
+    fun `a keystroke during onSaved is not blessed by the second checkpoint`() =
+        testVm {
+            val hookStarted = CompletableDeferred<Unit>()
+            val releaseHook = CompletableDeferred<Unit>()
+            lateinit var vm: TestDraftVm
+            vm =
+                testVm(
+                    initialDraft = TestDraft(title = "original"),
+                    hooks =
+                        TestHooks(
+                            onSaved = { saved ->
+                                hookStarted.complete(Unit)
+                                releaseHook.await()
+                                // What a real subclass does there: an adjustment of its own,
+                                // reported relative to the draft the save was given.
+                                saved.copy(title = "adjusted by the hook")
+                            },
+                        ),
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "saved") }
+            vm.save()
+            advanceTimeBy(20L)
+            runCurrent()
+            hookStarted.await()
+
+            // The user keeps typing while the hook is suspended.
+            vm.updateDraft { it.copy(title = "typed during the hook") }
+            releaseHook.complete(Unit)
+            advanceTimeBy(50L)
+            runCurrent()
+
+            assertEquals("typed during the hook", vm.stateFlow.value.draft.title)
+            assertTrue(
+                vm.stateFlow.value.isDirty,
+                "text typed while onSaved was suspended is not stored — the draft must stay dirty",
+            )
+            vm.discard()
+            assertEquals(
+                "adjusted by the hook",
+                vm.stateFlow.value.draft.title,
+                "discard reverts to what the hook declared saved — the keystroke is dropped, " +
+                    "and the hook's own adjustment is kept",
+            )
+        }
+
+    /**
+     * The same window, one call earlier: `clearAutosave()` suspends too.
+     */
+    @Test
+    fun `a keystroke during clearAutosave is not blessed by the second checkpoint`() =
+        testVm {
+            val clearStarted = CompletableDeferred<Unit>()
+            val releaseClear = CompletableDeferred<Unit>()
+            lateinit var vm: TestDraftVm
+            vm =
+                testVm(
+                    initialDraft = TestDraft(title = "original"),
+                    hooks =
+                        TestHooks(
+                            clearAutosave = {
+                                clearStarted.complete(Unit)
+                                releaseClear.await()
+                            },
+                        ),
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "saved") }
+            vm.save()
+            advanceTimeBy(20L)
+            runCurrent()
+            clearStarted.await()
+
+            vm.updateDraft { it.copy(title = "typed during the clear") }
+            releaseClear.complete(Unit)
+            advanceTimeBy(50L)
+            runCurrent()
+
+            assertTrue(
+                vm.stateFlow.value.isDirty,
+                "text typed while clearAutosave was suspended is not stored — the draft must stay dirty",
+            )
+            vm.discard()
+            assertEquals("saved", vm.stateFlow.value.draft.title)
         }
 
     /**

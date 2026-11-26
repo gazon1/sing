@@ -237,14 +237,20 @@ internal class NoteEditor(
 
     override fun validate(draft: Editing): String? = null
 
-    override suspend fun onSaved() {
+    override suspend fun onSaved(saved: Editing): Editing? {
         // Explicit save: the text is stored, so the draft is no longer dirty and no
         // longer "new" — subsequent saves go through update. The dirty flag has to
         // go here too: only the autosave used to clear it (onAutosaved), so a
         // back press right after an explicit Save still asked "Discard changes?"
         // about text that was already on disk.
+        //
+        // The adjustment is computed from [saved], never from the live draft, and
+        // returned: the user may type while this hook runs, and that keystroke is
+        // not part of what the save wrote.
+        val adjusted = saved.copy(isDirty = false, isNew = false)
         updateDraft { it.copy(isDirty = false, isNew = false) }
         emit(NotesUiEvent.SavedPulse)
+        return adjusted
     }
 
     override suspend fun persist(draft: Editing): Either<AppError, Unit> =

@@ -79,8 +79,9 @@ import kotlin.time.Duration.Companion.milliseconds
  *         deps.draftStore.clear(DRAFT_KEY)
  *     }
  *
- *     override suspend fun onSaved() {
+ *     override suspend fun onSaved(saved: TaskDraft): TaskDraft? {
  *         emit(TaskCreateUiEvent.Saved)
+ *         return null
  *     }
  * }
  * ```
@@ -131,6 +132,16 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
 
     /** Current draft value. Use inside [updateDraft] transforms. */
     protected val draft: D get() = draftState.value
+
+    /**
+     * The draft [onSaved] says it left behind, when it says anything.
+     *
+     * A hook that adjusts the draft cannot be recognised by comparing revisions: the
+     * editor keeps accepting keystrokes while the hook suspends, and inside that window a
+     * user's edit and the hook's own are the same event. So the hook states its result
+     * instead, and [save] checkpoints exactly that value — never the live draft.
+     */
+    private var savedByHook: D? = null
 
     init {
         vmScope.launch {
@@ -269,8 +280,22 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     /** Persist the draft. Return [Either.Right] on success, [Either.Left] on failure. */
     protected abstract suspend fun persist(draft: D): Either<AppError, Unit>
 
-    /** Called after a successful explicit [save]. Default is a no-op. */
-    protected open suspend fun onSaved() {}
+    /**
+     * Called after a successful explicit [save], with the draft that was persisted.
+     *
+     * **Return the draft the save should be compared against, or null to leave the
+     * checkpoint on [saved] as it is.** A subclass that adjusts the draft here — NoteEditor
+     * clears its own dirty flag, because the text is on disk — returns the adjusted value,
+     * computed from `saved`. It must **not** read the live draft for that: the editor keeps
+     * accepting keystrokes while this hook suspends, and a keystroke that lands in that
+     * window is unsaved text, not part of what the save stored.
+     *
+     * The return value is the whole guard against the subtle bug this replaced: taking the
+     * checkpoint from the live draft after the hook blessed whatever the user typed
+     * meanwhile, `isDirty` went false with text no store held, and the back guard stopped
+     * asking before dropping it.
+     */
+    protected open suspend fun onSaved(saved: D): D? = null
 
     /**
      * Called once, right after a successful explicit [save], to clear whatever
@@ -342,11 +367,6 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                     updateState { it.copy(error = validationError, isSaving = false) }
                     return@launch
                 }
-                // Read *before* the write: the editor stays editable while persist()
-                // suspends, so a keystroke can land in between. The revision, not the value,
-                // is what tells the checkpoints below that it did — an edit that returns the
-                // draft to the value that was written is still unsaved text.
-                val revisionsBeforePersist = draftState.revisions
                 when (val result = persist(currentDraft)) {
                     is Either.Left -> {
                         val message = result.error.toMessage("Save failed")
@@ -358,27 +378,23 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
                     }
 
                     is Either.Right -> {
-                        // Read before onSaved runs, so the flag below is about the *user*
-                        // and not about the subclass: onSaved edits the draft on purpose
-                        // (NoteEditor clears its own dirty flag) and that edit must count
-                        // as saved. A keystroke during persist() must not.
-                        val typedDuringSave = draftState.revisions != revisionsBeforePersist
                         // The checkpoint is the draft that was *written*, not whatever the
-                        // draft holds now. Taking `current` here would bless a keystroke that
-                        // arrived during the save as saved: `isDirty` would go false with
-                        // text on screen that no store holds, and the back guard would not
-                        // ask before dropping it.
+                        // draft holds now: the editor stays editable through every suspension
+                        // below, so a keystroke can arrive at any of them, and blessing it as
+                        // saved would leave `isDirty` false over text no store holds.
                         draftState.checkpoint(currentDraft)
                         pushUiState()
                         clearAutosave()
-                        onSaved()
-                        // And again after onSaved, so a subclass's own adjustment is not
-                        // read as dirty — the guarantee of
-                        // `2026-11-09-the-saved-draft-is-the-one-the-save-left.md`.
-                        // Skipped when the user typed during the save: the draft then holds
-                        // unsaved text, and the checkpoint above is the one it must keep.
-                        if (!typedDuringSave) draftState.checkpoint()
-                        pushUiState()
+                        // The hook tells us what to compare against, and can only speak
+                        // about the draft it was given — never about the live one. That is
+                        // how NoteEditor's own dirty-flag adjustment is still honoured while
+                        // a keystroke during the same hook stays unsaved
+                        // (`2026-11-09-the-saved-draft-is-the-one-the-save-left.md`).
+                        val asSaved = onSaved(currentDraft)
+                        if (asSaved != null) {
+                            draftState.checkpoint(asSaved)
+                            pushUiState()
+                        }
                     }
                 }
             } catch (e: CancellationException) {

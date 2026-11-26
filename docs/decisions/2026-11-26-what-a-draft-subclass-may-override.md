@@ -31,7 +31,7 @@ only the draft editor's own code, not the base class.
 |---|---|---|---|
 | `validate` | both | — | **Keep `abstract`** |
 | `persist` | both | — | **Keep `abstract`** |
-| `onSaved` | both | — | **Keep `protected open`** |
+| `onSaved(saved)` | both | — | **Keep `protected open`** — now returns the draft the save is compared against |
 | `onAutosaved` | `NoteEditor` only | — | **Keep `protected open`** |
 | `onAutosaveError` | both | — | **Keep `protected open`** |
 | `clearAutosave` | none in production | — | **Keep `protected open`** — see below |
@@ -56,6 +56,12 @@ open`.** They are not merely unused as seams — overriding any of them skips
 non-`open` in `2026-09-30-draft-save-failure-and-testtag-honesty.md`, applied to
 the writers instead of the saver. Nothing lost access: the subclasses only ever
 *called* these.
+
+**Why `onSaved` changed signature.** It used to take nothing and adjust the draft as a
+side effect, and the base read the live draft afterwards to build the checkpoint. That
+reading is unsound: the hook suspends, and a keystroke during that window is unsaved text
+that the checkpoint then blessed. The hook now receives the persisted draft and returns
+what the save should be compared against — the side effect without the ambiguity.
 
 **Why `sameEntity` is now `private`.** It was `protected open` and documented as
 the seam for "draft types that wrap an entity id". The repo has none: `TaskDraft`

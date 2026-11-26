@@ -10,6 +10,13 @@ import kotlinx.coroutines.flow.update
  * it is compared against, and answers the one question a `DraftState` exists
  * for: **is the draft different from what's saved?**
  *
+ * **Internal on purpose.** It is the base class's own bookkeeping, not an API an
+ * editor or a screen may reach for: [DraftMviViewModel] is the only consumer, and
+ * a second one that wrote the draft here directly would publish nothing to the UI.
+ * The extension surface editors actually use is `DraftMviViewModel`'s
+ * (`validate`, `persist`, `onSaved`, `onAutosaved`, `onAutosaveError`,
+ * `clearAutosave`) — see `2026-11-26-what-a-draft-subclass-may-override.md`.
+ *
  * This factors the `baseline` bookkeeping that used to live as a private var
  * inside [DraftMviViewModel] into its own unit, testable without coroutines
  * or a `TestScope`. It intentionally does **not** grow into an undo/redo
@@ -30,7 +37,7 @@ import kotlinx.coroutines.flow.update
  * @param S The draft's value type.
  * @param initial Starting value, used as both `current` and the initial checkpoint.
  */
-class DraftState<S>(initial: S) {
+internal class DraftState<S>(initial: S) {
     private val _current = MutableStateFlow(initial)
 
     /** Reactive view of the current draft value. */
@@ -41,25 +48,12 @@ class DraftState<S>(initial: S) {
     /** Snapshot of the current draft value. Prefer [current] for reactive consumers. */
     val value: S get() = _current.value
 
-    /**
-     * Counts mutations, so a save that started before one can tell that it did.
-     *
-     * Comparing values is not enough: an edit that puts the draft back to the value the
-     * save wrote still has to leave the draft dirty, because the store never received the
-     * intermediate state and the user's next keystroke would be the only trace of it.
-     */
-    private var edits: Long = 0L
-
-    /** How many mutations [value] has seen. Read before a save, compared after. */
-    val revisions: Long get() = edits
-
     /** True when [value] differs from the last [checkpoint]. */
     val isDirty: Boolean get() = _current.value != checkpointValue
 
     /** Mutates the current value via [reducer]. Does not move the checkpoint. */
     fun edit(reducer: (S) -> S) {
         _current.update(reducer)
-        edits++
     }
 
     /** Reverts [current] to the last checkpoint, discarding any edits since. */
