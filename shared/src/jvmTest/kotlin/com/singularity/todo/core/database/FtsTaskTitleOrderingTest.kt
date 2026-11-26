@@ -34,11 +34,15 @@ import kotlin.test.assertTrue
  *    accident: the most recently inserted one comes first, and it comes first
  *    every time the door is asked.
  * 3. the rows of the survivors are read by their id and not by a scan of the
- *    table — that is what makes the second read cheap.
+ *    table — that is what makes the second read cheap. The rows have to be
+ *    found by their primary key: the ownership filter may not become the way
+ *    they are found, or the planner walks the rows of the user instead.
  * 4. the statement that does the ordering selects the id alone: neither the
  *    whole row nor the position of the match comes back into it.
  * 5. the ownership and the archive filters are stated in both phases, so a task
- *    that belongs to somebody else or is archived is never offered.
+ *    that belongs to somebody else or is archived is never offered — and the
+ *    second phase keeps the check of its own, so a foreign id handed to it
+ *    reads nothing.
  * 6. the two phases are one transaction, so they are one answer: the rows on
  *    offer are the rows the order was decided over.
  *
@@ -136,13 +140,53 @@ class FtsTaskTitleOrderingTest {
             val plan = explain(SECOND_PHASE_SQL)
 
             assertTrue(
-                plan.any { it.startsWith("SEARCH t") },
-                "the rows of the survivors have to be looked up by their id. The plan says: $plan",
+                plan.any { it.contains("sqlite_autoindex") },
+                "the rows of the survivors have to be looked up by their primary key. The plan says: $plan",
             )
             assertFalse(
                 plan.any { it.startsWith("SCAN t") },
                 "a scan of the table would read every task of the profile to answer a question " +
                     "about ten of them. The plan says: $plan",
+            )
+            assertFalse(
+                plan.any { "index_tasks_user_id" in it },
+                "the ownership filter must not become the way the rows are found: the planner " +
+                    "would walk the rows of the user and check the id of every one of them, and " +
+                    "reading ten rows would become a scan of the tasks of the profile. " +
+                    "The plan says: $plan",
+            )
+        }
+
+    @Test
+    fun `a row of another user is not read by its id`() =
+        runTest {
+            // The second phase reads rows by their id, and the ids it is given
+            // come from the first phase — but the second phase has to keep the
+            // ownership check of its own, so that a caller that hands it a
+            // foreign id gets nothing.
+            db.taskDao().upsert(task(id = "theirs", title = "A record that carries the needle", userId = "u2"))
+
+            val rows = db.ftsDao().searchTasksByIds("u1", listOf("theirs"))
+
+            assertTrue(
+                rows.isEmpty(),
+                "a task of another user must not be readable by its id. The rows are: $rows",
+            )
+        }
+
+    @Test
+    fun `an archived row is not read by its id`() =
+        runTest {
+            db.taskDao().upsert(
+                task(id = "archived", title = "A record that carries the needle")
+                    .copy(archivedAt = 1_000L),
+            )
+
+            val rows = db.ftsDao().searchTasksByIds("u1", listOf("archived"))
+
+            assertTrue(
+                rows.isEmpty(),
+                "an archived task must not be readable by its id. The rows are: $rows",
             )
         }
 
@@ -321,13 +365,23 @@ class FtsTaskTitleOrderingTest {
             LIMIT :limit
             """
 
-        /** The second phase: the rows of the survivors, read by their id. */
+        /**
+         * The second phase: the rows of the survivors, read by their id.
+         *
+         * The ownership and the archive check are written as a correlated check
+         * of the row by its id — the form the production statement uses, and the
+         * form that lets the planner find the rows by their primary key.
+         */
         const val SECOND_PHASE_SQL =
             """
             SELECT t.* FROM tasks t
             WHERE t.id IN ('t-1', 't-2')
-              AND t.user_id = 'u1'
-              AND t.archived_at IS NULL
+              AND EXISTS (
+                SELECT 1 FROM tasks o
+                WHERE o.id = t.id
+                  AND o.user_id = 'u1'
+                  AND o.archived_at IS NULL
+              )
             """
     }
 }

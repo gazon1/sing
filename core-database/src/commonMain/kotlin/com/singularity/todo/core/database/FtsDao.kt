@@ -188,16 +188,31 @@ interface FtsDao {
      * the order of the list it was given. The caller that needs an order keeps
      * it itself.
      *
-     * The ownership and the archive filters are stated again: the ids were
-     * picked a moment earlier, and a task that was archived in between must not
-     * be offered.
+     * The ownership and the archive check are stated again: the ids were picked
+     * a moment earlier, and a task that was archived in between must not be
+     * offered.
+     *
+     * The check is written as a correlated one — a lookup of the same row by
+     * its id — and not as a condition on the row itself. The flat form reads
+     * the same rows and answers the same question, but the planner answers it
+     * with `index_tasks_user_id`: it walks the rows of the user and checks the
+     * id of every one of them. That is a scan of the user's tasks to read
+     * twenty of them, and it grows with the database. In the correlated form
+     * the primary key is the only condition the planner can find the rows by,
+     * so it reads exactly the rows it was asked for — while the ownership and
+     * the archive state are still checked in the database, on every row,
+     * before the row is handed out.
      */
     @Query(
         """
         SELECT t.* FROM tasks t
         WHERE t.id IN (:ids)
-          AND t.user_id = :userId
-          AND t.archived_at IS NULL
+          AND EXISTS (
+            SELECT 1 FROM tasks o
+            WHERE o.id = t.id
+              AND o.user_id = :userId
+              AND o.archived_at IS NULL
+          )
         """,
     )
     suspend fun searchTasksByIds(
