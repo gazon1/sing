@@ -424,9 +424,14 @@ class RoundThreeRegressionTest(PlanTest):
         body = SCRIPT.read_text(encoding='utf-8')
         helper = body.split('function is_worktree', 1)[1].split('\nend', 1)[0]
         self.assertIn('--is-inside-work-tree', helper)
-        # `git_common_dir` may exit; it must therefore not be called inside a
-        # `set -l x (…); or …` guard, where the exit ends the whole script.
-        self.assertNotIn('(git_common_dir $root 2>/dev/null)', body)
+        # `git_common_dir` exits on a path that is not a worktree, and an exit
+        # inside a command substitution ends the WHOLE script. `check` therefore
+        # tests the predicate before it resolves anything: a verdict may not stop
+        # half-way. (`rollback` may — there, stopping is the referendum on a host
+        # whose git state cannot be cleaned.)
+        check = body.split('function check', 1)[1]
+        self.assertIn('if not is_worktree $root', check)
+        self.assertNotIn('(git_common_dir $root 2>/dev/null)', check.split('# The transition itself')[0])
 
 
 class RoundFourRegressionTest(PlanTest):
@@ -476,6 +481,32 @@ class RoundFourRegressionTest(PlanTest):
         helper = body.split('function run_cmd', 1)[1].split('\nend', 1)[0]
         self.assertIn('die', helper, 'run_cmd must not swallow a failed step')
         self.assertIn('$status', helper)
+
+
+class RoundFiveRegressionTest(PlanTest):
+    """The three defects of the fifth review round."""
+
+    def test_a_primary_gid_member_of_the_group_is_foreign_too(self):
+        """`getent group` cannot see a user whose PRIMARY gid is `sing-dev`."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        scan = provision.split('set -l foreign', 1)[1].split('run_cmd usermod', 1)[0]
+        self.assertIn('getent passwd', scan, 'the primary gid lives in passwd, not in the group file')
+        self.assertIn('$fields[4]', scan)
+
+    def test_grants_are_recorded_so_rollback_survives_a_removed_worktree(self):
+        """A linked worktree's store lives outside it; the path cannot be re-derived."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('record_grant $root $target', provision)
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('recorded_targets', rollback)
+
+    def test_check_reads_the_effective_permission_not_the_raw_entry(self):
+        """A named entry under a restrictive mask is read-only, not writable."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        helper = body.split('function check_acl', 1)[1].split('\nend', 1)[0]
+        self.assertIn('#effective:r', helper)
 
 
 class RunTest(AgentAccountTest):

@@ -47,7 +47,7 @@ worktrees it was given, and one sudoers rule that lets the *developer* re-execut
 | User | `agent`, uid auto — and never 0, never the developer's | The boundary itself. `apply` refuses an existing `agent` that is root or the developer, and `check` verifies both |
 | Password | none | No login. A password is a login an agent could use, and nothing needs one |
 | Shell | `/bin/bash` | A coding agent runs commands; `nologin` would make the account useless |
-| Groups | `sing-dev` (and its own primary group) | `wheel`, `docker` and `kvm` are root-equivalent or own the device — §1.4 of the inventory. A group held as the **primary** gid counts too, and `apply` reconciles it with `usermod --gid`, not only with `gpasswd` |
+| Groups | `sing-dev` (and its own primary group) — exactly two identities, checked against BOTH the group file and every account's primary gid | `wheel`, `docker` and `kvm` are root-equivalent or own the device — §1.4 of the inventory. A group held as the **primary** gid counts too, and `apply` reconciles it with `usermod --gid`, not only with `gpasswd` |
 | Home | `/home/agent`, 0700 | The agent's Gradle home, AVD home and cache live here and nowhere else |
 | sudo | **nothing** | An agent that can escalate is not sandboxed. The only rule is the developer's |
 | SELinux domain | unchanged, still `unconfined_t` | Confinement is #3241's scope. This issue gives it a UID to confine; it does not confine it |
@@ -244,7 +244,15 @@ It removes **only the entries this script wrote** — `setfacl -x u:agent` and
 `-x d:u:agent`, which name one subject and leave a foreign default entry alone. A bare
 `--remove-default` would take every default entry with it, and would silently change the
 modes of files nobody here wrote (measured on a throwaway tree: a `docker` default entry
-disappeared with the agent's). It then removes the sudoers rule, the account and the group. It does **not** touch the worktrees, their branches or the git data:
+disappeared with the agent's). It then removes the sudoers rule, the account and the group. Grants are **recorded** (one line
+per target, in `/var/lib/agent-account/grants`), because a linked worktree's object store lives
+outside it: once the worktree is removed the store's path cannot be re-derived, and a rollback
+that skipped it would leave a recursive group ACL on the main checkout pointing at a GID that
+may later be reused.
+
+`check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
+named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported
+as such. It does **not** touch the worktrees, their branches or the git data:
 undoing the boundary must never be a reason to lose work. `/home/agent` goes with
 `userdel --remove`, which means the agent's Gradle home and its AVD home go too — that is
 cache, and the next `apply` rebuilds it.

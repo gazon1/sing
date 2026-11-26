@@ -184,6 +184,30 @@ end
 # The object store a worktree's git operations write to. One clone with many
 # worktrees shares exactly one of these, and it is NOT under the worktree: a
 # linked worktree only carries a `.git` file pointing here.
+# What `apply` granted, so `rollback` can still undo it after a worktree is
+# removed. A linked worktree's object store is NOT under the worktree, and the
+# path cannot be re-derived once the worktree is gone.
+#
+# One line per granted target. It is a record of THIS script's own writes, kept
+# beside the sudoers file it already manages, not a configuration file.
+function grants_file
+    echo /var/lib/agent-account/grants
+end
+
+function recorded_targets
+    set -l file (grants_file)
+    test -e $file; or return 0
+    grep -F -- (printf '%s\t' $argv[1]) $file | cut -f2
+end
+
+function record_grant
+    set -l file (grants_file)
+    test $DRY_RUN -eq 1; and echo "record $(string join ' ' $argv)" >&2
+    test $DRY_RUN -eq 1; and return 0
+    run_cmd install --directory --owner=root --group=root --mode=0755 (dirname $file)
+    printf '%s\t%s\n' $argv[1] $argv[2] >> $file
+end
+
 # Is the path a WORKING TREE? `--git-common-dir` cannot answer: on a bare
 # repository it prints "." and exits 0. Measured on `git init --bare`:
 # common-dir ".", `--is-inside-work-tree false`.
@@ -336,7 +360,18 @@ function provision
     # and an unexpected member is reported rather than quietly removed — it may
     # be somebody's deliberate configuration.
     set -l foreign
-    for member in (getent group $AGENT_GROUP | cut -d: -f4 | string split ,)
+    # BOTH sources. `getent group` lists supplementary members, and a user whose
+    # PRIMARY gid is `sing-dev` is invisible there — the same gap that made an
+    # agent with `docker` as its primary group look clean. `getent passwd` gives
+    # the primary one, `id -Gn` would need the account to be queryable as-is.
+    set -l gid (getent group $AGENT_GROUP | cut -d: -f3)
+    set -l members (getent group $AGENT_GROUP | cut -d: -f4 | string split ,)
+    for row in (getent passwd | string match -r '.*')
+        set -l fields (string split : -- $row)
+        test (count $fields) -ge 4; or continue
+        test "$fields[4]" = "$gid"; and set -a members $fields[1]
+    end
+    for member in $members
         test -n "$member"; or continue
         contains -- $member $dev $AGENT_USER; or set -a foreign $member
     end
@@ -404,6 +439,7 @@ function provision
         for target in $root (git_common_dir $root)
             run_cmd setfacl --recursive --modify "group:$AGENT_GROUP:rwX" \
                 --modify "default:group:$AGENT_GROUP:rwX" $target
+            record_grant $root $target
         end
     end
  
@@ -493,8 +529,16 @@ function check_acl
         fail "missing path: $target"
         return
     end
-    if getfacl --absolute-names "$target" 2>/dev/null | grep -qx "$entry"
-        pass "$target: $entry"
+    # The entry has to be EFFECTIVE, not merely present: the ACL mask constrains
+    # every named entry, and `getfacl` writes the result as `#effective:`. A
+    # `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree, and a check
+    # that only grepped the raw line would call it writable.
+    if getfacl --omit-header --absolute-names "$target" 2>/dev/null | grep -qx "$entry"
+        if getfacl --omit-header --absolute-names "$target" 2>/dev/null | grep -q "^$entry.*#effective:r"
+            fail "$target: '$entry' is present but the ACL mask limits it to read — a write would fail"
+        else
+            pass "$target: $entry"
+        end
     else
         fail "$target: no '$entry' — the agent cannot reach it"
     end
@@ -679,14 +723,26 @@ function rollback
     run_cmd setfacl --remove-user $AGENT_USER $home
 
     for root in $ROOTS
-        test -d "$root"; or continue
-        for target in $root (git_common_dir $root)
+        # A removed worktree must not skip its store. The common git dir lives
+        # under the MAIN checkout and outlives the linked worktree, so it is
+        # resolved when the root is still there and read from the record when it
+        # is not.
+        set -l targets
+        if test -d "$root"
+            set targets $root (git_common_dir $root 2>/dev/null)
+        else
+            set targets (recorded_targets $root)
+            test (count $targets) -gt 0
+            or echo "note: $root is gone and was not recorded — its store is not cleaned" >&2
+        end
+        for target in $targets
             test -d $target; or continue
             run_cmd setfacl --recursive -x "g:$AGENT_GROUP" -x "d:g:$AGENT_GROUP" $target
         end
     end
  
     run_cmd rm --force /etc/sudoers.d/50-agent-account
+    run_cmd rm --force (grants_file)
     run_cmd gpasswd --delete $AGENT_USER $AGENT_GROUP
     run_cmd userdel --remove $AGENT_USER
     run_cmd groupdel $AGENT_GROUP
