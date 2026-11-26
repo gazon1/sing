@@ -356,9 +356,18 @@ function record_acl --argument-names target kind
         or die "could not snapshot the ACL of $target"
         run_cmd chmod 0600 $file
     end
-    set -l listed
-    test -e (targets_file); and set listed (cat (targets_file))
-    contains -- $target $listed; or printf '%s\n' $target >> (targets_file)
+    set -l listed (recorded_targets)
+    contains -- $target $listed; or printf '%s\n' (string escape --style=var -- $target) >> (targets_file)
+end
+
+# The targets recorded so far. Escaped, not raw: a path may legally contain a
+# newline, and a newline-delimited registry then reads one path as two — the
+# same ambiguity the ACL line format had, in the one record that still had it.
+function recorded_targets
+    test -e (targets_file); or return 0
+    for line in (cat (targets_file))
+        test -n "$line"; and string unescape --style=var -- $line
+    end
 end
 
 # Puts a snapshot back — the inverse of the dump, so a grant, a `mask::` or a
@@ -1082,7 +1091,7 @@ function rollback
     # before the record existed, or by a run that could not write it: its entry
     # is still removed, by subject, from the roots given.
     set -l recorded
-    test -e (targets_file); and set recorded (cat (targets_file))
+    test -e (targets_file); and set recorded (recorded_targets)
     set -l targets
     for root in $ROOTS
         test -d "$root"; or continue

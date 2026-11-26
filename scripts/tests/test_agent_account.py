@@ -503,7 +503,7 @@ class RoundFiveRegressionTest(PlanTest):
         # Every recorded target is walked, not only the roots passed in: undoing
         # wt1 left wt2 writable, and the group whose gid those entries named was
         # deleted right afterwards.
-        self.assertIn('set recorded (cat (targets_file))', rollback)
+        self.assertIn('set recorded (recorded_targets)', rollback)
         self.assertIn('for target in $recorded $targets', rollback)
 
     def test_check_reads_the_effective_permission_not_the_raw_entry(self):
@@ -990,6 +990,46 @@ class EffectivePermissionTest(AgentAccountTest):
         # `r-x`/`r--`, so matching the whole entry finds nothing at all.
         self.assertIn('(entry_subject $entry)', check)
         self.assertIn('(entry_subject $default_entry)', check)
+
+
+    def test_the_registry_round_trips_a_path_with_a_newline(self):
+        """A filename may contain a newline; a line-per-target registry must not care."""
+        registry = self.tmp / 'targets'
+        # The newline is passed through the ENVIRONMENT: every shell rewrites a
+        # literal `\\n` into two characters, so a test that built the path in the
+        # script would test nothing at all (measured: `string length` answered 1).
+        nasty = f'{self.tmp}/a\nb'
+        script = (
+            'set -l t $NASTY\n'
+            f'printf "%s\\n" (string escape --style=var -- $t) >> {registry}\n'
+            f'echo "lines="(count (cat {registry}))\n'
+        )
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+            env={**os.environ, 'NASTY': nasty},
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('lines=1', result.stdout, 'one path must be ONE entry')
+
+        # And the bytes in the file are one line: a raw write would have put the
+        # newline in and made the registry answer two entries for one path.
+        raw = registry.read_text(encoding='utf-8')
+        self.assertEqual(1, len(raw.splitlines()), repr(raw))
+        self.assertIn('_0A_', raw, 'the newline must be escaped, not written through')
+
+    def test_the_registry_writer_escapes_and_its_reader_unescapes(self):
+        """The primitive is useless unless the shipped code uses it, twice."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
+        self.assertIn('string escape --style=var -- $target', record, 'the writer must escape')
+        self.assertNotIn("printf '%s\\n' $target", record, 'a raw write splits on a newline')
+        reader = body.split('function recorded_targets', 1)[1].split('\nend', 1)[0]
+        self.assertIn('string unescape --style=var', reader, 'the reader must undo it')
+        # And rollback reads the registry through that reader, not through `cat`.
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('(recorded_targets)', rollback)
+        self.assertNotIn('(cat (targets_file))', rollback)
 
 
 class RunTest(AgentAccountTest):

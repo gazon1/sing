@@ -264,7 +264,8 @@ write the grants.
 Targets are the `$HOME` traverse grant (non-recursive), the SDK and the toolchain, and every
 worktree **and** its common git dir. The list lives in `/var/lib/agent-account/targets`, so
 rollback walks every one of them and not only the roots it is passed — undoing one worktree used
-to leave another writable.
+to leave another writable. Each entry is `string escape --style=var`-escaped: a path may legally
+contain a newline, and a raw line-per-target registry then answers two entries for one path.
 
 `apply` snapshots **every** target before writing to **any** of them. A repository nested inside
 another authorized root is inside the outer tree's recursive dump (measured: a `git init` inside a
