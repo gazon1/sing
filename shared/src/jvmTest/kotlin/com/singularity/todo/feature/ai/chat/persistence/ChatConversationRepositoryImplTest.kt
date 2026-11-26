@@ -10,6 +10,7 @@ import com.singularity.todo.core.database.RoomUnitOfWork
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.feature.ai.chat.ChatViewModel
+import com.singularity.todo.feature.ai.chat.data.ChatConversationEntity
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.SequenceIdGenerator
 import kotlinx.coroutines.Dispatchers
@@ -190,10 +191,19 @@ class ChatConversationRepositoryImplTest {
             // Ownership is a property of the conversation, resolved at the write, so a writer
             // holding a conversation handle cannot file a message into one it does not own.
             val repository = repository()
+            // Another profile's conversation, already on disk: the writer must refuse it.
+            db.chatConversationDao().upsertConversation(
+                ChatConversationEntity(
+                    id = "c2",
+                    userId = UserId("u2").value,
+                    createdAt = 1L,
+                    updatedAt = 10L,
+                ),
+            )
 
             val result =
                 repository.insertMessage(
-                    message("m1", position = 0, conversationId = ChatConversationId.fromString("missing")),
+                    message("m1", position = 0, conversationId = ChatConversationId.fromString("c2")),
                 )
 
             assertTrue(result.isFailure, "a writer must not file a message into a conversation it cannot resolve")
