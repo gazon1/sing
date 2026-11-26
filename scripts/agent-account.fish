@@ -411,9 +411,33 @@ function record_acl --argument-names target kind
         run_cmd chmod 0600 $file
     end
     set -l listed (recorded_targets)
+    set -l recorded_as (recorded_kind $target)
+    if contains -- $target $listed
+        # The path is already recorded. A `tree` snapshot COVERS a `node` one,
+        # so the record is upgraded and the wider dump written; the other
+        # direction is impossible — `record_acl` never narrows a target.
+        if test "$kind" = tree; and test "$recorded_as" != tree
+            getfacl --absolute-names --physical --recursive $target > $file
+            or die "could not snapshot the ACL of $target"
+            run_cmd chmod 0600 $file
+            set -l rewritten
+            for line in (cat (targets_file))
+                set -l fields (string split \t -- $line)
+                if test (count $fields) -ge 1; and test (string unescape --style=var -- $fields[1]) = "$target"
+                    continue
+                end
+                test -n "$line"; and set -a rewritten $line
+            end
+            set -a rewritten (string join \t -- (string escape --style=var -- $target) $kind)
+            printf '%s\n' $rewritten > (targets_file)
+            or die "could not upgrade the rollback record for $target"
+            echo "note: $target was recorded as '"(string replace -r '^$' node -- $recorded_as)"'; upgraded to tree" >&2
+        end
+        return 0
+    end
     # `string join \t` writes a REAL tab; `$path"\t"$kind` in a word writes the
     # two characters backslash-t (measured), and the reader then splits nothing.
-    contains -- $target $listed; or append_record (targets_file) \
+    append_record (targets_file) \
         (string join \t -- (string escape --style=var -- $target) $kind)
 end
 
@@ -432,7 +456,14 @@ end
 # `node` or `tree` for a recorded target. A line with no kind predates the
 # distinction and was always recursive.
 function recorded_kind --argument-names target
-    test -e (targets_file); or echo tree; and return 0
+    # NOT `test -e …; or echo tree; and return 0`: with the file present the
+    # `and` still fires, because `or echo tree` was skipped and the status is
+    # the test's success — so the function returned EMPTY before the loop, and an
+    # empty kind read as "no kind". Measured on a registry that exists.
+    test -e (targets_file); or begin
+        echo tree
+        return 0
+    end
     for line in (cat (targets_file))
         set -l fields (string split \t -- $line)
         test (count $fields) -ge 1; or continue
@@ -870,6 +901,17 @@ function in_home_guard
         or string match -q -- "$home/*" "$root"
     else
         return 0
+    end
+    # `$HOME` ITSELF is refused even WITH the opt-in, and not for the traverse
+    # grant — that is already inherent. `apply` snapshots `$HOME` as a single
+    # NODE (the `--x` grant is not recursive) and would then snapshot it again as
+    # a worktree TREE; the registry dedupes by path, so the node record won. The
+    # recursive `setfacl` on the worktree root then granted over the whole home
+    # while rollback restored the node alone and the scrub skipped it — leaving
+    # `sing-dev:rwX` on every descendant for good. A directory cannot be both
+    # the non-recursive seam and a recursive root.
+    if test "$root" = "$home"
+        die "$root is the developer's home; authorizing it as a worktree root would also grant it recursively, which the traverse-only snapshot cannot undo — pass a worktree inside it instead"
     end
     if test $ALLOW_IN_HOME -eq 1
         echo "warning: authorized worktree inside the developer home: $root" >&2

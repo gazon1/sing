@@ -459,11 +459,29 @@ class RoundFourRegressionTest(PlanTest):
         self.assertIn('uid 0', plan.stderr)
         self.assertNotIn('useradd', plan.stdout)
 
-    def test_the_home_itself_needs_the_explicit_opt_in(self):
-        """The glob `$HOME/*` did not match `$HOME`."""
-        plan = self._plan(str(self.home))
+    def test_the_home_itself_is_refused_even_with_the_opt_in(self):
+        """`$HOME` cannot be BOTH the non-recursive seam and a recursive root.
+
+        It is snapshotted as a single node for the `--x` grant; authorizing it as
+        a worktree would snapshot it again as a tree, the registry dedupes by
+        path, and the node record won — so the recursive grant outlived the
+        rollback that restored the node alone.
+        """
+        plan = self._plan('--allow-in-home', str(self.home))
+        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
+        self.assertIn('the developer', plan.stderr)
+        self.assertNotIn('setfacl', plan.stdout, 'nothing may be granted before it is refused')
+
+    def test_a_worktree_inside_the_home_still_needs_the_opt_in(self):
+        """The glob `$HOME/*` did not match `$HOME` — that case is separate."""
+        inside = self.home / 'work' / 'wt'
+        inside.mkdir(parents=True)
+        subprocess.run(['git', 'init', '--quiet', str(inside)], capture_output=True, check=True)
+        plan = self._plan(str(inside))
         self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
         self.assertIn('--allow-in-home', plan.stderr)
+        accepted = self._plan('--allow-in-home', str(inside))
+        self.assertEqual(0, accepted.returncode, accepted.stdout + accepted.stderr)
 
     def test_a_sudoers_file_with_extra_grants_is_refused(self):
         """One matching line is not proof the whole file is ours."""
@@ -1723,8 +1741,7 @@ class PartialApplyRollbackTest(PlanTest):
             'function recorded_targets\n'
             '    test -e (targets_file); or return 0\n'
             '    for line in (cat (targets_file))\n'
-            '        set -l tab (printf \'\\t\')\n'
-'        test -n "$line"; and string unescape --style=var -- (string split $tab -- $line)[1]\n'
+'        test -n "$line"; and string unescape --style=var -- (string split \\t -- $line)[1]\n'
             '    end\n'
             'end\n'
             'function run_cmd; $argv; end\n'
@@ -1750,8 +1767,7 @@ class PartialApplyRollbackTest(PlanTest):
             f'function acl_dir; echo {self.tmp}/acl; end\n'
             'function recorded_targets\n'
             f'    for line in (cat {self.tmp}/targets)\n'
-            '        set -l tab (printf \'\\t\')\n'
-'        test -n "$line"; and string unescape --style=var -- (string split $tab -- $line)[1]\n'
+'        test -n "$line"; and string unescape --style=var -- (string split \\t -- $line)[1]\n'
             '    end\n'
             'end\n'
             'function run_cmd; $argv; end\n'
@@ -1772,6 +1788,89 @@ class PartialApplyRollbackTest(PlanTest):
                          'the target the failed run modified must be restored')
         self.assertEqual(before_second, dump(second),
                          'a target the failed run never reached must be untouched')
+
+
+class SnapshotKindUpgradeTest(PlanTest):
+    """A path cannot be both the non-recursive seam and a recursive root.
+
+    `apply --allow-in-home "$HOME"` recorded `$HOME` as a `node` for the `--x`
+    grant and then again as a `tree` for the worktree; the registry deduped by
+    path, the node record won, and the recursive grant outlived a rollback that
+    restored the node alone. Two defences: the home is refused as a worktree
+    root, and a recorded `node` is UPGRADED when a `tree` asks for the same path.
+    """
+
+    def test_the_home_itself_is_refused_as_a_worktree_root(self):
+        """Even WITH --allow-in-home: the two snapshots cannot coexist.
+
+        The home must be a real git worktree here, or `validate_roots` refuses it
+        first and the test would pass for the wrong reason — measured.
+        """
+        subprocess.run(['git', 'init', '--quiet', str(self.home)], capture_output=True, check=True)
+        refused = self._plan('--allow-in-home', str(self.home))
+        self.assertEqual(2, refused.returncode, refused.stdout + refused.stderr)
+        self.assertIn('the developer', refused.stderr)
+        self.assertNotIn('setfacl', refused.stdout)
+        # The in-home OPT-IN still works for a worktree INSIDE it.
+        inside = self.home / 'w' / 'wt'
+        inside.mkdir(parents=True)
+        subprocess.run(['git', 'init', '--quiet', str(inside)], capture_output=True, check=True)
+        accepted = self._plan('--allow-in-home', str(inside))
+        self.assertEqual(0, accepted.returncode, accepted.stdout + accepted.stderr)
+
+    def test_a_node_record_is_upgraded_to_a_tree(self):
+        """The second defence, driven with the shipped `record_acl`."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        tail = body.split('\nfunction record_acl', 1)[1]
+        signature, _, _ = tail.partition('\nend')
+        tree = self.tmp / 'upgrade'
+        (tree / 'sub').mkdir(parents=True)
+        (tree / 'sub' / 'leaf').write_text('x', encoding='utf-8')
+        (self.tmp / 'acl').mkdir(exist_ok=True)
+        script = (
+            'set -g DRY_RUN 0\n'
+            'set -g AGENT_USER nobody\n'
+            f'function acl_dir; echo {self.tmp}/acl; end\n'
+            f'function targets_file; echo {self.tmp}/targets; end\n'
+            'function append_record --argument-names file line\n'
+            '    printf "%s\\n" $line >> $file\n'
+            'end\n'
+            'function acl_dump_file\n'
+            '    echo (acl_dir)/(string escape --style=var -- $argv[1]).acl\n'
+            'end\n'
+            'function recorded_targets\n'
+            '    test -e (targets_file); or return 0\n'
+            '    for line in (cat (targets_file))\n'
+            '        test -n "$line"; and string unescape --style=var -- (string split \\t -- $line)[1]\n'
+            '    end\n'
+            'end\n'
+            'function recorded_kind' + body.split('\nfunction recorded_kind', 1)[1].split('\nend', 1)[0] + '\nend\n'
+            'function run_cmd\n'
+            '    switch $argv[1]\n'
+            '        case install\n'
+            '            mkdir --parents (acl_dir)\n'
+            '        case "*"\n'
+            '            $argv\n'
+            '    end\n'
+            'end\n'
+            f'function record_acl{signature}\nend\n'
+            f'record_acl "{tree}" node\n'
+            f'record_acl "{tree}" tree\n'
+            f'printf "kind=%s\\n" (recorded_kind "{tree}")\n'
+        )
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('kind=tree', result.stdout, result.stdout + result.stderr)
+        self.assertIn('upgraded to tree', result.stderr)
+        # And the dump is now RECURSIVE: it names a path below the target.
+        dump = (self.tmp / 'acl' / (subprocess.run(
+            [fish_interpreter(), '--no-config', '-c',
+             f'string escape --style=var -- "{tree}"'],
+            capture_output=True, text=True, check=True).stdout.strip() + '.acl')).read_text(encoding='utf-8')
+        self.assertIn(f'# file: {tree}/sub/leaf', dump, 'a tree snapshot must reach the descendants')
 
 
 class RunTest(AgentAccountTest):

@@ -217,8 +217,14 @@ worktree created inside an authorized root later, because the default ACL is wha
 **Where the worktrees should live.** Outside the developer's home. A path inside it works —
 `--allow-in-home` opts in — but it is the worktree that makes the `--x` traverse grant
 load-bearing rather than incidental, and the script says so at the top of its output. `$HOME`
-itself counts as inside (it is checked by equality, not only by the `$HOME/*` glob), because
-`apply $HOME` would otherwise grant recursive write access over the whole home silently.
+itself is refused **outright, even with `--allow-in-home`** — a different reason than the traverse
+cost. `apply` snapshots `$HOME` as a single NODE (the `--x` grant is not recursive) and would then
+snapshot it again as a worktree TREE, while the target registry keys by path: the node record won,
+the recursive `setfacl` granted over the whole home, and rollback restored the node alone while the
+scrub skipped it — leaving `sing-dev:rwX` on every descendant for good. A directory cannot be both
+the non-recursive seam and a recursive root. As a second defence the record is upgraded to `tree`
+if that collision is reached any other way, since a tree snapshot covers a node one, never the
+reverse.
 
 ### 4.2 Migration of the agents that exist today
 
