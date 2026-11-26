@@ -530,6 +530,19 @@ class NoteEditorTest {
 
             assertEquals(1, failures.size, "a failed autosave must reach the user")
             assertEquals("db is down", failures.single().message, "the editor learns what went wrong")
+
+            // The failure must not cost the user their text: the editor keeps
+            // what was typed, the draft stays dirty (the write never landed),
+            // and the stored note still holds the old body.
+            val state = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(state)
+            assertEquals("<p>Updated content</p>", state.html.value, "a failed autosave keeps the user's text")
+            assertTrue(state.isDirty, "a failed autosave leaves the draft dirty")
+            assertEquals(
+                "<p>Hello world</p>",
+                notesRepo.notes[testNote.id.value]?.bodyHtml,
+                "a failed autosave writes nothing to the repository",
+            )
             job.cancel()
         }
 

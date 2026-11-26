@@ -412,7 +412,7 @@ class DraftMviViewModelTest {
             advanceTimeBy(20L)
             runCurrent()
             assertTrue(restoreGate.isCompleted, "the restore has answered")
-            assertFalse(autosaved, "the restored draft is the collector's first value — it is dropped, not written")
+            assertFalse(autosaved, "the current draft is the collector's first value — it is dropped, not written")
             assertEquals(
                 "typed",
                 vm.stateFlow.value.draft.title,
