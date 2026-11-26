@@ -344,6 +344,24 @@ printing. The snapshot directory is `0755` (the dumps inside are `0600`) so an u
 run can `stat` them: at `0700` it could not, and printed "no snapshot, remove the entries" where
 the real run would have printed "restore".
 
+### Asking the kernel, not the ACL text
+
+The `getfacl` parsing above answers "is the entry there, and does the mask let it through". It
+cannot answer "can the agent actually open this": SELinux, the mode on a parent directory and a
+read-only mount all defeat a perfectly correct ACL, and none of them appears in `getfacl`. So
+`check` also runs probes **as the agent**, where `test -r` / `test -w` are `access(2)`:
+
+- `test -r` on the SDK and every toolchain directory it was granted;
+- `test -w` on each authorized worktree;
+- `test -r` on `~/.ssh` and `~/.gnupg` — **must** fail, and this is what makes the `--x` traverse
+  grant's cost concrete rather than theoretical;
+- `sudo -n true` and `docker ps` — **must** fail; and `test -w /dev/kvm`, which is #3240's
+  boundary, so it is a NOTE today and a FAIL the moment it opens.
+
+Every *negative* probe is gated on the transition itself having worked. An agent that can run
+nothing at all also "cannot run sudo", and reporting that as a clean boundary would describe a
+wall as a door — so when the transition is broken the probes say `NOTE unverified` instead.
+
 `check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
 named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported
 as such. It compares the effective bits against the bits the grant asks for, entry by entry —

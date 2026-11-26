@@ -1381,6 +1381,62 @@ class DryRunPurityTest(PlanTest):
         self.assertNotIn('DRY_RUN -eq 1; and echo "passwd --lock', provision)
 
 
+class BehaviourProbeTest(PlanTest):
+    """`check` asks the kernel, not only `getfacl`.
+
+    The parser reads the entry, its mask and the default block. All three can be
+    correct while the tree is unusable — SELinux, a parent directory's mode, a
+    read-only mount. These tests hold the probes, including the trap: an agent
+    that can run NOTHING also "cannot run sudo", which is not a clean boundary.
+    """
+
+    def _check(self, *, sudo_ok=True, agent_can_read=True, agent_sudo=False):
+        """Run `check` with a `sudo` stub whose verdicts the test chooses."""
+        self._write_stub('sudo', f"""#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$SUDO_RECORD"
+case "$*" in
+  *"--user=agent"*"id -u"*) {'echo 2001' if sudo_ok else 'exit 1'} ;;
+  *"--user=agent"*"test -r"*) {'exit 0' if agent_can_read else 'exit 1'} ;;
+  *"--user=agent"*"test -w"*) exit 0 ;;
+  *"--user=agent"*"sudo -n true"*) {'exit 0' if agent_sudo else 'exit 1'} ;;
+  *"--user=agent"*) exit 1 ;;
+  *"--list"*) exit 1 ;;
+esac
+""")
+        return self._run('check', str(self._worktree()))
+
+    def test_a_correct_acl_that_the_kernel_refuses_is_reported(self):
+        """The whole point: the text says readable, `access(2)` says no."""
+        result = self._check(agent_can_read=False)
+        self.assertIn('cannot read', result.stdout)
+        self.assertIn('the kernel refuses', result.stdout)
+
+    def test_a_readable_tree_passes_on_behaviour(self):
+        result = self._check(agent_can_read=True)
+        self.assertIn('can read', result.stdout)
+        self.assertIn('kernel, not ACL text', result.stdout)
+
+    def test_an_agent_that_can_escalate_is_reported(self):
+        result = self._check(agent_sudo=True)
+        self.assertIn('CAN run sudo', result.stdout)
+
+    def test_no_transition_means_the_negatives_are_not_certified(self):
+        """A wall is not a door: without the transition, "cannot sudo" proves nothing."""
+        result = self._check(sudo_ok=False)
+        self.assertIn('behavioural permissions unverified', result.stdout)
+        self.assertNotIn('cannot run sudo', result.stdout)
+        self.assertNotIn('cannot read', result.stdout)
+
+    def test_the_probes_run_as_the_agent_with_a_built_environment(self):
+        """`access(2)` answers for the identity asking, and only for it."""
+        self._check()
+        argv = self.sudo_record.read_text(encoding='utf-8')
+        self.assertIn('--user=agent', argv)
+        self.assertIn('/usr/bin/env -i', argv)
+        self.assertIn('test -r', argv)
+        self.assertIn('sudo -n true', argv)
+
+
 class RunTest(AgentAccountTest):
     def test_run_hands_the_command_over_and_drops_the_callers_environment(self):
         """The agent gets a built environment; `env -i` is the mechanism."""

@@ -103,6 +103,11 @@ set -g DEV_NAME
 set -g DEV_HOME
 set -g FAILED 0
 set -g SELF_NAME (status filename)
+# Set by the first behavioural probe that shows the transition itself works.
+# Every "the agent could NOT do X" verdict is meaningless without it: an agent
+# that can run nothing at all also cannot run `sudo`, and a check that reported
+# that as a PASS would certify a host where the boundary is a wall, not a door.
+set -g TRANSITION_OK 0
  
 function die
     echo "agent-account: $argv" >&2
@@ -1002,6 +1007,93 @@ function check_acl
     end
 end
  
+# Run a command AS the agent and report its exit status. Prints nothing, so the
+# caller decides the verdict.
+function as_agent
+    sudo --non-interactive --user=$AGENT_USER -- /usr/bin/env -i \
+        HOME=(agent_home) PATH=/usr/local/bin:/usr/bin:/bin $argv 2>/dev/null
+    echo $status
+end
+
+# The permission probes: ask `access(2)`, not `getfacl`.
+#
+# The parser above checks the entry, its mask and the default block. Those can
+# all be right and the tree still unusable — SELinux, a mode on one of the
+# parent directories, a read-only mount. Only the kernel weighs all of it, and
+# the agent is the identity the kernel should answer for.
+#
+# Every negative probe is gated on TRANSITION_OK. An agent that cannot run
+# anything also cannot run `sudo`, and reporting that as "no escalation" would
+# describe a wall as a door.
+function behaviour_probes
+    set -l home $DEV_HOME
+
+    if test $TRANSITION_OK -ne 1
+        note "behavioural permissions unverified: the transition itself does not work yet"
+        return 0
+    end
+
+    # May READ what it is granted. `test -r` is `access(2)`.
+    for path in $home/$SDK_DIR_REL $home/$TOOLCHAIN_RELS
+        test -e $path; or continue
+        set -l rc (as_agent test -r $path)
+        if test "$rc" = 0
+            pass "$AGENT_USER can read $path (kernel, not ACL text)"
+        else
+            fail "$AGENT_USER cannot read $path — the ACL is present but the kernel refuses (SELinux, a parent directory's mode, or a mount option)"
+        end
+    end
+
+    # May WRITE where it is granted.
+    for root in $ROOTS
+        test -d "$root"; or continue
+        set -l rc (as_agent test -w $root)
+        if test "$rc" = 0
+            pass "$AGENT_USER can write $root (kernel, not ACL text)"
+        else
+            fail "$AGENT_USER cannot write $root — the grant is present but the kernel refuses"
+        end
+    end
+
+    # Must NOT read the secrets. An ACL check on `$HOME` says the traverse grant
+    # is `--x`; this says what that means for `~/.ssh`, which is the thing the
+    # cost paragraph in the header is about.
+    for secret in $home/.ssh $home/.gnupg
+        test -e $secret; or continue
+        set -l rc (as_agent test -r $secret)
+        if test "$rc" = 0
+            fail "$AGENT_USER CAN read $secret — the boundary does not hold"
+        else
+            pass "$AGENT_USER cannot read $secret"
+        end
+    end
+
+    # Must NOT escalate. `sudo -n true` as the agent has to fail, and so does
+    # `docker ps` — membership is root-equivalent even without sudo.
+    set -l rc (as_agent sudo -n true)
+    if test "$rc" = 0
+        fail "$AGENT_USER CAN run sudo — it can leave its account"
+    else
+        pass "$AGENT_USER cannot run sudo"
+    end
+    if command -v docker >/dev/null
+        set -l rc (as_agent docker ps)
+        if test "$rc" = 0
+            fail "$AGENT_USER CAN talk to the docker daemon — that is root equivalent"
+        else
+            pass "$AGENT_USER cannot use docker"
+        end
+    end
+    if test -e /dev/kvm
+        set -l rc (as_agent test -w /dev/kvm)
+        if test "$rc" = 0
+            fail "$AGENT_USER CAN write /dev/kvm — the emulator boundary is open"
+        else
+            pass "$AGENT_USER cannot write /dev/kvm"
+        end
+    end
+end
+
 function check
     set -l dev $DEV_NAME
     set -l home $DEV_HOME
@@ -1125,13 +1217,20 @@ function check
         set -l expected (agent_uid)
         if test "$ran_as" = "$expected"
             pass "a command runs as $AGENT_USER (uid $ran_as)"
+            set -g TRANSITION_OK 1
         else
             fail "a command ran as uid $ran_as, not $AGENT_USER"
         end
     else
         fail "cannot run a command as $AGENT_USER — the sudoers rule is missing or wrong"
     end
- 
+
+    # And now ask the KERNEL, not `getfacl`. The parser above reads the entry,
+    # the mask and the default block; `access(2)` also weighs SELinux, the modes
+    # of every parent directory and the mount options — the three things that
+    # make a perfectly correct ACL useless, and none of which a parser sees.
+    behaviour_probes
+
     test $FAILED -eq 0; or return 1
     echo "=== every invariant holds ==="
 end
