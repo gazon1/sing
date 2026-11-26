@@ -925,7 +925,7 @@ private suspend fun AppDatabase.runTwoPhaseWithOffsets(
 private suspend fun AppDatabase.createUserUpdatedIndex() {
     useConnection(isReadOnly = false) { transactor ->
         transactor.usePrepared(
-            "CREATE INDEX IF NOT EXISTS idx_tasks_user_updated_at ON tasks(user_id, updated_at DESC)",
+            "CREATE INDEX IF NOT EXISTS index_tasks_user_updated_at ON tasks(user_id, updated_at DESC)",
         ) { statement ->
             statement.step()
         }
