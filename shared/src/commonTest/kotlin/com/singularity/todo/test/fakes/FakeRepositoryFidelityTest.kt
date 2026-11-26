@@ -3,6 +3,7 @@
 package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.notes.Note
@@ -386,6 +387,45 @@ class FakeRepositoryFidelityTest {
             )
             assertTrue(
                 repo.watchKnowledgeArticlesForTask(TaskId("t1"), 20).first().isEmpty(),
+                "production reads only the notes that hang on the task alone; the fake answered for both",
+            )
+        }
+
+    @Test
+    fun `the fake database reads an article of one owner only`() =
+        runTest {
+            val db = FakeAppDatabase()
+            db.noteDao().upsert(
+                NoteEntity(
+                    id = "both",
+                    userId = alice.value,
+                    title = "Both",
+                    bodyMarkdown = "## Sources\n\n- https://example.com\n",
+                    bodyHtml = "<h2>Sources</h2>",
+                    projectId = "p1",
+                    taskId = "t1",
+                    parentNoteId = null,
+                    createdAt = 0,
+                    updatedAt = 0,
+                    deletedAt = null,
+                    archivedAt = null,
+                ),
+            )
+
+            assertTrue(
+                db
+                    .noteDao()
+                    .watchKnowledgeArticlesForProjectForUser("p1", alice.value, 20)
+                    .first()
+                    .isEmpty(),
+                "production reads only the notes that hang on the project alone; the fake answered for both",
+            )
+            assertTrue(
+                db
+                    .noteDao()
+                    .watchKnowledgeArticlesForTaskForUser("t1", alice.value, 20)
+                    .first()
+                    .isEmpty(),
                 "production reads only the notes that hang on the task alone; the fake answered for both",
             )
         }

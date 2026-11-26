@@ -1421,7 +1421,8 @@ private class FakeNoteDao(
      *
      * The fake's stand-in for the statement the real query runs: the same filters,
      * the same order and the same marker — the classification happens before the
-     * page is cut, exactly as it does in SQL.
+     * page is cut, exactly as it does in SQL. The owner is exactly one too: a note
+     * attached to a project *and* to a task is in neither library.
      */
     override fun watchKnowledgeArticlesForProjectForUser(
         projectId: String,
@@ -1432,14 +1433,14 @@ private class FakeNoteDao(
             map.values
                 .filter { n ->
                     n.userId == userId && n.deletedAt == null && n.archivedAt == null &&
-                        n.projectId == projectId &&
+                        n.projectId == projectId && n.taskId == null &&
                         n.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !n.isFolder &&
                         KnowledgeArticle.carriesSources(n.bodyHtml, n.bodyMarkdown)
                 }.sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })
                 .take(limit)
         }
 
-    /** The Knowledge articles attached directly to a task. */
+    /** The Knowledge articles attached directly to a task — one owner, as above. */
     override fun watchKnowledgeArticlesForTaskForUser(
         taskId: String,
         userId: String,
@@ -1449,7 +1450,7 @@ private class FakeNoteDao(
             map.values
                 .filter { n ->
                     n.taskId == taskId && n.userId == userId && n.deletedAt == null &&
-                        n.archivedAt == null &&
+                        n.archivedAt == null && n.projectId == null &&
                         n.kind == com.singularity.todo.feature.notes.NoteKind.Plain && !n.isFolder &&
                         KnowledgeArticle.carriesSources(n.bodyHtml, n.bodyMarkdown)
                 }.sortedWith(compareByDescending<NoteEntity> { it.createdAt }.thenBy { it.id })
