@@ -256,6 +256,7 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | NoteEditor: save is a checkpoint | `NoteEditorTest.after an explicit save, closing the editor keeps the saved text` |
  * | NoteEditor: new note is created once | `NoteEditorTest.an explicit save creates a new note exactly once` |
  * | NoteEditor: the save's own dirty flag | `NoteEditorTest.a save does not clear the dirty flag of text typed while it was writing` |
+ * | NoteEditor: the save's own isNew flag | `NoteEditorTest.a save during which the user types does not leave the note new` |
  *
  * ## What this table is not
  *

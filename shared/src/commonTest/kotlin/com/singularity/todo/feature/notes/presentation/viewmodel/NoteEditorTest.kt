@@ -718,6 +718,74 @@ class NoteEditorTest {
 
             assertEquals(1, notesRepo.createCalls, "the note is created once, not twice")
         }
+
+/**
+     * A save that lands while the user is still typing must still mark the note as
+     * *existing* — `isNew` is what `writeNote` keys the create/update branch on, so
+     * leaving it set makes the next save CREATE the note a second time.
+     *
+     * This is the trap in `onSaved`'s condition: the two flags answer different
+     * questions. `isDirty` depends on whether the live text is the text that was
+     * written; `isNew` depends only on whether the write happened, and it did.
+     */
+    @Test
+    fun `a save during which the user types does not leave the note new`() =
+        runTest {
+            val writeStarted = CompletableDeferred<Unit>()
+            val releaseWrite = CompletableDeferred<Unit>()
+            val notesRepo =
+                object : CountingNotesRepository() {
+                    var holds = false
+
+                    override suspend fun createWithContent(
+                        id: NoteId,
+                        title: String,
+                        bodyMarkdown: String,
+                        bodyHtml: String,
+                    ): Result<NoteId> {
+                        if (holds) {
+                            writeStarted.complete(Unit)
+                            releaseWrite.await()
+                        }
+                        return super.createWithContent(id, title, bodyMarkdown, bodyHtml)
+                    }
+                }
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+            vm.createNote()
+            vm.onIntent(NotesEditorIntent.EditBody("<p>first</p>"))
+            runCurrent()
+
+            notesRepo.holds = true
+            vm.onIntent(NotesEditorIntent.SaveNow)
+            runCurrent()
+            writeStarted.await()
+
+            // The user keeps typing while the create is in flight.
+            vm.onIntent(NotesEditorIntent.EditBody("<p>second</p>"))
+            releaseWrite.complete(Unit)
+            advanceTimeBy(100)
+            runCurrent()
+
+            val saved = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(saved)
+            assertFalse(
+                saved.isNew,
+                "the note now exists: leaving it new makes the next save create it again",
+            )
+            assertEquals(1, notesRepo.createCalls)
+
+            notesRepo.holds = false
+            vm.onIntent(NotesEditorIntent.SaveNow)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(
+                1,
+                notesRepo.createCalls,
+                "the second save updates the note — it must not create it a second time",
+            )
+        }
 }
 
 /**
@@ -727,7 +795,7 @@ class NoteEditorTest {
  * written twice under the same id" — the store itself would not show the
  * difference, because the second write would land on the same row.
  */
-private class CountingNotesRepository : FakeNotesRepository() {
+private open class CountingNotesRepository : FakeNotesRepository() {
     var createCalls = 0
 
     override suspend fun createWithContent(

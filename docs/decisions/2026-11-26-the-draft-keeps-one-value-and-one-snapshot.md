@@ -134,8 +134,15 @@ editors get it.
   `DraftState`. They re-seed from a repository rewrite and carry `Revisioned`
   values; `DraftState` has no repository and no revisions. Merging them would
   add two responsibilities to a class that has one.
-- The autosave-triggered write that lands after a successful save or discard is
-  still not cancelled. It is pinned as current behaviour in the matrix
+- **The pending autosave is still not cancelled by a save or a discard.** This is
+  a real defect, and this change does not close it: the write that is already
+  scheduled lands after `TaskCreateViewModel` cleared its draft store, so a
+  restored draft can be submitted again and create a second task.
+  `TaskCreateDraftBehaviorTest.a pending autosave rewrites the draft after the
+  save` pins it deliberately, #3229 recorded it, and the parent issue #3225 owns
+  the fix. It is out of scope for #3230–#3232 by their own guardrails ("do not
+  change editor behaviour"), and fixing it here would be a product change hidden
+  inside an audit. It is pinned as current behaviour in the matrix
   (`a pending autosave rewrites the draft after the save`) and remains the
   open question for #3225, not a simplification.
 

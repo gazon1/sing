@@ -244,15 +244,23 @@ internal class NoteEditor(
         // back press right after an explicit Save still asked "Discard changes?"
         // about text that was already on disk.
         //
-        // **Only when the live draft is still the one that was written.** The editor
-        // stays editable while `persist()` suspends, so the user may have typed since —
-        // and `NoteEditorScreen.guardedBack` reads *this* field, not
-        // `DraftUiState.isDirty`. Clearing it unconditionally marked that later text
-        // saved: Back navigated away without asking, and the keystrokes were lost.
+        // The two flags answer different questions, and only one of them depends on
+        // content:
+        //
+        // - **`isNew` means the note does not exist yet.** The write just created it, so
+        //   this is false unconditionally. Guarding it on equality would leave a keystroke
+        //   during the save looking like an unsaved new note, and the next save would
+        //   CREATE the note a second time — `writeNote` keys on exactly this flag.
+        // - **`isDirty` means the text on screen differs from what is stored.** Only true
+        //   when the live draft is still the one that was written: the editor stays
+        //   editable while `persist()` suspends, and `NoteEditorScreen.guardedBack` reads
+        //   *this* field, so clearing it for later text navigates away without asking.
+        //
         // The returned value is computed from [saved] for the same reason — the base
         // checkpoints it, and the live draft is not what the save wrote.
         val adjusted = saved.copy(isDirty = false, isNew = false)
-        if (draft == saved) updateDraft { it.copy(isDirty = false, isNew = false) }
+        val unchangedSinceWrite = draft == saved
+        updateDraft { it.copy(isDirty = if (unchangedSinceWrite) false else it.isDirty, isNew = false) }
         emit(NotesUiEvent.SavedPulse)
         return adjusted
     }
@@ -281,10 +289,13 @@ internal class NoteEditor(
         // baseline) and the isNew flag — the note now exists in the repo, so a
         // subsequent save is an update, not a create.
         //
-        // Only when the live draft is still the one that was written, for the same reason
-        // as [onSaved]: the write suspends, `guardedBack` reads this flag, and clearing it
-        // for text a later keystroke produced navigates away without asking.
-        if (draft == current) updateDraft { it.copy(isDirty = false, isNew = false) }
+        // `isNew` is false unconditionally, for the reason [onSaved] documents: the note
+        // exists now, and a keystroke during the write must not make the next save create
+        // it again. `isDirty` only when the live draft is still the one that was written.
+        val unchangedSinceWrite = draft == current
+        updateDraft {
+            it.copy(isDirty = if (unchangedSinceWrite) false else it.isDirty, isNew = false)
+        }
     }
 
     override fun onIntent(intent: NotesEditorIntent) {
