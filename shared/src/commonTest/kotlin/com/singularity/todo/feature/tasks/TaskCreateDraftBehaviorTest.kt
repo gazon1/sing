@@ -9,6 +9,8 @@ import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.domain.state.TaskDraft
@@ -85,6 +87,7 @@ class TaskCreateDraftBehaviorTest {
     private fun TestScope.createVm(
         initialProjectId: ProjectId? = null,
         draftStore: DraftStore = fakeDraftStore,
+        taskRepository: TaskRepository = fakeTaskRepo,
     ): TaskCreateViewModel =
         harnessTestVm(
             stateAccessor = { vm: TaskCreateViewModel -> vm.state },
@@ -95,14 +98,14 @@ class TaskCreateDraftBehaviorTest {
                     TaskCreateDeps(
                         createFromDraft =
                             CreateTaskFromDraftUseCase(
-                                fakeTaskRepo,
+                                taskRepository,
                                 FakeClock(taskNow),
                                 TEST_TZ,
                                 fakeCurrentUser,
                                 fakeChecklistRepository,
                                 fakeAttachmentRepository,
                                 FakeUnitOfWork(),
-                                MaterializeRecurringSeriesUseCase(fakeTaskRepo, FakeUnitOfWork(), FakeClock(taskNow)),
+                                MaterializeRecurringSeriesUseCase(taskRepository, FakeUnitOfWork(), FakeClock(taskNow)),
                             ),
                         logger = Logger.withTag("TaskCreateDraftBehaviorTest"),
                         draftStore = draftStore,
@@ -141,6 +144,48 @@ class TaskCreateDraftBehaviorTest {
                 1,
                 events.filterIsInstance<TaskCreateUiEvent.Saved>().size,
                 "the screen is told that the task exists",
+            )
+            job.cancel()
+        }
+
+    /**
+     * The other half of the row above: a save that fails must not tell the
+     * screen that the task exists.
+     *
+     * The base class calls `onSaved()` only when the persistence succeeded, and
+     * the create editor's `onSaved()` is what emits `TaskCreateUiEvent.Saved` —
+     * the event the screen navigates on. A failure that still emitted it would
+     * close the editor over a task that was never created, so the editor has to
+     * stay open, keep the text and show the error instead.
+     */
+    @Test
+    fun `a failed save emits no Saved event`() =
+        runTest {
+            val vm = createVm(taskRepository = FailingTaskRepository())
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val events = mutableListOf<TaskCreateUiEvent>()
+            val job = launch { vm.events.collect { events += it } }
+            runCurrent()
+
+            vm.onIntent(TaskCreateIntent.TitleChanged("Never created"))
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(
+                0,
+                events.filterIsInstance<TaskCreateUiEvent.Saved>().size,
+                "the screen is not told that a task exists when the save failed: $events",
+            )
+            assertNotNull(vm.state.value.error, "the failure reaches the screen")
+            assertTrue(vm.state.value.isDirty, "a failed save is not a checkpoint")
+            assertEquals(
+                "Never created",
+                vm.state.value.draft.title.text,
+                "the text the person typed is still theirs",
             )
             job.cancel()
         }
@@ -402,6 +447,12 @@ class TaskCreateDraftBehaviorTest {
      * The autosave is a safety net. A store that refuses the write must not take
      * the editor with it: the text stays, and the task can still be created from
      * the editor's own copy.
+     *
+     * The failure is also *silent*: the create editor logs it and nothing else,
+     * while the note editor surfaces it to the user as a `SaveFailed` event. That
+     * divergence between the two editors is the parent's to decide (#3225), so
+     * this row pins the half that is the editor's own promise — the editor stays
+     * usable — and states the silence instead of leaving it implicit.
      */
     @Test
     fun `a failed autosave leaves the editor usable`() =
@@ -411,6 +462,10 @@ class TaskCreateDraftBehaviorTest {
             advanceTimeBy(1_000)
             runCurrent()
 
+            val events = mutableListOf<TaskCreateUiEvent>()
+            val job = launch { vm.events.collect { events += it } }
+            runCurrent()
+
             vm.onIntent(TaskCreateIntent.TitleChanged("Survives"))
             advanceTimeBy(1_000)
             runCurrent()
@@ -418,11 +473,25 @@ class TaskCreateDraftBehaviorTest {
             assertTrue(store.saveAttempts > 0, "the autosave really reached the broken store")
             assertEquals("Survives", vm.state.value.draft.title.text, "the text is the editor's, not the store's")
             assertTrue(vm.state.value.isDirty, "a failed autosave is not a checkpoint")
+            assertTrue(
+                events.isEmpty(),
+                "a failed autosave is logged, not reported to the user: $events",
+            )
 
             vm.onIntent(TaskCreateIntent.SaveClicked)
             advanceTimeBy(1_000)
             runCurrent()
 
             assertEquals(1, fakeTaskRepo.tasks.value.size, "the task is created from the editor's copy")
+            job.cancel()
         }
+}
+
+/**
+ * A repository whose writes fail, so the save takes the persistence-failure
+ * branch of the base class instead of the success one.
+ */
+private class FailingTaskRepository : FakeTaskRepository() {
+    override suspend fun createSeries(tasks: List<Task>): Result<List<Task>> =
+        Result.failure(IllegalStateException("storage is full"))
 }

@@ -227,6 +227,7 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | Row                          | Test                                                       |
  * |------------------------------|------------------------------------------------------------|
  * | TaskCreate: save → navigate  | `TaskCreateDraftBehaviorTest.a successful save emits the Saved event` |
+ * | TaskCreate: failed save → no navigate | `TaskCreateDraftBehaviorTest.a failed save emits no Saved event` |
  * | TaskCreate: save clears the draft | `TaskCreateDraftBehaviorTest.a successful save clears the persisted draft` |
  * | TaskCreate: discard clears the draft | `TaskCreateDraftBehaviorTest.discard clears the persisted draft` |
  * | TaskCreate: pending autosave after the save | `TaskCreateDraftBehaviorTest.a pending autosave rewrites the draft after the save` |
@@ -235,7 +236,8 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | TaskCreate: restore into scope | `TaskCreateDraftBehaviorTest.a draft is restored into the scope it was saved in` |
  * | TaskCreate: tag-scoped restore | `TaskCreateTagScopeTest.a draft is restored only into the tag scope it was saved in` |
  * | TaskCreate: restore into tag scope | `TaskCreateTagScopeTest.a draft is restored into the tag scope it was saved in` |
- * | TaskCreate: failed autosave  | `TaskCreateDraftBehaviorTest.a failed autosave leaves the editor usable` |
+ * | TaskCreate: failed autosave keeps the editor usable | `TaskCreateDraftBehaviorTest.a failed autosave leaves the editor usable` |
+ * | TaskCreate: failed autosave is silent | `TaskCreateDraftBehaviorTest.a failed autosave leaves the editor usable` |
  * | NoteEditor: autosave failure | `NoteEditorTest.a failed autosave tells the user`          |
  * | NoteEditor: save is a checkpoint | `NoteEditorTest.after an explicit save, closing the editor keeps the saved text` |
  * | NoteEditor: new note is created once | `NoteEditorTest.an explicit save creates a new note exactly once` |
