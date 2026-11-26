@@ -146,10 +146,19 @@ internal object BehaviorMatrixGate {
      * The test column is the last one: the rows are written `| guarantee |
      * `test` |`. The cell is read by splitting on the column separator, so a
      * backticked label in the first column cannot answer for the second.
+     *
+     * The last cell is read *as it is*, empty or not. Skipping a blank cell to
+     * find the next non-blank one would walk back into the label column: a row
+     * whose test name was deleted — `| `a test` | |` — would be read as a row
+     * naming `a test`, which is exactly the dead row this check exists to
+     * report. The outer pipe of the row leaves one empty cell at each end;
+     * both are dropped, and whatever remains last is the Test column.
      */
     private fun testCell(line: String): String? {
-        val cells = line.split('|')
-        val last = cells.lastOrNull { it.isNotBlank() } ?: return null
+        // The outer pipes frame the row rather than adding a cell, so they come
+        // off before the split, and the cells between them are the columns.
+        val body = line.trim().removePrefix("|").removeSuffix("|")
+        val last = body.split('|').last()
         return backticked.find(last)?.groupValues?.get(1)
     }
 

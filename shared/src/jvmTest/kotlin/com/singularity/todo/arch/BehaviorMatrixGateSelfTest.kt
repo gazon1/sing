@@ -182,6 +182,26 @@ class BehaviorMatrixGateSelfTest {
     }
 
     @Test
+    fun `a backticked label with an empty test column is malformed`() {
+        // The test name was deleted, and the label happens to be backticked.
+        // Reading the last *non-blank* cell would walk back into the label and
+        // find a test there — the exact dead row this check exists to report.
+        val matrix =
+            "| Row | Test |\n" +
+                "|--|--|\n" +
+                "| `a test` | |\n"
+
+        val parsed = BehaviorMatrixGate.parse(matrix)
+
+        assertEquals(
+            1,
+            parsed.malformed.size,
+            "a backticked label is not a test name: ${parsed.malformed}",
+        )
+        assertTrue(parsed.rows.isEmpty(), "the row names no test: ${parsed.rows}")
+    }
+
+    @Test
     fun `a pipe-less row whose test cell was emptied is malformed`() {
         // Both outer pipes and the test name gone: the line is still inside the
         // table, so it is a row, and a row without a test is the defect the
