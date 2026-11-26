@@ -187,6 +187,7 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | entity switch, in flight     | `an autosave in flight when the entity switches is superseded by the write of the new entity` |
  * | duplicate save               | `save blocked when already saving`                         |
  * | keyed effect                 | `DraftMviEffectTest.launchDraftEffect cancels prior with same key` |
+ * | keyed effects, other keys    | `DraftMviEffectTest.launchDraftEffect with different keys run concurrently` |
  *
  * The subclass rows of the same matrix:
  *
@@ -976,11 +977,21 @@ class DraftMviEffectTest {
             assertTrue(secondFinished, "the newest operation runs")
         }
 
+    /**
+     * Effects with different keys are not serialized against each other.
+     *
+     * The proof is the overlap, not the completion: the first operation is held
+     * open, and the second one has to finish while the first is still running.
+     * A test that only waits for both to end would also pass if the editor
+     * ran every effect one after the other.
+     */
     @Test
     fun `launchDraftEffect with different keys run concurrently`() =
         testVm {
-            var op1Done = false
-            var op2Done = false
+            val firstStarted = CompletableDeferred<Unit>()
+            val releaseFirst = CompletableDeferred<Unit>()
+            var firstFinished = false
+            var secondFinished = false
             val vm =
                 testVm(
                     initialDraft = TestDraft(title = "Hello"),
@@ -991,17 +1002,19 @@ class DraftMviEffectTest {
             vm.launchDraftEffect(
                 key = "op1",
                 operation = {
-                    advanceTimeBy(20L)
-                    runCurrent()
-                    op1Done = true
+                    firstStarted.complete(Unit)
+                    releaseFirst.await()
+                    firstFinished = true
                     "r1"
                 },
                 onResult = { _, _ -> null },
             )
+            firstStarted.await()
+
             vm.launchDraftEffect(
                 key = "op2",
                 operation = {
-                    op2Done = true
+                    secondFinished = true
                     "r2"
                 },
                 onResult = { _, _ -> null },
@@ -1009,8 +1022,14 @@ class DraftMviEffectTest {
             advanceTimeBy(50L)
             runCurrent()
 
-            assertTrue(op1Done)
-            assertTrue(op2Done)
+            assertTrue(secondFinished, "the operation with another key runs while the first one is still running")
+            assertFalse(firstFinished, "the first operation is still held open")
+
+            releaseFirst.complete(Unit)
+            advanceTimeBy(50L)
+            runCurrent()
+
+            assertTrue(firstFinished, "the held operation finishes once it is released")
         }
 }
 
