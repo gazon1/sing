@@ -2,10 +2,15 @@ package com.singularity.todo.feature.nav
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import androidx.savedstate.SavedState
 import androidx.savedstate.serialization.SavedStateConfiguration
+import androidx.savedstate.serialization.decodeFromSavedState
+import androidx.savedstate.serialization.encodeToSavedState
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.PolymorphicSerializer
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclassesOfSealed
@@ -48,6 +53,40 @@ internal fun navSavedStateConfig(): SavedStateConfiguration =
                 }
             }
     }
+
+/**
+ * A saver for a single navigation key.
+ *
+ * The back stacks are saved through [navSavedStateConfig]; the *selected top-level
+ * route* is not a back stack — it is one key the shell holds in a `MutableState`.
+ * A plain `remember` does not survive a configuration change, and a rotation is
+ * one: the Activity is recreated, the tab falls back to the start route, and the
+ * stack that was open is never composed again. The app looks reset rather than
+ * broken, which is exactly what `Maestro/flows/lifecycle/03-rotate-in-editor.yaml`
+ * caught.
+ *
+ * The key is written with the same polymorphic registration the back stacks use,
+ * so a route the stacks can restore, this can restore too.
+ *
+ * @param allowedRoutes the routes that may be restored. A key outside this set —
+ *   a route an older build saved that no longer exists as a top-level route —
+ *   restores as `null`, and the caller keeps its own default. Without the check a
+ *   stale key would leave the shell pointing at a route it has no stack for.
+ */
+internal fun navKeySaver(allowedRoutes: Set<NavKey>): Saver<NavKey, SavedState> {
+    val configuration = navSavedStateConfig()
+    val serializer = PolymorphicSerializer(NavKey::class)
+    return Saver(
+        save = { route -> encodeToSavedState(serializer, route, configuration) },
+        // A payload this build cannot decode must not take the app down with it:
+        // the route falls back to the caller's default instead.
+        restore = { saved ->
+            runCatching { decodeFromSavedState(serializer, saved as SavedState, configuration) }
+                .getOrNull()
+                ?.takeIf { it in allowedRoutes }
+        },
+    )
+}
 
 /**
  * Creates an in-memory [NavBackStack] for use on JVM Desktop, where process-death

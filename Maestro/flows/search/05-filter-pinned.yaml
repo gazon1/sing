@@ -56,6 +56,12 @@ tags:
     timeout: 8000
 - tapOn:
     id: task_editor_pin_row
+# The pin must have taken before the search asks about it: the row says
+# "Pinned" once it has, and "Not pinned" while it has not.
+- extendedWaitUntil:
+    notVisible:
+      text: "Not pinned"
+    timeout: 5000
 - back
 
 # Open quick search.
