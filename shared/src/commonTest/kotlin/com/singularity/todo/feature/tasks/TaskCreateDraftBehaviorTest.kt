@@ -36,6 +36,8 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 import com.singularity.todo.test.helpers.testVm as harnessTestVm
@@ -141,6 +143,76 @@ class TaskCreateDraftBehaviorTest {
                 "the screen is told that the task exists",
             )
             job.cancel()
+        }
+
+    /**
+     * A saved task is not a draft anymore: the persisted copy has to go, or the
+     * next editor opens the text of a task that already exists.
+     *
+     * The key is the scope's own key — the same one the editor writes under —
+     * so a store that clears a different key would not satisfy this row.
+     */
+    @Test
+    fun `a successful save clears the persisted draft`() =
+        runTest {
+            val projectId = ProjectId("project-1")
+            val vm = createVm(initialProjectId = projectId)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val scopedKey = taskDraftStorageKey(null, projectId, emptySet())
+            vm.onIntent(TaskCreateIntent.TitleChanged("Persisted"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertNotNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the autosave wrote the draft under the scope's key",
+            )
+
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the saved draft is cleared from the store, so the next editor starts empty",
+            )
+        }
+
+    /**
+     * The create editor's discard clears the persisted drafts: the text of a
+     * task the person threw away must not come back in the next editor.
+     *
+     * The branch does not roll the in-memory draft back to the last checkpoint —
+     * the base class's `discard()` is not called from it. That divergence is
+     * the parent's to decide (#3225), so this row pins only the half that is
+     * the editor's own promise.
+     */
+    @Test
+    fun `discard clears the persisted draft`() =
+        runTest {
+            val projectId = ProjectId("project-1")
+            val vm = createVm(initialProjectId = projectId)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val scopedKey = taskDraftStorageKey(null, projectId, emptySet())
+            vm.onIntent(TaskCreateIntent.TitleChanged("Thrown away"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertNotNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the autosave wrote the draft under the scope's key",
+            )
+
+            vm.onIntent(TaskCreateIntent.Discard)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the discarded draft is gone from the store",
+            )
         }
 
     /**

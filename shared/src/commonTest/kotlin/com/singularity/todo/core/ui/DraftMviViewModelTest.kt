@@ -194,6 +194,8 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | Row                          | Test                                                       |
  * |------------------------------|------------------------------------------------------------|
  * | TaskCreate: save → navigate  | `TaskCreateDraftBehaviorTest.a successful save emits the Saved event` |
+ * | TaskCreate: save clears the draft | `TaskCreateDraftBehaviorTest.a successful save clears the persisted draft` |
+ * | TaskCreate: discard clears the draft | `TaskCreateDraftBehaviorTest.discard clears the persisted draft` |
  * | TaskCreate: scoped restore   | `TaskCreateDraftBehaviorTest.a draft is restored only into the scope it was saved in` |
  * | TaskCreate: restore into scope | `TaskCreateDraftBehaviorTest.a draft is restored into the scope it was saved in` |
  * | TaskCreate: tag-scoped restore | `TaskCreateTagScopeTest.a draft is restored only into the tag scope it was saved in` |
