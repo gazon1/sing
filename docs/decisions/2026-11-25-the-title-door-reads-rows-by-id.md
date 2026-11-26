@@ -130,10 +130,21 @@ offered rows are exactly the rows the order was decided over.
 The order carries a tiebreaker on purpose: `t.rowid DESC`. Two tasks updated
 at the same moment have no order between them, and the order SQLite's sorter
 happened to give them was the order of the bytes of the rows — not a rule
-anybody could rely on. The tiebreaker makes it a rule: among the tasks
-updated at the same moment, the most recently inserted one comes first. It
-also makes the two-phase form provably equal to the single statement with the
-same `ORDER BY`, which is what the regression test asserts.
+anybody could rely on. The tiebreaker makes it a rule: among the tasks updated
+at the same moment, the one with the greater `rowid` comes first. It also
+makes the two-phase form provably equal to the single statement with the same
+`ORDER BY`, which is what the regression test asserts.
+
+That rule is local to the database as it is, and it is worth saying what it is
+not. `rowid` is SQLite's own row number. The primary key of `tasks` is a text
+column, so the table has no `INTEGER PRIMARY KEY` alias, and SQLite does not
+promise that the `rowid` of such a table is the insertion order for good: the
+documentation of `VACUUM` says the row numbers of a table without an integer
+primary key may change when the database is rebuilt. The door therefore
+promises a deterministic order for the rows of one database — the same answer
+every time the door is asked — and not a creation date. Making the order
+durable would need a stored insertion counter and a schema change, and nothing
+in the issue asks the door for a creation date.
 
 The match positions are **not** carried through this door. `offsets(tasks_fts)`
 gives the position of the word inside the title; the readers of this door offer
@@ -197,7 +208,8 @@ tiebreaker is nearly free (109.0 ms against 81.4 ms at 100k), because the
 first key already distinguishes the rows. The price buys a rule where there was
 an accident, and on a restored database — where the old door answered with
 twenty arbitrary rows out of a hundred thousand — it buys an answer that means
-something: the twenty most recently inserted.
+something: the twenty rows with the greatest `rowid`, which in a restored
+database are the twenty the restore inserted last.
 
 The change is a rewrite of one statement, not a new abstraction, because the
 shape of the cost was local: one statement, one door, one sorter.
