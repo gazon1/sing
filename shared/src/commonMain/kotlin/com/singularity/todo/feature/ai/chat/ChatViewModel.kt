@@ -319,21 +319,26 @@ class ChatViewModel(
      *
      * A compare-and-set rather than a read followed by a write: two sends that arrive in the
      * same frame both read `isLoading == false`, and the one that writes second would start a
-     * second turn over the first one's messages.
+     * second turn over the first one's messages. [updateState] retries the transform until the
+     * compare-and-set succeeds, so `claimed` reflects the successful attempt.
      */
     private fun claimTurn(): Boolean {
-        while (true) {
-            val current = _state.value
-            if (current.isLoading) return false
-            val next =
+        var claimed = false
+        updateState { current ->
+            if (current.isLoading) {
+                claimed = false
+                current
+            } else {
+                claimed = true
                 current.copy(
                     isLoading = true,
                     surfaceError = null,
                     activity = AgentActivityState(),
                     turnOutcome = null,
                 )
-            if (_state.compareAndSet(current, next)) return true
+            }
         }
+        return claimed
     }
 
     /**
