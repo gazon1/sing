@@ -393,6 +393,10 @@ class TaskCreateViewModel(...) :
   `docs/decisions/2026-11-26-the-draft-keeps-one-value-and-one-snapshot.md`.
 - **What you may override** — `validate`, `persist`, `onSaved`, `onAutosaved`,
   `onAutosaveError`, `clearAutosave`. The mutation path is final.
+- **`onSaved(saved: D): D?` reports its adjustment instead of applying it.**
+  Return the draft the save should be compared against, computed from `saved`
+  (or `null` to keep the persisted one). Reading the live draft there is a bug:
+  the editor is still editable while the hook suspends.
 
 ---
 

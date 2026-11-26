@@ -77,13 +77,22 @@ persisted value. It never reads the live draft for that.
 **`DraftState.revisions` was removed.** It existed for that inference and went
 with it: one state value and one checkpoint, no second counter to keep honest.
 
-**A subclass that owns a dirty flag clears it only when the live draft is still
-the one that was written.** `NoteEditor` keeps `Editing.isDirty`, and the
-screen's back guard reads *that* field, not `DraftUiState.isDirty`. Clearing it
-unconditionally marked text typed during the write as saved, and Back then
-navigated away without asking — the base class's correct checkpoint cannot save
-the subclass from that, because the flag lives in the draft. `onSaved` and
-`onAutosaved` both guard on `draft == saved`.
+**A subclass's `isDirty` is cleared only when the live draft is still the one
+that was written; its `isNew` is not.** The two flags answer different
+questions, and conflating them costs a note or a task:
+
+- `isDirty` is about *content* — the text on screen versus the text stored.
+  `NoteEditor` keeps `Editing.isDirty` and the screen's back guard reads *that*
+  field, not `DraftUiState.isDirty`, so clearing it for text a later keystroke
+  produced navigated away without asking. Guarded on `draft == saved`.
+- `isNew` is about *existence* — whether the entity has been written at all.
+  `writeNote` branches on it to choose CREATE or UPDATE, so leaving it set after
+  a successful create makes the next save create the entity **twice**. Cleared
+  unconditionally: the write happened.
+
+`onSaved` and `onAutosaved` both apply exactly this split. The base class cannot
+enforce it — the flags live in the draft, and what the base protects is its own
+checkpoint.
 
 **Fatal `Error`s escape `save()`; ordinary failures become the error banner.**
 Rejected drafts (validation), refusals (`Either.Left`) and thrown `Exception`s

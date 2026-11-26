@@ -57,6 +57,13 @@ non-`open` in `2026-09-30-draft-save-failure-and-testtag-honesty.md`, applied to
 the writers instead of the saver. Nothing lost access: the subclasses only ever
 *called* these.
 
+**Why the signature change is not a compatibility break.** `:shared` applies no
+`maven-publish` plugin — only `:androidApp` and `:desktopApp` do, and they are
+applications. So `DraftMviViewModel` is not a published binary surface: its
+subclasses are the two in this repository, both updated here. If `:shared` is
+ever published, this change is the kind that needs a deprecation bridge, and
+`onSaved(saved)` entered at that point would be the baseline to keep.
+
 **Why `onSaved` changed signature.** It used to take nothing and adjust the draft as a
 side effect, and the base read the live draft afterwards to build the checkpoint. That
 reading is unsound: the hook suspends, and a keystroke during that window is unsaved text
