@@ -214,6 +214,7 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | save moves the checkpoint    | `a successful save moves the checkpoint`                   |
  * | save → subclass callback     | `a subclass that edits the draft in onSaved leaves it clean` |
  * | failed save                  | `save surfaces persist failure as error`                   |
+ * | failed save, thrown          | `save surfaces a thrown persist exception as an error`       |
  * | save clears the autosave     | `a successful save clears the autosave store and a failed one does not` |
  * | discard → last checkpoint    | `discard resets to baseline`                               |
  * | entity switch                | `switching entities autosaves the new draft, not the old one` |
@@ -688,6 +689,7 @@ class DraftMviViewModelTest {
             advanceTimeBy(20L)
             runCurrent()
 
+            vm.updateDraft { it.copy(title = "typed") }
             vm.save()
             advanceTimeBy(50L)
             runCurrent()
@@ -699,6 +701,16 @@ class DraftMviViewModelTest {
                 "a thrown persist() must surface an error instead of vanishing",
             )
             assertFalse(vm.stateFlow.value.isSaving, "the save button must be re-enabled")
+            // And the draft is still the user's: a save that threw is not a
+            // checkpoint, so the text and the dirty flag survive it. Without
+            // those two the test says the user was *told*, not that they lost
+            // nothing — and losing the text is the part that matters.
+            assertEquals(
+                "typed",
+                vm.stateFlow.value.draft.title,
+                "a throw is not a checkpoint: the text the user typed is still theirs",
+            )
+            assertTrue(vm.stateFlow.value.isDirty, "the draft a throw left behind is still unsaved")
         }
 
     @Test

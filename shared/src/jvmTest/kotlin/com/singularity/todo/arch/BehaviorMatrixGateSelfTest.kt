@@ -135,6 +135,36 @@ class BehaviorMatrixGateSelfTest {
     }
 
     @Test
+    fun `a backticked row label is not the named test`() {
+        // The backtick is in the label column: the Test column is empty, so the
+        // row names no test — even though the line holds a backticked span that
+        // happens to read like the name of a real test.
+        val matrix = matrix("| `a test` | no test |")
+
+        val parsed = BehaviorMatrixGate.parse(matrix)
+
+        assertEquals(
+            1,
+            parsed.malformed.size,
+            "the test is the last column, not the first backticked span: $matrix",
+        )
+        assertTrue(parsed.rows.isEmpty(), "a row with an empty test column is not a row: ${parsed.rows}")
+    }
+
+    @Test
+    fun `the test column is read even when the label holds a backticked name`() {
+        val matrix = matrix("| `label` | `Owner.a test` |")
+
+        val parsed = BehaviorMatrixGate.parse(matrix)
+
+        assertEquals(
+            listOf("a test"),
+            parsed.rows.map { it.testName },
+            "the test is read from its own column, not from the label: $matrix",
+        )
+    }
+
+    @Test
     fun `a class that extends another class is found`() {
         val matrix = matrix("| a | `Owner.a test` |")
         val owner =

@@ -302,8 +302,13 @@ class TaskCreateDraftBehaviorTest {
 
             advanceTimeBy(1_000)
             runCurrent()
-            assertNotNull(
-                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+            // Not merely "something came back": the row is about the text the
+            // pending write carries. A store that received the stale "Stored"
+            // snapshot instead of the user's latest edit would satisfy a
+            // not-null assertion and still lose the edit.
+            assertEquals(
+                "Pending",
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer())?.title?.text,
                 "the pending autosave wrote the draft again, after the save cleared it",
             )
         }
@@ -345,8 +350,9 @@ class TaskCreateDraftBehaviorTest {
 
             advanceTimeBy(1_000)
             runCurrent()
-            assertNotNull(
-                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+            assertEquals(
+                "Pending",
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer())?.title?.text,
                 "the pending autosave wrote the draft again, after the discard cleared it",
             )
         }
@@ -484,7 +490,14 @@ class TaskCreateDraftBehaviorTest {
             advanceTimeBy(1_000)
             runCurrent()
 
-            assertEquals(1, fakeTaskRepo.tasks.value.size, "the task is created from the editor's copy")
+            val created =
+                fakeTaskRepo.tasks.value.values
+                    .single()
+            assertEquals(
+                "Survives",
+                created.title,
+                "the task is created from the editor's copy, not from the store's",
+            )
             job.cancel()
         }
 }

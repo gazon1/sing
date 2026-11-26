@@ -39,6 +39,23 @@ package com.singularity.todo.arch
  * which of the two classes the row means, because a wrong guess turns a
  * missing test into a green gate.
  *
+ * ## The one way this is still too permissive
+ *
+ * That check fires when two classes claim the name *now*. It cannot notice the
+ * owner a row was written for disappearing while an unrelated class of the
+ * same name — declaring a test of the same name — takes its place: the name is
+ * then claimed by exactly one class, so the row resolves to it and the row
+ * outlives the death of the class it was written for.
+ *
+ * Closing that needs a package-qualified identity in the row, which the table
+ * does not carry. Until it does, the residual risk is bounded by what the
+ * coincidence takes: the matrix would have to name a class *and* a test that
+ * some unrelated test class of this module declares under those same two
+ * names. The matrices here name their owners (`DraftMviRestoreTest`,
+ * `TaskCreateDraftBehaviorTest`), all of them unique in the tree, so this is
+ * implausible rather than impossible — and a rename shows up in the diff of
+ * the review that makes it.
+ *
  * ## What counts as a test
  *
  * A function carries a test annotation — `@Test`, or a qualified variant of
@@ -84,6 +101,13 @@ internal object BehaviorMatrixGate {
      * a table line is a line that starts with the column separator. The
      * header of a table is the line right above the separator, and the
      * separator itself names no test.
+     *
+     * The test is read from the *last* cell — the column the header calls
+     * "Test" — not from anywhere in the line. A backtick in the row label is
+     * a name of the guarantee, not a name of a test: taking the first
+     * backticked span of the line would let `| `a test` | no test |` pass as a
+     * row that names the test `a test`, which is the row this table is
+     * supposed to reject.
      */
     fun parse(matrixSource: String): Matrix {
         val tableLines =
@@ -101,15 +125,28 @@ internal object BehaviorMatrixGate {
                 }.map { (_, line) -> line }
         val rows =
             dataLines.mapNotNull { line ->
-                val entry = backticked.find(line)?.groupValues?.get(1) ?: return@mapNotNull null
+                val entry = testCell(line) ?: return@mapNotNull null
                 Row(
                     line = line,
                     className = entry.substringBefore('.', "").takeIf { it.isNotEmpty() },
                     testName = entry.substringAfter('.', entry),
                 )
             }
-        val malformed = dataLines.filter { backticked.find(it) == null }
+        val malformed = dataLines.filter { testCell(it) == null }
         return Matrix(rows, malformed)
+    }
+
+    /**
+     * The name the *test* column of [line] holds, or null when it holds none.
+     *
+     * The test column is the last one: the rows are written `| guarantee |
+     * `test` |`. The cell is read by splitting on the column separator, so a
+     * backticked label in the first column cannot answer for the second.
+     */
+    private fun testCell(line: String): String? {
+        val cells = line.split('|')
+        val last = cells.lastOrNull { it.isNotBlank() } ?: return null
+        return backticked.find(last)?.groupValues?.get(1)
     }
 
     /**
