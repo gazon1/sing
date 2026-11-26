@@ -161,7 +161,8 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * The base class owns the contract; the subclasses (TaskCreate, NoteEditor) only
  * override the extension points, and their own rows live next to them:
  * `TaskCreateViewModelTest` and `NoteEditorTest`. The rows about the async
- * effects live in `DraftMviEffectTest`, in this same file.
+ * effects live in `DraftMviEffectTest`, and the validation row in
+ * `DraftMviSaveValidationTest` — both in this same file.
  *
  * | Row                          | Test                                                       |
  * |------------------------------|------------------------------------------------------------|
@@ -176,6 +177,7 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * | autosave failure             | `a failed autosave reports the failure and keeps the draft dirty` |
  * | autosave stays silent        | `autosave failure does not emit Saved event`               |
  * | explicit save                | `save validates then persists and calls onSaved`           |
+ * | explicit save, invalid draft | `DraftMviSaveValidationTest.save does not persist a draft that validation rejects` |
  * | save moves the checkpoint    | `a successful save moves the checkpoint`                   |
  * | save → subclass callback     | `a subclass that edits the draft in onSaved leaves it clean` |
  * | failed save                  | `save surfaces persist failure as error`                   |
@@ -1006,5 +1008,51 @@ class DraftMviEffectTest {
 
             assertTrue(op1Done)
             assertTrue(op2Done)
+        }
+}
+
+/**
+ * The validation row of the behavior matrix: an explicit save must not
+ * persist a draft the editor considers invalid.
+ *
+ * The row lives in its own class because the matrix of the draft lifecycle
+ * itself does not fit into one file-sized class any more.
+ */
+@Tag("fast")
+class DraftMviSaveValidationTest {
+    /**
+     * The live-validation test proves the *button* is disabled for an invalid
+     * draft. This one proves the *save path* refuses it: another caller can
+     * ask for a save without asking the button, and the draft must not reach
+     * the store.
+     */
+    @Test
+    fun `save does not persist a draft that validation rejects`() =
+        testVm {
+            val persisted = mutableListOf<TestDraft>()
+            var onSavedCalled = false
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "Hello"),
+                    validateBlock = { if (it.title.isBlank()) "Title required" else null },
+                    persistBlock = { draft ->
+                        persisted += draft
+                        Either.Right(Unit)
+                    },
+                    hooks = TestHooks(onSaved = { onSavedCalled = true }),
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "") }
+            vm.save()
+            advanceTimeBy(50L)
+            runCurrent()
+
+            assertTrue(persisted.isEmpty(), "an invalid draft is never persisted")
+            assertFalse(onSavedCalled, "a refused save reports no save")
+            assertEquals("Title required", vm.stateFlow.value.error, "the editor says why the save was refused")
+            assertFalse(vm.stateFlow.value.isSaveEnabled, "an invalid draft cannot be saved")
+            assertFalse(vm.stateFlow.value.isSaving, "the editor is not left in the saving state")
         }
 }
