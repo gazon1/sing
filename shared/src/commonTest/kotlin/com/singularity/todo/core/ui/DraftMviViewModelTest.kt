@@ -7,9 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelStore
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -97,6 +97,10 @@ private sealed interface TestEvent : MviEvent {
  * Test helper that uses runTest's backgroundScope as the VM's lifecycle owner.
  * runTest cancels backgroundScope when the test body completes, which terminates
  * the VM's init coroutines (restore collector, autosave loop) cleanly.
+ *
+ * The VM's scope is a child of that background scope's job — via the shared `testScope`
+ * helper — so closing the VM (clearThroughLifecycle) cancels the VM's subtree, not the test's
+ * own scope. The shared ownership contract lives on the helper in core/coroutines/testScope.
  */
 private fun testVm(block: suspend TestScope.() -> Unit) =
     runTest {
@@ -112,7 +116,7 @@ private fun TestScope.testVm(
     persistBlock: suspend (TestDraft) -> Either<AppError, Unit> = { Either.Right(Unit) },
     onSavedBlock: (suspend () -> Unit)? = null,
     autosaveDebounceMs: Long = 10L,
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
+    scope: AutoCloseableCoroutineScope = testScope(backgroundScope),
 ): TestDraftVm =
     TestDraftVm(
         initialDraft = initialDraft,
@@ -555,8 +559,9 @@ class DraftMviViewModelTest {
                     autosaveBlock = { autosaveCalled++ },
                     validateBlock = { null },
                     persistBlock = { Either.Right(Unit) },
-                    // A child of the test's job — clearing must cancel it, not the test.
-                    scope = AutoCloseableCoroutineScope(coroutineContext + Job(backgroundScope.coroutineContext[Job])),
+                    // The shared helper hangs the VM's job off the background scope's job, so
+                    // closing (via clearThroughLifecycle) cancels the autosave loop, not the test.
+                    scope = testScope(backgroundScope),
                 )
             advanceTimeBy(20L)
             runCurrent()
