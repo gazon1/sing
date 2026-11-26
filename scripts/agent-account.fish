@@ -251,11 +251,23 @@ end
 # `argv` is taken whole and joined with REAL tabs: `$subject\t$group` in a word
 # is a literal backslash-t, not a separator (measured), so a caller that passed
 # its own `\t` wrote a record no lookup matched.
+#
+# Every append goes through `append_record`, because a record that silently
+# failed to write is the one thing the rollback cannot survive: the account is
+# created and recorded as created, the write fails, and `rollback` then finds
+# neither an ownership entry nor a target — leaving an account, a group and
+# recursive grants behind with nothing that says they are this script's.
+function append_record --argument-names file line
+    test $DRY_RUN -eq 1; and return 0
+    printf '%s\n' $line >> $file
+    or die "could not write the rollback record $file — provisioning cannot continue without it"
+end
+
 function record_ownership
     set -l file (state_file)
     test $DRY_RUN -eq 1; and return 0
     test -e $file; or run_cmd install --directory --owner=root --group=root --mode=0755 (dirname $file)
-    printf '%s\n' (string join \t -- $argv) >> $file
+    append_record $file (string join \t -- $argv)
 end
 
 function owned_by_script
@@ -391,7 +403,7 @@ function record_acl --argument-names target kind
         run_cmd chmod 0600 $file
     end
     set -l listed (recorded_targets)
-    contains -- $target $listed; or printf '%s\n' (string escape --style=var -- $target) >> (targets_file)
+    contains -- $target $listed; or append_record (targets_file) (string escape --style=var -- $target)
 end
 
 # The targets recorded so far. Escaped, not raw: a path may legally contain a
@@ -602,7 +614,14 @@ function provision
         # group is recorded like any other adoption, and removed by name.
         set -l own_group_preexisting 0
         getent group $AGENT_USER >/dev/null; and set own_group_preexisting 1
-        run_cmd useradd --create-home --user-group --shell /bin/bash $AGENT_USER
+        # `--home-dir` is NAMED, not left to useradd: without it the home base
+        # comes from `/etc/default/useradd` (`HOME=/home` here), while
+        # `agent_home` falls back to a hardcoded `/home/$AGENT_USER` on a host
+        # that has no account yet. On a host with a different base, `apply`
+        # created `.gradle`/`.android`/`.cache` in one directory and `run` built
+        # its environment from the other. Now `apply` names the same path `run`
+        # will read back.
+        run_cmd useradd --create-home --home-dir $agent_home_dir --user-group --shell /bin/bash $AGENT_USER
         if test $own_group_preexisting -eq 0
             record_ownership own-group created
         else

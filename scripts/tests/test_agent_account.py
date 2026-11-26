@@ -192,7 +192,11 @@ class FirstRunTest(AgentAccountTest):
         plan = self._plan(str(self._worktree()))
         self.assertEqual(0, plan.returncode, plan.stdout + plan.stderr)
 
-        self.assertIn('useradd --create-home --user-group --shell /bin/bash agent', plan.stdout)
+        self.assertIn('useradd --create-home --home-dir /home/agent --user-group --shell /bin/bash agent', plan.stdout)
+        # Named explicitly: without it the home base comes from
+        # /etc/default/useradd, and `apply` would populate a different home than
+        # the one `run` reads back from the passwd database.
+        self.assertEqual(1, plan.stdout.count('--home-dir'))
         for group in ('wheel', 'docker', 'kvm'):
             self.assertNotIn(group, plan.stdout, f'{group} must not appear in the plan')
 
@@ -736,6 +740,10 @@ set -g DRY_RUN 0
 function die
     echo "fixture: $argv" >&2
     exit 2
+end
+function append_record --argument-names file line
+    printf '%s\\n' $line >> $file
+    or die "fixture: could not write $file"
 end
 function run_cmd
     if test $DRY_RUN -eq 1
@@ -1506,6 +1514,54 @@ class RoundSixteenRegressionTest(PlanTest):
         # Whether `userdel --remove` already deleted it depends on the host, so
         # the deletion asks whether the group is still there.
         self.assertIn('getent group $AGENT_USER >/dev/null', rollback)
+
+
+class RoundSeventeenRegressionTest(PlanTest):
+    """The seventeenth round: a home that drifts, and a record that fails silently."""
+
+    def test_useradd_is_told_the_home_that_run_will_read(self):
+        """`useradd`'s home base comes from /etc/default/useradd; `run` reads passwd."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('--home-dir $agent_home_dir', provision,
+                      'without it a different HOME= in /etc/default/useradd splits apply from run')
+        # The path named is the one `agent_home` resolves — the same expression.
+        self.assertIn('set -l agent_home_dir (agent_home)', provision)
+
+    def test_a_failed_record_write_stops_provisioning(self):
+        """The one thing rollback cannot survive is a record that did not get written."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        writer = body.split('function append_record', 1)[1].split('\nend', 1)[0]
+        self.assertIn('>> $file', writer)
+        self.assertIn('or die', writer, 'an unchecked append is silent')
+        # Both metadata writers go through it: a raw `printf >>` bypasses the check.
+        state = body.split('function record_ownership', 1)[1].split('\nend', 1)[0]
+        self.assertIn('append_record $file', state)
+        self.assertNotIn('>> $file', state)
+        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
+        self.assertIn('append_record (targets_file)', record)
+        self.assertNotIn('>> (targets_file)', record)
+
+    def test_the_registry_append_is_checked_at_runtime(self):
+        """The property, not the shape: a write to an unwritable path must die."""
+        script = (
+            'function die; echo "died: $argv" >&2; exit 2; end\n'
+            'function append_record --argument-names file line\n'
+            '    test $DRY_RUN -eq 1; and return 0\n'
+            '    printf "%s\\n" $line >> $file\n'
+            '    or die "could not write $file"\n'
+            'end\n'
+            'set -g DRY_RUN 0\n'
+            f'append_record {self.tmp}/missing-dir/state line\n'
+            'echo not-reached\n'
+        )
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn('could not write', result.stderr)
+        self.assertNotIn('not-reached', result.stdout)
 
 
 class RunTest(AgentAccountTest):

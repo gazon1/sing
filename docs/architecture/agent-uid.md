@@ -280,7 +280,13 @@ write); `rollback` deletes an owned one and keeps an adopted one, saying so. The
 group is one of them: `useradd --user-group` creates a group named `agent`, and `userdel
 --remove` deletes it again **only** when `USERGROUPS_ENAB` is `yes` in `/etc/login.defs`. It is
 `yes` on this host, which is exactly why trusting either behaviour was wrong — on a host that
-sets it `no`, every apply/rollback cycle left that group orphaned. The sudoers file is
+sets it `no`, every apply/rollback cycle left that group orphaned. The account is created with
+an explicit `--home-dir $agent_home_dir`: without it the home base comes from
+`/etc/default/useradd`, while `run` reads the home back from the passwd database, so a host with a
+different base would have `apply` populate one directory and `run` build its environment from
+another. Every append to this metadata is checked, because a record that silently failed to write
+is the one failure rollback cannot survive: the account is created and recorded as created, the
+write fails, and `rollback` then finds neither an ownership entry nor a target. The sudoers file is
 re-checked against its exact content before deletion, because an administrator may have added a
 rule to it after `apply` ran.
 
