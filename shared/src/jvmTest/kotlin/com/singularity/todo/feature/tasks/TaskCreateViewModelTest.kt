@@ -32,6 +32,7 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.TEST_TZ
+import com.singularity.todo.test.helpers.VmScope
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +40,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -55,6 +57,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import com.singularity.todo.test.helpers.testVm as harnessTestVm
 
 /**
  * Tests for [TaskCreateViewModel].
@@ -829,27 +832,34 @@ class TaskCreateTagScopeTest {
      * The task is never created in this class: the rows here are about which
      * draft the editor restores, so the use case only has to be observable — the
      * counter tells that a restored draft would have become a task.
+     *
+     * The scope comes from the shared harness ([harnessTestVm]) with
+     * [VmScope.Background]: the autosave collector never ends, so it belongs in
+     * the background scope — the same arrangement the other draft-editor tests
+     * use.
      */
-    private fun createVm(
-        scope: CoroutineScope,
-        initialTagIds: Set<TagId>,
-    ): TaskCreateViewModel =
-        TaskCreateViewModel(
-            deps =
-                TaskCreateDeps(
-                    createFromDraft =
-                        CreateTaskFromDraft {
-                            createAttempts += 1
-                            Either.Left(AppError.Validation("the task was not supposed to be created"))
-                        },
-                    logger = Logger.withTag("TaskCreateTagScopeTest"),
-                    draftStore = draftStore,
-                ),
-            initialDueDate = null,
-            draftKey = null,
-            initialTagIds = initialTagIds,
-            scope = AutoCloseableCoroutineScope(scope.coroutineContext),
-        )
+    private fun TestScope.testVm(initialTagIds: Set<TagId>): TaskCreateViewModel =
+        harnessTestVm(
+            stateAccessor = { vm: TaskCreateViewModel -> vm.state },
+            vmScope = VmScope.Background,
+        ) { scope ->
+            TaskCreateViewModel(
+                deps =
+                    TaskCreateDeps(
+                        createFromDraft =
+                            CreateTaskFromDraft {
+                                createAttempts += 1
+                                Either.Left(AppError.Validation("the task was not supposed to be created"))
+                            },
+                        logger = Logger.withTag("TaskCreateTagScopeTest"),
+                        draftStore = draftStore,
+                    ),
+                initialDueDate = null,
+                draftKey = null,
+                initialTagIds = initialTagIds,
+                scope = scope,
+            )
+        }.vm
 
     /**
      * The negative half of the guarantee: a draft saved under one set of tags
@@ -861,7 +871,7 @@ class TaskCreateTagScopeTest {
             val draft = TaskDraft(title = FieldOwnedText.empty().seeded("Tagged draft"))
             draftStore.save(taskDraftStorageKey(null, null, setOf(TagId("tag-1"))), draft, TaskDraft.serializer())
 
-            val vm = createVm(backgroundScope, initialTagIds = setOf(TagId("tag-2")))
+            val vm = testVm(initialTagIds = setOf(TagId("tag-2")))
             advanceTimeBy(1_000)
             runCurrent()
 
@@ -898,7 +908,7 @@ class TaskCreateTagScopeTest {
                 TaskDraft.serializer(),
             )
 
-            val vm = createVm(backgroundScope, initialTagIds = setOf(TagId("tag-1"), TagId("tag-2")))
+            val vm = testVm(initialTagIds = setOf(TagId("tag-1"), TagId("tag-2")))
             advanceTimeBy(1_000)
             runCurrent()
 
