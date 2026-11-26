@@ -391,6 +391,18 @@ function restore_acl --argument-names target
     return 0
 end
 
+# Remove this script's named entries from the paths a restore did NOT cover,
+# which are exactly the ones created after the snapshot was taken.
+function scrub_unrecorded --argument-names target
+    set -l file (acl_dump_file $target)
+    test -e $file; or return 0
+    for path in (find $target -mindepth 1 2>/dev/null)
+        grep -qF -- "# file: $path" $file; and continue
+        setfacl -x "u:$AGENT_USER" -x "d:u:$AGENT_USER" $path 2>/dev/null
+        setfacl -x "g:$AGENT_GROUP" -x "d:g:$AGENT_GROUP" $path 2>/dev/null
+    end
+end
+
 # Is the path a WORKING TREE? `--git-common-dir` cannot answer: on a bare
 # repository it prints "." and exits 0. Measured on `git init --bare`:
 # common-dir ".", `--is-inside-work-tree false`.
@@ -594,22 +606,7 @@ function provision
     # to the clone's git store. Membership is reconciled to the documented two,
     # and an unexpected member is reported rather than quietly removed — it may
     # be somebody's deliberate configuration.
-    set -l foreign
-    # BOTH sources. `getent group` lists supplementary members, and a user whose
-    # PRIMARY gid is `sing-dev` is invisible there — the same gap that made an
-    # agent with `docker` as its primary group look clean. `getent passwd` gives
-    # the primary one, `id -Gn` would need the account to be queryable as-is.
-    set -l gid (getent group $AGENT_GROUP | cut -d: -f3)
-    set -l members (getent group $AGENT_GROUP | cut -d: -f4 | string split ,)
-    for row in (getent passwd | string match -r '.*')
-        set -l fields (string split : -- $row)
-        test (count $fields) -ge 4; or continue
-        test "$fields[4]" = "$gid"; and set -a members $fields[1]
-    end
-    for member in $members
-        test -n "$member"; or continue
-        contains -- $member $dev $AGENT_USER; or set -a foreign $member
-    end
+    set -l foreign (foreign_members $dev $AGENT_USER)
     if test (count $foreign) -gt 0
         die "$AGENT_GROUP already holds $(string join , $foreign) — it is documented as $dev and $AGENT_USER only"
     end
@@ -645,6 +642,13 @@ function provision
             if test "$existing" != "$rule"
                 die "$sudoers holds content this script did not write — inspect it, then remove it by hand"
             end
+            # Matching content is ADOPTION, not authorship. An administrator who
+            # pre-created the file with exactly this rule owns it; rollback used
+            # to delete it because it checked the content and never asked who
+            # wrote it. Recorded before the write, like every other adoption.
+            record_ownership sudoers adopted
+        else
+            record_ownership sudoers created
         end
         printf '%s\n' "$rule" > $sudoers
         chmod 0440 $sudoers
@@ -783,6 +787,36 @@ function in_group --argument-names group member
     contains -- $group $groups
 end
  
+# Every member of `sing-dev` other than the developer and the agent.
+#
+# ONE predicate, because `apply` refusing a host is worth less than `check`
+# also reporting it: the scan lived only in `provision`, so a member added
+# after provisioning was invisible to the acceptance verdict while holding the
+# same recursive write access to every worktree and to the clone's git store.
+#
+# BOTH sources. `getent group` lists supplementary members, and a user whose
+# PRIMARY gid is `sing-dev` is invisible there — the same gap that made an
+# agent with `docker` as its primary group look clean. `getent passwd` gives the
+# primary one, `id -Gn` would need every account queryable as-is.
+#
+# `--argument-names allowed` would bind only the FIRST name here (measured: a
+# call with `devel agent` saw `devel` alone and reported the agent itself as a
+# foreign member), so the whole `$argv` is the allow-list.
+function foreign_members
+    set -l gid (getent group $AGENT_GROUP | cut -d: -f3)
+    test -n "$gid"; or return 0
+    set -l members (getent group $AGENT_GROUP | cut -d: -f4 | string split ,)
+    for row in (getent passwd | string match -r '.*')
+        set -l fields (string split : -- $row)
+        test (count $fields) -ge 4; or continue
+        test "$fields[4]" = "$gid"; and set -a members $fields[1]
+    end
+    for member in $members
+        test -n "$member"; or continue
+        contains -- $member $argv; or echo $member
+    end
+end
+
 # The permission bits an entry grants, from `group:sing-dev:rwX` -> `rwX`.
 function entry_bits --argument-names entry
     string replace -r '^(?:default:)?[^:]+:[^:]+:' '' -- $entry
@@ -956,6 +990,14 @@ function check
     else
         fail "$AGENT_GROUP does not hold $AGENT_USER"
     end
+    # Only the documented two. A third member holds the same recursive write
+    # access to every authorized worktree and to the clone's git store.
+    set -l foreign (foreign_members $dev $AGENT_USER)
+    if test (count $foreign) -gt 0
+        fail "$AGENT_GROUP also holds "(string join , $foreign)" — it is documented as $dev and $AGENT_USER only"
+    else
+        pass "$AGENT_GROUP holds only $dev and $AGENT_USER"
+    end
  
     # A sudo rule for `agent` is the escalation this issue forbids. Reading
     # another user's rules needs root, so an unreadable answer is a NOTE and not
@@ -1092,26 +1134,23 @@ function rollback
     # is still removed, by subject, from the roots given.
     set -l recorded
     test -e (targets_file); and set recorded (recorded_targets)
-    set -l targets
+    # The roots passed to `rollback` are NOT a licence to clean them. A target is
+    # this script's only when the RECORD says so: `rollback ~/some/other/wt`
+    # used to reach the "no snapshot, so delete our entry" branch on a worktree
+    # `apply` never touched, removing a `sing-dev` grant it did not write. An
+    # unrecorded target is reported and left alone — an operator can always
+    # remove an entry by hand, and cannot undelete one.
     for root in $ROOTS
         test -d "$root"; or continue
-        set -a targets $root
-        # A root whose worktree was removed is normal on a rollback, and
-        # `git_common_dir` EXITS on a non-worktree — inside a command
-        # substitution that ends the whole script, so it is asked first.
-        is_worktree $root; and set -a targets (git_common_dir $root)
-    end
-    # The developer's own paths are not passed to `rollback`; they are where the
-    # traverse and read grants sit, and they are undone the same way — including
-    # `$HOME` itself, which `apply` grants non-recursively. A target both
-    # recorded and passed is not deduplicated: restoring a snapshot twice is
-    # idempotent, and the loop below already skips what is gone.
-    test -d $home; and set -a targets $home
-    for rel in $SDK_DIR_REL $TOOLCHAIN_RELS
-        test -d $home/$rel; and set -a targets $home/$rel
+        if not contains -- $root $recorded
+            echo "kept $root: this script never provisioned it, so its ACL is not ours to change" >&2
+        end
     end
 
-    for target in $recorded $targets
+    # The developer's own paths answer the same question through the record:
+    # `apply` snapshots `$HOME`, the SDK and every toolchain directory it
+    # granted, so a provisioned host has them listed there.
+    for target in $recorded
         test -n "$target"; or continue
         test -e "$target"; or begin
             echo "note: recorded target $target no longer exists" >&2
@@ -1119,6 +1158,14 @@ function rollback
         end
         if restore_acl $target
             echo "restored $target (the ACL it had before apply)"
+            # The default entries granted `rwX` to whatever the agent created
+            # AFTER the snapshot, and a dump cannot name a path that did not
+            # exist when it was taken. Those files keep the grant while the
+            # group is deleted underneath them — so the entry is removed by
+            # subject from everything the dump did not restore. Pre-existing
+            # paths were just put back, so removing an entry there would be
+            # visible immediately; this only reaches what `--restore` skipped.
+            scrub_unrecorded $target
         else
             # No snapshot: the entry is ours to remove. `-x` leaves the `mask::`
             # and the `default:` block it created, which is why a snapshot is
@@ -1133,9 +1180,13 @@ function rollback
     # file is ADOPTED, not owned: deleting it would destroy host configuration
     # this script never created, and the account's home lives in it.
     set -l sudoers /etc/sudoers.d/50-agent-account
-    if test -e $sudoers; and test (string trim -- (cat $sudoers 2>/dev/null)) = "$DEV_NAME ALL=($AGENT_USER) NOPASSWD: /usr/bin/env"
+    if not test -e $sudoers
+        # nothing to remove
+    else if not owned_by_script sudoers
+        echo "kept $sudoers: this script adopted it rather than created it" >&2
+    else if test (string trim -- (cat $sudoers 2>/dev/null)) = "$DEV_NAME ALL=($AGENT_USER) NOPASSWD: /usr/bin/env"
         run_cmd rm --force $sudoers
-    else if test -e $sudoers
+    else
         echo "kept $sudoers: its content is not what this script wrote — inspect it by hand" >&2
     end
     # The record is NOT deleted here. A failed step below (`userdel` refuses an
@@ -1210,6 +1261,12 @@ function main
         case run
             set -q argv[1]; and test "$argv[1]" = --; and set -e argv[1]
             resolve_dev
+            # The transition itself. `apply` refuses an account with uid 0 or the
+            # developer's uid, but `run` is independently callable and trusted
+            # the passwd mapping: `run -- id` answered uid 0 and the boundary was
+            # crossed without a single check. The invariant belongs on the verb
+            # that EXECUTES, not only on the one that provisions.
+            require_unprivileged_uid
             run_as_agent $argv
         case rollback
             parse_args $argv

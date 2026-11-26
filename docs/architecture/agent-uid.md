@@ -308,6 +308,25 @@ that the rest of the run would then report as holding:
   cannot read the rules (no root) says so and tells the reader to run `check` afterwards, because
   an unverified claim is not a clean one.
 
+Four things `rollback` and `check` must not take on trust, each measured:
+
+- a `rollback <path>` argument is **not** a licence to clean that path. A target is this
+  script's only when the record says so; an unrecorded root is reported and left alone, because
+  an operator can always delete an entry by hand and cannot undelete one.
+- a sudoers file whose content is exactly the rule is **adopted**, not owned. Content this
+  script would have written is not proof that it wrote it, so authorship is recorded and an
+  administrator's own file survives the rollback.
+- `sing-dev` holds the documented two and nobody else — and `check` asks that question too, not
+  only `apply`. A member added after provisioning holds the same recursive write access.
+- a path the agent created **after** the snapshot cannot be named by the dump, so it keeps the
+  grant the default entry gave it while the group is deleted underneath it. Those paths are
+  scrubbed by subject; the ones the dump covered were just restored, and are left exactly as
+  the restore put them.
+
+`run` refuses an account with uid 0 or the developer's uid before it crosses. `apply` asking
+that question is not enough: `run` is independently callable, and it is the verb that
+*executes*.
+
 `check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
 named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported
 as such. It compares the effective bits against the bits the grant asks for, entry by entry —

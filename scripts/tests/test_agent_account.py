@@ -472,7 +472,7 @@ class RoundFourRegressionTest(PlanTest):
         """`sing-dev` is documented as two identities; it only ever appended."""
         body = SCRIPT.read_text(encoding='utf-8')
         provision = body.split('function provision', 1)[1]
-        self.assertIn('set -a foreign $member', provision)
+        self.assertIn('foreign_members $dev $AGENT_USER', provision)
         self.assertIn('already holds', provision)
 
     def test_a_failed_step_stops_the_run(self):
@@ -489,10 +489,14 @@ class RoundFiveRegressionTest(PlanTest):
     def test_a_primary_gid_member_of_the_group_is_foreign_too(self):
         """`getent group` cannot see a user whose PRIMARY gid is `sing-dev`."""
         body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        scan = provision.split('set -l foreign', 1)[1].split('run_cmd usermod', 1)[0]
+        scan = body.split('function foreign_members', 1)[1].split('\nend', 1)[0]
         self.assertIn('getent passwd', scan, 'the primary gid lives in passwd, not in the group file')
         self.assertIn('$fields[4]', scan)
+        # ONE predicate: `apply` refusing a host is worth less than `check`
+        # reporting it, and a member added after provisioning used to be
+        # invisible to the acceptance verdict.
+        check = body.split('function check\n', 1)[1]
+        self.assertIn('foreign_members $dev $AGENT_USER', check)
 
     def test_grants_are_recorded_so_rollback_survives_a_removed_worktree(self):
         """A linked worktree's store lives outside it; the path cannot be re-derived."""
@@ -504,7 +508,7 @@ class RoundFiveRegressionTest(PlanTest):
         # wt1 left wt2 writable, and the group whose gid those entries named was
         # deleted right afterwards.
         self.assertIn('set recorded (recorded_targets)', rollback)
-        self.assertIn('for target in $recorded $targets', rollback)
+        self.assertIn('for target in $recorded', rollback)
 
     def test_check_reads_the_effective_permission_not_the_raw_entry(self):
         """A named entry under a restrictive mask is read-only, not writable."""
@@ -1049,6 +1053,122 @@ class EffectivePermissionTest(AgentAccountTest):
                 f'{marker} must run while the snapshots still exist — a failure there '
                 f'would leave the host half-rolled-back with nothing to restore from',
             )
+
+
+class RoundElevenRegressionTest(PlanTest):
+    """The eleventh round: one BLOCKING cross of the boundary, four rollback gaps."""
+
+    def test_run_refuses_an_account_that_is_root_or_the_developer(self):
+        """`run` is independently callable and never asked what uid it would cross to."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        branches = body.split('switch $verb', 1)[1].split('case rollback', 1)[0]
+        run_branch = branches.split('case run', 1)[1]
+        self.assertIn(
+            'require_unprivileged_uid', run_branch,
+            'the invariant belongs on the verb that EXECUTES, not only on the one that provisions',
+        )
+
+    def test_an_account_that_is_root_cannot_run_a_command(self):
+        """The failure the finding describes, measured end to end."""
+        getent = self.stubs / 'getent'
+        getent.write_text(
+            '#!/usr/bin/env bash\n'
+            "case \"$1 ${2:-}\" in\n"
+            f"  'passwd devel') echo 'devel:x:1000:1000:Devel:{self.home}:/bin/bash' ;;\n"
+            "  'passwd agent') echo 'agent:x:0:0::/home/agent:/bin/bash' ;;\n"
+            "  'group sing-dev') echo 'sing-dev:x:2001:devel,agent' ;;\n"
+            '  *) exit 2 ;;\n'
+            'esac\n',
+            encoding='utf-8',
+        )
+        result = self._run('run', '--', 'id')
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn('uid 0', result.stderr)
+        self.assertFalse(self.sudo_record.exists(), 'the command must not be handed to sudo at all')
+
+    def test_rollback_never_touches_a_worktree_it_did_not_provision(self):
+        """`rollback <some other worktree>` must not remove an ACL this script never wrote."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('this script never provisioned it', rollback)
+        # The targets come from the RECORD alone; a caller-supplied root is not a licence.
+        self.assertIn('for target in $recorded', rollback)
+        self.assertNotIn('$recorded $targets', rollback)
+        self.assertNotIn('set -a targets', rollback)
+
+    def test_a_precreated_sudoers_file_is_adopted_not_owned(self):
+        """Content this script would have written is not proof it wrote it."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('record_ownership sudoers adopted', provision)
+        self.assertIn('record_ownership sudoers created', provision)
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('not owned_by_script sudoers', rollback)
+        self.assertIn('adopted it rather than created it', rollback)
+
+    def test_check_reports_a_foreign_member_of_the_group(self):
+        """The scan lived only in `apply`, so a member added later was invisible."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        check = body.split('function check\n', 1)[1]
+        self.assertIn('foreign_members $dev $AGENT_USER', check)
+        self.assertIn('also holds', check)
+        # And `apply` asks the SAME predicate, not a copy of it.
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('set -l foreign (foreign_members $dev $AGENT_USER)', provision)
+
+    def test_paths_created_after_the_snapshot_lose_the_grant(self):
+        """A dump cannot name a path that did not exist when it was taken."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('scrub_unrecorded $target', rollback)
+        helper = body.split('function scrub_unrecorded', 1)[1].split('\nend', 1)[0]
+        self.assertIn('grep -qF -- "# file: $path"', helper, 'only the paths the dump skipped')
+
+    def test_the_scrub_removes_the_grant_from_a_new_file(self):
+        """Measured on a real tree: `--restore` leaves the residue in place."""
+        tree = self.tmp / 'scrub'
+        (tree / 'sub').mkdir(parents=True)
+        keep = tree / 'keep'
+        keep.write_text('x', encoding='utf-8')
+        dump = subprocess.run(
+            ['getfacl', '--recursive', '--physical', '--absolute-names', str(tree)],
+            capture_output=True, text=True, check=True,
+        ).stdout
+        # `-m d:...` is for directories; a default entry on a regular file is
+        # "Invalid argument" (measured).
+        subprocess.run(['setfacl', '-R', '-m', 'u:nobody:rX', '-m', 'd:u:nobody:rX', str(tree)], check=True)
+        fresh = tree / 'created-after'
+        fresh.write_text('x', encoding='utf-8')
+        self.assertIn('user:nobody', subprocess.run(
+            ['getfacl', '--omit-header', str(fresh)], capture_output=True, text=True, check=True).stdout)
+
+        # The shipped scrub, with the dump where it looks for it.
+        body = SCRIPT.read_text(encoding='utf-8')
+        tail = body.split('\nfunction scrub_unrecorded', 1)[1]
+        signature, _, _ = tail.partition('\nend')
+        # The identities the scrub removes are the script's own, so the fixture
+        # must grant them — `nobody` here and `agent` in the code removes
+        # nothing at all, which looks exactly like a broken scrub.
+        script = (
+            'set -g AGENT_USER nobody\n'
+            'set -g AGENT_GROUP nobody\n'
+            f'function acl_dump_file; echo {self.tmp}/scrub.acl; end\n'
+            f'function scrub_unrecorded{signature}\nend\n'
+            f'scrub_unrecorded "{tree}"\n'
+        )
+        (self.tmp / 'scrub.acl').write_text(dump, encoding='utf-8')
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        after = subprocess.run(
+            ['getfacl', '--omit-header', str(fresh)], capture_output=True, text=True, check=True).stdout
+        self.assertNotIn('user:nobody', after, 'the file created after the snapshot kept the grant')
+        # And the path the dump DID cover is left as the restore put it.
+        kept = subprocess.run(
+            ['getfacl', '--omit-header', str(keep)], capture_output=True, text=True, check=True).stdout
+        self.assertIn('user:nobody', kept, 'a recorded path must not be scrubbed')
 
 
 class RunTest(AgentAccountTest):
