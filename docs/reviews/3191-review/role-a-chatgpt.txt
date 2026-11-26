@@ -1,0 +1,181 @@
+waiting for chatgpt-use (pid 2479497) to finish with ChatGPT…
+reusing the open ChatGPT tab (new chat, no page reload)
+using project "chatgpt-use"
+[   0.0s] submitted; waiting for reply
+pinned to conversation 6b07d4aa-6e10-83eb-8873-f3c132aa4c36
+[    6.0s] generating (msgs=4, len=20)
+[   12.0s] generating (msgs=4, len=20)
+[   18.0s] generating (msgs=4, len=948)
+[   24.0s] generating (msgs=4, len=948)
+[   30.0s] generating (msgs=4, len=948)
+[   36.0s] generating (msgs=4, len=948)
+[   44.0s] generating (msgs=4, len=948)
+[   50.0s] generating (msgs=4, len=948)
+[   56.0s] generating (msgs=3, len=948)
+[   62.0s] generating (msgs=3, len=948)
+[   68.0s] generating (msgs=3, len=948)
+[   74.0s] generating (msgs=3, len=948)
+[   80.0s] generating (msgs=3, len=1380)
+[   88.0s] generating (msgs=3, len=7626)
+[   94.0s] waiting for reply (msgs=3, len=8622)
+[  100.0s] waiting for reply (msgs=3, len=8622)
+[  106.0s] waiting for reply (msgs=3, len=8622)
+[  110.0s] server reports the turn closed; taking the reply from the conversation record
+## Findings
+
+<badge color="success">No code findings</badge>
+
+I found no blocking, major or minor correctness defects in the reviewed changes.
+
+In particular, I checked the following.
+
+### 1. Navigation state restoration
+
+**Pass.**
+
+- `rememberSaveable` replaces the non-persistent `remember` for the selected top-level route.
+- The saver uses the same polymorphic `NavKey` registration as the navigation back stacks.
+- Restored routes are checked against `allowedRoutes`.
+- Unsupported or malformed saved state falls back instead of crashing.
+- `Nav3State` now validates that the restored route has a corresponding back stack.
+- Desktop behaviour remains unchanged.
+- Existing callers that construct `Nav3State` with the start route remain compatible.
+
+The two new tests cover successful restoration and rejection of a non-top-level route.
+
+One limitation: the tests exercise the codec and state invariant, not an actual Android Activity recreation or process-death restoration. The existing Maestro rotation flow supplies the important device-level evidence.
+
+### 2. Undo notification
+
+**Pass.**
+
+`NotificationHost.kt` changes only the `Notification.Undo` branch to `SnackbarDuration.Long`.
+
+The ordinary Toast branch remains `Short`.
+
+The guard test checks both behaviours. The implementation also preserves the existing distinction between accepting and declining the undo action.
+
+### 3. Maestro flows and helpers
+
+**Pass.**
+
+I checked the changed flows against the surrounding helper conventions.
+
+Notable observations:
+
+- The pinned-filter flow waits for the asynchronous pin operation.
+- The empty-search flow dismisses the keyboard before looking for the recovery control.
+- The rename flow checks the actual reverted title, not merely the existence of the input.
+- The full-task creation flow dismisses the keyboard before looking for fields below the fold.
+- The reminder flow now supplies the required due date.
+- The logbook flow scrolls to the note before asserting its visibility.
+- The delete/undo flow leaves through the editor's top-bar control rather than sending Back to the popup window.
+
+**Attachment helper question: removing `centerElement` is not a finding.**
+
+The change is justified.
+
+The `+ Add file` row is the last element in the sheet. Centering it can keep scrolling towards an unreachable position until the timeout expires. The replacement uses ordinary `scrollUntilVisible` and taps at `50%,25%` within the row.
+
+That preserves a useful tap location without requiring the row to be centered. The qualification evidence also covers the affected attachment flows.
+
+I found no reason to restore centering.
+
+### 4. Orientation fixture
+
+**Pass, with a documented limitation.**
+
+The implementation:
+
+- Reads the original rotation settings once per device.
+- Preserves individually readable settings.
+- Restores them once at the end of the run.
+- Checks device availability before restoration.
+- Registers restoration after the screen-off callback, so reverse callback execution restores orientation while the screen is awake.
+
+The ten fixture tests cover the important restoration cases.
+
+One consciously accepted limitation deserves attention: a setting that cannot be read cannot be restored. The implementation warns about this rather than pretending restoration succeeded. This is a documented best-effort contract, not an undisclosed regression.
+
+### 5. Debt registry and qualification evidence
+
+**Pass.**
+
+The registry contains individual entries for the six newly discovered causes:
+
+| Cause | Disposition |
+|---|---|
+| Pomodoro menu scrolling | Accepted |
+| Task editor pin-row visibility | Accepted |
+| Search recovery button | Fixed |
+| Task editor due-row visibility | Fixed |
+| Reminder row visibility | Fixed |
+| Logbook note visibility | Fixed |
+
+The separate pin-write failure is attributed to issue #937.
+
+The additional undo-duration product defect is registered separately under #3191.
+
+The qualification registry contains three passing attempts for each of the thirteen affected flows, plus `attachments/02-delete`.
+
+All fourteen records identify the same qualified build, `3c637206d564`, and the same documented API 36 emulator environment.
+
+None of these fourteen flows remains in the exceptions section.
+
+The issue's acceptance criteria are therefore satisfied by the committed registry and evidence. <Cite refs={["turn889337view0","turn889337view1"]}/>
+
+---
+
+## Implicit-decisions audit
+
+These are consequential choices I identified beyond the narrowly stated acceptance requirements. They are intentional decisions, not findings.
+
+| Decision | Alternatives | Evidence and rationale | Behavioural guarantee |
+|---|---|---|---|
+| Save only the selected top-level route | Save the previous-tab history too | Existing private state and narrower navigation API; documented in the ADR | Back at the root of a tab returns to Today after rotation |
+| Fall back to Today when a saved route cannot be decoded | Fail restoration or attempt a migration | Avoids crashing on obsolete saved state | Restoration is not guaranteed for incompatible payloads |
+| Apply the longer snackbar duration to all Undo notifications | Special-case task deletion | Shared notification semantics and Material 3 guidance | Every Undo offer gets ten seconds |
+| Restore orientation only for readable settings | Refuse to run if either setting cannot be read | Best-effort device fixture with explicit warnings | An unreadable original setting cannot be guaranteed to survive unchanged |
+| Use a fixed point inside the attachment row | Center the row before tapping | Measured scrolling timeout and gesture-navigation geometry | The tap no longer depends on centered positioning |
+| Leave through the top bar after accepting Undo | Send Back and attempt to reach the underlying editor | Popup-window focus behaviour observed during qualification | Navigation explicitly targets the editor rather than the popup |
+
+The first decision deserves particular emphasis: this PR restores the selected tab, not the entire navigation history. The ADR makes that limitation explicit. I consider the scope defensible because the previous implementation already lost that history on Activity recreation.
+
+---
+
+## CI and verification
+
+There is an important distinction between the local verification reported by the author and the GitHub workflow state I observed.
+
+GitHub workflow run `45769652283` checked the synthetic PR merge commit `507382a9225e9bb032bbb117e548cbb3516626f4`.
+
+- ADR validation: passed.
+- Android free: passed.
+- OSV Scanner: passed.
+- Detekt: failed.
+- Static gates and JVM tests: still running when inspected.
+- Android device tests: still running.
+- E2E Maestro: skipped.
+
+The detekt failure reports two findings in files outside this PR:
+
+- `androidApp/src/androidTest/kotlin/com/singularity/todo/ui/MenuSheetBoundsTest.kt:129` — unused parameter.
+- `core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt:12` — existing `TaskDao` size finding.
+
+Neither file is changed by this PR. I therefore do not attribute these failures to the reviewed implementation.
+
+The locally reported Maestro qualification and gate results are consistent with the committed evidence, but I cannot independently reproduce the local emulator runs from GitHub.
+
+One scope discrepancy: GitHub currently identifies the PR base SHA as `0526a74f243c412f947e316d935c1a54dd09bccf`, rather than the supplied comparison base `754e44579124963ff00516335b83c1562a667632`. I reviewed the actual PR file changes at the requested head SHA.
+
+---
+
+## Final verdict
+
+<badge color="success" size="lg">APPROVE</badge>
+
+No code-level findings. The acceptance criteria are met, the attachment-helper change is not a defect, and the deliberate behavioural trade-offs are documented.
+
+The outstanding CI failures are in untouched files and should be tracked separately from this change.
+
+VERDICT: APPROVE

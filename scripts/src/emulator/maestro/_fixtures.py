@@ -46,6 +46,117 @@ def reset_session(serial: str, deps: "DeviceDeps") -> None:
     deps.wait_for_app_resumed(serial)
 
 
+#: The rotation settings the fixture took from a device, so that they can be
+#: given back when the run is over. Keyed by serial — one device per process.
+#: The value holds the settings that could be *read*: a setting that could not
+#: be read is absent, and only the settings that are there are given back.
+_TAKEN_ROTATION: dict[str, dict[str, str]] = {}
+
+#: The settings the fixture takes and gives back, in the order they are given
+#: back: the orientation first, the policy that follows it.
+_ROTATION_SETTINGS = ("user_rotation", "accelerometer_rotation")
+
+
+def _read_rotation(serial: str, deps: "DeviceDeps", key: str) -> str | None:
+    """A rotation setting's current value, or None when it cannot be read.
+
+    `settings get` answers with the value, and answers with nothing at all
+    when the setting does not exist. A value that is not a number is not a
+    rotation setting, and is treated as unreadable.
+    """
+    value = deps.adb_on(serial, "shell", "settings", "get", "system", key)
+    if value is None:
+        return None
+    value = value.strip()
+    return value if value.isdigit() else None
+
+
+def reset_orientation(serial: str, deps: "DeviceDeps") -> None:
+    """Put the device back in portrait. Best-effort.
+
+    A flow that rotates the device and then fails leaves it rotated, and the
+    next flow is measured against that: Maestro keeps the screen size it read
+    before the rotation, so every visibility check on the wide landscape layout
+    is computed against the portrait width — a row that is on the screen comes
+    out as "not visible", and every flow after the rotation fails on it. The
+    suite then reports one defect as forty (measured 2026-11-25, API 36
+    emulator: `lifecycle/03-rotate-in-editor` failed, and the eight flows
+    after it failed on the rotation it left behind).
+
+    The orientation is a fixture like any other: it is part of what a flow
+    leaves on the device, and it is put back before the next flow runs.
+
+    **A fixture gives back what it took.** The device's own rotation settings
+    are read before the first change and restored by :func:`restore_orientation`
+    when the run is over. Without that, the fixture leaves a physical phone
+    with automatic rotation switched off — a setting the person holding the
+    phone chose, and one the runner has no business keeping changed.
+    """
+    if not deps.device_alive(serial):
+        return
+    _take_rotation(serial, deps)
+    deps.adb_on(serial, "shell", "settings", "put", "system", "accelerometer_rotation", "0")
+    deps.adb_on(serial, "shell", "settings", "put", "system", "user_rotation", "0")
+
+
+def _take_rotation(serial: str, deps: "DeviceDeps") -> None:
+    """Remember the device's own rotation settings — once per device.
+
+    Only the first call reads them: after it, the settings on the device are
+    the ones the fixture put there, and reading them again would remember the
+    fixture's own values as the device's.
+
+    Each setting is taken on its own. A device that answers for one of them
+    and not for the other is still a device whose readable setting has to be
+    given back — taking them as a pair would throw the readable one away with
+    the unreadable one, and leave the device with the fixture's value for both.
+    """
+    if serial in _TAKEN_ROTATION:
+        return
+    taken: dict[str, str] = {}
+    for key in _ROTATION_SETTINGS:
+        value = _read_rotation(serial, deps, key)
+        if value is None:
+            logger.warning(
+                f"the device's {key} could not be read — it cannot be given back "
+                "when the run is over",
+            )
+            continue
+        taken[key] = value
+    _TAKEN_ROTATION[serial] = taken
+
+
+def restore_orientation(serial: str, deps: "DeviceDeps") -> None:
+    """Give the device back the rotation settings the fixture took.
+
+    Best-effort, like the fixture itself: a device that is gone cannot be
+    given anything back, and a run that ends with a dead device has already
+    lost the run.
+
+    Only the settings that were read are given back; a setting that could not
+    be read was reported when it was taken.
+
+    Called when the run is over — not after every flow. Between flows the
+    device stays in portrait, which is what the next flow is measured
+    against; at the end of the run the person who owns the device gets their
+    own settings back.
+
+    The orientation is put back before the policy that follows it: the
+    orientation is where the device is, and the policy is what decides where
+    it is allowed to go.
+    """
+    taken = _TAKEN_ROTATION.pop(serial, None)
+    if not taken:
+        return
+    if not deps.device_alive(serial):
+        return
+    for key in _ROTATION_SETTINGS:
+        value = taken.get(key)
+        if value is None:
+            continue
+        deps.adb_on(serial, "shell", "settings", "put", "system", key, value)
+
+
 def cleanup_run_fixtures(
     serial: str, mode: str, deps: "DeviceDeps",
 ) -> None:

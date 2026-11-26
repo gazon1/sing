@@ -126,6 +126,15 @@ tags:
 
 # The note is addressed by its visible title: the row's id is a generated ULID
 # that the flow never learns.
+#
+# The section is the last thing on the screen, so the note that opens under it
+# is below the fold: it is not composed, and "visible" is false for a row that
+# is not on the screen at all. The scroll is what puts the note on the screen.
+- scrollUntilVisible:
+    element:
+      id: logbook_note_by_title_${RUN_ID}_logbook_note
+    direction: DOWN
+    timeout: 8000
 - extendedWaitUntil:
     visible:
       id: logbook_note_by_title_${RUN_ID}_logbook_note

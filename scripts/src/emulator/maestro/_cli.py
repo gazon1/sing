@@ -22,7 +22,7 @@ from emulator.maestro._engine import (
     engine_available,
     runner_version,
 )
-from emulator.maestro._fixtures import reset_session
+from emulator.maestro._fixtures import reset_orientation, reset_session, restore_orientation
 from emulator.maestro._flow import collect_flows, filter_flows_by_tag, filter_flows_excluding_tags
 from emulator.maestro._lock import DeviceLock, DeviceLocked
 from emulator.maestro._policy import PolicyError, load_policy
@@ -458,6 +458,16 @@ def main(
     # runner is using.
     if not keep_screen_on:
         ctx.call_on_close(lambda: _sleep_screen(serial, deps))
+    # The orientation fixture gets its counterpart here: the run put the
+    # device in portrait and switched automatic rotation off, and the person
+    # who owns the device gets their own settings back when the run is over.
+    # It is registered unconditionally — a fixture gives back what it took,
+    # and `--keep-screen-on` is about the screen, not about the settings.
+    #
+    # It is registered last so that it runs first: the callbacks run in
+    # reverse order, and the device is put back the way it was found while
+    # its screen is still awake.
+    ctx.call_on_close(lambda: restore_orientation(serial, deps))
     _wake_device(serial, deps)
 
     logger.info(f"=== Maestro on {serial} ({deps.device_model(serial)}) ===")
@@ -624,6 +634,11 @@ def main(
             # The wipe is the whole scope: it needs no list of titles, which is
             # why the narrow scope is gone.
             deps.cleanup_run_fixtures(serial, maestro_cleanup, deps)
+
+        # The orientation is a fixture too: a flow that rotates the device and
+        # fails leaves it rotated, and the next flow is then measured against a
+        # screen Maestro cannot reason about. It is put back before the flow.
+        reset_orientation(serial, deps)
 
         # The session is reset before the flow, not after it: a flow that ends
         # signed out must not decide the session of the flow after it, and the

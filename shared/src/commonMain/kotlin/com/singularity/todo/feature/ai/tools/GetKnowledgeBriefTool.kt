@@ -31,10 +31,10 @@ data class GetKnowledgeBriefInput(val projectId: String? = null, val taskId: Str
  *   it back as `expectedUpdatedAt` when it refreshes the brief, so an update written
  *   against a note nobody has touched since is the only one that lands.
  * @property attachedNotesSeen how many attached notes the read looked at — a page, not
- *   a total. The reads are bounded, and the page is applied before the brief marker is
- *   checked, so this says what was examined rather than what was found: an owner with
- *   notes and no brief reports them here, which is how a caller tells "nothing attached"
- *   from "nothing that is a brief".
+ *   a total. The reads are bounded, and the page counts the notes that hang on the
+ *   owner rather than the articles among them, so this says what was examined rather
+ *   than what was found: an owner with notes and no brief reports them here, which is
+ *   how a caller tells "nothing attached" from "nothing that is a brief".
  */
 @Serializable
 data class GetKnowledgeBriefOutput(
@@ -62,11 +62,14 @@ data class GetKnowledgeBriefOutput(
  *
  * ## What it reads, and what it refuses
  *
- * The brief is the newest note attached to the owner — the `project_id` or `task_id`
+ * The brief is the newest article attached to the owner — the `project_id` or `task_id`
  * column, written once when the note was created, not a link in some other note's
- * body. The owner is resolved first, so a hallucinated id is answered as "not found"
- * rather than as an empty brief: the model has to be able to tell "nobody wrote this
- * yet" from "there is no such project".
+ * body, and a body that carries the `## Sources` section. The article read is the one
+ * that says which attached notes are articles, and it classifies before it bounds the
+ * page: a brief cannot disappear behind newer ordinary notes. The owner is resolved
+ * first, so a hallucinated id is answered as "not found" rather than as an empty
+ * brief: the model has to be able to tell "nobody wrote this yet" from "there is no
+ * such project".
  *
  * ## One brief is a convention, not a constraint
  *
@@ -103,10 +106,16 @@ class GetKnowledgeBriefTool(
                     } else {
                         fromNotes(
                             owner = "project",
-                            notes =
+                            attached =
                                 notesRepository
                                     .watchAttachedToProject(ProjectId.fromString(projectId), NOTE_LIMIT)
                                     .first(),
+                            articles =
+                                notesRepository
+                                    .watchKnowledgeArticlesForProject(
+                                        ProjectId.fromString(projectId),
+                                        ARTICLE_LIMIT,
+                                    ).first(),
                         )
                     }
                 }
@@ -117,14 +126,20 @@ class GetKnowledgeBriefTool(
                     } else {
                         fromNotes(
                             owner = "task",
-                            // The kind is part of the query, not a filter over the logbook's
-                            // page: filtering after a bounded read loses a brief that sits
-                            // behind enough newer daily notes, and reports "none" for a
-                            // task that has one.
-                            notes =
+                            attached =
                                 notesRepository
                                     .watchPlainAttachedToTask(TaskId.fromString(taskId), NOTE_LIMIT)
                                     .first(),
+                            // The brief is a note that carries the Sources section, and the
+                            // statement says so: a read that filtered a page of the
+                            // logbook's notes would lose a brief that sits behind enough
+                            // newer daily notes, and report "none" for a task that has one.
+                            articles =
+                                notesRepository
+                                    .watchKnowledgeArticlesForTask(
+                                        TaskId.fromString(taskId),
+                                        ARTICLE_LIMIT,
+                                    ).first(),
                         )
                     }
                 }
@@ -137,33 +152,38 @@ class GetKnowledgeBriefTool(
         return ToolOutputJson.encodeToString(GetKnowledgeBriefOutput.serializer(), output)
     }
 
-    /** The newest attached note as the brief, or a stated "none yet". */
+    /**
+     * The newest article of the owner as the brief, or a stated "none yet".
+     *
+     * @param attached the notes attached to the owner — the page the read looked at, and
+     *   the count the answer reports.
+     * @param articles the owner's articles, newest first, as the statement returned them.
+     *   The statement is what says which notes are articles, so an article cannot be
+     *   missed because ordinary notes came before it.
+     */
     private fun fromNotes(
         owner: String,
-        notes: List<Note>,
+        attached: List<Note>,
+        articles: List<Note>,
     ): GetKnowledgeBriefOutput {
-        // Attached and plain is not enough: a task's logbook notes are attached and
-        // plain too, and answering with one of those would invite an extraction to be
-        // written over the user's own writing.
-        val briefs = notes.filter(KnowledgeBriefShape::isBrief)
         val newest =
-            briefs.sortedWith(NOTE_ORDER).firstOrNull()
+            articles.firstOrNull()
                 ?: return answer(
                     owner = owner,
                     // What was read, not what was found: "twenty attached notes, none of
                     // them a brief" and "nothing attached" are different answers, and a
                     // caller deciding whether to create one needs to tell them apart.
-                    attachedNotesSeen = notes.size,
+                    attachedNotesSeen = attached.size,
                     // The query already excludes the kinds that are never briefs, so an
                     // empty page means "no candidate note" — saying "nothing is attached"
                     // would be wrong for an owner whose only notes are folders or daily
                     // journals, and the caller would go looking for a note it cannot see.
                     reason =
-                        if (notes.isEmpty()) {
+                        if (attached.isEmpty()) {
                             "There is no note attached to this $owner that could be a brief — " +
                                 "a brief is a plain, non-archived note with a \"## Sources\" section."
                         } else {
-                            "${notes.size} note(s) were read for this $owner, and none of them " +
+                            "${attached.size} note(s) were read for this $owner, and none of them " +
                                 "is a brief — a brief is a note with a \"## Sources\" section."
                         },
                 )
@@ -173,7 +193,7 @@ class GetKnowledgeBriefTool(
             title = newest.title,
             bodyMarkdown = bodyOf(newest),
             updatedAt = newest.updatedAt.toEpochMilliseconds(),
-            attachedNotesSeen = notes.size,
+            attachedNotesSeen = attached.size,
             owner = owner,
         )
     }
@@ -215,19 +235,20 @@ class GetKnowledgeBriefTool(
          * than one brief needs: a project whose twenty newest attached notes are all
          * logbook entries must still be able to report the older brief it has. Past this
          * many, the read is what the caller asked for: a page, not the whole history.
+         *
+         * The page says what the read looked at — how many notes hang on the owner —
+         * and not what it found: the brief itself comes from the article read, which
+         * classifies before it cuts.
          */
         private const val NOTE_LIMIT = 200
 
         /**
-         * Newest first, then by ascending id — exactly the `ORDER BY created_at DESC,
-         * id ASC` both reads run.
+         * How many articles the read asks for.
          *
-         * The direction of the tie-break is not cosmetic: a comparator that sorted the
-         * id the other way picked the opposite note on a same-second tie, so the tool
-         * answered with a note the store does not call first.
+         * One: the answer is the newest article of the owner, and the read that says
+         * which notes are articles is the one that bounds the page.
          */
-        private val NOTE_ORDER: Comparator<Note> =
-            compareByDescending<Note> { it.createdAt }.thenBy { it.id.value }
+        private const val ARTICLE_LIMIT = 1
 
         /**
          * The description the model reads.

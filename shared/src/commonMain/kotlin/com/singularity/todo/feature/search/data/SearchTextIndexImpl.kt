@@ -93,7 +93,7 @@ class SearchTextIndexImpl(
         limit: Int,
     ): List<Task> {
         val userId = currentUser.scopedUserId.value.value
-        return ftsDao.searchTaskTitles(userId, query, limit).map { it.task.toTask() }
+        return ftsDao.searchTaskTitles(userId, query, limit).map { it.toTask() }
     }
 
     override suspend fun recentNoteTitles(

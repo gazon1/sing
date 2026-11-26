@@ -1,0 +1,230 @@
+reusing the open ChatGPT tab (new chat, no page reload)
+using project "chatgpt-use"
+[   0.0s] submitted; waiting for reply
+pinned to conversation 6b07d520-6ce8-83eb-a9b6-85ad937db18b
+[    6.0s] generating (msgs=3, len=20)
+[   12.0s] generating (msgs=3, len=20)
+[   18.0s] generating (msgs=3, len=20)
+[   24.0s] generating (msgs=3, len=20)
+[   30.0s] generating (msgs=3, len=20)
+[   36.0s] generating (msgs=3, len=20)
+[   41.0s] generating (msgs=3, len=20)
+[   47.0s] generating (msgs=3, len=4964)
+[   53.0s] waiting for reply (msgs=3, len=9182)
+[   59.0s] waiting for reply (msgs=3, len=9182)
+[   64.0s] waiting for reply (msgs=3, len=9182)
+[   70.0s] waiting for reply (msgs=3, len=9182)
+[   76.0s] waiting for reply (msgs=3, len=9182)
+[   82.0s] waiting for reply (msgs=3, len=9182)
+[   87.0s] waiting for reply (msgs=3, len=9182)
+[   93.0s] waiting for reply (msgs=3, len=9182)
+[   99.0s] waiting for reply (msgs=3, len=9182)
+[  105.0s] waiting for reply (msgs=3, len=9182)
+[  111.0s] waiting for reply (msgs=3, len=9182)
+[  117.0s] waiting for reply (msgs=3, len=9182)
+[  125.0s] server reports the turn closed; taking the reply from the conversation record
+## Review — PR #3214, role B
+
+<row align="center" gap={2}>
+  <badge color="success">APPROVE</badge>
+  <text color="secondary" size="xs">Architecture · Maintainability · Compatibility · Scope</text>
+</row>
+
+**Reviewed head:** `f86c4a6b747965ee002bb8c9f5d7cd76a137388e`
+
+**Governing issue:** [#3191](https://github.com/gazon1/sing/issues/3191)
+
+**Finding count: 0**
+
+I inspected the head-SHA versions of the repository conventions, navigation implementation, Maestro harness, changed flows and helpers, qualification registries, tests, and the three new ADRs. I also checked the implementation against the existing saved-state decisions.
+
+### 1. Findings
+
+No findings.
+
+There is no evidence-backed architecture, maintainability, compatibility, or scope problem requiring a change.
+
+In particular:
+
+- No unnecessary public API was introduced.
+- No additional dependency was necessary.
+- The new saved-state seam reuses the existing serialization registration.
+- Android/Desktop separation remains intact.
+- The orientation fixture follows the existing per-run fixture architecture.
+- The new tests follow the repository's testing conventions.
+- The qualification and debt registries preserve the existing evidence model.
+- The ADRs document consequential behavioural changes and their alternatives.
+
+### 2. Specific architectural checks
+
+**Navigation saved state**
+
+`Nav3SavedState.kt` is correctly located in `commonMain`.
+
+The important distinction is preserved:
+
+- Each navigation graph continues to receive its own `SavedStateConfiguration`.
+- The new `navKeySaver()` creates its own configuration for serializing the selected top-level route.
+- Serialization reuses `AppNavKey.serializer()` and `subclassesOfSealed`.
+- `rememberSaveable` restores the selected route.
+- `allowedRoutes` prevents restoring a route for which the shell has no back stack.
+- Undecodable saved state falls back instead of crashing.
+
+This does not reintroduce the defect documented in `2026-09-29-saved-state-config-must-be-per-graph.md`.
+
+The older sealed-root ADR is also respected: there is still one sealed navigation-key hierarchy, rather than another manually maintained serializer.
+
+**Nav3State**
+
+The revised invariant is correct.
+
+Previously, the selected route had to equal the start route. That invariant was incompatible with restoring a different selected tab.
+
+The new invariant checks the actual requirement: the selected route must have a back stack.
+
+The tests cover both cases:
+
+- Restoring a route other than the start route.
+- Rejecting a route without a corresponding back stack.
+
+The implementation does not unnecessarily widen the navigation API.
+
+**Orientation fixture**
+
+The placement in `scripts/src/emulator/maestro/_fixtures.py` is appropriate.
+
+The implementation separates three responsibilities:
+
+1. `reset_orientation()` establishes the required device state.
+2. `_take_rotation()` captures the original settings once per device.
+3. `restore_orientation()` gives the settings back.
+
+Registration in `_cli.py` is also correct.
+
+The close callbacks execute in reverse registration order:
+
+1. Restore orientation settings.
+2. Turn off the screen.
+3. Release the device lock.
+
+This ensures restoration happens while the screen is still awake and while the runner still owns the device.
+
+The tests cover restoration, ordering, unreadable settings, dead devices, repeated setup and repeated restoration.
+
+The module-level map is justified by the one-device-per-process runner model.
+
+**Qualification evidence**
+
+The registries retain the established separation:
+
+- `maestro-debt.yaml` describes known causes and their ownership.
+- `maestro-flow-qualification.yaml` records measured evidence.
+
+The new entries distinguish fixed causes from causes that did not reproduce.
+
+Keeping the latter as accepted debt is reasonable: a future recurrence can be recognized without pretending that three successful attempts prove the original observation was impossible.
+
+The qualification records also correctly identify the tested APK rather than attempting to identify themselves by the commit containing them.
+
+**ADRs**
+
+All three new decisions have the expected structure:
+
+- Context
+- Alternatives
+- Decision
+- Rationale
+- Consequences
+- Links
+
+They explain behavioural consequences rather than merely documenting implementation details.
+
+### 3. Attachment helpers — explicit answer
+
+<badge color="success">Not a finding</badge>
+
+The removal of `centerElement: true` is justified.
+
+The important distinction is between:
+
+- Making an element visible.
+- Making Maestro scroll until the element is centered.
+
+The `attachments_add_file_row` is the last row in the sheet. Centering it causes Maestro to continue scrolling even after it is visible, eventually timing out.
+
+The replacement is better:
+
+- Ordinary scrolling stops when the row becomes visible.
+- The tap uses `point: "50%,25%"`.
+- The upper quarter of the row avoids the system gesture-navigation area.
+- The tap does not depend on the amount of remaining scrollable content.
+
+The two helpers have complementary responsibilities, and the implementation preserves them.
+
+I would not restore centering or introduce another scrolling abstraction.
+
+### 4. Reuse and alternatives audit
+
+| Area | Chosen approach | Assessment |
+|---|---|---|
+| Navigation serialization | Existing polymorphic registration | Correct reuse |
+| Route persistence | Compose `rememberSaveable` and custom Saver | Appropriate standard mechanism |
+| Desktop navigation | Existing in-memory back stack | Correct platform boundary |
+| Device restoration | Existing fixture lifecycle and close callbacks | Appropriate |
+| Orientation tests | Existing Python `unittest` and recording dependencies | No new infrastructure needed |
+| Undo lifetime | Material 3 `SnackbarDuration.Long` | Simpler than automation-specific workarounds |
+| Qualification evidence | Existing YAML registries and gates | Consistent with repository architecture |
+
+I found no concrete problem that would justify replacing these choices with another abstraction or dependency.
+
+### 5. Implicit-decisions audit
+
+These are the consequential decisions that go beyond the issue's literal acceptance criteria.
+
+| Decision | Alternative | Consequence and assessment |
+|---|---|---|
+| Save selected tab, not tab history | Persist both | Back at the root returns to the start route after rotation. Explicitly documented and consistent with the existing state model. |
+| Reject routes outside `allowedRoutes` | Trust serialized state | Prevents navigation into a nonexistent stack. Correct defensive boundary. |
+| Recover from undecodable state | Fail fast | User may return to Today instead of encountering an application crash. Reasonable compatibility trade-off. |
+| Use ten-second undo | Keep four seconds and optimize Maestro | Gives users a usable opportunity to reverse deletion. Correct product-level fix. |
+| Capture device settings once | Read settings before every flow | Prevents accidentally remembering the fixture's own settings as the original settings. |
+| Restore only readable settings | Treat both settings as an atomic pair | Preserves whatever original state could be recovered. Appropriate best-effort behaviour. |
+| Restore at the end of the run | Restore after each flow | Keeps all flows under consistent portrait geometry while returning ownership of the device afterward. |
+| Retain unreproduced causes as accepted debt | Remove them after successful attempts | Preserves historical failure identity and makes recurrence diagnosable. |
+| Tap the upper quarter of the attachment row | Restore centered scrolling | Avoids the gesture-navigation area without depending on scroll geometry. |
+| Qualify against the tested APK | Record the final PR commit | Avoids circular evidence references and keeps the tested build identifiable. |
+| Requalify fourteen flows | Requalify only the original thirteen | Includes `attachments/02-delete`, whose transitive helper fingerprint also changed. Correct scope expansion. |
+
+None of these decisions introduces an unjustified compatibility break.
+
+### 6. Acceptance criteria
+
+Issue #3191 has three acceptance criteria. <Cite refs={["turn839982view1"]}/>
+
+| Criterion | Assessment |
+|---|---|
+| Six new causes have individual debt entries and owners | <badge color="success">MET</badge> |
+| Thirteen flows pass three consecutive attempts and receive qualification records | <badge color="success">MET</badge> |
+| Qualification gate exits 0, with no exceptions remaining for these flows | <badge color="success">MET</badge> |
+
+The additional fourteenth flow is justified by the shared attachment-helper fingerprint change.
+
+The PR reports fresh measurements against one build and one documented environment. <Cite refs={["turn839982view0"]}/>
+
+One verification qualification: CI was explicitly skipped. I have reviewed the reported evidence and its representation in the repository, but have not independently executed the local checks.
+
+---
+
+## Final assessment
+
+The implementation is appropriately scoped despite spanning product behaviour, navigation persistence, test infrastructure and evidence management.
+
+The strongest architectural aspect is that it fixes the underlying causes rather than weakening the tests or introducing new exceptions.
+
+The saved-state implementation respects the existing per-graph persistence decision. The fixture gives back the device state it borrows. The flow changes preserve meaningful assertions. The evidence remains traceable.
+
+The attachment-helper centering change is **not a finding**.
+
+**No blocking or non-blocking findings.**
+
+VERDICT: APPROVE

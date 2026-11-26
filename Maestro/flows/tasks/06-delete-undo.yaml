@@ -47,7 +47,13 @@ tags:
 # Undo restores the task in place; leave the screen and check the list.
 - tapOn:
     id: snackbar_action
-- back
+# Leave through the top bar, not through `back`. The undo snackbar lives in a
+# Popup — its own window — and that window still holds focus right after the
+# tap, so a `back` press is spent on dismissing it and never reaches the task
+# editor underneath. The editor then stays open and the restored row is hidden
+# behind it, which reads as a failed undo.
+- tapOn:
+    id: top_bar_back_button
 - extendedWaitUntil:
     visible:
       id: task_item_buy_milk

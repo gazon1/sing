@@ -3,8 +3,11 @@
 package com.singularity.todo.core.ui
 
 import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelStore
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.test.helpers.VmScope
@@ -25,6 +28,9 @@ import kotlin.test.assertTrue
 import com.singularity.todo.test.helpers.testVm as harnessTestVm
 
 private val testLogger = Logger.withTag("DraftMviViewModelTest")
+
+/** Store key for the clear-through-lifecycle helper below. */
+private const val DRAFT_MVI_LIFECYCLE_HARNESS_KEY = "draft_mvi_lifecycle_harness"
 
 /** Minimal draft for testing */
 @Immutable
@@ -84,6 +90,21 @@ private class TestDraftVm(
     override fun onIntent(intent: TestIntent) { /* no-op for tests */ }
 }
 
+/**
+ * Clears a ViewModel through the public lifecycle API.
+ *
+ * `ViewModel.clear()` is `internal` in lifecycle 2.11, so the public teardown path an
+ * owner actually drives is the store: `ViewModelStore.clear()` resolves the stored
+ * ViewModels and runs their clear — cancelling the `addCloseable` scope — before dropping
+ * them. Routing the clear through the store is what makes the teardown tests exercise the
+ * real contract rather than poking at a protected member directly.
+ */
+private fun clearThroughLifecycle(vm: ViewModel) =
+    ViewModelStore().apply {
+        put(DRAFT_MVI_LIFECYCLE_HARNESS_KEY, vm)
+        clear()
+    }
+
 private sealed interface TestIntent : MviIntent {
     data class EditTitle(val title: String) : TestIntent
 
@@ -102,6 +123,10 @@ private sealed interface TestEvent : MviEvent {
  * Test helper that uses runTest's backgroundScope as the VM's lifecycle owner.
  * runTest cancels backgroundScope when the test body completes, which terminates
  * the VM's init coroutines (restore collector, autosave loop) cleanly.
+ *
+ * The VM's scope is a child of that background scope's job — via the shared `testScope`
+ * helper — so closing the VM (clearThroughLifecycle) cancels the VM's subtree, not the test's
+ * own scope. The shared ownership contract lives on the helper in core/coroutines/testScope.
  */
 private fun testVm(block: suspend TestScope.() -> Unit) =
     runTest {
@@ -115,6 +140,11 @@ private fun testVm(block: suspend TestScope.() -> Unit) =
  * [VmScope.Background]: the autosave collector never ends, so it belongs in the
  * background scope — the same arrangement the repository's other ViewModel
  * tests use.
+ *
+ * [scope] replaces that scope for the test that drives the ViewModel through
+ * its own teardown: the harness builds the very same scope
+ * (`testScope(backgroundScope)`), so handing it in changes nothing about the
+ * ownership — it only says so at the call site.
  */
 private fun TestScope.testVm(
     initialDraft: TestDraft,
@@ -124,11 +154,12 @@ private fun TestScope.testVm(
     persistBlock: suspend (TestDraft) -> Either<AppError, Unit> = { Either.Right(Unit) },
     hooks: TestHooks = TestHooks(),
     autosaveDebounceMs: Long = 10L,
+    scope: AutoCloseableCoroutineScope? = null,
 ): TestDraftVm =
     harnessTestVm(
         stateAccessor = { it.stateFlow },
         vmScope = VmScope.Background,
-    ) { scope ->
+    ) { harnessScope ->
         TestDraftVm(
             initialDraft = initialDraft,
             autosaveBlock = autosaveBlock,
@@ -137,7 +168,7 @@ private fun TestScope.testVm(
             persistBlock = persistBlock,
             hooks = hooks,
             autosaveDebounceMs = autosaveDebounceMs,
-            scope = scope,
+            scope = scope ?: harnessScope,
         )
     }.vm
 
@@ -810,6 +841,42 @@ class DraftMviViewModelTest {
             runCurrent()
 
             assertEquals(listOf(TestEvent.Saved), events.toList(), "only an explicit save reports a save")
+        }
+
+    /**
+     * The draft VM's teardown has to reach the work its init block launched on the
+     * injected scope (#3228): the restore collector and the debounced autosave loop are
+     * children of that scope, so clearing the ViewModel has to stop them.
+     */
+    @Test
+    fun `clearing the draft viewmodel stops the autosave loop`() =
+        runTest {
+            var autosaveCalled = 0
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "Hello"),
+                    autosaveBlock = { autosaveCalled++ },
+                    validateBlock = { null },
+                    persistBlock = { Either.Right(Unit) },
+                    // The shared helper hangs the VM's job off the background scope's job, so
+                    // closing (via clearThroughLifecycle) cancels the autosave loop, not the test.
+                    scope = testScope(backgroundScope),
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+            assertEquals(0, autosaveCalled, "no autosave before any edit")
+
+            vm.updateDraft { it.copy(title = "edited") }
+            advanceTimeBy(50L)
+            runCurrent()
+            assertEquals(1, autosaveCalled, "the debounce fired once after the edit")
+
+            clearThroughLifecycle(vm)
+            vm.updateDraft { it.copy(title = "edited-again") }
+            advanceTimeBy(200L)
+            runCurrent()
+
+            assertEquals(1, autosaveCalled, "the autosave loop must be dead after the ViewModel was cleared")
         }
 }
 

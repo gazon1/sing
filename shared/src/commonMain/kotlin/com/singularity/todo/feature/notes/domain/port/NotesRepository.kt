@@ -249,6 +249,44 @@ interface NotesRepository :
     ): Flow<List<Note>>
 
     /**
+     * Watches the **Knowledge articles** attached **directly** to [projectId], newest
+     * first.
+     *
+     * An article is a plain, non-folder note attached to the project that carries the
+     * `## Sources` section — see
+     * [com.singularity.todo.feature.notes.KnowledgeArticle]. One owner may own many
+     * articles, and each is addressed by its own note id.
+     *
+     * The classification happens in the statement, before the page is cut: an older
+     * article cannot disappear behind newer ordinary notes. The page is bounded by
+     * [limit], and the order is deterministic — newest first, then by ascending id.
+     *
+     * It is not [watchForProject], which answers a different question: the notes of
+     * the project's *tasks*.
+     *
+     * @param limit how many articles the page carries at most.
+     */
+    fun watchKnowledgeArticlesForProject(
+        projectId: ProjectId,
+        limit: Int,
+    ): Flow<List<Note>>
+
+    /**
+     * Watches the **Knowledge articles** attached **directly** to [taskId], newest
+     * first.
+     *
+     * The same contract as [watchKnowledgeArticlesForProject], for the other owner:
+     * an article of a task hangs on the task, and the notes of the task's project are
+     * a different question.
+     *
+     * @param limit how many articles the page carries at most.
+     */
+    fun watchKnowledgeArticlesForTask(
+        taskId: com.singularity.todo.feature.tasks.domain.model.TaskId,
+        limit: Int,
+    ): Flow<List<Note>>
+
+    /**
      * Creates a new note attached to [taskId] and returns its id.
      *
      * The caller owns [id]: the editor generates it before the note exists, so the

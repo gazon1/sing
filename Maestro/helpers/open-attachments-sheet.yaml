@@ -75,14 +75,28 @@ name: open-attachments-sheet
 
 # The row lands on the gesture-navigation strip on a phone; centering puts it
 # where the tap lands on the row and not on the system bar.
+#
+# It is not centered any more, and the reason is that Maestro's centering never
+# settles: it keeps scrolling until the row sits in the middle of the screen,
+# and this row is the last thing in the sheet, so the content below it cannot
+# scroll any further — the loop ran to its timeout and the step failed on a row
+# that was on the screen all along (measured 2026-11-25, API 36 emulator). The
+# plain scroll stops as soon as the row is visible.
+#
+# Centering was also what kept the tap off the system bar, and that part of it
+# is kept: the row is the last thing in the sheet, so the scroll leaves it at
+# the bottom of the window, and on a phone with gesture navigation the bottom of
+# the window is under the gesture strip. The tap therefore lands in the upper
+# quarter of the row — a place that is on the row and never on the bar — and it
+# does not depend on how far the sheet could scroll.
 - scrollUntilVisible:
     element:
       id: attachments_add_file_row
     direction: DOWN
-    centerElement: true
     timeout: 8000
 - tapOn:
     id: attachments_add_file_row
+    point: "50%,25%"
 - extendedWaitUntil:
     visible:
       id: attachments_url_input

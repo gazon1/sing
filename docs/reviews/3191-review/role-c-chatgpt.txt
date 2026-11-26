@@ -1,0 +1,556 @@
+reusing the open ChatGPT tab (new chat, no page reload)
+using project "chatgpt-use"
+[   0.0s] submitted; waiting for reply
+pinned to conversation 6b07d5a5-d434-83ed-8cd0-a4b11dfa4629
+[    6.0s] generating (msgs=4, len=20)
+[   12.0s] generating (msgs=4, len=20)
+[   18.0s] generating (msgs=4, len=20)
+[   24.0s] generating (msgs=4, len=20)
+[   30.0s] generating (msgs=4, len=29)
+[   35.0s] generating (msgs=4, len=577)
+[   43.0s] generating (msgs=4, len=577)
+[   49.0s] generating (msgs=4, len=577)
+[   55.0s] generating (msgs=4, len=577)
+[   61.0s] generating (msgs=4, len=577)
+[   67.0s] generating (msgs=4, len=577)
+[   73.0s] generating (msgs=4, len=577)
+[   80.0s] generating (msgs=4, len=577)
+[   85.0s] generating (msgs=4, len=577)
+[   91.0s] generating (msgs=4, len=3609)
+[   97.0s] generating (msgs=4, len=6650)
+[  103.0s] generating (msgs=4, len=9790)
+[  108.0s] waiting for reply (msgs=4, len=9790)
+ChatGPT said:
+Review: PR #3214 — issue #3191
+
+Role C: tests and verification
+
+Reviewed against the supplied base and head coordinates, including the issue, implementation, changed Maestro flows, qualification registry, navigation tests, and repository conventions.
+
+No blocking issue identified so far
+
+The central distinction in this change is handled correctly: a passing flow is not automatically evidence that its original failure was fixed. The change distinguishes product defects, test defects, and causes that did not reproduce, and records those outcomes separately.
+
+Findings
+
+No findings.
+
+I specifically checked the following areas.
+
+1. Navigation saved-state tests
+
+Both new common tests exercise real implementation rather than duplicated test logic.
+
+NavKeySaverTest.kt
+
+Verifies an Inbox route survives serialization and restoration.
+
+Verifies a nested Tasks route is rejected as an invalid top-level route.
+
+Exercises the actual navKeySaver, including the application's polymorphic saved-state configuration.
+
+Nav3StateRestoredRouteTest.kt
+
+Verifies that a restored Inbox route is accepted even when Today is the initial route.
+
+Verifies that a route without a corresponding back stack throws IllegalArgumentException.
+
+These tests would catch regressions in serialization and the restored-route invariant. They do not independently verify that Android's factory remains wired to rememberSaveable; that integration is covered by lifecycle/03-rotate-in-editor.yaml, which exercises actual Activity recreation.
+
+The tests follow repository conventions:
+
+Pure Kotlin tests belong in commonTest.
+
+All classes have @Tag("fast").
+
+No mocks or unnecessary test doubles.
+
+The undo-duration test correctly belongs in jvmTest, under the architecture-test package.
+
+I found no test-placement or tagging problem.
+
+2. Maestro assertions
+
+The changes preserve the scenarios' substantive assertions.
+
+Flow
+
+	
+
+Verification
+
+
+
+
+attachments/01-add-url
+
+	
+
+Added URL and title appear
+
+
+
+
+attachments/03-empty-url-rejected
+
+	
+
+Empty attachment list remains; input remains available
+
+
+
+
+attachments/04-persistence
+
+	
+
+Attachment survives application restart
+
+
+
+
+attachments/05-renders-correctly
+
+	
+
+Title, URL and delete affordance remain asserted
+
+
+
+
+lifecycle/03-rotate-in-editor
+
+	
+
+Editor and title survive rotation
+
+
+
+
+tasks/06-delete-undo
+
+	
+
+Undo action is reached; task row is found afterward
+
+
+
+
+tasks/09-rename-empty
+
+	
+
+Original title is restored in the field and original row remains
+
+
+
+
+pomodoro/04-skip-to-break
+
+	
+
+Skip operation and phase transition remain asserted
+
+
+
+
+search/05-filter-pinned
+
+	
+
+Pinned task remains; unpinned task disappears
+
+
+
+
+search/12-no-results-recovery
+
+	
+
+Clearing query and filters restores the expected state
+
+
+
+
+tasks/13-create-full-task
+
+	
+
+Full editor configuration and saved task remain tested
+
+
+
+
+tasks/21-planning-reminder
+
+	
+
+Reminder is configured and placeholder disappears
+
+
+
+
+TASK-LOG-01
+
+	
+
+Note survives navigation and remains attached to its task
+
+Notably:
+
+search/05-filter-pinned now waits for the actual pin state rather than assuming the asynchronous write has completed.
+
+search/12-no-results-recovery dismisses the keyboard before checking the recovery controls.
+
+tasks/09-rename-empty uses the exact eight-character deletion and checks the restored title, rather than merely checking that the field exists.
+
+TASK-LOG-01 scrolls to the note before asserting its presence. The database-persistence round-trip remains intact.
+
+I found no assertion deliberately weakened to obtain a passing run.
+
+3. Attachment helper centering
+
+Explicit answer: NOT A FINDING.
+
+Removing centerElement: true from:
+
+Maestro/helpers/open-attachments-sheet.yaml
+
+Maestro/helpers/reveal-attachments-section.yaml
+
+is justified.
+
+The add-file row is the last element in the sheet. Centering it requires scrolling beyond the available content, so the operation can time out even though the row is already visible.
+
+The replacement uses ordinary visibility-based scrolling. The actual tap in the opening helper specifies:
+
+YAML
+- tapOn:
+    id: attachments_add_file_row
+    point: "50%,25%"
+
+This preserves an element-relative tap inside the row, rather than relying on a screen coordinate. The geometry gate permits percentage coordinates.
+
+The explanation and implementation are consistent. I would not request restoring centering.
+
+4. Qualification evidence
+
+The evidence is internally consistent.
+
+14 / 14 qualified
+
+All thirteen requested flows have three recorded passing attempts. The additional attachments/02-delete qualification is appropriate because the shared attachment helper changed its fingerprint too.
+
+I checked the records individually:
+
+Property
+
+	
+
+Result
+
+
+
+
+Attempts
+
+	
+
+3 per flow
+
+
+
+
+Outcome
+
+	
+
+pass for all attempts
+
+
+
+
+Environment
+
+	
+
+API 36 emulator
+
+
+
+
+Device
+
+	
+
+sdk_gphone64_x86_64
+
+
+
+
+Serial
+
+	
+
+emulator-5590
+
+
+
+
+APK commit
+
+	
+
+3c637206d564
+
+
+
+
+Maestro
+
+	
+
+2.10.0
+
+The build reference is also verifiable: qualification-3191-rebase-build resolves to commit 3c637206d564596975c00fd67be1c71a66a5ec87.
+
+The qualification checker computes fingerprints from the flow and its transitive helper dependencies, rather than trusting a manually supplied fingerprint. The PR reports a successful gate run after requalification.
+
+I found no evidence that the records mix builds, environments, or Maestro versions.
+
+5. Debt registry
+
+All six newly identified causes have individual entries in config/docs/maestro-debt.yaml, each owned by issue #3191.
+
+The two causes that did not reproduce remain explicitly registered as accepted debt. The four fixed causes are marked fixed.
+
+The additional undo-related product cause is also registered separately.
+
+This is preferable to silently deleting causes after successful retries.
+
+6. Static gates
+
+I inspected the implementations and the affected flow changes for:
+
+check-maestro-flow-qualification.py
+
+check-maestro-hidekeyboard.py
+
+check-maestro-keyboard-commands.py
+
+check-maestro-seeded-titles.py
+
+check-maestro-screen-geometry.py
+
+validate-maestro-selectors.py
+
+I found no introduced violation:
+
+Keyboard dismissal follows text input.
+
+There is no redundant keyboard dismissal in the changed sequences.
+
+Seeded task titles remain stable.
+
+The new attachment tap uses percentage coordinates.
+
+The selectors remain consistent with the existing UI-tag conventions.
+
+The qualification records use the required attempt and environment structure.
+
+I have inspected the gates and their inputs, but have not independently executed the Python commands. The reported local gate output is therefore author-provided evidence, not a test run performed during this review.
+
+7. Selected-tab ADR
+
+docs/decisions/2026-11-25-the-selected-tab-survives-the-configuration-change.md describes the implementation accurately.
+
+The Android factory actually uses:
+
+Kotlin
+rememberSaveable(
+    stateSaver = navKeySaver(topLevelRoutes),
+) { mutableStateOf(startRoute) }
+
+The saver uses the existing polymorphic registration. Invalid or obsolete restored routes fall back safely.
+
+The ADR also explicitly documents that only the selected tab is restored, not the previous-tab history.
+
+Its front matter and Context, Idea, Decision, Rationale, Consequences and Links sections follow the repository's established ADR format.
+
+No discrepancy found.
+
+Implicit-decisions audit
+
+The implementation makes several decisions beyond the literal acceptance criteria.
+
+Decision
+
+	
+
+Assessment
+
+
+
+
+Save only the selected top-level route, not tab history
+
+	
+
+Reasonable; explicitly documented
+
+
+
+
+Reject restored routes outside allowedRoutes
+
+	
+
+Correct defensive boundary
+
+
+
+
+Treat undecodable saved state as recoverable
+
+	
+
+Reasonable; fallback avoids crashing
+
+
+
+
+Extend undo snackbar duration to ten seconds
+
+	
+
+Correct product fix, not merely test optimization
+
+
+
+
+Keep portrait orientation throughout the test run
+
+	
+
+Consistent geometry across flows
+
+
+
+
+Restore device settings only when readable
+
+	
+
+Reasonable best-effort cleanup
+
+
+
+
+Retain non-reproducing causes as accepted debt
+
+	
+
+Good regression-accountability practice
+
+
+
+
+Tap the attachment row at 50%, 25%
+
+	
+
+Reasonable element-relative positioning
+
+
+
+
+Anchor qualification to the tested APK commit
+
+	
+
+Correctly avoids circular evidence references
+
+I agree with these decisions. The selected-tab history trade-off is particularly important: it is explicitly documented rather than accidentally introduced.
+
+Acceptance criteria
+
+#
+
+	
+
+Acceptance criterion
+
+	
+
+Status
+
+	
+
+Evidence
+
+
+
+
+1
+
+	
+
+Six new causes individually registered with owning issue
+
+	
+
+MET
+
+	
+
+Six distinct entries, each issue: 3191; additional undo cause also registered
+
+
+
+
+2
+
+	
+
+Thirteen flows pass three consecutive attempts; exceptions replaced
+
+	
+
+MET
+
+	
+
+Thirteen qualification records, three passing attempts each, plus the additional attachment qualification
+
+
+
+
+3
+
+	
+
+Qualification gate exits 0 without exceptions for these flows
+
+	
+
+MET
+
+	
+
+PR-reported successful gate output; none of the thirteen appears in the exceptions section
+
+Verification qualification: CI was intentionally skipped. I inspected the committed evidence and gate implementations, but did not reproduce the author's local execution. This is a limitation of independent verification, not an identified defect.
+
+Final assessment
+
+The change satisfies the three acceptance criteria.
+
+The important distinction is that it does not simply replace failing tests with exceptions or weaken assertions. It fixes two actual product defects, repairs the test interactions, records causes independently, and requalifies the resulting flows against a reachable build.
+
+The attachment helper concern is not a finding.
+
+No blocker, major regression, or actionable minor finding identified.
+
+No blocking issue.
+
+VERDICT: APPROVE

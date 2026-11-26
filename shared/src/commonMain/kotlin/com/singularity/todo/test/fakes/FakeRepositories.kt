@@ -3561,15 +3561,23 @@ open class FakeNotesRepository(
             }
         }
 
+    /** The Knowledge-article reads, split out of the class to keep it within its size budget. */
+    private val knowledgeArticles = FakeKnowledgeArticles(store, currentUser)
+
     /**
-     * The order the notes come back in — newest first, then by id.
-     *
-     * The id breaks the tie, so two calls cannot swap two notes that were written in
-     * the same second. The same order the store's query uses.
+     * The Knowledge articles attached directly to a project — plain, non-folder notes
+     * carrying the `## Sources` section, classified before the page is cut.
      */
-    private val noteOrder: Comparator<com.singularity.todo.feature.notes.Note> =
-        compareByDescending<com.singularity.todo.feature.notes.Note> { it.createdAt }
-            .thenBy { it.id.value }
+    override fun watchKnowledgeArticlesForProject(
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId,
+        limit: Int,
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> = knowledgeArticles.observeForProject(projectId, limit)
+
+    /** The Knowledge articles attached directly to a task. */
+    override fun watchKnowledgeArticlesForTask(
+        taskId: TaskId,
+        limit: Int,
+    ): Flow<List<com.singularity.todo.feature.notes.Note>> = knowledgeArticles.observeForTask(taskId, limit)
 
     /** Whether the note hangs on a task of [projectId] — the fake's stand-in for the join. */
     private fun com.singularity.todo.feature.notes.Note.belongsTo(

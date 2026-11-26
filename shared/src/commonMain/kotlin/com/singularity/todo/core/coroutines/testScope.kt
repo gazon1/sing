@@ -28,6 +28,23 @@ import kotlin.coroutines.CoroutineContext
  *     // in afterTest does NOT cancel the test body.
  * }
  * ```
+ *
+ * ## Ownership contract
+ *
+ * Every scope in this codebase has exactly one owner, and the owner is whoever created the
+ * scope the VM's scope hangs off:
+ *
+ * - **Production, ViewModel lifetime** — the owner is the ViewModel instance; the framework
+ *   calls `close()` on the `addCloseable`-registered scope during `clear()`.
+ * - **Production, long-lived component** — the owner is the instance that created the
+ *   per-instance scope through `createBackgroundScope()`.
+ * - **Tests** — the owner is the scope the test received from `runTest` (or its
+ *   `backgroundScope`).
+ *
+ * The wrapped scope is always hung off a **child** of the owner's job, so `close()` cancels
+ * only the VM's subtree and leaves the owner running. The owner ends the VM's work by ending
+ * itself (the test finishing, the process exiting); the VM ends its own work by cancelling its
+ * child on `close()`.
  */
 fun testScope(scope: CoroutineScope): AutoCloseableCoroutineScope {
     // Create a child Job so cancelling the returned scope does NOT cancel

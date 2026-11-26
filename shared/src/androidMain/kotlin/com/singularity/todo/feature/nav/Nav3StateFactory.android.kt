@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
 import com.singularity.todo.feature.nav.AgendaStartRoute
@@ -34,9 +35,14 @@ actual fun rememberNav3State(): Nav3State {
         DestinationKind.tabs.toSet() + DestinationKind.menuEntries.toSet()
 
     val topLevelRouteState: MutableState<NavKey> =
-        remember(startRoute) {
-            mutableStateOf(startRoute)
-        }
+        // The selected tab has to survive the configuration change a rotation is.
+        // `remember` alone does not: the Activity is recreated, the tab falls back
+        // to the start route, and the stack that was open is never composed again.
+        // The route is saved with the same polymorphic registration the back
+        // stacks use — see `navKeySaver`.
+        rememberSaveable(
+            stateSaver = navKeySaver(topLevelRoutes),
+        ) { mutableStateOf(startRoute) }
 
     val savedStateConfig = navSavedStateConfig()
 
