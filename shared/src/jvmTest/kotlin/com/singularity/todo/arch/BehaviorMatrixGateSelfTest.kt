@@ -276,6 +276,78 @@ class BehaviorMatrixGateSelfTest {
         )
     }
 
+    @Test
+    fun `a class without a body does not swallow the object that follows it`() {
+        val source =
+            "class Owner\n" +
+                "object Helpers {\n" +
+                "    @Test\n" +
+                "    fun `a test`() {}\n" +
+                "}\n"
+
+        val bodies = BehaviorMatrixGate.classBodies(source)
+
+        assertEquals(
+            listOf(""),
+            bodies["Owner"],
+            "the body of the object that follows a bodyless class is not its body: $bodies",
+        )
+    }
+
+    @Test
+    fun `a class without a body does not swallow the interface that follows it`() {
+        val source =
+            "class Owner\n" +
+                "interface Helpers {\n" +
+                "    @Test\n" +
+                "    fun `a test`() {}\n" +
+                "}\n"
+
+        val bodies = BehaviorMatrixGate.classBodies(source)
+
+        assertEquals(
+            listOf(""),
+            bodies["Owner"],
+            "the body of the interface that follows a bodyless class is not its body: $bodies",
+        )
+    }
+
+    @Test
+    fun `a row whose test lives in an object that follows a bodyless class is missing`() {
+        val matrix = matrix("| a | `Owner.a test` |")
+        val owner =
+            "class Owner\n" +
+                "object Helpers {\n" +
+                "    @Test\n" +
+                "    fun `a test`() {}\n" +
+                "}\n"
+
+        val missing = missing(matrix, matrixClassBody = null, owner = owner)
+
+        assertEquals(
+            1,
+            missing.size,
+            "a test of an object that follows a bodyless class does not cover the class: $missing",
+        )
+    }
+
+    @Test
+    fun `a supertype whose name ends in a declaration keyword does not end the header`() {
+        val matrix = matrix("| a | `Owner.a test` |")
+        val owner =
+            "class Owner : Myinterface {\n" +
+                "    @Test\n" +
+                "    fun `a test`() {}\n" +
+                "}\n"
+
+        val missing = missing(matrix, matrixClassBody = null, owner = owner)
+
+        assertTrue(
+            missing.isEmpty(),
+            "a supertype that merely ends in a keyword is still a supertype: $missing",
+        )
+    }
+
     /** The rows of [matrix] that do not name a test that exists. */
     private fun missing(
         matrix: String,

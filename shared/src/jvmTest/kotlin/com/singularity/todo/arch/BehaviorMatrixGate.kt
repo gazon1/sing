@@ -232,9 +232,9 @@ internal object BehaviorMatrixGate {
      * Walks the rest of the class header until the brace that opens the body.
      *
      * A class without a body (`abstract class Owner`) would otherwise swallow
-     * the body of the class that follows it — or the body of the function that
-     * follows it — so the next class or function declaration ends the search
-     * and the class is reported as "no such class".
+     * the body of the declaration that follows it — the next class, object,
+     * interface or function — so the next declaration ends the search and the
+     * class is reported as "no such class".
      */
     private fun scanHeader(
         code: String,
@@ -265,10 +265,22 @@ internal object BehaviorMatrixGate {
                 }
             return close.takeIf { it >= 0 }?.plus(1)
         }
-        if (startsWithWord(code, index, "class")) return null
-        if (startsWithWord(code, index, "fun")) return null
+        if (declarationStartsAt(code, index)) return null
         return index + 1
     }
+
+    /**
+     * Whether a declaration of its own starts at [index] — a class, an object,
+     * an interface or a function.
+     *
+     * Such a declaration ends the header of a class without a body: the body
+     * that follows belongs to the declaration, not to the class that lost its
+     * own body.
+     */
+    private fun declarationStartsAt(
+        code: String,
+        index: Int,
+    ): Boolean = declarationKeywords.any { startsWithWord(code, index, it) }
 
     /** The index of the first non-space character at or after [index]. */
     private fun skipSpaces(
@@ -334,13 +346,23 @@ internal object BehaviorMatrixGate {
         return -1
     }
 
-    /** Whether the word [word] starts at [index]. */
+    /**
+     * Whether the word [word] starts at [index] as a word of its own.
+     *
+     * The word must stand on its own: a name that merely ends in it — the
+     * supertype `Myinterface`, the class `Myclass` — is a name, not a
+     * declaration, and must not end a header. A qualified name that contains
+     * the word — `com.example.interfaces.Owner` — is a name as well, so the
+     * word must start the line or follow whitespace.
+     */
     private fun startsWithWord(
         code: String,
         index: Int,
         word: String,
     ): Boolean {
         if (!code.startsWith(word, index)) return false
+        val before = index - 1
+        if (before >= 0 && !code[before].isWhitespace()) return false
         val after = index + word.length
         return after >= code.length || (!code[after].isLetterOrDigit() && code[after] != '_')
     }
@@ -350,6 +372,9 @@ internal object BehaviorMatrixGate {
 
     /** A test annotation — `kotlin.test.Test` or a qualified variant of it. */
     private val testAnnotation = Regex("""@(?:[A-Za-z0-9_]+\.)*Test\b""")
+
+    /** The keywords that start a declaration of its own. */
+    private val declarationKeywords = listOf("class", "object", "interface", "fun")
 
     /** A function declaration, with the name it declares. */
     private val functionDeclaration =
