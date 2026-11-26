@@ -161,16 +161,18 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  * The base class owns the contract; the subclasses (TaskCreate, NoteEditor) only
  * override the extension points, and their own rows live next to them:
  * `TaskCreateDraftBehaviorTest`, `TaskCreateTagScopeTest` and `NoteEditorTest`. The
- * rows about the async effects live in `DraftMviEffectTest`, and the validation
- * row in `DraftMviSaveValidationTest` — both in this same file.
+ * rows about the restore live in `DraftMviRestoreTest`, the rows about the async
+ * effects in `DraftMviEffectTest`, and the validation row in
+ * `DraftMviSaveValidationTest` — all three in this same file.
  *
  * | Row                          | Test                                                       |
  * |------------------------------|------------------------------------------------------------|
  * | initial draft                | `initial state has draft and save disabled when invalid`    |
- * | restore replaces the initial | `restore with persisted draft replaces initial`             |
- * | no persisted draft           | `restore when no persisted draft keeps initial`            |
- * | restore settles first        | `autosave does not start before the restore settles`       |
- * | seed-if-empty restore        | `restore does not overwrite a draft the user edited while it was loading` |
+ * | restore replaces the initial | `DraftMviRestoreTest.restore with persisted draft replaces initial` |
+ * | no persisted draft           | `DraftMviRestoreTest.restore when no persisted draft keeps initial` |
+ * | restore settles first        | `DraftMviRestoreTest.autosave does not start before the restore settles` |
+ * | seed-if-empty restore        | `DraftMviRestoreTest.restore does not overwrite a draft the user edited while it was loading` |
+ * | restore-time edit is dropped | `DraftMviRestoreTest.an edit made while the restore was in flight is not persisted afterwards` |
  * | live validation              | `edit enables save when draft becomes valid`               |
  * | debounced autosave           | `a burst of edits autosaves once with the latest value`    |
  * | autosave ≠ checkpoint        | `a successful autosave does not move the save checkpoint`  |
@@ -272,35 +274,6 @@ class DraftMviViewModelTest {
         }
 
     @Test
-    fun `restore with persisted draft replaces initial`() =
-        testVm {
-            val vm =
-                testVm(
-                    initialDraft = TestDraft(title = "initial"),
-                    restoreBlock = { TestDraft(title = "restored") },
-                )
-            advanceTimeBy(20L)
-            runCurrent()
-
-            assertEquals("restored", vm.stateFlow.value.draft.title)
-            assertFalse(vm.stateFlow.value.isDirty)
-        }
-
-    @Test
-    fun `restore when no persisted draft keeps initial`() =
-        testVm {
-            val vm =
-                testVm(
-                    initialDraft = TestDraft(title = "initial"),
-                    restoreBlock = { null },
-                )
-            advanceTimeBy(20L)
-            runCurrent()
-
-            assertEquals("initial", vm.stateFlow.value.draft.title)
-        }
-
-    @Test
     fun `save validates then persists and calls onSaved`() =
         testVm {
             val persisted = mutableListOf<TestDraft>()
@@ -380,89 +353,6 @@ class DraftMviViewModelTest {
             // theirs, and the editor still knows it differs from what is stored.
             assertEquals("typed", vm.stateFlow.value.draft.title, "a refused save must not lose the user's text")
             assertTrue(vm.stateFlow.value.isDirty)
-        }
-
-    /**
-     * The restore runs to completion before the autosave loop starts. A restore
-     * that raced the first keystroke could lose the draft the user was already
-     * writing — or write the restored draft over it.
-     *
-     * The edit below happens while the restore is still in flight, and it is
-     * what makes the assertion mean something: the autosave collector drops the
-     * first value it sees, so a collector that started too early would have had
-     * nothing to write until the user typed. The typed draft is that something.
-     */
-    @Test
-    fun `autosave does not start before the restore settles`() =
-        testVm {
-            val restoreGate = CompletableDeferred<TestDraft?>()
-            var autosaved = false
-            val vm =
-                testVm(
-                    initialDraft = TestDraft(title = "initial"),
-                    restoreBlock = { restoreGate.await() },
-                    autosaveBlock = { autosaved = true },
-                    autosaveDebounceMs = 10L,
-                )
-            advanceTimeBy(50L)
-            runCurrent()
-            assertFalse(restoreGate.isCompleted, "the restore has not answered yet")
-            assertFalse(autosaved, "no autosave may run while the restore is in flight")
-
-            // The user types while the store is still answering.
-            vm.updateDraft { it.copy(title = "typed") }
-            advanceTimeBy(50L)
-            runCurrent()
-            assertFalse(
-                autosaved,
-                "the edit must not be written while the restore is in flight — the autosave loop starts only after it",
-            )
-
-            restoreGate.complete(TestDraft(title = "restored"))
-            advanceTimeBy(20L)
-            runCurrent()
-            assertTrue(restoreGate.isCompleted, "the restore has answered")
-            assertFalse(autosaved, "the current draft is the collector's first value — it is dropped, not written")
-            assertEquals(
-                "typed",
-                vm.stateFlow.value.draft.title,
-                "a restore must not overwrite what the user typed while it was loading",
-            )
-
-            // The collector is live now: an edit autosaves.
-            vm.updateDraft { it.copy(title = "typed-again") }
-            advanceTimeBy(50L)
-            runCurrent()
-            assertTrue(autosaved)
-        }
-
-    /**
-     * Restore is seed-if-empty: it fills an empty draft, it does not overwrite
-     * one the user has already started writing.
-     */
-    @Test
-    fun `restore does not overwrite a draft the user edited while it was loading`() =
-        testVm {
-            val restoreGate = CompletableDeferred<TestDraft?>()
-            val vm =
-                testVm(
-                    initialDraft = TestDraft(title = "initial"),
-                    restoreBlock = { restoreGate.await() },
-                )
-            advanceTimeBy(20L)
-            runCurrent()
-
-            // The user types before the store answers.
-            vm.updateDraft { it.copy(title = "typed") }
-            restoreGate.complete(TestDraft(title = "restored"))
-            advanceTimeBy(20L)
-            runCurrent()
-
-            assertEquals(
-                "typed",
-                vm.stateFlow.value.draft.title,
-                "a restore must not overwrite what the user already typed",
-            )
         }
 
     @Test
@@ -920,6 +810,174 @@ class DraftMviViewModelTest {
             runCurrent()
 
             assertEquals(listOf(TestEvent.Saved), events.toList(), "only an explicit save reports a save")
+        }
+}
+
+/**
+ * The restore guarantees of the draft editor, in their own class.
+ *
+ * The restore is the one part of the editor with a race in it: the store
+ * answers late, and the user types meanwhile. The tests of that race belong
+ * together, and they live apart from `DraftMviViewModelTest` so that the
+ * matrix they belong to stays readable.
+ */
+@Tag("fast")
+class DraftMviRestoreTest {
+    @Test
+    fun `restore with persisted draft replaces initial`() =
+        testVm {
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "initial"),
+                    restoreBlock = { TestDraft(title = "restored") },
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            assertEquals("restored", vm.stateFlow.value.draft.title)
+            assertFalse(vm.stateFlow.value.isDirty)
+        }
+
+    @Test
+    fun `restore when no persisted draft keeps initial`() =
+        testVm {
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "initial"),
+                    restoreBlock = { null },
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            assertEquals("initial", vm.stateFlow.value.draft.title)
+        }
+
+    /**
+     * The restore runs to completion before the autosave loop starts. A restore
+     * that raced the first keystroke could lose the draft the user was already
+     * writing — or write the restored draft over it.
+     *
+     * The edit below happens while the restore is still in flight, and it is
+     * what makes the assertion mean something: the autosave collector drops the
+     * first value it sees, so a collector that started too early would have had
+     * nothing to write until the user typed. The typed draft is that something.
+     */
+    @Test
+    fun `autosave does not start before the restore settles`() =
+        testVm {
+            val restoreGate = CompletableDeferred<TestDraft?>()
+            var autosaved = false
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "initial"),
+                    restoreBlock = { restoreGate.await() },
+                    autosaveBlock = { autosaved = true },
+                    autosaveDebounceMs = 10L,
+                )
+            advanceTimeBy(50L)
+            runCurrent()
+            assertFalse(restoreGate.isCompleted, "the restore has not answered yet")
+            assertFalse(autosaved, "no autosave may run while the restore is in flight")
+
+            // The user types while the store is still answering.
+            vm.updateDraft { it.copy(title = "typed") }
+            advanceTimeBy(50L)
+            runCurrent()
+            assertFalse(
+                autosaved,
+                "the edit must not be written while the restore is in flight — the autosave loop starts only after it",
+            )
+
+            restoreGate.complete(TestDraft(title = "restored"))
+            advanceTimeBy(20L)
+            runCurrent()
+            assertTrue(restoreGate.isCompleted, "the restore has answered")
+            assertFalse(autosaved, "the current draft is the collector's first value — it is dropped, not written")
+            assertEquals(
+                "typed",
+                vm.stateFlow.value.draft.title,
+                "a restore must not overwrite what the user typed while it was loading",
+            )
+
+            // The collector is live now: an edit autosaves.
+            vm.updateDraft { it.copy(title = "typed-again") }
+            advanceTimeBy(50L)
+            runCurrent()
+            assertTrue(autosaved)
+        }
+
+    /**
+     * Restore is seed-if-empty: it fills an empty draft, it does not overwrite
+     * one the user has already started writing.
+     */
+    @Test
+    fun `restore does not overwrite a draft the user edited while it was loading`() =
+        testVm {
+            val restoreGate = CompletableDeferred<TestDraft?>()
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "initial"),
+                    restoreBlock = { restoreGate.await() },
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            // The user types before the store answers.
+            vm.updateDraft { it.copy(title = "typed") }
+            restoreGate.complete(TestDraft(title = "restored"))
+            advanceTimeBy(20L)
+            runCurrent()
+
+            assertEquals(
+                "typed",
+                vm.stateFlow.value.draft.title,
+                "a restore must not overwrite what the user already typed",
+            )
+        }
+
+    /**
+     * An edit made while the restore was in flight is not persisted afterwards.
+     *
+     * The autosave collector starts only after the restore settles, and it
+     * drops the first value it sees. The value it sees first is the edit the
+     * user made while the store was still answering — so that edit is the one
+     * that is dropped. The editor keeps it, and nothing writes it: the draft
+     * stays dirty until an explicit save persists it.
+     *
+     * The test pins the behavior as it is, not as it ought to be. The gap is
+     * reported to the parent issue; the matrix must not promise an autosave
+     * the editor does not perform.
+     */
+    @Test
+    fun `an edit made while the restore was in flight is not persisted afterwards`() =
+        testVm {
+            val restoreGate = CompletableDeferred<TestDraft?>()
+            val saved = mutableListOf<TestDraft>()
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "initial"),
+                    restoreBlock = { restoreGate.await() },
+                    autosaveBlock = { saved += it },
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            // The user types before the store answers.
+            vm.updateDraft { it.copy(title = "typed") }
+            restoreGate.complete(TestDraft(title = "restored"))
+            advanceTimeBy(20L)
+            runCurrent()
+
+            // No further edit — only the debounce window passes.
+            advanceTimeBy(200L)
+            runCurrent()
+
+            assertEquals("typed", vm.stateFlow.value.draft.title, "the editor keeps the edit")
+            assertTrue(
+                saved.isEmpty(),
+                "the edit made during the restore is not written — the collector dropped it as its first value",
+            )
+            assertTrue(vm.stateFlow.value.isDirty, "the dropped edit leaves the draft unsaved")
         }
 }
 

@@ -29,7 +29,7 @@ package com.singularity.todo.arch
  *   of the same name.
  *
  * The class matters, not only the file: `DraftMviViewModelTest.kt` holds
- * three test classes, and a row that names `DraftMviEffectTest` must not be
+ * several test classes, and a row that names `DraftMviEffectTest` must not be
  * satisfied by a test of `DraftMviViewModelTest` that happens to live in the
  * same file.
  *
@@ -159,23 +159,152 @@ internal object BehaviorMatrixGate {
      *
      * [code] is already stripped of comments and literal contents, so a
      * brace in a string cannot end the body early.
+     *
+     * The header of a class is more than a name and a brace: a class may
+     * carry type parameters (`class Owner<T>`), a primary constructor
+     * (`class Owner(private val x: Int)`), a supertype list
+     * (`class Owner : Base()`) and a `where` clause. The body is what
+     * follows all of them, so the scan walks the header — balancing
+     * parentheses and angle brackets — until it reaches the brace that opens
+     * the body. A class whose header cannot be walked is not a class this
+     * gate can judge, and is reported as "no such class".
      */
     private fun classBody(
         code: String,
         afterName: Int,
     ): String? {
-        var index = afterName
-        while (index < code.length && code[index].isWhitespace()) index++
-        if (index < code.length && code[index] == '(') {
-            val close = SourceScan.closingParen(code, index)
-            if (close < 0) return null
-            index = close + 1
-            while (index < code.length && code[index].isWhitespace()) index++
+        val open = bodyBrace(code, afterName) ?: return null
+        val close = KotlinText.matchingBrace(code, open)
+        return close.takeIf { it >= 0 }?.let { code.substring(open + 1, it) }
+    }
+
+    /**
+     * The index of the brace that opens the body of the class, or null when
+     * the header cannot be walked.
+     */
+    private fun bodyBrace(
+        code: String,
+        afterName: Int,
+    ): Int? {
+        val start = skipSpaces(code, afterName)
+        val afterTypeParameters = skipTypeParameters(code, start)
+        val afterConstructor = skipPrimaryConstructor(code, afterTypeParameters)
+        return scanHeader(code, afterConstructor)
+    }
+
+    /**
+     * Walks the rest of the class header until the brace that opens the body.
+     *
+     * A class without a body (`abstract class Owner`) would otherwise swallow
+     * the body of the class that follows it, so the next class declaration
+     * ends the search and the class is reported as "no such class".
+     */
+    private fun scanHeader(
+        code: String,
+        from: Int,
+    ): Int? {
+        var index = from
+        while (index < code.length && code[index] != '{') {
+            index = headerStep(code, index) ?: return null
         }
-        if (index >= code.length || code[index] != '{') return null
-        val close = KotlinText.matchingBrace(code, index)
-        if (close < 0) return null
-        return code.substring(index + 1, close)
+        return index.takeIf { index < code.length }
+    }
+
+    /**
+     * The index past the group that starts at [index], or null when the
+     * header cannot be walked any further.
+     */
+    private fun headerStep(
+        code: String,
+        index: Int,
+    ): Int? {
+        val char = code[index]
+        if (char == '<' || char == '(') {
+            val close =
+                if (char == '<') {
+                    matchingAngle(code, index)
+                } else {
+                    SourceScan.closingParen(code, index)
+                }
+            return close.takeIf { it >= 0 }?.plus(1)
+        }
+        if (startsWithWord(code, index, "class")) return null
+        return index + 1
+    }
+
+    /** The index of the first non-space character at or after [index]. */
+    private fun skipSpaces(
+        code: String,
+        index: Int,
+    ): Int {
+        var cursor = index
+        while (cursor < code.length && code[cursor].isWhitespace()) cursor++
+        return cursor
+    }
+
+    /**
+     * The index after the type parameter list that starts at [index], or
+     * [index] when there is none.
+     */
+    private fun skipTypeParameters(
+        code: String,
+        index: Int,
+    ): Int {
+        if (index >= code.length || code[index] != '<') return index
+        val close = matchingAngle(code, index)
+        return if (close < 0) index else close + 1
+    }
+
+    /**
+     * The index after the primary constructor that starts at [index], or
+     * [index] when there is none.
+     */
+    private fun skipPrimaryConstructor(
+        code: String,
+        index: Int,
+    ): Int {
+        val start = skipSpaces(code, index)
+        if (start >= code.length || code[start] != '(') return start
+        val close = SourceScan.closingParen(code, start)
+        return if (close < 0) start else skipSpaces(code, close + 1)
+    }
+
+    /**
+     * The index of the `>` that closes the `<` at [openIndex], or -1.
+     *
+     * Nested type arguments close with several `>` in a row, and a function
+     * type closes with `->`, so a plain counter over `>` would end the list
+     * too early.
+     */
+    private fun matchingAngle(
+        code: String,
+        openIndex: Int,
+    ): Int {
+        var depth = 0
+        var index = openIndex
+        while (index < code.length) {
+            val char = code[index]
+            val closesArrow = char == '>' && index > 0 && code[index - 1] == '-'
+            if (char == '<') {
+                depth++
+            } else if (char == '>' && !closesArrow) {
+                depth--
+                if (depth == 0) return index
+            }
+            index++
+        }
+        return -1
+    }
+
+    /** Whether the word [word] starts at [index]. */
+    private fun startsWithWord(
+        code: String,
+        index: Int,
+        word: String,
+    ): Boolean {
+        if (!code.startsWith(word, index)) return false
+        val after = index + word.length
+        return after >= code.length || (!code[after].isLetterOrDigit() && code[after] != '_')
     }
 
     /** The name inside the backticks of a matrix cell. */

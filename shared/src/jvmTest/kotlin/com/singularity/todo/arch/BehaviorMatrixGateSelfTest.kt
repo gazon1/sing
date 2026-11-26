@@ -133,6 +133,32 @@ class BehaviorMatrixGateSelfTest {
         assertTrue(parsed.rows.isEmpty(), "a malformed row is not a row: ${parsed.rows}")
     }
 
+    @Test
+    fun `a class that extends another class is found`() {
+        val matrix = matrix("| a | `Owner.a test` |")
+        val owner =
+            "class Owner : Base() {\n" +
+                "    @Test\n    fun `a test`() {}\n" +
+                "}\n"
+
+        val missing = missing(matrix, matrixClassBody = null, owner = owner)
+
+        assertTrue(missing.isEmpty(), "a class with a supertype is still a class: $missing")
+    }
+
+    @Test
+    fun `a class with type parameters and a supertype is found`() {
+        val matrix = matrix("| a | `Owner.a test` |")
+        val owner =
+            "class Owner<T> : Base<T>() {\n" +
+                "    @Test\n    fun `a test`() {}\n" +
+                "}\n"
+
+        val missing = missing(matrix, matrixClassBody = null, owner = owner)
+
+        assertTrue(missing.isEmpty(), "a generic class with a generic supertype is still a class: $missing")
+    }
+
     /** The rows of [matrix] that do not name a test that exists. */
     private fun missing(
         matrix: String,
