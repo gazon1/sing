@@ -1164,10 +1164,14 @@ production-путь: его источник отвечает один раз и
   числом итераций: прогон, увидевший меньше перечитываний, чем записал,
   останавливается, а не публикует свои числа так, будто увидел все.
 
-Арифметика замера — сама по себе, без часов, — проверяется тестом
-(`ReadOverheadMeasurementTest`): перцентиль по ближайшему рангу, тождество
-«обвязка = три части» в каждом слоте, отказ спарить формы с разным числом
-замеров и равномерность сдвига порядка форм.
+Арифметика замера — сама по себе, без часов, — проверяется тестами.
+Общие хелперы пакета проверяет `PerfBenchmarkSupportTest`: границы перцентиля
+(пустая выборка — не число, чётная выборка берёт нижнее из двух средних,
+нечётная — своё среднее, доля ниже первого ранга всё равно даёт первое
+значение, доля за последним рангом — последнее) и формат миллисекунд.
+Арифметику самого чтения проверяет `ReadOverheadMeasurementTest`: тождество
+«обвязка = три части» в каждом слоте, разность двух форм по слотам, отказ
+спарить формы с разным числом замеров и равномерность сдвига порядка форм.
 
 Сами формы, срабатывание наблюдателя и отсутствие наблюдателя у контроля
 проверяются на **настоящей базе Room** (`ReadOverheadFormsIntegrationTest`): все
@@ -1202,14 +1206,15 @@ production-путь: его источник отвечает один раз и
 прошёл. Ниже — фактический прогон, его содержимое и то, как он выбирается.
 
 ```bash
-./gw :shared:jvmTest --tests "*ReadOverhead*" -Ptest.tags=all
+./gw :shared:jvmTest --tests "*ReadOverhead*" --tests "*PerfBenchmarkSupportTest*" -Ptest.tags=all
 ```
 
 Фактический результат прогона (JUnit-отчёты `shared/build/test-results/jvmTest/`):
 
 | класс | тестов | падений | ошибок | пропущено |
 |---|---|---|---|---|
-| `ReadOverheadMeasurementTest` | 9 | 0 | 0 | 0 |
+| `ReadOverheadMeasurementTest` | 8 | 0 | 0 | 0 |
+| `PerfBenchmarkSupportTest` | 8 | 0 | 0 | 0 |
 | `ReadOverheadFormsIntegrationTest` | 4 | 0 | 0 | 0 |
 
 Имена тестов `ReadOverheadFormsIntegrationTest`:
@@ -1489,6 +1494,7 @@ SQL стало плоско», но чем именно плоско — теп�
 - Формы чтения и изменение: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadForms.kt`
 - Арифметика замера: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadMeasurementTest.kt`
 - Общие хелперы замера: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/PerfBenchmarkSupport.kt`
+- Арифметика общих хелперов: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/PerfBenchmarkSupportTest.kt`
 - Формы и наблюдатель на настоящей базе: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadFormsIntegrationTest.kt`
 - Отчёт по предыдущему замеру: `docs/architecture/related-task-picker-performance.md`
 

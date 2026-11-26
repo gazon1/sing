@@ -11,49 +11,56 @@ import kotlin.time.Duration.Companion.milliseconds
  * The arithmetic of the read-overhead measurement, checked without a clock.
  *
  * The harness publishes numbers that are the difference of two forms of a
- * read, and a percentile of a sample. Both are arithmetic, and arithmetic can
- * be checked exactly — while the latencies themselves cannot be, because a
- * shared machine has no fixed answer. So the arithmetic is checked here, and
- * the clock is left to the measurement.
+ * read. That difference is arithmetic, and arithmetic can be checked exactly —
+ * while the latencies themselves cannot be, because a shared machine has no
+ * fixed answer. So the arithmetic is checked here, and the clock is left to
+ * the measurement.
  *
  * Three things are checked:
  *
- * 1. the percentile is the nearest rank of the sample, and an empty sample is
- *    not a number at all;
- * 2. the overhead of a read is the sum of its three parts **in every slot** —
+ * 1. the overhead of a read is the sum of its three parts **in every slot** —
  *    the identity the report publishes has to hold slot by slot, not only in
  *    the medians;
- * 3. two forms whose samples do not have the same count cannot be paired, and
- *    pairing them anyway would compare different slots silently.
+ * 2. the difference of two forms is taken slot by slot — the first sample of
+ *    one form against the first sample of the other — and two samples of
+ *    different lengths cannot be paired, because pairing them anyway would
+ *    compare different slots silently;
+ * 3. the order of the forms rotates from slot to slot, so that the position a
+ *    form was measured in is not part of its price.
  *
- * The order of the forms is checked as well: it is rotated from slot to slot
- * so that the position a form was measured in is not part of its price.
+ * The percentile the harness publishes is arithmetic too, but it is shared by
+ * every harness of the package and lives with them: see
+ * [PerfBenchmarkSupportTest].
  */
 @Tag("fast")
 class ReadOverheadMeasurementTest {
     @Test
-    fun `a percentile of an empty sample is not a number`() {
-        assertFailsWith<IllegalStateException> {
-            nearestRank(emptyList(), 0.5)
-        }
+    fun `the difference of two forms is taken slot by slot`() {
+        val left = listOf(10.milliseconds, 20.milliseconds, 30.milliseconds)
+        val right = listOf(4.milliseconds, 8.milliseconds, 12.milliseconds)
+
+        assertEquals(
+            listOf(6.milliseconds, 12.milliseconds, 18.milliseconds),
+            paired(left, right, "the two forms of one read"),
+            "the first sample of one form is the first slot of the other",
+        )
     }
 
     @Test
-    fun `the nearest rank of one sample is that sample`() {
-        val sample = listOf(7.milliseconds)
+    fun `two samples of different lengths cannot be paired`() {
+        val failure =
+            assertFailsWith<IllegalStateException> {
+                paired(
+                    listOf(1.milliseconds, 2.milliseconds),
+                    listOf(1.milliseconds),
+                    "the two forms of one read",
+                )
+            }
 
-        assertEquals(7.milliseconds, nearestRank(sample, 0.5))
-        assertEquals(7.milliseconds, nearestRank(sample, 0.95))
-    }
-
-    @Test
-    fun `the nearest rank is the value at the rank of the sorted sample`() {
-        val sample = (1..100).map { it.milliseconds }
-
-        assertEquals(50.milliseconds, nearestRank(sample, 0.5))
-        assertEquals(95.milliseconds, nearestRank(sample, 0.95))
-        assertEquals(1.milliseconds, nearestRank(sample, 0.0))
-        assertEquals(100.milliseconds, nearestRank(sample, 1.0))
+        assertTrue(
+            failure.message.orEmpty().contains("same slots"),
+            "the failure has to say that the slots differ: ${failure.message}",
+        )
     }
 
     @Test

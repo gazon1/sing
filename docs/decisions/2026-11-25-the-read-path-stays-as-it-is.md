@@ -176,8 +176,15 @@ and not two. Both checks stop the run instead of publishing a number:
   number of iterations, so a run that saw fewer re-reads than it wrote cannot
   present its numbers as if it had seen all of them.
 
-The arithmetic of the measurement is checked separately, without a clock, by
-`ReadOverheadMeasurementTest`: the nearest-rank percentile, the identity
+The arithmetic of the measurement is checked separately, without a clock.
+The helpers that every harness of the package shares — the nearest-rank
+percentile, the milliseconds the reports publish — are checked by
+`PerfBenchmarkSupportTest`: the boundaries of the percentile (an empty sample
+is not a number at all, an even sample takes its lower middle value, an odd
+sample its middle one, a fraction below the first rank still lands on the
+first value, a fraction beyond the last still lands on the last one) and the
+formatting of the milliseconds. The arithmetic of the read itself is checked by
+`ReadOverheadMeasurementTest`: the identity
 "overhead = call path + Flow operators + invalidation source" in every slot, the
 difference of two forms taken slot by slot, the refusal to pair forms whose
 samples do not have the same count, and the evenness of the shifted order. The
@@ -228,8 +235,9 @@ without the state of the machine is not a measurement.
 
 **The checks are tests, and they were run.** A compilation is not an execution:
 the pull request's body carries the actual result of
-`./gw :shared:jvmTest --tests "*ReadOverhead*" -Ptest.tags=all` — 9 tests in
-`ReadOverheadMeasurementTest` and 4 in `ReadOverheadFormsIntegrationTest`, no
+`./gw :shared:jvmTest --tests "*ReadOverhead*" --tests "*PerfBenchmarkSupportTest*" -Ptest.tags=all` — 8 tests in
+`ReadOverheadMeasurementTest`, 8 in `PerfBenchmarkSupportTest` and 4 in
+`ReadOverheadFormsIntegrationTest`, no
 failures, no errors, none skipped. The integration test carries
 `@Tag("slow") @Tag("slow:data")`, as every database test in this repository
 does, and that has a consequence worth stating: the default run excludes `slow`,
@@ -387,6 +395,7 @@ like #3194 for the checklist reads.
 - Read forms and write: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadForms.kt`
 - Arithmetic of the measurement: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadMeasurementTest.kt`
 - Shared helpers of the perf harnesses: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/PerfBenchmarkSupport.kt`
+- Arithmetic of the shared helpers: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/PerfBenchmarkSupportTest.kt`
 - Forms and observer on a real database: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadFormsIntegrationTest.kt`
 - Gradle task: `:shared:dependencyQueryPerf -Pperf.experiment=read-overhead` in `shared/build.gradle.kts`
 - Issue: https://github.com/gazon1/sing/issues/3196

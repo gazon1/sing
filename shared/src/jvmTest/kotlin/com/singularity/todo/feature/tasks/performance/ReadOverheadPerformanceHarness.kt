@@ -337,7 +337,7 @@ internal data class FormTimings(
  * count cannot be paired, and pairing them anyway would quietly compare
  * different slots — so the mismatch fails instead.
  */
-private fun paired(
+internal fun paired(
     left: List<Duration>,
     right: List<Duration>,
     what: String,
