@@ -607,6 +607,30 @@ val dependencyQueryPerf =
         )
     }
 
+// The FTS task-title ordering cost, measured on a restored synthetic dataset.
+//
+// Same shape as the picker/dependency harnesses: a program, not a test. The
+// dataset comes from the shared generator of #3090:
+//
+//   ./gw :import-cli:run --args="generate --profile 10k --seed 4242 --output $PWD/build/perf/10k.zip"
+//   ./gw :shared:ftsOrderingPerf -Pperf.archive=$PWD/build/perf/10k.zip
+val ftsOrderingPerf =
+    tasks.register<JavaExec>("ftsOrderingPerf") {
+        description = "Measures FTS task-title match vs ordering cost on a restored synthetic dataset."
+        group = "verification"
+        val jvmTestSources = sourceSets.getByName("jvmTest")
+        classpath = jvmTestSources.runtimeClasspath
+        mainClass.set("com.singularity.todo.feature.search.performance.FtsOrderingPerformanceHarnessKt")
+        maxHeapSize = testTaskHeap
+        outputs.upToDateWhen { false }
+        args(
+            "--archive=${if (perfArchivePath.isBlank()) "" else File(perfArchivePath).absolutePath}",
+            "--iterations=$perfIterations",
+            "--warmup=$perfWarmup",
+            "--owner=$perfOwner",
+        )
+    }
+
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
     // JUnit matches tags per class, so an over-narrow -Ptest.tags selection can discover
