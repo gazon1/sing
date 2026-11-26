@@ -37,10 +37,14 @@ tags:
 # `due=today`: a task without a due date lands in the "No Date" bucket,
 # which the Today tab does not show — the flow would assert against a task
 # it had seeded and could not see.
+#
+# The task is due today, so it is on the Today screen the seed leaves the app
+# on: the helper waits for its row (the row rule).
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=%D0%9F%D0%BE%D0%BA%D1%83%D0%BF%D0%BA%D0%B8&due=today"
+      WAIT_FOR: "task_item_покупки"
 
 # Open quick search from menu.
 - runFlow: ../../helpers/open-app-menu.yaml
@@ -61,6 +65,9 @@ tags:
 - inputText: "Покупки"
 
 # The Cyrillic record reaches the results, and its title renders as Cyrillic.
+# The helper waited for the row on the Today screen; this wait is for the
+# result row on the Search screen, which is rendered only after the query is
+# typed — the helper does not navigate there.
 - extendedWaitUntil:
     visible:
       id: task_item_покупки

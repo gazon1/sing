@@ -233,7 +233,7 @@ internal class NoteEditor(
 
     /** Current editor state for the screen. */
     val editorState: DraftUiState<Editing>
-        get() = _state.value
+        get() = currentState
 
     override fun validate(draft: Editing): String? = null
 
@@ -313,7 +313,7 @@ internal class NoteEditor(
      */
     private fun runAiThroughProposal(action: NoteAiAction) =
         vmScope.launch {
-            val current = _state.value.draft
+            val current = currentState.draft
             if (current.isNew) return@launch
 
             val noteId = current.id

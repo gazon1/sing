@@ -37,6 +37,9 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Signout%20task"
+# The seed writes an undated task, so the row is on the Inbox tab and not on the
+# screen the seed leaves the app on — the helper does not navigate, so it cannot
+# wait for it. The wait below is the flow's.
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
@@ -101,6 +104,8 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "session=anonymous"
+# `session=anonymous` writes no entity: it changes the session and nothing else,
+# so the flow names no entity and the helper waits for the shell alone.
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:

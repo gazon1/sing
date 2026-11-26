@@ -3,6 +3,7 @@ package com.singularity.todo.feature.ai.tools
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
+import com.singularity.todo.feature.notes.KnowledgeArticle
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
@@ -110,7 +111,7 @@ class UpdateNoteTool(
         // whatever the note has become by the time the user confirms it, which is the
         // failure this tool exists to avoid. Ordinary in-app editing does not come
         // through here; it has its own path.
-        if (KnowledgeBriefShape.isBrief(existing) && args.expectedUpdatedAt == null) {
+        if (KnowledgeArticle.isArticle(existing) && args.expectedUpdatedAt == null) {
             return failure(
                 args.noteId,
                 "An update to a knowledge brief states the version it was read at: read it " +

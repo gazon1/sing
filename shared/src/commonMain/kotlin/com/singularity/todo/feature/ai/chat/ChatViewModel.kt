@@ -134,7 +134,7 @@ class ChatViewModel(
     override fun onIntent(intent: Intent) {
         when (intent) {
             is Intent.InputChanged -> updateState { it.copy(input = it.input.echoed(intent.text)) }
-            Intent.Send -> send(_state.value.input.text)
+            Intent.Send -> send(currentState.input.text)
             Intent.Stop -> stop()
             Intent.DismissSurfaceError -> updateState { it.copy(surfaceError = null) }
             is Intent.SurfaceAction -> act(intent.name, intent.context)
@@ -181,7 +181,7 @@ class ChatViewModel(
         prompt: String,
         showUserMessage: Boolean,
     ) = vmScope.launch {
-        if (_state.value.isLoading) return@launch
+        if (currentState.isLoading) return@launch
 
         val assistantId = newId()
         // A fresh identifier per answer: a screen belongs to the answer that drew it. Two
@@ -236,7 +236,7 @@ class ChatViewModel(
     private fun historyRecords(): List<ChatTurnRecord> {
         val records: MutableList<ChatTurnRecord> = mutableListOf()
         var question: String? = null
-        _state.value.messages.forEach { message: ChatMessage ->
+        currentState.messages.forEach { message: ChatMessage ->
             when (message.role) {
                 ChatRole.User -> {
                     question?.let { records += ChatTurnRecord(it, "") }

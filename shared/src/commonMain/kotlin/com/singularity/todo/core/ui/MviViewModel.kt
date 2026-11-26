@@ -28,6 +28,13 @@ import kotlinx.coroutines.launch
  * `final` on purpose: an `open` writer that a subclass can silently override is how
  * the state stream and the event bus drift apart.
  *
+ * ## State is observed read-only
+ * [stateFlow] is the canonical observation API and [state] is the same read-only flow
+ * under a shorter name. Neither exposes a [MutableStateFlow]: a public mutable handle
+ * lets any caller write state behind the ViewModel's back, and then the screen shows
+ * something the ViewModel never decided. The backing flow itself is private, so a
+ * subclass cannot reach around [updateState] / [setState] either.
+ *
  * ## Errors
  * [catchTo] is the primitive for "run this, route a failure somewhere"; [emitError] is
  * the common case where a failure becomes a one-shot event. [catchTo]'s [onError] is
@@ -93,18 +100,26 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      */
     protected val vmScope: AutoCloseableCoroutineScope = scope
 
-    /** Internal mutable state. Named _state by convention — use [stateFlow] to observe. */
+    /**
+     * The one writable state holder. Private on purpose: a subclass that could reach it
+     * could write state without [updateState] / [setState], and the state the screen
+     * shows would stop being the state the ViewModel decided.
+     */
     @Suppress("VariableNaming") // _state is the canonical name for the mutable backing field
-    protected val _state: MutableStateFlow<S> = MutableStateFlow(initialState)
+    private val _state: MutableStateFlow<S> = MutableStateFlow(initialState)
+
+    /** Public read-only state. The canonical way a screen observes this ViewModel. */
+    val stateFlow: StateFlow<S> = _state.asStateFlow()
 
     /**
-     * Public read access to the mutable state for subclasses and tests.
-     * Screens must use [stateFlow] — this is MutableStateFlow only for test convenience.
+     * Read-only view of the state, under the shorter name.
+     *
+     * The same read-only flow as [stateFlow] — not a [MutableStateFlow]. A public
+     * mutable handle lets any caller write state behind the ViewModel's back, and the
+     * event bus then stops matching what the screen shows. Writes belong to the
+     * ViewModel: [updateState] and [setState].
      */
-    val state: MutableStateFlow<S> get() = _state
-
-    /** Public read-only state. The single way a screen observes this ViewModel. */
-    val stateFlow: StateFlow<S> = _state.asStateFlow()
+    val state: StateFlow<S> get() = stateFlow
 
     /** Synchronous snapshot. Use inside reducers and intent handlers. */
     protected val currentState: S get() = _state.value

@@ -305,7 +305,7 @@ class AgendaViewModel(
             }.collect { fresh ->
                 // Reconciliation goes through `updateState`, which is CAS-backed,
                 // because this collector and the selection handlers both write and
-                // the scope is multi-threaded. Reading `_state.value` and then
+                // the scope is multi-threaded. Reading `currentState` and then
                 // `setState`-ing the result — which is what this used to do —
                 // is a read-modify-write that can drop a concurrent selection.
                 updateState { current ->
@@ -903,7 +903,7 @@ class AgendaViewModel(
     }
 
     private fun findTaskTitle(taskId: TaskId): String {
-        val loaded = _state.value as? AgendaUiState.Loaded ?: return "Task"
+        val loaded = currentState as? AgendaUiState.Loaded ?: return "Task"
         for (section in loaded.sections) {
             for (row in section.tasks) {
                 if (row.task.id == taskId) return row.task.title.ifEmpty { "Task" }

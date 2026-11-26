@@ -25,6 +25,9 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Saved%20Search%202026%20Alpha&due=today"
+      # The seeded task is due today, so it is on the screen the seed leaves the
+      # app on — the helper waits for its row.
+      WAIT_FOR: "task_item_saved_search_2026_alpha"
 
 # Open quick search.
 - runFlow: ../../helpers/open-app-menu.yaml
@@ -43,6 +46,9 @@ tags:
 - tapOn:
     id: search_input
 - inputText: "Saved Search 2026"
+# The search screen is not the screen the seed leaves the app on: the helper
+# waits for the task on the Today tab and does not navigate here, so the result
+# row on this screen is the flow's to wait for.
 - extendedWaitUntil:
     visible:
       id: task_item_saved_search_2026_alpha

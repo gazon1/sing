@@ -835,7 +835,7 @@ class CalendarSyncViewModel(
 
     private fun loadCalendars() {
         vmScope.launch {
-            if (_state.value.isLoading) return@launch
+            if (currentState.isLoading) return@launch
             updateState { it.copy(isLoading = true) }
 
             // Load calendar apps and calendars in parallel

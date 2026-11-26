@@ -5,6 +5,7 @@ import androidx.room3.Insert
 import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
+import com.singularity.todo.feature.notes.KnowledgeArticle
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -1393,6 +1394,81 @@ interface NoteDao {
     )
     fun watchAttachedToProjectForUser(
         projectId: String,
+        userId: String,
+        limit: Int,
+    ): Flow<List<NoteEntity>>
+
+    /**
+     * Returns the Knowledge articles attached **directly** to a project, newest first,
+     * at most [limit] of them.
+     *
+     * An article is a plain, non-folder note attached to the project that carries the
+     * `## Sources` section — see
+     * [com.singularity.todo.feature.notes.KnowledgeArticle]. One project may own many
+     * of them, and each is a note with its own id.
+     *
+     * The classification is part of the statement, not a filter over its result: the
+     * `LIMIT` is applied to the *articles*, so an older article cannot disappear
+     * behind newer ordinary notes. A read that filtered afterwards would answer "no
+     * articles" for a project that has one.
+     *
+     * The order is `created_at DESC, id ASC`: the id breaks the tie, so two calls
+     * cannot swap two articles written in the same second.
+     *
+     * An article hangs on **one** owner. A note attached to a project *and* to a task
+     * is in neither library: the note model says a note hangs on a project or on a
+     * task, never on both, and a row that says otherwise would answer two questions
+     * with the same article.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE project_id = :projectId
+          AND task_id IS NULL
+          AND user_id = :userId
+          AND deleted_at IS NULL
+          AND archived_at IS NULL
+          AND kind = 'Plain'
+          AND is_folder = 0
+          AND """ + KnowledgeArticle.SQL_MARKER + """
+        ORDER BY created_at DESC, id ASC
+        LIMIT :limit
+        """,
+    )
+    fun watchKnowledgeArticlesForProjectForUser(
+        projectId: String,
+        userId: String,
+        limit: Int,
+    ): Flow<List<NoteEntity>>
+
+    /**
+     * Returns the Knowledge articles attached **directly** to a task, newest first, at
+     * most [limit] of them.
+     *
+     * The same contract as [watchKnowledgeArticlesForProjectForUser], for the other
+     * owner: an article of a task hangs on the task, and the notes of the task's
+     * project are a different question.
+     *
+     * One owner, again: a note attached to a task *and* to a project is in neither
+     * library, for the same reason.
+     */
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE task_id = :taskId
+          AND project_id IS NULL
+          AND user_id = :userId
+          AND deleted_at IS NULL
+          AND archived_at IS NULL
+          AND kind = 'Plain'
+          AND is_folder = 0
+          AND """ + KnowledgeArticle.SQL_MARKER + """
+        ORDER BY created_at DESC, id ASC
+        LIMIT :limit
+        """,
+    )
+    fun watchKnowledgeArticlesForTaskForUser(
+        taskId: String,
         userId: String,
         limit: Int,
     ): Flow<List<NoteEntity>>

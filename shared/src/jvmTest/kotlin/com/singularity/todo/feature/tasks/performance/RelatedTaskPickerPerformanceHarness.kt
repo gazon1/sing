@@ -18,7 +18,7 @@ import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.FtsDao
 import com.singularity.todo.core.database.TaskDao
-import com.singularity.todo.core.database.TaskMatchRow
+import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
@@ -140,7 +140,7 @@ private class CountingFtsDao(private val delegate: FtsDao, private val counts: C
         userId: String,
         query: TextMatchQuery,
         limit: Int,
-    ): List<TaskMatchRow> {
+    ): List<TaskEntity> {
         counts.ftsSearches++
         counts.ftsLimits += limit
         return delegate.searchTaskTitles(userId, query, limit)

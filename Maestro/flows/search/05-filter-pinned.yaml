@@ -13,20 +13,29 @@ tags:
 # `due=today`: a task without a due date lands in the "No Date" bucket,
 # which the Today tab does not show — the flow would assert against a task
 # it had seeded and could not see.
+#
+# Both tasks are due today, so both are on the Today screen the seed leaves
+# the app on: the helper waits for each row (the row rule).
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=PinnedTask2026&due=today"
+      WAIT_FOR: "task_item_pinnedtask2026"
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=UnpinnedTask2026&due=today"
+      WAIT_FOR: "task_item_unpinnedtask2026"
 
 # Pin the first task via detail view.
 #
 # The Today tab, not the Inbox one: both tasks were seeded with `due=today`,
 # and a task with a due date is in the Today bucket, not in the Inbox. The
 # flow used to tap the Inbox tab and then wait for a task that was not there.
+#
+# The row needs a wait of its own here: the helper's wait belongs to the seed
+# that asked for it, and the second seed came after it — it re-created the
+# screen, so the row the next step taps is the flow's to wait for.
 - tapOn:
     id: nav_tab_today
 - extendedWaitUntil:
@@ -76,6 +85,9 @@ tags:
 - inputText: "Task2026"
 - tapOn:
     id: search_mode_contains
+# The helper waited for both rows on the Today screen; these waits are for the
+# result rows on the Search screen, which are rendered only after the query is
+# typed — the helper does not navigate there.
 - extendedWaitUntil:
     visible:
       id: task_item_pinnedtask2026
