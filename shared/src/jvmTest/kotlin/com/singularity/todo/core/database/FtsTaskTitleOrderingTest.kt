@@ -35,7 +35,8 @@ import kotlin.test.assertTrue
  *    the door is asked. The rule is local to the database as it is — `rowid` is
  *    SQLite's own row number, and a table whose primary key is a text column
  *    has no durable insertion chronology to promise — so the test asserts the
- *    rule, not a creation date.
+ *    rule, not a creation date. The rowids are read from the database, so the
+ *    assertion cannot be satisfied by an answer that sorts by the id.
  * 3. the rows of the survivors are read by their id and not by a scan of the
  *    table — that is what makes the second read cheap. The rows have to be
  *    found by their primary key: the ownership filter may not become the way
@@ -107,17 +108,33 @@ class FtsTaskTitleOrderingTest {
             // among them was the order SQLite's sorter happened to give them —
             // the order of the bytes of the rows. Now it is a rule: the greater
             // rowid first, and the same rule every time.
-            listOf("t1", "t2", "t3").forEach { id ->
+            //
+            // The ids are deliberately not in the order of their rowids, and not
+            // in the order of their letters either: an answer sorted by the id
+            // descending would look exactly like the right one here, and the
+            // test would pass without the tiebreaker being there at all. The
+            // expectation is built from the rowids the database really has.
+            listOf("t-c", "t-a", "t-b").forEach { id ->
                 db.taskDao().upsert(task(id = id, title = "A record that carries the needle", updatedAt = 1_000L))
             }
 
             val ids = db.ftsDao().searchTaskTitles("u1", QUERY, limit = 10).map { it.id }
+            val byDescendingRowid =
+                rowidsById()
+                    .sortedByDescending { (_, rowid) -> rowid }
+                    .map { (id, _) -> id }
 
             assertEquals(
-                listOf("t3", "t2", "t1"),
+                byDescendingRowid,
                 ids,
                 "the task with the greater rowid comes first among the tasks updated at the " +
                     "same moment",
+            )
+            assertEquals(
+                listOf("t-c", "t-b", "t-a"),
+                byDescendingRowid.sortedDescending(),
+                "the rowids and the ids have to disagree, or the assertion above would pass " +
+                    "against an answer that sorts by the id",
             )
         }
 
@@ -319,6 +336,24 @@ class FtsTaskTitleOrderingTest {
                 buildList {
                     while (statement.step()) {
                         add(statement.getText(3))
+                    }
+                }
+            }
+        }
+
+    /**
+     * The `rowid` every task really has.
+     *
+     * The tiebreaker of the door is a number the database keeps, so the test
+     * asks the database for it instead of assuming one: the ids of the test
+     * say nothing about the rowids they were given.
+     */
+    private suspend fun rowidsById(): List<Pair<String, Long>> =
+        db.useConnection(isReadOnly = true) { transactor ->
+            transactor.usePrepared("SELECT id, rowid FROM tasks") { statement ->
+                buildList {
+                    while (statement.step()) {
+                        add(statement.getText(0) to statement.getLong(1))
                     }
                 }
             }
