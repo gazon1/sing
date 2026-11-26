@@ -5,7 +5,6 @@ package com.singularity.todo.feature.tasks
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.text.FieldOwnedText
@@ -92,7 +91,6 @@ class TaskCreateViewModelTest {
         initialDueDate: LocalDate? = null,
         initialProjectId: ProjectId? = null,
         initialTagIds: Set<TagId> = emptySet(),
-        draftStore: DraftStore = fakeDraftStore,
     ): TaskCreateViewModel {
         val deps =
             TaskCreateDeps(
@@ -108,7 +106,7 @@ class TaskCreateViewModelTest {
                         MaterializeRecurringSeriesUseCase(fakeTaskRepo, FakeUnitOfWork(), FakeClock(taskNow)),
                     ),
                 logger = Logger.withTag("TaskCreateTest"),
-                draftStore = draftStore,
+                draftStore = fakeDraftStore,
             )
         return TaskCreateViewModel(
             deps = deps,

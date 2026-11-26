@@ -570,8 +570,18 @@ class NoteEditorTest {
             assertTrue(edited.isDirty, "the edit makes the draft dirty")
 
             vm.onIntent(NotesEditorIntent.SaveNow)
-            advanceTimeBy(1_000)
             runCurrent()
+
+            // The explicit save has to have written the note by itself. The
+            // autosave debounce is still 500 ms away, so this assertion cannot
+            // be satisfied by the autosave that would follow it — an explicit
+            // save that persisted nothing would still leave the text on disk
+            // a moment later, and the test would pass.
+            assertEquals(
+                "<p>Saved content</p>",
+                notesRepo.notes[testNote.id.value]?.bodyHtml,
+                "an explicit save writes the note",
+            )
 
             // The editor's own flag: after an explicit save the text is on
             // disk, so the draft is no longer dirty. Without this the editor
@@ -581,6 +591,12 @@ class NoteEditorTest {
             val saved = vm.stateFlow.value.draft
             assertIs<EditorState.Editing>(saved)
             assertFalse(saved.isDirty, "an explicit save clears the editor's dirty flag")
+
+            // The debounce that follows the explicit save writes the same text
+            // again; the checkpoint the explicit save left behind is what
+            // survives the close.
+            advanceTimeBy(1_000)
+            runCurrent()
 
             vm.closeEditor()
             runCurrent()
