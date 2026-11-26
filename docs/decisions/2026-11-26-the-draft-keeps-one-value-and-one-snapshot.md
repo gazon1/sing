@@ -156,13 +156,20 @@ editors get it.
   save take turns, so neither overwrites the other; it does not stop a write that
   is already scheduled or already running. Cancelling one is the separate
   question below.
+
+  The lock also costs a wait: an explicit save queues behind a running autosave,
+  so a write that never returns blocks its peer. That is not new — the write
+  could already hang — but the lock now makes the peer wait for it too. The
+  repository owns the primitive for bounding a wait
+  (`core/coroutines/BoundedRead.kt`); whether to use it here is part of #3256.
 - **The pending autosave is still not cancelled by a save or a discard.** This is
   a real defect, and this change does not close it: the write that is already
   scheduled lands after `TaskCreateViewModel` cleared its draft store, so a
   restored draft can be submitted again and create a second task.
   `TaskCreateDraftBehaviorTest.a pending autosave rewrites the draft after the
-  save` pins it deliberately, #3229 recorded it, and the parent issue #3225 owns
-  the fix. It is out of scope for #3230–#3232 by their own guardrails ("do not
+  save` pins it deliberately and #3229 recorded it; the fix is **#3256**, in the
+  parent epic's Phase B, because it changes what the save and discard intents
+  mean. It is out of scope for #3230–#3232 by their own guardrails ("do not
   change editor behaviour"), and fixing it here would be a product change hidden
   inside an audit. It is pinned as current behaviour in the matrix
   (`a pending autosave rewrites the draft after the save`) and remains the
