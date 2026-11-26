@@ -337,7 +337,10 @@ Four things `rollback` and `check` must not take on trust, each measured:
 - a path the agent created **after** the snapshot cannot be named by the dump, so it keeps the
   grant the default entry gave it while the group is deleted underneath it. Those paths are
   scrubbed by subject; the ones the dump covered were just restored, and are left exactly as
-  the restore put them. The walk is NUL-separated (`find -print0` + `string split0`), because a
+  the restore put them. The kind of snapshot is recorded with the target for exactly this reason: a
+`node` dump (the `$HOME` traverse grant) names one path and nothing below it, so "the dump does not
+mention this child" is true for every child — including files that carried `sing-dev` before this
+script ran. Only a `tree` snapshot is scrubbed. The walk is NUL-separated (`find -print0` + `string split0`), because a
   path may contain a newline and a plain `find` then emits it as two half-paths — one of which
   would be scrubbed while the other was skipped. The skip test asks `getfacl` for the path's own
   `# file:` line instead of rebuilding it: the tool escapes what cannot sit on one line (a

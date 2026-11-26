@@ -745,6 +745,7 @@ function append_record --argument-names file line
     printf '%s\\n' $line >> $file
     or die "fixture: could not write $file"
 end
+function recorded_kind; echo tree; end
 function run_cmd
     if test $DRY_RUN -eq 1
         string escape -- $argv | string join ' '
@@ -1167,6 +1168,9 @@ class RoundElevenRegressionTest(PlanTest):
         script = (
             'set -g AGENT_USER nobody\n'
             'set -g AGENT_GROUP nobody\n'
+            # A `tree` snapshot: the point of this fixture is a path the dump did
+            # not cover, which only means something for a recursive one.
+            'function recorded_kind; echo tree; end\n'
             f'function acl_dump_file; echo {self.tmp}/scrub.acl; end\n'
             'set -g DRY_RUN 0\n'
             # The SHIPPED run_cmd, not an imitation: it strips `--tolerate`, and
@@ -1598,6 +1602,176 @@ class ProbeTraverseTest(PlanTest):
         self.assertNotEqual(
             0, subprocess.run(['/usr/bin/test', '-r', str(tree), '-a', '-x', str(tree)], check=False).returncode,
         )
+
+
+class NodeSnapshotScrubTest(PlanTest):
+    """A `node` snapshot covers ONE path, so its children are not "unrecorded".
+
+    `$HOME` is granted non-recursively and snapshotted as a single node. Walking
+    it with the scrub would find every file "missing from the dump" — because a
+    node dump names nothing below itself — and strip a `sing-dev` grant the
+    developer configured before this script ever ran.
+    """
+
+    def test_the_kind_is_recorded_with_the_target(self):
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('record_acl $writable node', provision)
+        self.assertIn('record_acl $target tree', provision)
+        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
+        self.assertIn('"\\t"$kind', record, 'the rollback cannot tell the kinds apart without it')
+
+    def test_a_node_target_is_never_scrubbed(self):
+        body = SCRIPT.read_text(encoding='utf-8')
+        scrub = body.split('function scrub_unrecorded', 1)[1].split('\nend', 1)[0]
+        self.assertIn('test (recorded_kind $target) = tree; or return 0', scrub)
+
+    def test_a_pre_existing_grant_in_the_home_survives_rollback(self):
+        """The failure the finding describes, on a real home-shaped tree."""
+        home = self.tmp / 'fakehome'
+        home.mkdir()
+        shared = home / 'shared.txt'
+        shared.write_text('x', encoding='utf-8')
+        # A grant the developer made themselves, before any provisioning.
+        subprocess.run(['setfacl', '-m', 'u:nobody:rw-', str(shared)], check=True)
+        # A node dump: the home itself and nothing below it.
+        dump = subprocess.run(
+            ['getfacl', '--absolute-names', '--physical', str(home)],
+            capture_output=True, text=True, check=True,
+        ).stdout
+
+        body = SCRIPT.read_text(encoding='utf-8')
+        gp_tail = body.split('\nfunction getfacl_path', 1)[1]
+        gp_sig, _, after_gp = gp_tail.partition('\nend')
+        tail = after_gp.split('\nfunction scrub_unrecorded', 1)[1]
+        signature, _, _ = tail.partition('\nend')
+        (self.tmp / 'node.acl').write_text(dump, encoding='utf-8')
+        script = (
+            'set -g AGENT_USER nobody\n'
+            'set -g AGENT_GROUP nobody\n'
+            'set -g DRY_RUN 0\n'
+            'function recorded_kind; echo node; end\n'
+            f'function acl_dump_file; echo {self.tmp}/node.acl; end\n'
+            + 'function run_cmd' + body.split('\nfunction run_cmd', 1)[1].split('\nend', 1)[0] + '\nend\n'
+            + f'function getfacl_path{gp_sig}\nend\n'
+            f'function scrub_unrecorded{signature}\nend\n'
+            f'scrub_unrecorded "{home}"\n'
+        )
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        after = subprocess.run(
+            ['getfacl', '--omit-header', str(shared)], capture_output=True, text=True, check=True).stdout
+        self.assertIn('user:nobody:rw-', after,
+                      'a node snapshot does not cover children, so it may not be scrubbed')
+
+
+class PartialApplyRollbackTest(PlanTest):
+    """A half-applied host must still roll back to its original ACLs.
+
+    `apply` snapshots EVERY target before writing ANY of them, so a `setfacl`
+    that fails half-way leaves a record that covers the whole plan — the
+    rollback restores what the failed run did not get to as well, which is the
+    safe direction. This drives that with the shipped `record_acl` and
+    `restore_acl` on a real tree: snapshot two targets, modify only the first,
+    then restore both.
+    """
+
+    def _functions(self) -> str:
+        body = SCRIPT.read_text(encoding='utf-8')
+        parts = []
+        for name in ('acl_dump_file', 'record_acl', 'restore_acl'):
+            tail = body.split(f'\nfunction {name}', 1)[1]
+            signature, _, _ = tail.partition('\nend')
+            parts.append(f'function {name}{signature}\nend')
+        return '\n'.join(parts)
+
+    def test_a_failed_apply_restores_every_snapshotted_target(self):
+        first = self.tmp / 'p1'
+        second = self.tmp / 'p2'
+        for tree in (first, second):
+            (tree / 'sub').mkdir(parents=True)
+            (tree / 'file').write_text('x', encoding='utf-8')
+            subprocess.run(['setfacl', '-m', 'u:nobody:rwx', str(tree / 'sub')], check=True)
+
+        def dump(tree):
+            return subprocess.run(
+                ['getfacl', '--recursive', '--physical', '--absolute-names', str(tree)],
+                capture_output=True, text=True, check=True).stdout
+
+        before_first, before_second = dump(first), dump(second)
+
+        # Pass 1 of apply: record both. Pass 2: modify only the first, then "fail".
+        script = (
+            'set -g DRY_RUN 0\n'
+            'set -g AGENT_USER nobody\n'
+            f'function acl_dir; echo {self.tmp}/acl; end\n'
+            f'function targets_file; echo {self.tmp}/targets; end\n'
+            'function append_record --argument-names file line\n'
+            '    printf "%s\\n" $line >> $file\n'
+            'end\n'
+            'function run_cmd\n'
+            '    switch $argv[1]\n'
+            '        case install\n'
+            '            mkdir --parents (acl_dir)\n'
+            '        case "*"\n'
+            '            $argv\n'
+            '    end\n'
+            'end\n'
+            'function recorded_targets\n'
+            '    test -e (targets_file); or return 0\n'
+            '    for line in (cat (targets_file))\n'
+            '        set -l tab (printf \'\\t\')\n'
+'        test -n "$line"; and string unescape --style=var -- (string split $tab -- $line)[1]\n'
+            '    end\n'
+            'end\n'
+            'function run_cmd; $argv; end\n'
+            + self._functions() + '\n'
+            f'record_acl "{first}" tree\n'
+            f'record_acl "{second}" tree\n'
+            # The failed run modifies the FIRST target only, and only AFTER both
+            # were snapshotted — which is the order `apply` guarantees.
+            f'setfacl --recursive -m u:nobody:rwX "{first}"\n'
+            '# the run "fails" here, before touching the second target\n'
+        )
+        (self.tmp / 'acl').mkdir(exist_ok=True)
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+        # Rollback: restore every recorded target, as the shipped verb does.
+        restore = (
+            'set -g DRY_RUN 0\n'
+            'set -g AGENT_USER nobody\n'
+            f'function acl_dir; echo {self.tmp}/acl; end\n'
+            'function recorded_targets\n'
+            f'    for line in (cat {self.tmp}/targets)\n'
+            '        set -l tab (printf \'\\t\')\n'
+'        test -n "$line"; and string unescape --style=var -- (string split $tab -- $line)[1]\n'
+            '    end\n'
+            'end\n'
+            'function run_cmd; $argv; end\n'
+            + self._functions() + '\n'
+            'set -l rc 0\n'
+            'for t in (recorded_targets)\n'
+            '    restore_acl $t; or set rc 1\n'
+            'end\n'
+            'exit $rc\n'
+        )
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', restore],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+        self.assertEqual(before_first, dump(first),
+                         'the target the failed run modified must be restored')
+        self.assertEqual(before_second, dump(second),
+                         'a target the failed run never reached must be untouched')
 
 
 class RunTest(AgentAccountTest):

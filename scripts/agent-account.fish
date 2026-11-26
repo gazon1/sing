@@ -374,6 +374,14 @@ end
 # Snapshot a target BEFORE it is modified. `path` is one node (`$HOME`, which is
 # granted non-recursively); `tree` is everything under it, because `--recursive`
 # writes at every one of them.
+#
+# The KIND is recorded beside the target, not only used while snapshotting. A
+# node dump names one path; a tree dump names everything under it. The rollback
+# scrub reads the kind, because "the dump does not mention this path" means
+# different things: for a tree it means the path was created after `apply`, and
+# for a node it means nothing at all — the dump never covered children by
+# design. Scrubbing a node target would walk the whole of `$HOME` and strip
+# `sing-dev` from files that had it before this script ever ran.
 function record_acl --argument-names target kind
     set -l file (acl_dump_file $target)
     set -l flags --absolute-names --physical
@@ -403,7 +411,10 @@ function record_acl --argument-names target kind
         run_cmd chmod 0600 $file
     end
     set -l listed (recorded_targets)
-    contains -- $target $listed; or append_record (targets_file) (string escape --style=var -- $target)
+    # `string join \t` writes a REAL tab; `$path"\t"$kind` in a word writes the
+    # two characters backslash-t (measured), and the reader then splits nothing.
+    contains -- $target $listed; or append_record (targets_file) \
+        (string join \t -- (string escape --style=var -- $target) $kind)
 end
 
 # The targets recorded so far. Escaped, not raw: a path may legally contain a
@@ -412,8 +423,28 @@ end
 function recorded_targets
     test -e (targets_file); or return 0
     for line in (cat (targets_file))
-        test -n "$line"; and string unescape --style=var -- $line
+        test -n "$line"; or continue
+        # `path<TAB>kind`; a line written before the kind existed is a tree.
+        string unescape --style=var -- (string split \t -- $line)[1]
     end
+end
+
+# `node` or `tree` for a recorded target. A line with no kind predates the
+# distinction and was always recursive.
+function recorded_kind --argument-names target
+    test -e (targets_file); or echo tree; and return 0
+    for line in (cat (targets_file))
+        set -l fields (string split \t -- $line)
+        test (count $fields) -ge 1; or continue
+        test (string unescape --style=var -- $fields[1]) = "$target"; or continue
+        if test (count $fields) -ge 2
+            echo $fields[2]
+        else
+            echo tree
+        end
+        return 0
+    end
+    echo tree
 end
 
 # Puts a snapshot back — the inverse of the dump, so a grant, a `mask::` or a
@@ -464,6 +495,12 @@ end
 function scrub_unrecorded --argument-names target
     set -l file (acl_dump_file $target)
     test -e $file; or return 0
+    # A `node` snapshot covers the target and nothing under it, so "the dump does
+    # not mention this child" is TRUE for every child — including files that had
+    # `sing-dev` before this script ran. Scrubbing there would strip grants it
+    # did not write, over the whole of `$HOME`. Only a `tree` snapshot makes the
+    # absence of a path meaningful.
+    test (recorded_kind $target) = tree; or return 0
     # NUL-separated, because a path may contain a newline: `find` without
     # `-print0` emits such a path as TWO entries, and the second half then looks
     # like a file the dump never covered — it would be scrubbed, and the first
