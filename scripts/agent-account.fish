@@ -275,15 +275,34 @@ end
 # The privileged groups taken from a pre-existing agent, so rollback can give
 # them back. The boundary has to be removed; the host it was removed from is
 # the host's own configuration.
+#
+# It records HOW the group was held, because the two ways are not the same
+# thing to undo: `usermod --append --groups` restores a supplementary membership,
+# and an account whose PRIMARY gid was `docker` came back with `agent` as its
+# primary group and `docker` as a supplementary one — provisioned successfully,
+# rolled back wrong. The original gid is recorded with the group.
 function record_removed_group --argument-names group
     test $DRY_RUN -eq 1; and return 0
-    record_ownership removed-group $group
+    set -l gid (getent group $group | cut -d: -f3)
+    set -l primary (id -gn $AGENT_USER 2>/dev/null)
+    if test "$primary" = "$group"
+        record_ownership removed-primary-group $group $gid
+    else
+        record_ownership removed-group $group $gid
+    end
 end
 
 function previously_removed_groups
     set -l file (state_file)
     test -e $file; or return 0
     grep -F -- (printf 'removed-group\t') $file | cut -f2
+end
+
+# The groups the agent held as its PRIMARY gid, as `group:gid` pairs.
+function previously_removed_primary_groups
+    set -l file (state_file)
+    test -e $file; or return 0
+    grep -F -- (printf 'removed-primary-group\t') $file | cut -f2,3 | tr '\t' ':'
 end
 
 # The recorded value of a one-word property (`passwd` -> `P`/`L`/`NP`), or empty.
@@ -571,32 +590,6 @@ function provision
             record_removed_group $group
             remove_group $group
         end
-
-        # And a pre-existing account may hold a sudo rule, which no group
-        # reconciliation touches: that is the escalation this whole change
-        # forbids, and it survives `apply` unless it is refused here. `check`
-        # reports it, but reporting is not provisioning.
-        #
-        # This script does not edit sudoers to remove somebody else's rule, and
-        # it cannot read another user's rules without root — so the human is
-        # told to fix it, and the run stops rather than declaring a boundary
-        # that does not hold. An unreadable answer is NOT proof of a clean one.
-        set -l agent_sudo (sudo --non-interactive --list --other-user=$AGENT_USER 2>/dev/null)
-        set -l sudo_known 0
-        test $status -eq 0; and set sudo_known 1
-        if test $sudo_known -eq 1
-            set -l rules (printf '%s\n' $agent_sudo |
-                sed -n '/may run the following commands/,$p' |
-                string match -rv -- '^\s*$' |
-                string match -rv -- '^User ' |
-                string match -rv -- '^\s*may run')
-            if test (count $rules) -gt 0
-                die "$AGENT_USER holds a sudo rule; it can leave its account: "(string join '; ' $rules)
-            end
-        else
-            echo "note: $AGENT_USER's sudo rights are unverified here (needs root to read);" >&2
-            echo "      run '$SELF_NAME check' after provisioning" >&2
-        end
     end
  
     # The group is the collaboration seam: both identities, NOBODY ELSE.
@@ -713,9 +706,43 @@ function provision
         end
     end
  
+    # LAST, and for every account — created or adopted, and after the `sing-dev`
+    # membership is in place. A rule this account can reach is the escalation the
+    # whole change forbids, and a host that got one is not provisioned.
+    audit_sudo
+
     echo "=== done; verify with: $SELF_NAME check $ROOTS ==="
 end
  
+# The escalation this whole change forbids: a sudo rule for `agent`, or one that
+# reaches it through `sing-dev`.
+#
+# It runs ONCE, at the end of provisioning, and for every account — created or
+# adopted. It used to live inside the existing-account branch, so a host whose
+# `agent` this script had just created was never audited at all; and it ran
+# before the `sing-dev` membership was added, so a group-scoped rule was
+# invisible. `check` reports the same thing, but reporting is not provisioning.
+#
+# This script does not edit somebody else's sudoers line and cannot read another
+# user's rules without root, so an unreadable answer is a WARNING and not a
+# pass: a run that could not verify is not a run that verified.
+function audit_sudo
+    set -l agent_sudo (sudo --non-interactive --list --other-user=$AGENT_USER 2>/dev/null)
+    if test $status -ne 0
+        echo "note: $AGENT_USER's sudo rights are unverified here (needs root to read);" >&2
+        echo "      run '$SELF_NAME check' after provisioning" >&2
+        return 0
+    end
+    set -l rules (printf '%s\n' $agent_sudo |
+        sed -n '/may run the following commands/,$p' |
+        string match -rv -- '^\s*$' |
+        string match -rv -- '^User ' |
+        string match -rv -- '^\s*may run')
+    if test (count $rules) -gt 0
+        die "$AGENT_USER holds a sudo rule; it can leave its account: "(string join '; ' $rules)
+    end
+end
+
 # A worktree inside the developer's home needs the traverse grant, which is the
 # one cost this design avoids — so it has to be asked for, not discovered later.
 function in_home_guard
@@ -1215,6 +1242,18 @@ function rollback
             getent group $group >/dev/null; or continue
             run_cmd usermod --append --groups $group $AGENT_USER
             echo "returned $AGENT_USER to $group (it held it before apply)"
+        end
+        # A group held as the PRIMARY gid comes back as the primary gid. The
+        # supplementary form above would leave the account with `agent` as its
+        # primary group and `docker` as a supplementary one — the configuration
+        # this script found, half-restored.
+        for pair in (previously_removed_primary_groups)
+            set -l group (string split : -- $pair)[1]
+            set -l gid (string split : -- $pair)[2]
+            test -n "$group"; and test -n "$gid"; or continue
+            getent group $gid >/dev/null; or continue
+            run_cmd usermod --gid $gid $AGENT_USER
+            echo "returned $AGENT_USER's primary group to $group (gid $gid)"
         end
         # And the password state: `apply` locked a usable password, which is
         # right for the boundary and wrong to keep on an account this script

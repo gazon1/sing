@@ -1171,6 +1171,34 @@ class RoundElevenRegressionTest(PlanTest):
         self.assertIn('user:nobody', kept, 'a recorded path must not be scrubbed')
 
 
+class RoundTwelveRegressionTest(PlanTest):
+    """The twelfth round: the sudo audit's placement, and the primary-gid restore."""
+
+    def test_the_sudo_audit_covers_a_created_account_and_group_scoped_rules(self):
+        """It lived inside the existing-account branch and ran before `sing-dev`."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        # ONE call, at the end of provisioning — not inside either account branch.
+        self.assertEqual(1, provision.count('\n    audit_sudo\n'), provision[-800:])
+        self.assertLess(
+            provision.index('run_cmd usermod --append --groups $AGENT_GROUP $AGENT_USER'),
+            provision.index('\n    audit_sudo\n'),
+            'a group-scoped rule is only visible once the membership exists',
+        )
+        created = provision.split('if test -z "$account"', 1)[1].split('\n    else\n', 1)[0]
+        self.assertNotIn('audit_sudo', created, 'a created account must be audited too, by the same call')
+
+    def test_a_group_held_as_the_primary_gid_is_restored_as_one(self):
+        """`usermod --append` restores the other kind of membership, not this one."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        record = body.split('function record_removed_group', 1)[1].split('\nend', 1)[0]
+        self.assertIn('record_ownership removed-primary-group', record)
+        self.assertIn('record_ownership removed-group', record)
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('previously_removed_primary_groups', rollback)
+        self.assertIn('usermod --gid $gid $AGENT_USER', rollback)
+
+
 class RunTest(AgentAccountTest):
     def test_run_hands_the_command_over_and_drops_the_callers_environment(self):
         """The agent gets a built environment; `env -i` is the mechanism."""

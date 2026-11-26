@@ -286,7 +286,10 @@ away from a pre-existing agent. A rollback that deleted the membership would rem
 from a group they chose, and one that left the privileged groups gone would erase the fact that
 they were there. Both are recorded before the change (`member\t<user>\t<group>` and
 `removed-group\t<group>` in the state file), and rollback keeps a membership it did not add and
-returns a group `apply` took away. The same asymmetry applies to the password: `apply` locks a
+returns a group `apply` took away — as the KIND it was. `usermod --append --groups` restores a
+supplementary membership, so an account whose **primary** gid was `docker` came back with `agent`
+as its primary group and `docker` as a supplementary one: provisioned correctly, rolled back
+wrong. The gid is recorded with the group and restored with `usermod --gid`. The same asymmetry applies to the password: `apply` locks a
 usable one, so rollback on an adopted account unlocks it again — the state is recorded before the
 lock, and only a password that was usable is restored.
 
@@ -302,11 +305,14 @@ that the rest of the run would then report as holding:
   and installs the agent's `.gradle`/`.android`/`.cache` into it, so a stale passwd record would
   put the agent's private state *inside* the files it must not share — the separation undone by
   one line of `/etc/passwd`;
-- an adopted `agent` that already holds a **sudo rule**. Reconciling groups does not touch
-  sudoers, and a rule is exactly the escalation this change forbids. This script does not edit
-  somebody else's sudoers line — it refuses and names the rule, so a human decides. A run that
-  cannot read the rules (no root) says so and tells the reader to run `check` afterwards, because
-  an unverified claim is not a clean one.
+- an `agent` that holds a **sudo rule** — created **or** adopted. Reconciling groups does not
+  touch sudoers, and a rule is exactly the escalation this change forbids. This script does not
+  edit somebody else's sudoers line — it refuses and names the rule, so a human decides. The
+  audit runs ONCE, at the end of provisioning, after the `sing-dev` membership exists: it used to
+  live inside the existing-account branch and run before that membership, so a host whose
+  account this script had just created was never audited and a group-scoped rule was invisible.
+  A run that cannot read the rules (no root) says so and tells the reader to run `check`
+  afterwards, because an unverified claim is not a clean one.
 
 Four things `rollback` and `check` must not take on trust, each measured:
 
