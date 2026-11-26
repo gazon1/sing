@@ -302,6 +302,29 @@ class RegressionTest(PlanTest):
         self.assertIn('for group in wheel docker kvm', provision)
         self.assertIn('gpasswd --delete $AGENT_USER $group', provision)
 
+    def test_a_root_that_is_not_a_worktree_is_refused_before_anything_is_written(self):
+        """A half-applied host is worse than a refused run.
+
+        `provision` used to resolve `git rev-parse` only in the worktree loop —
+        after useradd and the sudoers rule had run. A plain directory left an
+        account created and the host half-provisioned. Measured.
+        """
+        not_a_repo = self.tmp / 'plain'
+        not_a_repo.mkdir()
+
+        plan = self._plan(str(not_a_repo))
+        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
+        for write in ('useradd', 'groupadd', 'sudoers.d', 'setfacl'):
+            self.assertNotIn(
+                write, plan.stdout,
+                f'{write} is printed before the root was refused — the run would be half-applied',
+            )
+
+    def test_rollback_tolerates_a_worktree_that_was_removed(self):
+        """The grants outlive the worktree; cleanup must still work."""
+        result = self._run('rollback', '--dry-run', str(self.tmp / 'gone'))
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
     def test_the_agent_path_reaches_the_toolchain_it_documents(self):
         """java, node and heavy are mise SHIMS, not ~/.local/bin."""
         result = self._run('run', '--', 'echo', 'ok')

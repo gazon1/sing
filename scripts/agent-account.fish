@@ -163,9 +163,14 @@ end
 # Absolute, so a verdict names a path a reader can act on from anywhere — and
 # the message names the spelling the caller used, because that is what they can
 # correct.
+#
+# A path that no longer exists is still collected: `rollback` has to be able to
+# clean up a host whose worktree was removed, and its grants on the developer's
+# paths outlive the worktree. `validate_roots` refuses it for `apply`, where
+# every root must be real before anything is written.
 function add_root
-    set -l resolved (readlink -f -- $argv[1]); or die "no such path: $argv[1]"
-    test -d "$resolved"; or die "not a directory: $argv[1]"
+    set -l resolved (readlink -f -- $argv[1])
+    test -n "$resolved"; or set resolved (string replace -r '/*$' '' -- $argv[1])
     set -ga ROOTS $resolved
 end
  
@@ -207,6 +212,25 @@ function as_root
     exec sudo -- (status fish-path) --no-config $self $argv[1] --dev $DEV_NAME $extra $ROOTS
 end
  
+# Everything that can refuse, refuses before the first write.
+#
+# `provision` used to reach `git_common_dir` only at the worktree loop, i.e.
+# after useradd and the sudoers rule had already run: a root that is not a git
+# worktree left an account created and a host half-provisioned. Measured on a
+# plain directory. So the roots are validated here, where nothing has happened
+# yet, and the loop below cannot be the first place that fails.
+function validate_roots
+    # Only `apply` needs the worktrees to exist. `rollback` must still clean up
+    # a host whose worktree was removed — the grants on the developer's own
+    # paths outlive it, and refusing here would leave them pointing at nothing.
+    test "$argv[1]" = apply; or return 0
+    for root in $ROOTS
+        test -d "$root"; or die "not a directory: $root"
+        in_home_guard $root
+        git_common_dir $root >/dev/null; or exit 2
+    end
+end
+
 # ---------------------------------------------------------------------------
 # apply
 # ---------------------------------------------------------------------------
@@ -290,8 +314,6 @@ function provision
     # worktree the agent cannot commit in. `check` verifies this path, and it
     # used to verify a grant `provision` never wrote.
     for root in $ROOTS
-        test -d "$root"; or die "not a directory: $root"
-        in_home_guard $root
         for target in $root (git_common_dir $root)
             run_cmd setfacl --recursive --modify "group:$AGENT_GROUP:rwX" \
                 --modify "default:group:$AGENT_GROUP:rwX" $target
@@ -538,6 +560,7 @@ function main
         case apply
             parse_args $argv
             resolve_dev
+            validate_roots apply
             if test $DRY_RUN -ne 1; and test (id -u) -ne 0
                 as_root apply
             end
@@ -553,6 +576,7 @@ function main
         case rollback
             parse_args $argv
             resolve_dev
+            validate_roots rollback
             if test $DRY_RUN -ne 1; and test (id -u) -ne 0
                 as_root rollback
             end
