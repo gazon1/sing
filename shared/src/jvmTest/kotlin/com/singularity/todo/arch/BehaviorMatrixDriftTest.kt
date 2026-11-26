@@ -40,6 +40,11 @@ import kotlin.test.assertTrue
  * its test name would otherwise drop out of the check, and the table would
  * claim a guarantee nothing verifies.
  *
+ * A class name is not an identity either. Two packages may hold a class of
+ * the same name, and a row that names such a class is a finding rather than a
+ * guess: the gate would have to pick one of the two, and a wrong pick turns a
+ * missing test into a green gate.
+ *
  * The rule itself lives in [BehaviorMatrixGate], and
  * [BehaviorMatrixGateSelfTest] drives it with synthetic sources.
  *
@@ -70,11 +75,11 @@ class BehaviorMatrixDriftTest {
     }
 
     /** The bodies of every test class of this module, by class name. */
-    private val classBodies: Map<String, String> by lazy {
-        val bodies = mutableMapOf<String, String>()
+    private val classBodies: Map<String, List<String>> by lazy {
+        val bodies = mutableMapOf<String, MutableList<String>>()
         for (file in testSources) {
             for ((name, body) in BehaviorMatrixGate.classBodies(file.readText())) {
-                bodies.putIfAbsent(name, body)
+                bodies.getOrPut(name) { mutableListOf() }.add(body)
             }
         }
         bodies
@@ -92,11 +97,21 @@ class BehaviorMatrixDriftTest {
                 "guarantee that nothing verifies.",
         )
 
+        val ambiguous = BehaviorMatrixGate.ambiguousClassNames(classBodies)
+        val confused = matrix.rows.filter { it.className != null && it.className in ambiguous }
+        assertTrue(
+            confused.isEmpty(),
+            "these rows of the behavior matrix name a class that more than one package claims:\n" +
+                confused.joinToString("\n") { "  ${it.line.trim()}" } +
+                "\n\nA class name is not an identity: the gate cannot know which of the classes the " +
+                "row means, so it counts neither of them as the owner.",
+        )
+
         val missing =
             BehaviorMatrixGate.missingRows(
                 rows = matrix.rows,
-                matrixClassBody = classBodies[matrixClass],
-                ownerBody = { classBodies[it] },
+                matrixClassBody = BehaviorMatrixGate.ownerBody(classBodies, matrixClass),
+                ownerBody = { BehaviorMatrixGate.ownerBody(classBodies, it) },
             )
         assertTrue(
             missing.isEmpty(),

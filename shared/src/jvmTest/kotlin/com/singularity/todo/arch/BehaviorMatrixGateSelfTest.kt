@@ -20,7 +20,8 @@ import kotlin.test.assertTrue
  * a missing owner class, a function that lost its test annotation, the
  * fallback that a missing owner class used to hide behind, a test that
  * belongs to another class of the same file, an annotation and a declaration
- * that exist only inside a string, and a table line that names no test.
+ * that exist only inside a string, a table line that names no test, and a
+ * class name that two packages share.
  *
  * ## What a green run here means
  *
@@ -157,6 +158,49 @@ class BehaviorMatrixGateSelfTest {
         val missing = missing(matrix, matrixClassBody = null, owner = owner)
 
         assertTrue(missing.isEmpty(), "a generic class with a generic supertype is still a class: $missing")
+    }
+
+    @Test
+    fun `a class name that two packages share is ambiguous`() {
+        val bodies =
+            mapOf(
+                "Owner" to listOf("class Owner { }", "class Owner { }"),
+                "Unique" to listOf("class Unique { }"),
+            )
+
+        val ambiguous = BehaviorMatrixGate.ambiguousClassNames(bodies)
+
+        assertEquals(
+            setOf("Owner"),
+            ambiguous,
+            "only the name that two classes claim is ambiguous: $ambiguous",
+        )
+    }
+
+    @Test
+    fun `a row that names an ambiguous class is not satisfied by either of them`() {
+        val matrix = matrix("| a | `Owner.a test` |")
+        val bodies =
+            mapOf(
+                "Owner" to
+                    listOf(
+                        "class Owner {\n    @Test\n    fun `a test`() {}\n}\n",
+                        "class Owner {\n}\n",
+                    ),
+            )
+
+        val missing =
+            BehaviorMatrixGate.missingRows(
+                rows = BehaviorMatrixGate.parse(matrix).rows,
+                matrixClassBody = null,
+                ownerBody = { BehaviorMatrixGate.ownerBody(bodies, it) },
+            )
+
+        assertEquals(
+            1,
+            missing.size,
+            "an ambiguous class name resolves to nothing, not to the first candidate: $missing",
+        )
     }
 
     /** The rows of [matrix] that do not name a test that exists. */

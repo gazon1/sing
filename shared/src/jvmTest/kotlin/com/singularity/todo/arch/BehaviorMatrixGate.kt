@@ -33,6 +33,11 @@ package com.singularity.todo.arch
  * satisfied by a test of `DraftMviViewModelTest` that happens to live in the
  * same file.
  *
+ * The class name alone is not an identity either: two packages may hold a
+ * class of the same name, and a row that names such a class resolves to
+ * nothing — the gate refuses to guess which of the two classes the row means,
+ * because a wrong guess turns a missing test into a green gate.
+ *
  * ## What counts as a test
  *
  * A function carries a test annotation — `@Test`, or a qualified variant of
@@ -115,6 +120,29 @@ internal object BehaviorMatrixGate {
             }.distinctBy { it.first }
             .toMap()
     }
+
+    /**
+     * The names that more than one class of [bodiesByName] claims.
+     *
+     * A class name is not an identity: two packages may hold a class of the
+     * same name. A row that names such a class cannot be resolved — the gate
+     * would have to pick one of the two, and a wrong pick turns a missing test
+     * into a green gate.
+     */
+    fun ambiguousClassNames(bodiesByName: Map<String, List<String>>): Set<String> =
+        bodiesByName.filterValues { it.size > 1 }.keys
+
+    /**
+     * The body of the class of [className], or null.
+     *
+     * Null when no class of that name exists — and also when more than one
+     * class claims that name: an ambiguous name resolves to nothing, because
+     * resolving it to one of the candidates would be a guess.
+     */
+    fun ownerBody(
+        bodiesByName: Map<String, List<String>>,
+        className: String,
+    ): String? = bodiesByName[className]?.singleOrNull()
 
     /**
      * The names of the functions of [source] that carry a test annotation.
