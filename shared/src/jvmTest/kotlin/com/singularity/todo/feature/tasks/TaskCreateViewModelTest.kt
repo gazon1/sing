@@ -735,6 +735,44 @@ class TaskCreateViewModelTest {
         }
 
     /**
+     * The other half of the scoping guarantee: the draft saved for a scope is
+     * restored when the editor opens *in that scope*. Without this half, the
+     * test above would also pass if the store were never restored at all.
+     */
+    @Test
+    fun `a draft is restored into the scope it was saved in`() =
+        runTest {
+            fakeDraftStore.save(
+                taskDraftStorageKey(null, ProjectId("project-1"), emptySet()),
+                TaskDraft(title = FieldOwnedText.empty().seeded("Scoped draft")),
+                TaskDraft.serializer(),
+            )
+
+            val vm = createVm(backgroundScope, initialProjectId = ProjectId("project-1"))
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(
+                "Scoped draft",
+                vm.state.value.draft.title.text,
+                "the draft saved for this scope is restored into it",
+            )
+
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(1, fakeTaskRepo.tasks.value.size)
+            assertEquals(
+                "Scoped draft",
+                fakeTaskRepo.tasks.value.values
+                    .first()
+                    .title,
+                "the task is created from the restored draft",
+            )
+        }
+
+    /**
      * The autosave is a safety net. A store that refuses the write must not take
      * the editor with it: the text stays, and the task can still be created from
      * the editor's own copy.

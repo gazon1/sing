@@ -9,6 +9,8 @@ import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -63,6 +65,10 @@ private class TestDraftVm(
     override suspend fun persist(draft: TestDraft): Either<AppError, Unit> = persistImpl(draft)
 
     override suspend fun onSaved() {
+        // The test VM plays the role of a subclass that reports a finished save
+        // (TaskCreateViewModel emits `Saved` here) — so a test can tell an
+        // explicit save apart from a silent autosave.
+        emit(TestEvent.Saved)
         hooks.onSaved?.invoke()
     }
 
@@ -123,12 +129,26 @@ private fun TestScope.testVm(
     )
 
 /**
+ * Subscribes to the VM's one-shot events and collects them into a list.
+ *
+ * The subscription has to be live before the event under test is emitted, so the
+ * helper flushes the dispatcher once before returning.
+ */
+private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
+    val events = mutableListOf<TestEvent>()
+    backgroundScope.launch { vm.events.toList(events) }
+    runCurrent()
+    return events
+}
+
+/**
  * The behavior matrix of the draft editor — one row per guarantee the editor makes,
  * and the test that holds it.
  *
  * The base class owns the contract; the subclasses (TaskCreate, NoteEditor) only
  * override the extension points, and their own rows live next to them:
- * `TaskCreateViewModelTest` and `NoteEditorTest`.
+ * `TaskCreateViewModelTest` and `NoteEditorTest`. The rows about the async
+ * effects live in `DraftMviEffectTest`, in this same file.
  *
  * | Row                          | Test                                                       |
  * |------------------------------|------------------------------------------------------------|
@@ -149,8 +169,9 @@ private fun TestScope.testVm(
  * | save clears the autosave     | `a successful save clears the autosave store and a failed one does not` |
  * | discard → last checkpoint    | `discard resets to baseline`                               |
  * | entity switch                | `switching entities autosaves the new draft, not the old one` |
+ * | entity switch, in flight     | `an autosave in flight when the entity switches does not leave the old draft in the store` |
  * | duplicate save               | `save blocked when already saving`                         |
- * | keyed effect                 | `launchDraftEffect cancels prior with same key`            |
+ * | keyed effect                 | `DraftMviEffectTest.launchDraftEffect cancels prior with same key` |
  *
  * The subclass rows of the same matrix:
  *
@@ -158,6 +179,7 @@ private fun TestScope.testVm(
  * |------------------------------|------------------------------------------------------------|
  * | TaskCreate: save → navigate  | `TaskCreateViewModelTest.a successful save emits the Saved event` |
  * | TaskCreate: scoped restore   | `TaskCreateViewModelTest.a draft is restored only into the scope it was saved in` |
+ * | TaskCreate: restore into scope | `TaskCreateViewModelTest.a draft is restored into the scope it was saved in` |
  * | TaskCreate: failed autosave  | `TaskCreateViewModelTest.a failed autosave leaves the editor usable` |
  * | NoteEditor: autosave failure | `NoteEditorTest.a failed autosave tells the user`          |
  * | NoteEditor: save is a checkpoint | `NoteEditorTest.after an explicit save, closing the editor keeps the saved text` |
@@ -258,22 +280,33 @@ class DraftMviViewModelTest {
     @Test
     fun `save validates then persists and calls onSaved`() =
         testVm {
+            val persisted = mutableListOf<TestDraft>()
             var onSavedCalled = false
             val vm =
                 testVm(
                     initialDraft = TestDraft(title = "Hello"),
                     validateBlock = { if (it.title.isBlank()) "Title required" else null },
+                    persistBlock = { draft ->
+                        persisted += draft
+                        Either.Right(Unit)
+                    },
                     hooks = TestHooks(onSaved = { onSavedCalled = true }),
                 )
             advanceTimeBy(20L)
             runCurrent()
             assertTrue(vm.stateFlow.value.isSaveEnabled)
 
+            vm.updateDraft { it.copy(title = "Hello there") }
             vm.save()
             advanceTimeBy(50L)
             runCurrent()
 
-            assertTrue(onSavedCalled)
+            assertEquals(
+                listOf(TestDraft(title = "Hello there")),
+                persisted.toList(),
+                "persist is called once, with the draft the editor holds right now",
+            )
+            assertTrue(onSavedCalled, "onSaved runs after the persist succeeded")
         }
 
     @Test
@@ -594,6 +627,44 @@ class DraftMviViewModelTest {
         }
 
     /**
+     * The same guarantee, but for an autosave that is already running when the
+     * editor switches: the write for the old entity may still land (the kdoc of
+     * `open()` promises a cancellation the implementation does not perform), but
+     * it is followed by the new entity's write — so the store never ends up
+     * holding the entity the editor has left.
+     */
+    @Test
+    fun `an autosave in flight when the entity switches does not leave the old draft in the store`() =
+        testVm {
+            val saved = mutableListOf<TestDraft>()
+            val vm =
+                testVm(
+                    initialDraft = TestDraft(title = "first"),
+                    autosaveBlock = { draft ->
+                        delay(100L)
+                        saved += draft
+                    },
+                    autosaveDebounceMs = 10L,
+                )
+            advanceTimeBy(20L)
+            runCurrent()
+
+            vm.updateDraft { it.copy(title = "first-edited") }
+            advanceTimeBy(50L)
+            runCurrent()
+
+            vm.open(TestDraft(title = "second"))
+            advanceTimeBy(500L)
+            runCurrent()
+
+            assertEquals(
+                TestDraft(title = "second"),
+                saved.lastOrNull(),
+                "the store must end up on the entity the editor is showing",
+            )
+        }
+
+    /**
      * Regression guard for the silent-failure mode this test class could not
      * previously express: `persist` is a `suspend` function that an
      * implementation may satisfy by *throwing* rather than by returning
@@ -651,10 +722,15 @@ class DraftMviViewModelTest {
     @Test
     fun `save surfaces validation error`() =
         testVm {
+            var persistCalls = 0
             val vm =
                 testVm(
                     initialDraft = TestDraft(title = ""),
                     validateBlock = { "Title required" },
+                    persistBlock = {
+                        persistCalls++
+                        Either.Right(Unit)
+                    },
                 )
             advanceTimeBy(20L)
             runCurrent()
@@ -665,6 +741,7 @@ class DraftMviViewModelTest {
 
             assertEquals("Title required", vm.stateFlow.value.error)
             assertFalse(vm.stateFlow.value.isSaving)
+            assertEquals(0, persistCalls, "a draft rejected by validation is never persisted")
         }
 
     @Test
@@ -756,31 +833,64 @@ class DraftMviViewModelTest {
             assertNull(vm.stateFlow.value.error)
         }
 
+    /**
+     * The autosave is silent: it never reports a save, not even when it fails.
+     * A "Saved" event per keystroke is the spam this contract exists to prevent.
+     */
     @Test
     fun `autosave failure does not emit Saved event`() =
         testVm {
-            var autosaveCalled = false
+            val failures = mutableListOf<Throwable>()
             val vm =
                 testVm(
                     initialDraft = TestDraft(title = "Hello"),
-                    autosaveBlock = { autosaveCalled = true },
+                    autosaveBlock = { throw IllegalStateException("store is down") },
+                    hooks = TestHooks(onAutosaveError = { failures += it }),
                     autosaveDebounceMs = 10L,
                 )
+            val events = collectEvents(vm)
             advanceTimeBy(20L)
             runCurrent()
-            assertFalse(autosaveCalled)
+            assertTrue(events.isEmpty(), "an idle editor reports nothing")
 
             vm.updateDraft { it.copy(title = "edited") }
             advanceTimeBy(50L)
             runCurrent()
 
-            assertTrue(autosaveCalled)
-        }
+            assertEquals(1, failures.size, "the failed autosave reaches the editor")
+            assertTrue(events.isEmpty(), "a failed autosave is silent — it never reports a save")
 
+            // The contrast that makes the assertion above meaningful: the same
+            // editor does report an explicit save.
+            vm.save()
+            advanceTimeBy(50L)
+            runCurrent()
+
+            assertEquals(listOf(TestEvent.Saved), events.toList(), "only an explicit save reports a save")
+        }
+}
+
+/**
+ * The async-effect rows of the same behavior matrix: `launchDraftEffect` keys
+ * its running operations, and a new operation with the same key replaces the
+ * one that is already running.
+ *
+ * The rows live in their own class because the matrix of the draft lifecycle
+ * itself does not fit into one file-sized class any more.
+ */
+@Tag("fast")
+class DraftMviEffectTest {
+    /**
+     * Re-tapping an effect with the same key cancels the operation that is
+     * already running. The first operation has to be *running* — an operation
+     * cancelled before it started would prove nothing.
+     */
     @Test
     fun `launchDraftEffect cancels prior with same key`() =
         testVm {
-            var operationCount = 0
+            val firstStarted = CompletableDeferred<Unit>()
+            var firstFinished = false
+            var secondFinished = false
             val vm =
                 testVm(
                     initialDraft = TestDraft(title = "Hello"),
@@ -791,25 +901,29 @@ class DraftMviViewModelTest {
             vm.launchDraftEffect(
                 key = "op",
                 operation = {
-                    operationCount++
-                    advanceTimeBy(50L)
-                    runCurrent()
+                    firstStarted.complete(Unit)
+                    delay(100L)
+                    firstFinished = true
                     "result1"
                 },
                 onResult = { _, _ -> null },
             )
+            firstStarted.await()
+
             vm.launchDraftEffect(
                 key = "op",
                 operation = {
-                    operationCount++
+                    secondFinished = true
                     "result2"
                 },
                 onResult = { _, _ -> null },
             )
-            advanceTimeBy(100L)
+            advanceTimeBy(200L)
             runCurrent()
 
-            assertEquals(1, operationCount)
+            assertTrue(firstStarted.isCompleted, "the first operation really started")
+            assertFalse(firstFinished, "the running operation with the same key is cancelled")
+            assertTrue(secondFinished, "the newest operation runs")
         }
 
     @Test
