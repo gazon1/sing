@@ -614,6 +614,15 @@ function provision
         # group is recorded like any other adoption, and removed by name.
         set -l own_group_preexisting 0
         getent group $AGENT_USER >/dev/null; and set own_group_preexisting 1
+        # Recorded BEFORE `useradd`, like every other resource this script
+        # creates. Written afterwards, a `useradd` that succeeded followed by an
+        # append that failed — or a run killed between the two — left a group
+        # with nothing to say it was ours, and rollback removed nothing.
+        if test $own_group_preexisting -eq 0
+            record_ownership own-group created
+        else
+            record_ownership own-group adopted
+        end
         # `--home-dir` is NAMED, not left to useradd: without it the home base
         # comes from `/etc/default/useradd` (`HOME=/home` here), while
         # `agent_home` falls back to a hardcoded `/home/$AGENT_USER` on a host
@@ -622,11 +631,6 @@ function provision
         # its environment from the other. Now `apply` names the same path `run`
         # will read back.
         run_cmd useradd --create-home --home-dir $agent_home_dir --user-group --shell /bin/bash $AGENT_USER
-        if test $own_group_preexisting -eq 0
-            record_ownership own-group created
-        else
-            record_ownership own-group adopted
-        end
         run_cmd chmod 700 $agent_home_dir
     else
         echo "account exists: $account (adopted, not created by this script)"

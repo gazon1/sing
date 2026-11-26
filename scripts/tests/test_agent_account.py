@@ -1508,6 +1508,14 @@ class RoundSixteenRegressionTest(PlanTest):
             provision.index('run_cmd useradd'),
             'the pre-existence must be asked BEFORE useradd creates it',
         )
+        # And WRITTEN before it too: `useradd` succeeding followed by a failed
+        # append (or a run killed between them) would leave a group with nothing
+        # to say it is ours, and rollback would remove nothing.
+        self.assertLess(
+            provision.index('record_ownership own-group created'),
+            provision.index('run_cmd useradd'),
+            'the record must exist before the resource does, as for every other resource',
+        )
         rollback = body.split('function rollback', 1)[1]
         self.assertIn('owned_by_script own-group', rollback)
         self.assertIn('groupdel $AGENT_USER', rollback)
