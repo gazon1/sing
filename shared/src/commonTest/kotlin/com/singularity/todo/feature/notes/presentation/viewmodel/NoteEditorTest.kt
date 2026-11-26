@@ -616,15 +616,26 @@ class NoteEditorTest {
             runCurrent()
 
             vm.onIntent(NotesEditorIntent.SaveNow)
-            advanceTimeBy(1_000)
             runCurrent()
 
+            // The assertions come before the autosave debounce (500 ms) has had a
+            // chance to fire: only the explicit save can have written the row by
+            // now. If the autosave were allowed to run first, it would create the
+            // note on its own and the test would pass even if the explicit save
+            // stopped persisting anything.
             val saved = vm.stateFlow.value.draft
             assertIs<EditorState.Editing>(saved)
             assertFalse(saved.isNew, "an explicit save turns the new note into an existing one")
             assertFalse(saved.isDirty, "an explicit save clears the editor's dirty flag")
-            assertEquals(1, notesRepo.createCalls, "the note is created once, not twice")
+            assertEquals(1, notesRepo.createCalls, "the explicit save creates the note")
             assertEquals("<p>Fresh note</p>", notesRepo.notes[id]?.bodyHtml)
+
+            // Now the debounce fires — the note is written, not created a second
+            // time.
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(1, notesRepo.createCalls, "the note is created once, not twice")
         }
 }
 

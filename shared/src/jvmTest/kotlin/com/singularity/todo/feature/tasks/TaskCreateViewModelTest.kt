@@ -14,13 +14,11 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
-import com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
-import com.singularity.todo.feature.tasks.presentation.viewmodel.taskDraftStorageKey
 import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
@@ -33,17 +31,13 @@ import io.qameta.allure.Epic
 import io.qameta.allure.Feature
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
-import kotlinx.serialization.DeserializationStrategy
-import kotlinx.serialization.SerializationStrategy
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -669,164 +663,4 @@ class TaskCreateViewModelTest {
             assertEquals("https://example.com/spec", attachments.first().url)
             assertEquals(created.id, attachments.first().taskId, "the attachment must belong to the created task")
         }
-
-    // ─── The create editor's rows of the draft behavior matrix ───────────────
-    //
-    // The base class owns the contract; the create editor overrides three
-    // extension points — `validate`, `onSaved` and `onAutosaveError` — and each
-    // override has to keep its promise.
-
-    /**
-     * The screen navigates away on the event, not on the state: the task is
-     * created, but without the event the editor stays open over a task that
-     * already exists.
-     */
-    @Test
-    fun `a successful save emits the Saved event`() =
-        runTest {
-            val vm = createVm(backgroundScope)
-            advanceTimeBy(1_000)
-            runCurrent()
-
-            val events = mutableListOf<TaskCreateUiEvent>()
-            val job = launch { vm.events.collect { events += it } }
-            runCurrent()
-
-            vm.onIntent(TaskCreateIntent.TitleChanged("Emit me"))
-            runCurrent()
-            vm.onIntent(TaskCreateIntent.SaveClicked)
-            advanceTimeBy(1_000)
-            runCurrent()
-
-            assertEquals(
-                1,
-                events.filterIsInstance<TaskCreateUiEvent.Saved>().size,
-                "the screen is told that the task exists",
-            )
-            job.cancel()
-        }
-
-    /**
-     * A draft is stored under the scope it was written in — a project, a set of
-     * tags. A draft written in one project's agenda must not open in another
-     * project's editor, or the task lands in a project the person never chose.
-     */
-    @Test
-    fun `a draft is restored only into the scope it was saved in`() =
-        runTest {
-            fakeDraftStore.save(
-                taskDraftStorageKey(null, ProjectId("project-1"), emptySet()),
-                TaskDraft(title = FieldOwnedText.empty().seeded("Scoped draft")),
-                TaskDraft.serializer(),
-            )
-
-            val vm = createVm(backgroundScope, initialProjectId = ProjectId("project-2"))
-            advanceTimeBy(1_000)
-            runCurrent()
-
-            // The editor opened in project-2 starts empty, so the save is refused
-            // for the missing title — the other project's draft did not leak in.
-            vm.onIntent(TaskCreateIntent.SaveClicked)
-            advanceTimeBy(1_000)
-            runCurrent()
-
-            assertEquals(0, fakeTaskRepo.tasks.value.size, "a draft from another scope must not leak into this one")
-            assertEquals("Title is required", vm.state.value.error)
-        }
-
-    /**
-     * The other half of the scoping guarantee: the draft saved for a scope is
-     * restored when the editor opens *in that scope*. Without this half, the
-     * test above would also pass if the store were never restored at all.
-     */
-    @Test
-    fun `a draft is restored into the scope it was saved in`() =
-        runTest {
-            fakeDraftStore.save(
-                taskDraftStorageKey(null, ProjectId("project-1"), emptySet()),
-                TaskDraft(title = FieldOwnedText.empty().seeded("Scoped draft")),
-                TaskDraft.serializer(),
-            )
-
-            val vm = createVm(backgroundScope, initialProjectId = ProjectId("project-1"))
-            advanceTimeBy(1_000)
-            runCurrent()
-
-            assertEquals(
-                "Scoped draft",
-                vm.state.value.draft.title.text,
-                "the draft saved for this scope is restored into it",
-            )
-
-            vm.onIntent(TaskCreateIntent.SaveClicked)
-            advanceTimeBy(1_000)
-            runCurrent()
-
-            assertEquals(1, fakeTaskRepo.tasks.value.size)
-            assertEquals(
-                "Scoped draft",
-                fakeTaskRepo.tasks.value.values
-                    .first()
-                    .title,
-                "the task is created from the restored draft",
-            )
-        }
-
-    /**
-     * The autosave is a safety net. A store that refuses the write must not take
-     * the editor with it: the text stays, and the task can still be created from
-     * the editor's own copy.
-     */
-    @Test
-    fun `a failed autosave leaves the editor usable`() =
-        runTest {
-            val store = FailingDraftStore()
-            val vm = createVm(backgroundScope, draftStore = store)
-            advanceTimeBy(1_000)
-            runCurrent()
-
-            vm.onIntent(TaskCreateIntent.TitleChanged("Survives"))
-            advanceTimeBy(1_000)
-            runCurrent()
-
-            assertTrue(store.saveAttempts > 0, "the autosave really reached the broken store")
-            assertEquals("Survives", vm.state.value.draft.title.text, "the text is the editor's, not the store's")
-            assertTrue(vm.state.value.isDirty, "a failed autosave is not a checkpoint")
-
-            vm.onIntent(TaskCreateIntent.SaveClicked)
-            advanceTimeBy(1_000)
-            runCurrent()
-
-            assertEquals(1, fakeTaskRepo.tasks.value.size, "the task is created from the editor's copy")
-        }
-}
-
-/**
- * A store whose writes fail.
- *
- * The editor has to survive it: the autosave is a safety net, and a broken
- * store must not take the editor down with it.
- */
-private class FailingDraftStore : DraftStore {
-    /** How many writes were attempted — a failure the editor never saw proves nothing. */
-    var saveAttempts = 0
-        private set
-
-    override suspend fun <T> load(
-        key: String,
-        deserializer: DeserializationStrategy<T>,
-    ): T? = null
-
-    override suspend fun <T> save(
-        key: String,
-        value: T,
-        serializer: SerializationStrategy<T>,
-    ) {
-        saveAttempts++
-        throw IllegalStateException("the store is down")
-    }
-
-    override suspend fun clear(key: String) = Unit
-
-    override suspend fun clearPrefix(prefix: String) = Unit
 }

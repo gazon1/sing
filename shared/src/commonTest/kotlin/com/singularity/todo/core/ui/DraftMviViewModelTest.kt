@@ -160,7 +160,7 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  *
  * The base class owns the contract; the subclasses (TaskCreate, NoteEditor) only
  * override the extension points, and their own rows live next to them:
- * `TaskCreateViewModelTest`, `TaskCreateTagScopeTest` and `NoteEditorTest`. The
+ * `TaskCreateDraftBehaviorTest`, `TaskCreateTagScopeTest` and `NoteEditorTest`. The
  * rows about the async effects live in `DraftMviEffectTest`, and the validation
  * row in `DraftMviSaveValidationTest` — both in this same file.
  *
@@ -193,12 +193,12 @@ private fun TestScope.collectEvents(vm: TestDraftVm): MutableList<TestEvent> {
  *
  * | Row                          | Test                                                       |
  * |------------------------------|------------------------------------------------------------|
- * | TaskCreate: save → navigate  | `TaskCreateViewModelTest.a successful save emits the Saved event` |
- * | TaskCreate: scoped restore   | `TaskCreateViewModelTest.a draft is restored only into the scope it was saved in` |
- * | TaskCreate: restore into scope | `TaskCreateViewModelTest.a draft is restored into the scope it was saved in` |
+ * | TaskCreate: save → navigate  | `TaskCreateDraftBehaviorTest.a successful save emits the Saved event` |
+ * | TaskCreate: scoped restore   | `TaskCreateDraftBehaviorTest.a draft is restored only into the scope it was saved in` |
+ * | TaskCreate: restore into scope | `TaskCreateDraftBehaviorTest.a draft is restored into the scope it was saved in` |
  * | TaskCreate: tag-scoped restore | `TaskCreateTagScopeTest.a draft is restored only into the tag scope it was saved in` |
  * | TaskCreate: restore into tag scope | `TaskCreateTagScopeTest.a draft is restored into the tag scope it was saved in` |
- * | TaskCreate: failed autosave  | `TaskCreateViewModelTest.a failed autosave leaves the editor usable` |
+ * | TaskCreate: failed autosave  | `TaskCreateDraftBehaviorTest.a failed autosave leaves the editor usable` |
  * | NoteEditor: autosave failure | `NoteEditorTest.a failed autosave tells the user`          |
  * | NoteEditor: save is a checkpoint | `NoteEditorTest.after an explicit save, closing the editor keeps the saved text` |
  * | NoteEditor: new note is created once | `NoteEditorTest.an explicit save creates a new note exactly once` |
