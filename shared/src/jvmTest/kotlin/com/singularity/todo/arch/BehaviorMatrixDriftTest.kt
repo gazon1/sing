@@ -32,7 +32,11 @@ import kotlin.test.assertTrue
  * in the matrix's own file, or `ClassName.test name` — the form the rows of the
  * subclasses use, because those tests live in other files. A class-qualified
  * name is checked in the file that declares the class, so a name that exists
- * in the wrong file is still a finding.
+ * in the wrong file is still a finding — and a class that no longer exists is
+ * a finding as well, not a row that quietly falls back to the matrix file.
+ *
+ * The rule itself lives in [BehaviorMatrixGate], and
+ * [BehaviorMatrixGateSelfTest] drives it with synthetic sources.
  *
  * ## What reading sources costs
  *
@@ -57,74 +61,38 @@ class BehaviorMatrixDriftTest {
             }
     }
 
-    /**
-     * One row of the matrix: the line it is written on, the class it names
-     * (null when it names a test of the matrix's own file) and the test.
-     */
-    private data class Row(val line: String, val className: String?, val testName: String)
-
     @Test
     fun `every row of the behavior matrix names a test that exists`() {
-        val rows = matrixRows()
+        val matrixSource = matrixFile.readText()
+        val rows = BehaviorMatrixGate.rows(matrixSource)
         assertTrue(rows.isNotEmpty(), "the matrix in ${matrixFile.path} has no rows to check")
 
-        val missing = rows.filter { row -> !namesExistingTest(row) }
+        val missing = BehaviorMatrixGate.missingRows(rows, matrixSource, ::ownerSource)
         assertTrue(
             missing.isEmpty(),
             "these rows of the behavior matrix name a test that does not exist:\n" +
                 missing.joinToString("\n") { "  ${it.line.trim()}" } +
                 "\n\nA row that names a test which is gone claims a guarantee that is no longer " +
                 "covered. Rename the row after the test, or point it at the test that holds the " +
-                "guaranteance now.",
+                "guarantee now.",
         )
     }
 
     /**
-     * The rows of the matrix, with the test each one names.
+     * The source of the file that declares [className], or null when this
+     * module has no such class.
      *
-     * The table is written in a KDoc, so its lines carry the comment prefix;
-     * a row is a line that starts with the table's column separator.
+     * Comments are stripped before the declaration is looked for, so a class
+     * mentioned in a KDoc cannot pass for a declaration.
      */
-    private fun matrixRows(): List<Row> =
-        matrixFile
-            .readLines()
-            .map { it.trim().removePrefix("*").trim() }
-            .filter { it.startsWith("|") }
-            .mapNotNull { line ->
-                val entry = BACKTICKED.find(line)?.groupValues?.get(1) ?: return@mapNotNull null
-                Row(
-                    line = line,
-                    className = entry.substringBefore('.', "").takeIf { it.isNotEmpty() },
-                    testName = entry.substringAfter('.', entry),
-                )
-            }
+    private fun ownerSource(className: String): String? =
+        testSources
+            .firstOrNull { file -> classDeclaration(className).containsMatchIn(stripped(file)) }
+            ?.readText()
 
-    /**
-     * Whether the test the row names is declared where the row says it is.
-     *
-     * A bare name belongs to the matrix's own file; a class-qualified name
-     * belongs to the file that declares that class.
-     */
-    private fun namesExistingTest(row: Row): Boolean {
-        val source =
-            row.className
-                ?.let { ownerFile(it)?.readText() }
-                ?: matrixFile.readText()
-        return "fun $BACKTICK${row.testName}$BACKTICK" in source
-    }
-
-    /** The file that declares [className], if this module has one. */
-    private fun ownerFile(className: String): File? =
-        testSources.firstOrNull { file ->
-            classDeclaration(className).containsMatchIn(file.readText())
-        }
+    private fun stripped(file: File): String = KotlinText.stripComments(file.readText())
 
     private companion object {
-        const val BACKTICK = '`'
-
-        /** The name inside the backticks of a matrix cell. */
-        val BACKTICKED = Regex("`([^`]+)`")
-
         /** A declaration of [className] — the owner of a class-qualified row. */
         fun classDeclaration(className: String): Regex = Regex("""\bclass\s+$className\b""")
     }
