@@ -1873,6 +1873,52 @@ class SnapshotKindUpgradeTest(PlanTest):
         self.assertIn(f'# file: {tree}/sub/leaf', dump, 'a tree snapshot must reach the descendants')
 
 
+class HomeReadGrantTest(AgentAccountTest):
+    """The home check must see DEFAULT entries, not only access ones.
+
+    Measured: `default:user:agent:r--` on the home hands read access to every
+    file created there later, and the old `^(user|group):` pattern could not
+    match it — `check` reported "no read grant" while the default ACL was
+    handing one out.
+    """
+
+    def setUp(self) -> None:
+        super().setUp()
+        # These tests need the REAL `getfacl`/`setfacl`: the fixture stubs them
+        # for the plan-level tests, and a no-op `getfacl` prints nothing — so
+        # every ACL verdict below would have been vacuous.
+        for tool in ('setfacl', 'getfacl'):
+            (self.stubs / tool).unlink()
+
+    def _home_with(self, *specs: str) -> None:
+        for spec in specs:
+            subprocess.run(['setfacl', '-m', spec, str(self.home)], check=True)
+
+    def _run_check(self):
+        # `setUp` already installed the `sudo` stub this fixture needs; replacing
+        # it here made `check` report the transition as broken.
+        return self._run('check', str(self._worktree()))
+
+    def test_a_default_read_grant_is_reported(self):
+        self._home_with('d:u:nobody:r--')
+        result = self._run_check()
+        self.assertIn('carries a read grant', result.stdout)
+        self.assertIn('default:user:nobody:r--', result.stdout)
+
+    def test_a_named_read_grant_is_still_reported(self):
+        self._home_with('u:nobody:r--')
+        result = self._run_check()
+        self.assertIn('carries a read grant', result.stdout)
+
+    def test_the_traverse_grant_alone_is_not_a_read_grant(self):
+        """`--x` is the shape `apply` writes; it must not be flagged."""
+        # `nobody` is the user the fixture can actually grant to; the SHAPE is
+        # what matters — `--x` is execute-only and carries no read bit.
+        self._home_with('u:nobody:--x')
+        result = self._run_check()
+        self.assertIn('carries no read grant', result.stdout)
+
+
 class RunTest(AgentAccountTest):
     def test_run_hands_the_command_over_and_drops_the_callers_environment(self):
         """The agent gets a built environment; `env -i` is the mechanism."""

@@ -385,6 +385,11 @@ Every *negative* probe is gated on the transition itself having worked. An agent
 nothing at all also "cannot run sudo", and reporting that as a clean boundary would describe a
 wall as a door — so when the transition is broken the probes say `NOTE unverified` instead.
 
+The "no read grant on the home" verdict covers **default** entries too. A `default:user:agent:r--`
+on `$HOME` hands read access to every file created there later, and a pattern anchored on
+`^(user|group):` cannot match it — the check passed while the default ACL was handing one out
+(measured). Both kinds are inspected, for named users and groups.
+
 `check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
 named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported
 as such. `X` is compared the way `chmod` defines it — execute on a **directory**, read on a

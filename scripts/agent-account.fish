@@ -1323,10 +1323,18 @@ function check
     end
  
     check_acl $home "user:$AGENT_USER:--x"
-    if getfacl --absolute-names $home 2>/dev/null | grep -qE '^(user|group):[^:]+:r'
-        fail "$home carries a read grant; the home is meant to stay closed"
+    # BOTH kinds of entry. `default:user:agent:r--` on the home is a read grant
+    # on every file CREATED there later, and the old `^(user|group):` pattern
+    # could not match it at all — measured: the check passed while the default
+    # ACL handed out read access. `default:mask` counts too: it is what decides
+    # whether a named default entry is effective.
+    set -l read_grants (getfacl --absolute-names $home 2>/dev/null |
+        grep -E '^(default:)?(user|group):[^:]+:r' |
+        grep -vE '^(default:)?user::|^(default:)?group::')
+    if test (count $read_grants) -gt 0
+        fail "$home carries a read grant; the home is meant to stay closed: "(string join '; ' $read_grants)
     else
-        pass "$home carries no read grant"
+        pass "$home carries no read grant, access or default"
     end
  
     check_acl $home/$SDK_DIR_REL "user:$AGENT_USER:r-x" "default:user:$AGENT_USER:r-x" sdkmanager
