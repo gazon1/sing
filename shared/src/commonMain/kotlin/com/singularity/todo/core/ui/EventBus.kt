@@ -16,7 +16,8 @@ import kotlin.concurrent.atomics.incrementAndFetch
 /**
  * Channel-backed one-shot event bus.
  *
- * Default buffer capacity is [Channel.BUFFERED] (default 64 elements).
+ * Default buffer capacity is [Channel.BUFFERED] — the library default of 64 elements,
+ * unless the runtime overrides `kotlinx.coroutines.buffer.default.capacity`.
  * This is the correct default for ViewModels where a single collector (typically
  * [NotificationHost]) handles all events.
  *
@@ -33,8 +34,14 @@ import kotlin.concurrent.atomics.incrementAndFetch
  * 3. **Try-emit never blocks.** [tryEmit] returns `false` when the buffer is full or
  *    the bus is closed, and `true` otherwise. It never counts as a discard.
  * 4. **Close is graceful, not a cut.** After [close] the events already in the buffer
- *    are still delivered, a send that was already in flight can still complete, and the
- *    collecting flow then completes. Only a *new* [emit] after the close is discarded.
+ *    are still delivered and the collecting flow completes once they are drained. A
+ *    send that was already suspended when the close happened is **not** failed and
+ *    **not** counted as a discard: a channel close resumes the waiting *receivers*,
+ *    while the waiting *senders* are the ones `cancel()` tears down, so the pending
+ *    send keeps its slot and completes normally — its event is delivered as soon as
+ *    a receiver frees capacity. Only a *new* [emit] after the close is discarded.
+ *    A pending send therefore stays suspended until a receiver drains the buffer or
+ *    the emitter is cancelled; closing the bus does not release it.
  * 5. **Send after close is absorbed.** [emit] on a closed bus discards the event,
  *    counts it in [droppedAfterClose], and never reports it as a crash — a discard is
  *    a lifecycle race, not a defect.
@@ -140,10 +147,15 @@ class EventBus<E : MviEvent>(
     /**
      * Closes the bus.
      *
-     * The close is graceful: the events already in the buffer are still delivered, a
-     * send that was already in flight can still complete, and the collecting flow
-     * completes afterwards. A later [emit] is discarded the same way as any other
-     * send after the close — counted in [droppedAfterClose], never reported.
+     * The close is graceful: the events already in the buffer are still delivered, the
+     * collecting flow completes afterwards, and a send that was already suspended when
+     * the close happened is left alone — a channel close resumes the waiting receivers,
+     * not the waiting senders (`cancel()` is what tears those down). Such a pending
+     * send keeps its slot and completes normally once a receiver frees capacity, and it
+     * is not counted in [droppedAfterClose].
+     *
+     * A later [emit] is discarded the same way as any other send after the close —
+     * counted in [droppedAfterClose], never reported.
      */
     fun close() = _channel.close()
 }

@@ -3,6 +3,7 @@
 package com.singularity.todo.core.ui.mvi
 
 import com.singularity.todo.core.ui.EventBus
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -61,9 +62,15 @@ class EventBusContractTest {
             repeat(3) { bus.emit(TestEvent.Text("e$it")) }
             advanceUntilIdle()
 
+            val emitted = listOf(TestEvent.Text("e0"), TestEvent.Text("e1"), TestEvent.Text("e2"))
             val all = first + second
             assertEquals(3, all.size, "Every event is delivered exactly once")
             assertEquals(3, all.distinct().size, "No event is delivered to both collectors")
+            assertEquals(
+                emitted.toSet(),
+                all.toSet(),
+                "The collectors received the emitted events, not just some events",
+            )
             a.cancel()
             b.cancel()
         }
@@ -123,12 +130,19 @@ class EventBusContractTest {
         }
 
     @Test
-    fun `close is graceful and lets an in-flight send finish`() =
+    fun `close is graceful and a send that was already in flight is still delivered`() =
         runTest {
-            // `close()` is graceful, not a cut: an element that a suspended sender has
-            // already offered is still delivered to a receiver that comes after the
-            // close, and the sender finishes normally. Only a *new* send after the
-            // close is discarded.
+            // `close()` is graceful, not a cut — and it is graceful in a specific way.
+            //
+            // In kotlinx-coroutines' buffered channel a close resumes the *waiting
+            // receivers* and leaves the *waiting senders* alone: the suspended senders
+            // are the ones `cancel()` tears down (`BufferedChannel.completeClose` vs
+            // `completeCancel`). A send that was already suspended when the bus was
+            // closed therefore keeps its slot, stays pending, and completes normally —
+            // its event is delivered as soon as a receiver frees capacity.
+            //
+            // That is why the close below is *not* a discard: `droppedAfterClose` stays
+            // at zero, and the pending send is not turned into a failed one.
             val bus = EventBus<TestEvent>(capacity = 1)
             bus.emit(TestEvent.Signal) // fills the buffer
 
@@ -137,23 +151,53 @@ class EventBusContractTest {
             assertFalse(sender.isCompleted, "The sender is suspended on a full buffer")
 
             bus.close()
+            advanceUntilIdle()
+
+            assertFalse(
+                sender.isCompleted,
+                "close() does not fail a pending send: the sender keeps waiting for room",
+            )
+            assertFalse(sender.isCancelled, "close() does not cancel a pending send")
+            assertEquals(0, bus.droppedAfterClose, "A pending send is not a discard")
 
             val received = mutableListOf<TestEvent>()
             val collector = launch { bus.flow.collect { received += it } }
-            advanceUntilIdle()
             advanceUntilIdle()
 
             assertEquals<List<TestEvent>>(
                 listOf(TestEvent.Signal, TestEvent.Text("in flight")),
                 received,
-                "The element that was already in flight is still delivered after the close",
+                "The buffered event and the in-flight one are both delivered after the close",
             )
-            assertTrue(
-                sender.isCompleted,
-                "The in-flight sender finished: completed=${sender.isCompleted} " +
-                    "cancelled=${sender.isCancelled} dropped=${bus.droppedAfterClose}",
-            )
+            assertTrue(sender.isCompleted, "The in-flight sender finished once the room freed")
             assertEquals(0, bus.droppedAfterClose, "A delivered event is not a discard")
+            collector.cancel()
+        }
+
+    @Test
+    fun `draining the buffer resumes a suspended sender`() =
+        runTest {
+            // Backpressure in the other direction: a suspended sender is not lost either.
+            // It completes — and its event arrives exactly once, in order — as soon as a
+            // receiver frees capacity.
+            val bus = EventBus<TestEvent>(capacity = 1)
+            bus.emit(TestEvent.Signal) // fills the buffer
+
+            val sender = launch { bus.emit(TestEvent.Text("waiting for room")) }
+            advanceUntilIdle()
+            assertFalse(sender.isCompleted, "The sender is suspended on a full buffer")
+
+            val received = mutableListOf<TestEvent>()
+            val collector = launch { bus.flow.collect { received += it } }
+            advanceUntilIdle()
+
+            assertTrue(sender.isCompleted, "Draining the buffer resumes the suspended sender")
+            assertEquals<List<TestEvent>>(
+                listOf(TestEvent.Signal, TestEvent.Text("waiting for room")),
+                received,
+                "Both events arrive exactly once and in order",
+            )
+            assertEquals(0, bus.droppedAfterClose, "Backpressure is not a discard")
             collector.cancel()
         }
 
@@ -191,13 +235,19 @@ class EventBusContractTest {
         }
 
     @Test
-    fun `an emit after close is discarded`() =
+    fun `an emit after close is discarded and never reported as a crash`() =
         runTest {
-            val bus = EventBus<TestEvent>()
+            val reporter = RecordingCrashReportingPort()
+            val bus = EventBus<TestEvent>(crashReporter = reporter)
             bus.close()
 
             bus.emit(TestEvent.Signal)
 
             assertEquals(1, bus.droppedAfterClose, "The discard is counted")
+            assertTrue(
+                reporter.reports.isEmpty(),
+                "A drop after close is a lifecycle race, not a defect, so it must not reach the " +
+                    "reporting layer: ${reporter.reports}",
+            )
         }
 }
