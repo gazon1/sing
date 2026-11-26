@@ -1122,7 +1122,12 @@ class RoundElevenRegressionTest(PlanTest):
         rollback = body.split('function rollback', 1)[1]
         self.assertIn('scrub_unrecorded $target', rollback)
         helper = body.split('function scrub_unrecorded', 1)[1].split('\nend', 1)[0]
-        self.assertIn('grep -qF -- "# file: $path"', helper, 'only the paths the dump skipped')
+        # Matched in `getfacl`'s OWN printed form, not the raw path: it escapes a
+        # newline as `\012`, so a raw compare never matches such a path and the
+        # scrub then strips an ACL the restore had just put back.
+        self.assertIn('getfacl_path $path', helper, 'only the paths the dump skipped')
+        printer = body.split('function getfacl_path', 1)[1].split('\nend', 1)[0]
+        self.assertIn('# file: ', printer, 'the canonical form is asked of the tool, not reimplemented')
 
     def test_the_scrub_removes_the_grant_from_a_new_file(self):
         """Measured on a real tree: `--restore` leaves the residue in place."""
@@ -1144,7 +1149,9 @@ class RoundElevenRegressionTest(PlanTest):
 
         # The shipped scrub, with the dump where it looks for it.
         body = SCRIPT.read_text(encoding='utf-8')
-        tail = body.split('\nfunction scrub_unrecorded', 1)[1]
+        gp_tail = body.split('\nfunction getfacl_path', 1)[1]
+        gp_sig, _, after_gp = gp_tail.partition('\nend')
+        tail = after_gp.split('\nfunction scrub_unrecorded', 1)[1]
         signature, _, _ = tail.partition('\nend')
         # The identities the scrub removes are the script's own, so the fixture
         # must grant them — `nobody` here and `agent` in the code removes
@@ -1153,6 +1160,12 @@ class RoundElevenRegressionTest(PlanTest):
             'set -g AGENT_USER nobody\n'
             'set -g AGENT_GROUP nobody\n'
             f'function acl_dump_file; echo {self.tmp}/scrub.acl; end\n'
+            'set -g DRY_RUN 0\n'
+            # The SHIPPED run_cmd, not an imitation: it strips `--tolerate`, and
+            # an imitation that forgot to made the scrub look broken.
+            + 'function run_cmd' + body.split('\nfunction run_cmd', 1)[1].split('\nend', 1)[0] + '\nend\n'
+            +
+            f'function getfacl_path{gp_sig}\nend\n'
             f'function scrub_unrecorded{signature}\nend\n'
             f'scrub_unrecorded "{tree}"\n'
         )
@@ -1248,6 +1261,124 @@ class RoundTwelveRegressionTest(PlanTest):
         )
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertEqual('1', result.stdout.strip(), f'one path must be one entry: {result.stdout!r}')
+
+
+    def test_a_pre_existing_acl_on_a_newline_path_survives_the_scrub(self):
+        """The end-to-end property the review asked for.
+
+        A path with a newline is inside the dump, so the scrub must recognise it
+        as already restored and leave it alone. Matching the raw path never
+        matches (`getfacl` prints `\\012`), so the file would be misclassified as
+        newly created and lose the ACL the restore had just put back.
+        """
+        tree = self.tmp / 'nltree'
+        tree.mkdir()
+        nasty = tree / 'a\nb'
+        nasty.write_text('x', encoding='utf-8')
+        # A grant that is NOT this script's, and that must survive.
+        subprocess.run(['setfacl', '-m', 'u:nobody:rwx', str(nasty)], check=True)
+        dump = subprocess.run(
+            ['getfacl', '--recursive', '--physical', '--absolute-names', str(tree)],
+            capture_output=True, text=True, check=True,
+        ).stdout
+
+        body = SCRIPT.read_text(encoding='utf-8')
+        gp_tail = body.split('\nfunction getfacl_path', 1)[1]
+        gp_sig, _, after_gp = gp_tail.partition('\nend')
+        tail = after_gp.split('\nfunction scrub_unrecorded', 1)[1]
+        signature, _, _ = tail.partition('\nend')
+        (self.tmp / 'nl.acl').write_text(dump, encoding='utf-8')
+        script = (
+            'set -g AGENT_USER nobody\n'
+            'set -g AGENT_GROUP nobody\n'
+            f'function acl_dump_file; echo {self.tmp}/nl.acl; end\n'
+            'set -g DRY_RUN 0\n'
+            # The SHIPPED run_cmd, not an imitation: it strips `--tolerate`, and
+            # an imitation that forgot to made the scrub look broken.
+            + 'function run_cmd' + body.split('\nfunction run_cmd', 1)[1].split('\nend', 1)[0] + '\nend\n'
+            +
+            f'function getfacl_path{gp_sig}\nend\n'
+            f'function scrub_unrecorded{signature}\nend\n'
+            f'scrub_unrecorded "{tree}"\n'
+        )
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        after = subprocess.run(
+            ['getfacl', '--omit-header', str(nasty)],
+            capture_output=True, text=True, check=True,
+        ).stdout
+        self.assertIn('user:nobody:rwx', after, 'the dump covered this path; the scrub must skip it')
+
+        # And the recognition is the tool's own form, not the raw path: that is
+        # what cannot drift when `getfacl` chooses another escape.
+        printer = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c',
+             'function getfacl_path{sig}\nend\necho (getfacl_path $NASTY)'.replace('{sig}', gp_sig)],
+            capture_output=True, text=True, check=False,
+            env={**os.environ, 'NASTY': str(nasty)},
+        ).stdout.strip()
+        self.assertIn(
+            f'# file: {printer}', dump,
+            'the printed form must be the one the dump carries',
+        )
+        self.assertNotEqual(str(nasty), printer, 'a newline path is escaped by getfacl')
+
+
+class DryRunPurityTest(PlanTest):
+    """`rollback --dry-run` must describe, never mutate.
+
+    A review read the code and found that `restore_acl` and `scrub_unrecorded`
+    called `setfacl` directly, bypassing `run_cmd` — so a dry run AS ROOT
+    rewrote the ACLs it was printing. Measured: the call sites are `run_cmd`
+    now and the two direct ones sit behind an explicit `$DRY_RUN` check.
+    """
+
+    def test_no_state_changing_call_bypasses_run_cmd(self):
+        """Every `setfacl` is either printed by `run_cmd` or guarded by DRY_RUN."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        for number, line in enumerate(body.splitlines(), 1):
+            stripped = line.strip()
+            if not stripped.startswith('setfacl '):
+                continue
+            # A direct call is legal only immediately after a dry-run return.
+            guarded = 'test $DRY_RUN -eq 1' in stripped or '$DRY_RUN -eq 1' in stripped
+            if guarded:
+                continue
+            context = body.splitlines()[max(0, number - 6):number - 1]
+            self.assertTrue(
+                any('DRY_RUN -eq 1' in c for c in context),
+                f'line {number}: a state-changing setfacl with no dry-run guard: {stripped}',
+            )
+
+    def test_the_scrub_and_restore_route_through_run_cmd(self):
+        body = SCRIPT.read_text(encoding='utf-8')
+        scrub = body.split('function scrub_unrecorded', 1)[1].split('\nend', 1)[0]
+        self.assertIn('run_cmd', scrub, 'the scrub must print under --dry-run')
+        restore = body.split('function restore_acl', 1)[1].split('\nend', 1)[0]
+        self.assertIn('run_cmd setfacl --restore', restore)
+
+    def test_the_snapshot_directory_is_readable_by_an_unprivileged_dry_run(self):
+        """At 0700 root, a dry run could not see the dumps and printed the wrong branch."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
+        self.assertIn('--mode=0755 (acl_dir)', record, 'the dumps are 0600; the DIRECTORY must be traversable')
+        self.assertNotIn('--mode=0700 (acl_dir)', record)
+
+    def test_run_cmd_honours_the_tolerate_flag_it_documents(self):
+        """The comment promised `--tolerate`; the option did not exist."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        helper = body.split('\nfunction run_cmd', 1)[1].split('\nend', 1)[0]
+        self.assertIn('--tolerate', helper)
+        self.assertIn('test $tolerate -eq 0', helper, 'the opt-in must actually gate the failure')
+
+    def test_the_password_lock_does_not_print_twice(self):
+        """`run_cmd` already prints under --dry-run; the manual test duplicated it."""
+        provision = SCRIPT.read_text(encoding='utf-8').split('function provision', 1)[1]
+        self.assertIn('test "$password_state" = P; and run_cmd passwd --lock', provision)
+        self.assertNotIn('DRY_RUN -eq 1; and echo "passwd --lock', provision)
 
 
 class RunTest(AgentAccountTest):

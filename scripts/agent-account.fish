@@ -109,26 +109,34 @@ function die
     exit 2
 end
  
-# Runs a command, or prints it under --dry-run. One code path, so the plan a
-# reader approves is the plan that executes.
-# Run one step, or print it under --dry-run — and FAIL when it fails.
+# Run one step, or print it under --dry-run — and FAIL when it fails. One code
+# path, so the plan a reader approves is the plan that executes.
 #
 # It used to return the command's status and every caller ignored it, so a
 # `usermod` or `setfacl` that failed was followed by the rest of the run and a
 # "=== done ===" line: a half-provisioned host reported as provisioned. A verb
 # that cannot complete an essential step has to say so and stop.
 #
-# `setfacl` exits 1 when a file to be modified is already in the requested
-# state? No — it exits 0 idempotently. The tolerated non-zero is an explicit
-# opt-in (`--tolerate`), never silent.
+# EVERY state-changing command goes through here — `restore_acl` and
+# `scrub_unrecorded` called `setfacl` directly once, so `rollback --dry-run` run
+# as root actually rewrote the ACLs it was only supposed to describe.
+#
+# `--tolerate` is the explicit opt-in for a step whose failure is expected and
+# harmless — removing an entry that was already absent on a path the scrub does
+# not care about. It is never silent: the step is still printed under --dry-run.
 function run_cmd
+    set -l tolerate 0
+    if test "$argv[1]" = --tolerate
+        set tolerate 1
+        set -e argv[1]
+    end
     if test $DRY_RUN -eq 1
         string escape -- $argv | string join ' '
         return 0
     end
     $argv
     set -l rc $status
-    if test $rc -ne 0
+    if test $rc -ne 0; and test $tolerate -eq 0
         die "step failed ($rc): $argv"
     end
     return 0
@@ -221,9 +229,6 @@ function require_unprivileged_uid
     end
 end
  
-# The object store a worktree's git operations write to. One clone with many
-# worktrees shares exactly one of these, and it is NOT under the worktree: a
-# linked worktree only carries a `.git` file pointing here.
 # What this script CREATED, as opposed to what it reconciled.
 #
 # `apply` deliberately adopts a pre-existing `agent`, `sing-dev` or sudoers file.
@@ -360,7 +365,12 @@ function record_acl --argument-names target kind
         echo "getfacl "(string join ' ' $flags)" $target > $file"
         return 0
     end
-    run_cmd install --directory --owner=root --group=root --mode=0700 (acl_dir)
+    # 0755, not 0700: the DUMPS are 0600 and stay unreadable, but
+    # `rollback --dry-run` runs unprivileged and has to `stat` them to know
+    # whether a target has a snapshot. At 0700 it could not, so it printed the
+    # "no snapshot, remove the entries" branch where the real run would have
+    # printed "restore" — a plan that disagreed with the execution it describes.
+    run_cmd install --directory --owner=root --group=root --mode=0755 (acl_dir)
     # The FIRST snapshot is the one taken before `apply` ever ran. A second
     # `apply` would otherwise record the state `apply` itself wrote, and the
     # rollback would faithfully restore that instead of the host's own setup.
@@ -399,6 +409,13 @@ end
 function restore_acl --argument-names target
     set -l file (acl_dump_file $target)
     test -e $file; or return 1
+    # Through `run_cmd`, so --dry-run PRINTS instead of restoring. Called
+    # directly, a `rollback --dry-run` as root rewrote the ACLs it was only
+    # supposed to describe.
+    if test $DRY_RUN -eq 1
+        run_cmd setfacl --restore=$file --physical
+        return 0
+    end
     set -l output (setfacl --restore=$file --physical 2>&1)
     test $status -eq 0; and return 0
     set -l errors (printf '%s\n' $output | string match -rv '^\s*$' |
@@ -408,6 +425,21 @@ function restore_acl --argument-names target
     end
     echo "note: $target's ACL restored in part; some of its paths are gone" >&2
     return 0
+end
+
+# A path as `getfacl` PRINTS it in a `# file:` line.
+#
+# Not the path itself: `getfacl` escapes what cannot sit on one line — a newline
+# becomes `\012` (measured) and a backslash is doubled — so `grep -F "# file:
+# $path"` can never match such a path, and the scrub would then treat a file the
+# restore DID cover as newly created and strip the ACL it had just put back.
+#
+# The escaping is not reimplemented here: `getfacl` is asked to print the single
+# path and its own `# file:` line is the canonical form. One extra `getfacl` per
+# candidate, paid only by rollback, and impossible to drift from the tool.
+function getfacl_path --argument-names path
+    getfacl --absolute-names --omit-header -- $path >/dev/null 2>&1
+    getfacl --absolute-names $path 2>/dev/null | string match -r -- '^# file: .*' | head -1 | string replace -r -- '^# file: ' ''
 end
 
 # Remove this script's named entries from the paths a restore did NOT cover,
@@ -420,9 +452,13 @@ function scrub_unrecorded --argument-names target
     # like a file the dump never covered — it would be scrubbed, and the first
     # half would not. Measured on a file named `a\nb`.
     for path in (find $target -mindepth 1 -print0 2>/dev/null | string split0)
-        grep -qF -- "# file: $path" $file; and continue
-        setfacl -x "u:$AGENT_USER" -x "d:u:$AGENT_USER" $path 2>/dev/null
-        setfacl -x "g:$AGENT_GROUP" -x "d:g:$AGENT_GROUP" $path 2>/dev/null
+        grep -qF -- "# file: "(getfacl_path $path) $file; and continue
+        # `--tolerate`: a path without our entry is the normal case here, and
+        # `setfacl -x` on an absent entry exits 0 anyway — but a path that
+        # vanished between `find` and this call must not abort the rollback.
+        # Through `run_cmd`, so --dry-run prints rather than scrubs.
+        run_cmd --tolerate setfacl -x "u:$AGENT_USER" -x "d:u:$AGENT_USER" $path
+        run_cmd --tolerate setfacl -x "g:$AGENT_GROUP" -x "d:g:$AGENT_GROUP" $path
     end
 end
 
@@ -579,11 +615,9 @@ function provision
         # it did not lock.
         set -l password_state (passwd --status $AGENT_USER 2>/dev/null | string split ' ')[2]
         test -n "$password_state"; and record_ownership passwd $password_state
-        if test "$password_state" = P
-            test $DRY_RUN -eq 1; and echo "passwd --lock $AGENT_USER"
-            test $DRY_RUN -eq 1; or run_cmd passwd --lock $AGENT_USER
-            or die "could not lock $AGENT_USER's password"
-        end
+        # `run_cmd` already prints under --dry-run: the manual test here printed
+        # the step a second time when the run was real.
+        test "$password_state" = P; and run_cmd passwd --lock $AGENT_USER
         getent group $AGENT_GROUP >/dev/null; or run_cmd groupadd --system $AGENT_GROUP
 
         # A pre-existing account that still holds a privileged group is the

@@ -329,11 +329,20 @@ Four things `rollback` and `check` must not take on trust, each measured:
   scrubbed by subject; the ones the dump covered were just restored, and are left exactly as
   the restore put them. The walk is NUL-separated (`find -print0` + `string split0`), because a
   path may contain a newline and a plain `find` then emits it as two half-paths — one of which
-  would be scrubbed while the other was skipped.
+  would be scrubbed while the other was skipped. The skip test asks `getfacl` for the path's own
+  `# file:` line instead of rebuilding it: the tool escapes what cannot sit on one line (a
+  newline becomes `\012`), and a matcher that guessed at the escape would drift.
 
 `run` refuses an account with uid 0 or the developer's uid before it crosses. `apply` asking
 that question is not enough: `run` is independently callable, and it is the verb that
 *executes*.
+
+`--dry-run` is a pure description on every verb. Every state-changing command goes through one
+`run_cmd`, which prints the step instead of running it — `restore_acl` and `scrub_unrecorded`
+called `setfacl` directly once, so `rollback --dry-run` **as root** rewrote the ACLs it was only
+printing. The snapshot directory is `0755` (the dumps inside are `0600`) so an unprivileged dry
+run can `stat` them: at `0700` it could not, and printed "no snapshot, remove the entries" where
+the real run would have printed "restore".
 
 `check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
 named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported
