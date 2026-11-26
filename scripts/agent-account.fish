@@ -153,12 +153,23 @@ end
 # The object store a worktree's git operations write to. One clone with many
 # worktrees shares exactly one of these, and it is NOT under the worktree: a
 # linked worktree only carries a `.git` file pointing here.
-function git_common_dir
-    # `--git-common-dir` answers on a BARE repository too — it prints "." — so
-    # it cannot decide whether the path is a worktree. Measured: `git init
-    # --bare` gives common-dir "." and `--is-inside-work-tree false`.
+# Is the path a WORKING TREE? `--git-common-dir` cannot answer: on a bare
+# repository it prints "." and exits 0. Measured on `git init --bare`:
+# common-dir ".", `--is-inside-work-tree false`.
+function is_worktree
     test (git -C $argv[1] rev-parse --is-inside-work-tree 2>/dev/null) = true
-    or die "$argv[1] is not a git worktree"
+end
+
+# The object store a worktree's git operations write to. One clone with many
+# worktrees shares exactly one of these, and it is NOT under the worktree: a
+# linked worktree only carries a `.git` file pointing here.
+#
+# It DIES on a path that is not a worktree, so it must never be called inside a
+# `set -l x (…); or …` guard: an `exit` in a command substitution ends the whole
+# script, not the substitution (measured), and `check` would print half a verdict
+# and stop. Callers test `is_worktree` first.
+function git_common_dir
+    is_worktree $argv[1]; or die "$argv[1] is not a git worktree"
     set -l common (git -C $argv[1] rev-parse --git-common-dir 2>/dev/null)
     test -n "$common"; or die "$argv[1] is not a git worktree"
     string match -q -- '/*' "$common"; or set common $argv[1]/$common
@@ -232,7 +243,7 @@ function validate_roots
     for root in $ROOTS
         test -d "$root"; or die "not a directory: $root"
         in_home_guard $root
-        git_common_dir $root >/dev/null; or exit 2
+        is_worktree $root; or die "$root is not a git worktree"
     end
 end
 
@@ -298,13 +309,23 @@ function provision
     # `run` re-executes /usr/bin/env as the agent. That single rule is the whole
     # grant, and it is the developer's, not the agent's: the account being
     # sandboxed is the one that must hold no sudo right of its own.
+    # The file is namespaced by owner too: a host may already carry its own
+    # `/etc/sudoers.d/50-agent-account`, and overwriting it silently would be
+    # someone else's rule replaced by ours — and `rollback` would then delete it.
+    set -l sudoers /etc/sudoers.d/50-agent-account
+    set -l rule "$dev ALL=($AGENT_USER) NOPASSWD: /usr/bin/env"
     if test $DRY_RUN -eq 1
-        echo "printf '%s\\n' '$dev ALL=($AGENT_USER) NOPASSWD: /usr/bin/env' > /etc/sudoers.d/50-agent-run"
+        echo "printf '%s\\n' '$rule' > $sudoers"
     else
-        printf '%s\n' "$dev ALL=($AGENT_USER) NOPASSWD: /usr/bin/env" >/etc/sudoers.d/50-agent-run
-        chmod 0440 /etc/sudoers.d/50-agent-run
-        visudo --check --file /etc/sudoers.d/50-agent-run
-        or die "/etc/sudoers.d/50-agent-run does not parse"
+        # Refuse to replace a file this script does not know — it might hold
+        # another administrator's grants.
+        if test -e $sudoers; and not grep -qxF -- "$rule" $sudoers
+            die "$sudoers exists and is not this script's — inspect it, then remove it by hand"
+        end
+        printf '%s\n' "$rule" > $sudoers
+        chmod 0440 $sudoers
+        visudo --check --file $sudoers
+        or die "$sudoers does not parse"
     end
  
     # Traverse the developer home: path access, never a listing.
@@ -360,7 +381,13 @@ function remove_group
     set -l group $argv[1]
     set -l primary (id -gn $AGENT_USER 2>/dev/null)
     if test "$primary" = "$group"
+        # The new primary group has to exist. A fresh account gets its own group
+        # from `useradd --user-group`; an account somebody else created may not
+        # have one, and `usermod --gid` would then fail after the boundary was
+        # already reported broken.
+        getent group $AGENT_USER >/dev/null; or run_cmd groupadd --system $AGENT_USER
         run_cmd usermod --gid $AGENT_USER $AGENT_USER
+        or die "could not move $AGENT_USER's primary group off $group"
         echo "moved $AGENT_USER's primary group off $group"
         return 0
     end
@@ -504,14 +531,15 @@ function check
     # worktree an agent cannot commit in, so the common git dir is checked too —
     # one clone with many worktrees shares exactly one of those.
     for root in $ROOTS
-        check_acl $root "group:$AGENT_GROUP:rwx" "default:group:$AGENT_GROUP:rwx" git
-        set -l common (git -C $root rev-parse --git-common-dir 2>/dev/null)
-        if test -z "$common"
+        # Through the same predicate `apply` uses, so the verdict cannot certify
+        # a repository that provisioning refuses — a bare repo answers
+        # `--git-common-dir` with "." and used to pass here.
+        if not is_worktree $root
             fail "$root is not a git worktree"
             continue
         end
-        string match -q -- '/*' "$common"; or set common $root/$common
-        check_acl (readlink -f $common) "group:$AGENT_GROUP:rwx" "default:group:$AGENT_GROUP:rwx" git
+        check_acl $root "group:$AGENT_GROUP:rwx" "default:group:$AGENT_GROUP:rwx" git
+        check_acl (git_common_dir $root) "group:$AGENT_GROUP:rwx" "default:group:$AGENT_GROUP:rwx" git
     end
  
     # The transition itself: the one claim a file mode cannot prove.
@@ -595,7 +623,7 @@ function rollback
         end
     end
  
-    run_cmd rm --force /etc/sudoers.d/50-agent-run
+    run_cmd rm --force /etc/sudoers.d/50-agent-account
     run_cmd gpasswd --delete $AGENT_USER $AGENT_GROUP
     run_cmd userdel --remove $AGENT_USER
     run_cmd groupdel $AGENT_GROUP

@@ -54,7 +54,9 @@ worktrees it was given, and one sudoers rule that lets the *developer* re-execut
 | Collaboration group | `sing-dev` = the developer + `agent` | The narrow seam for worktrees. It grants nothing by itself |
 
 **The one sudoers rule, and why it is written this way.** `agent` gets no rule. The
-developer gets:
+developer gets one, in a file this script owns — `/etc/sudoers.d/50-agent-account`. `apply`
+refuses to replace that file if it exists and does not already hold this exact rule, because
+a host may carry its own file under a similar name and `rollback` would delete it.
 
 ```
 devel ALL=(agent) NOPASSWD: /usr/bin/env

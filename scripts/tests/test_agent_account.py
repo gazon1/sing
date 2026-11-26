@@ -399,6 +399,36 @@ class RoundTwoRegressionTest(PlanTest):
         self.assertNotIn('set -l agent_home_dir /home/', provision, 'a hardcoded home drifts from agent_home')
 
 
+class RoundThreeRegressionTest(PlanTest):
+    """The three defects of the third review round."""
+
+    def test_check_refuses_a_bare_repository_too(self):
+        """`apply` refused it; `check` certified it. Both ask the same predicate."""
+        bare = self.tmp / 'bare-check.git'
+        subprocess.run(['git', 'init', '--quiet', '--bare', str(bare)], check=True)
+
+        result = self._run('check', str(bare))
+        self.assertIn('is not a git worktree', result.stdout)
+
+    def test_the_sudoers_file_is_this_scripts_own(self):
+        """Another administrator's `/etc/sudoers.d` file must not be replaced."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('/etc/sudoers.d/50-agent-account', provision)
+        self.assertNotIn('/etc/sudoers.d/50-agent-run', provision)
+        # And it refuses a file it does not recognise instead of overwriting it.
+        self.assertIn('is not this script', provision)
+
+    def test_a_bare_repo_is_rejected_before_any_write(self):
+        """The predicate is separate from the resolution, so `check` cannot die mid-verdict."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        helper = body.split('function is_worktree', 1)[1].split('\nend', 1)[0]
+        self.assertIn('--is-inside-work-tree', helper)
+        # `git_common_dir` may exit; it must therefore not be called inside a
+        # `set -l x (…); or …` guard, where the exit ends the whole script.
+        self.assertNotIn('(git_common_dir $root 2>/dev/null)', body)
+
+
 class RunTest(AgentAccountTest):
     def test_run_hands_the_command_over_and_drops_the_callers_environment(self):
         """The agent gets a built environment; `env -i` is the mechanism."""
