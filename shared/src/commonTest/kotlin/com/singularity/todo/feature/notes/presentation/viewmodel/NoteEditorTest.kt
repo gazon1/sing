@@ -491,4 +491,187 @@ class NoteEditorTest {
             // not learn anything it did not already know.
             assertEquals(0L, state.title.revision)
         }
+
+    // ─── The note editor's rows of the draft behavior matrix ─────────────────
+    //
+    // The base class owns the contract; the editor overrides three extension
+    // points — `onAutosaved`, `onSaved` and `onAutosaveError` — and each
+    // override has to keep its promise.
+
+    /**
+     * A failed autosave must reach the user. The base class only logs it; a note
+     * whose write failed looks exactly like a note that saved, so the editor
+     * overrides the hook and emits an event.
+     */
+    @Test
+    fun `a failed autosave tells the user`() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            notesRepo.seed(testNote)
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+            val failures = mutableListOf<NotesUiEvent.SaveFailed>()
+            val job =
+                launch {
+                    vm.events
+                        .filterIsInstance<NotesUiEvent.SaveFailed>()
+                        .collect { failures += it }
+                }
+            runCurrent()
+
+            vm.openEditor(testNote.id.value)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            notesRepo.updateContentOverride = Result.failure(IllegalStateException("db is down"))
+            vm.onIntent(NotesEditorIntent.EditBody("<p>Updated content</p>"))
+            advanceTimeBy(600L)
+            runCurrent()
+
+            assertEquals(1, failures.size, "a failed autosave must reach the user")
+            assertEquals("db is down", failures.single().message, "the editor learns what went wrong")
+
+            // The failure must not cost the user their text: the editor keeps
+            // what was typed, the draft stays dirty (the write never landed),
+            // and the stored note still holds the old body.
+            val state = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(state)
+            assertEquals("<p>Updated content</p>", state.html.value, "a failed autosave keeps the user's text")
+            assertTrue(state.isDirty, "a failed autosave leaves the draft dirty")
+            assertEquals(
+                "<p>Hello world</p>",
+                notesRepo.notes[testNote.id.value]?.bodyHtml,
+                "a failed autosave writes nothing to the repository",
+            )
+            job.cancel()
+        }
+
+    /**
+     * An explicit save is the checkpoint. Closing the editor discards back to it —
+     * so the text that was saved stays, and the text the editor was opened with
+     * does not come back over it.
+     */
+    @Test
+    fun `after an explicit save, closing the editor keeps the saved text`() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            notesRepo.seed(testNote)
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+            vm.openEditor(testNote.id.value)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.onIntent(NotesEditorIntent.EditBody("<p>Saved content</p>"))
+            runCurrent()
+
+            val edited = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(edited)
+            assertTrue(edited.isDirty, "the edit makes the draft dirty")
+
+            vm.onIntent(NotesEditorIntent.SaveNow)
+            runCurrent()
+
+            // The explicit save has to have written the note by itself. The
+            // autosave debounce is still 500 ms away, so this assertion cannot
+            // be satisfied by the autosave that would follow it — an explicit
+            // save that persisted nothing would still leave the text on disk
+            // a moment later, and the test would pass.
+            assertEquals(
+                "<p>Saved content</p>",
+                notesRepo.notes[testNote.id.value]?.bodyHtml,
+                "an explicit save writes the note",
+            )
+
+            // The editor's own flag: after an explicit save the text is on
+            // disk, so the draft is no longer dirty. Without this the editor
+            // would still ask to discard changes for text that was already
+            // written. (The "new" flag of a note the editor created itself is
+            // a separate row of the matrix — the test below.)
+            val saved = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(saved)
+            assertFalse(saved.isDirty, "an explicit save clears the editor's dirty flag")
+
+            // The debounce that follows the explicit save writes the same text
+            // again; the checkpoint the explicit save left behind is what
+            // survives the close.
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.closeEditor()
+            runCurrent()
+
+            val state = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(state)
+            assertEquals("<p>Saved content</p>", state.html.value)
+            assertEquals("<p>Saved content</p>", notesRepo.notes[testNote.id.value]?.bodyHtml)
+        }
+
+    /**
+     * A note the editor created itself starts "new" and is written by its first
+     * save — and by that save only.
+     *
+     * The "new" flag is what tells the writer to *create* the row instead of
+     * updating it, so the save has to clear it: a note left "new" would be
+     * created a second time, and the second create would write the note over
+     * itself instead of leaving it alone.
+     */
+    @Test
+    fun `an explicit save creates a new note exactly once`() =
+        runTest {
+            val notesRepo = CountingNotesRepository()
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+            val id = vm.createNote()
+            val created = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(created)
+            assertTrue(created.isNew, "a note the editor created starts as new")
+            assertEquals(0, notesRepo.notes.size, "a new note is not written before the first save")
+
+            vm.onIntent(NotesEditorIntent.EditBody("<p>Fresh note</p>"))
+            runCurrent()
+
+            vm.onIntent(NotesEditorIntent.SaveNow)
+            runCurrent()
+
+            // The assertions come before the autosave debounce (500 ms) has had a
+            // chance to fire: only the explicit save can have written the row by
+            // now. If the autosave were allowed to run first, it would create the
+            // note on its own and the test would pass even if the explicit save
+            // stopped persisting anything.
+            val saved = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(saved)
+            assertFalse(saved.isNew, "an explicit save turns the new note into an existing one")
+            assertFalse(saved.isDirty, "an explicit save clears the editor's dirty flag")
+            assertEquals(1, notesRepo.createCalls, "the explicit save creates the note")
+            assertEquals("<p>Fresh note</p>", notesRepo.notes[id]?.bodyHtml)
+
+            // Now the debounce fires — the note is written, not created a second
+            // time.
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(1, notesRepo.createCalls, "the note is created once, not twice")
+        }
+}
+
+/**
+ * A notes repository that counts how often a note was *created*.
+ *
+ * The count is what tells "the note was written once" from "the note was
+ * written twice under the same id" — the store itself would not show the
+ * difference, because the second write would land on the same row.
+ */
+private class CountingNotesRepository : FakeNotesRepository() {
+    var createCalls = 0
+
+    override suspend fun createWithContent(
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String,
+        bodyHtml: String,
+    ): Result<NoteId> {
+        createCalls += 1
+        return super.createWithContent(id, title, bodyMarkdown, bodyHtml)
+    }
 }

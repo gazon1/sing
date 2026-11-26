@@ -1,0 +1,566 @@
+package com.singularity.todo.arch
+
+/**
+ * The rule of the behavior-matrix gate, without the file system.
+ *
+ * ## Why the rule lives apart from the test
+ *
+ * [BehaviorMatrixDriftTest] reads real files, so it can only ever prove that
+ * *today's* tree is consistent. The failure it guards against — a row that
+ * names a test which is gone, or a function that stopped being a test — is
+ * about the rule itself, and a rule that can only be observed on the real tree
+ * is a rule that is never observed. So the decision lives here, over plain
+ * strings, and the self-test drives it with synthetic sources: a missing owner
+ * class, a function without a test annotation, a bare name that only exists in
+ * the matrix file.
+ *
+ * ## What a row is allowed to claim
+ *
+ * A row names a test either bare (a test of the class that carries the
+ * matrix) or class-qualified (`ClassName.test name`). Both are checked
+ * against the functions that carry a test annotation, *inside the class the
+ * row names*:
+ *
+ * - a bare name is looked up in the class that holds the matrix;
+ * - a class-qualified name is looked up in the class of that name, and a
+ *   class that cannot be found is a missing row — never a row that falls
+ *   back to the matrix file. The fallback would let a row survive the death
+ *   of its owner class as long as the matrix file happens to hold a function
+ *   of the same name.
+ *
+ * The class matters, not only the file: `DraftMviViewModelTest.kt` holds
+ * several test classes, and a row that names `DraftMviEffectTest` must not be
+ * satisfied by a test of `DraftMviViewModelTest` that happens to live in the
+ * same file.
+ *
+ * The class name alone is not an identity either: two classes may share a
+ * name — in different packages, or as two nested classes of one file — and a
+ * row that names such a class resolves to nothing. The gate refuses to guess
+ * which of the two classes the row means, because a wrong guess turns a
+ * missing test into a green gate.
+ *
+ * ## The one way this is still too permissive
+ *
+ * That check fires when two classes claim the name *now*. It cannot notice the
+ * owner a row was written for disappearing while an unrelated class of the
+ * same name — declaring a test of the same name — takes its place: the name is
+ * then claimed by exactly one class, so the row resolves to it and the row
+ * outlives the death of the class it was written for.
+ *
+ * Closing that needs a package-qualified identity in the row, which the table
+ * does not carry. Until it does, the residual risk is bounded by what the
+ * coincidence takes: the matrix would have to name a class *and* a test that
+ * some unrelated test class of this module declares under those same two
+ * names. The matrices here name their owners (`DraftMviRestoreTest`,
+ * `TaskCreateDraftBehaviorTest`), all of them unique in the tree, so this is
+ * implausible rather than impossible — and a rename shows up in the diff of
+ * the review that makes it.
+ *
+ * ## What counts as a test
+ *
+ * A function carries a test annotation — `@Test`, or a qualified variant of
+ * it. A function that lost its annotation is no longer a test, and a row
+ * that names it claims coverage that nothing runs any more.
+ *
+ * The function must also be a *member* of the class, not a function of a
+ * class or object nested inside it. A nested class is its own owner, and a
+ * test in it is looked up under that owner's name; a row that names the
+ * enclosing class is not satisfied by it. Without that distinction a row
+ * survived the removal of the test it names whenever a nested declaration
+ * happened to hold a function of the same name.
+ *
+ * ## What reading sources costs
+ *
+ * No type resolution: this is a name check, and a name is what the table
+ * holds. Comments *and literal contents* are blanked with [KotlinText]
+ * before anything is matched — a `class Foo` mentioned in a KDoc is not a
+ * declaration, and a `@Test` written inside a string is not an annotation.
+ */
+internal object BehaviorMatrixGate {
+    /**
+     * One row of the matrix: the line it is written on, the class it names
+     * (null when it names a test of the matrix's own class) and the test.
+     */
+    data class Row(val line: String, val className: String?, val testName: String)
+
+    /**
+     * A parsed matrix: the rows, and the lines of the table that name no
+     * test at all.
+     *
+     * A row that names no test is a defect, not a row to skip: a table line
+     * that lost its test name would otherwise vanish from the check, and the
+     * table would claim a guarantee nothing verifies.
+     */
+    data class Matrix(val rows: List<Row>, val malformed: List<String>)
+
+    /**
+     * The rows of the matrix written in [matrixSource], and the table lines
+     * that name no test.
+     *
+     * The table is written in a KDoc, so its lines carry the comment prefix;
+     * a table line is a line that starts with the column separator. The
+     * header of a table is the line right above the separator, and the
+     * separator itself names no test.
+     *
+     * Rows are found by their *table*, not by their own shape. Markdown does
+     * not require the outer pipes, so a row may be written
+     * `guarantee | \`test\`` or `| guarantee | |` — and a row whose test cell
+     * has been emptied must still be reported, not filtered out for looking
+     * less like a row than the others. So the table is located first: a
+     * separator line marks it, the line above the separator is its header,
+     * and the lines that follow it *and start with a cell boundary* belong to
+     * it, whatever their cells hold. The table ends at the first line that is
+     * not one — a blank line, a prose paragraph, the end of the comment.
+     *
+     * A line that begins with a cell boundary is one that starts with the
+     * separator, or one whose first cell is separated from the second by it:
+     * `guarantee | \`test\``. A sentence that merely mentions a pipe —
+     * `the value is a | b` — has no cell boundary at its first separator
+     * followed by another cell, so it is prose and ends the table.
+     *
+     * The test is read from the *last* cell — the column the header calls
+     * "Test" — not from anywhere in the line. A backtick in the row label is
+     * a name of the guarantee, not a name of a test: taking the first
+     * backticked span of the line would let `| \`a test\` | no test |` pass as a
+     * row that names the test `a test`, which is the row this table is
+     * supposed to reject.
+     */
+    fun parse(matrixSource: String): Matrix {
+        val dataLines = tableRows(matrixSource)
+        val readable = dataLines.filter { (_, testColumnIsLast) -> testColumnIsLast }.map { it.first }
+        val rows =
+            readable.mapNotNull { line ->
+                val entry = testCell(line) ?: return@mapNotNull null
+                Row(
+                    line = line,
+                    className = entry.substringBefore('.', "").takeIf { it.isNotEmpty() },
+                    testName = entry.substringAfter('.', entry),
+                )
+            }
+        val unreadable = dataLines.filterNot { (_, testColumnIsLast) -> testColumnIsLast }.map { it.first }
+        val malformed = readable.filter { testCell(it) == null } + unreadable
+        return Matrix(rows, malformed)
+    }
+
+    /**
+     * The name the *test* column of [line] holds, or null when it holds none.
+     *
+     * The test column is the last one: the rows are written `| guarantee |
+     * `test` |`. The cell is read by splitting on the column separator, so a
+     * backticked label in the first column cannot answer for the second.
+     *
+     * The last cell is read *as it is*, empty or not. Skipping a blank cell to
+     * find the next non-blank one would walk back into the label column: a row
+     * whose test name was deleted — `| `a test` | |` — would be read as a row
+     * naming `a test`, which is exactly the dead row this check exists to
+     * report. The outer pipe of the row leaves one empty cell at each end;
+     * both are dropped, and whatever remains last is the Test column.
+     */
+    private fun testCell(line: String): String? {
+        // The outer pipes frame the row rather than adding a cell, so they come
+        // off before the split, and the cells between them are the columns.
+        val body = line.trim().removePrefix("|").removeSuffix("|")
+        val last = body.split('|').last()
+        return backticked.find(last)?.groupValues?.get(1)
+    }
+
+    /**
+     * The data rows of the Markdown tables of [matrixSource].
+     *
+     * A table is its separator line — dashes, colons and pipes — plus the
+     * lines around it that carry a cell boundary. The separator itself and the
+     * header above it are not data rows. A table is read on its own: the walk
+     * restarts after it, so a second table is read as one, and prose between
+     * two tables is never mistaken for a row.
+     */
+    private fun tableRows(matrixSource: String): List<Pair<String, Boolean>> {
+        val lines =
+            matrixSource
+                .lineSequence()
+                .map { it.trim().removePrefix("*").trim() }
+                .toList()
+        return lines.indices
+            .filter { isSeparator(lines[it]) }
+            .flatMap { separator ->
+                val header = lines.getOrNull(separator - 1) ?: return emptyList()
+                val columns = header.cellCount()
+                val testColumnIsLast = header.testColumnIsLast()
+                val rows = lines.drop(separator + 1).takeWhile { it.belongsToTable(columns) }
+                rows.map { it to testColumnIsLast }
+            }
+    }
+
+    /**
+     * Whether the header of a table names its Test column, last.
+     *
+     * The rows are read by position, so the position has to be *declared*: a
+     * table whose last column is not the one it calls "Test" would have its
+     * rows read against the wrong column, and a backticked guarantee could
+     * answer for a test — the false positive this gate exists to rule out. The
+     * rows of such a table are reported as malformed rather than dropped, so a
+     * column reorder fails the gate instead of quietly emptying it.
+     */
+    private fun String.testColumnIsLast(): Boolean =
+        split('|')
+            .lastOrNull { it.isNotBlank() }
+            ?.trim()
+            ?.equals("Test", ignoreCase = true) == true
+
+    /**
+     * Whether [line] still belongs to a table whose header declares [columns].
+     *
+     * A line that opens with the column separator belongs to the table — that
+     * shape is unambiguous table syntax, and a row whose test cell was emptied
+     * looks exactly like it. A line that merely *holds* separators has to
+     * match the header's width, which is what ends a table in Markdown: prose
+     * is not the same width as the row it follows.
+     */
+    private fun String.belongsToTable(columns: Int): Boolean = startsWith("|") || cellCount() == columns
+
+    /**
+     * How many cells [line] holds, by the separators that divide it.
+     *
+     * `| a | b |` and `a | b` both hold two. An outer pipe that is not matched
+     * at the other end still separates a cell: `a |` is two cells, the second
+     * empty — which is how a row that lost its test name reads.
+     */
+    private fun String.cellCount(): Int {
+        if (!contains('|')) return 1
+        val trimmed = trim()
+        val opened = trimmed.startsWith("|")
+        var body = if (opened) trimmed.drop(1) else trimmed
+        if (opened && body.endsWith("|")) body = body.dropLast(1)
+        return body.split('|').size
+    }
+
+    /**
+     * The bodies of the classes of [source], by class name.
+     *
+     * A name that more than one class claims holds more than one body — a
+     * class that appears twice in the same file (two nested classes of the
+     * same name, say) counts as often as it is declared. The gate refuses to
+     * pick one of them, so the caller can see the ambiguity instead of
+     * resolving a name by luck.
+     *
+     * A class without a body — `class Owner` — is a class that claims the
+     * name too, so it is kept with an empty body rather than dropped: a name
+     * that one bodied class and one bodyless class share is still a name two
+     * classes claim.
+     */
+    fun classBodies(source: String): Map<String, List<String>> {
+        val code = KotlinText.stripCode(source)
+        return classDeclaration
+            .findAll(code)
+            .map { declaration ->
+                val body = classBody(code, declaration.range.last + 1) ?: ""
+                declaration.groupValues[1] to body
+            }.groupBy({ it.first }, { it.second })
+    }
+
+    /**
+     * The names that more than one class of [bodiesByName] claims.
+     *
+     * A class name is not an identity: two packages may hold a class of the
+     * same name. A row that names such a class cannot be resolved — the gate
+     * would have to pick one of the two, and a wrong pick turns a missing test
+     * into a green gate.
+     */
+    fun ambiguousClassNames(bodiesByName: Map<String, List<String>>): Set<String> =
+        bodiesByName.filterValues { it.size > 1 }.keys
+
+    /**
+     * The body of the class of [className], or null.
+     *
+     * Null when no class of that name exists — and also when more than one
+     * class claims that name: an ambiguous name resolves to nothing, because
+     * resolving it to one of the candidates would be a guess.
+     */
+    fun ownerBody(
+        bodiesByName: Map<String, List<String>>,
+        className: String,
+    ): String? = bodiesByName[className]?.singleOrNull()
+
+    /**
+     * The names of the functions of [source] that carry a test annotation.
+     *
+     * Literal contents are blanked before the search, so an annotation and a
+     * declaration written inside a string are not an annotation and not a
+     * declaration.
+     *
+     * The search runs on the *direct members* of the body — see [directMembers]
+     * — so a test of a class or object nested in it does not answer for it.
+     */
+    fun testFunctionNames(source: String): Set<String> {
+        val code = directMembers(KotlinText.stripCode(source))
+        return testAnnotation
+            .findAll(code)
+            .mapNotNull { annotation ->
+                val tail = code.substring(annotation.range.last + 1)
+                val declaration =
+                    functionDeclaration.find(tail)?.takeIf { it.range.first <= LOOKAHEAD }
+                declaration?.groupValues?.get(1)?.trim('`')
+            }.toSet()
+    }
+
+    /**
+     * [body] with everything inside a nested block blanked out, one character
+     * per source character.
+     *
+     * The body of a class holds its members and, in the same breath, the
+     * members of every class, object and interface declared inside it. A test
+     * of a nested declaration belongs to *that* declaration: it is looked up
+     * under its own name, and a row that names the enclosing class must not be
+     * satisfied by it. Blanking the nested blocks leaves the direct members,
+     * and only them.
+     *
+     * The braces themselves are blanked as well — the class body passed here
+     * excludes its own pair — so a function whose body is empty still reads
+     * as a declaration.
+     */
+    private fun directMembers(body: String): String {
+        val blanked = StringBuilder(body)
+        var depth = 0
+        for (index in body.indices) {
+            when (body[index]) {
+                '{' -> {
+                    depth++
+                    blanked.setCharAt(index, ' ')
+                }
+
+                '}' -> {
+                    blanked.setCharAt(index, ' ')
+                    depth--
+                }
+
+                '\n' -> {
+                    Unit
+                }
+
+                else -> {
+                    if (depth > 0) blanked.setCharAt(index, ' ')
+                }
+            }
+        }
+        return blanked.toString()
+    }
+
+    /**
+     * The rows that do not name a test that exists.
+     *
+     * [matrixClassBody] is the body of the class that carries the matrix —
+     * the class a bare row names. [ownerBody] returns the body of a class by
+     * name, or null when this tree has no such class — and a qualified row
+     * with no owner class is missing, never resolved against the matrix.
+     */
+    fun missingRows(
+        rows: List<Row>,
+        matrixClassBody: String?,
+        ownerBody: (String) -> String?,
+    ): List<Row> =
+        rows.filter { row ->
+            val body: String? =
+                if (row.className != null) ownerBody(row.className) else matrixClassBody
+            body == null || row.testName !in testFunctionNames(body)
+        }
+
+    /**
+     * The body of the class whose name ends at [afterName], or null.
+     *
+     * [code] is already stripped of comments and literal contents, so a
+     * brace in a string cannot end the body early.
+     *
+     * The header of a class is more than a name and a brace: a class may
+     * carry type parameters (`class Owner<T>`), a primary constructor
+     * (`class Owner(private val x: Int)`), a supertype list
+     * (`class Owner : Base()`) and a `where` clause. The body is what
+     * follows all of them, so the scan walks the header — balancing
+     * parentheses and angle brackets — until it reaches the brace that opens
+     * the body. A class whose header cannot be walked is not a class this
+     * gate can judge, and is reported as "no such class".
+     */
+    private fun classBody(
+        code: String,
+        afterName: Int,
+    ): String? {
+        val open = bodyBrace(code, afterName) ?: return null
+        val close = KotlinText.matchingBrace(code, open)
+        return close.takeIf { it >= 0 }?.let { code.substring(open + 1, it) }
+    }
+
+    /**
+     * The index of the brace that opens the body of the class, or null when
+     * the header cannot be walked.
+     */
+    private fun bodyBrace(
+        code: String,
+        afterName: Int,
+    ): Int? {
+        val start = skipSpaces(code, afterName)
+        val afterTypeParameters = skipTypeParameters(code, start)
+        val afterConstructor = skipPrimaryConstructor(code, afterTypeParameters)
+        return scanHeader(code, afterConstructor)
+    }
+
+    /**
+     * Walks the rest of the class header until the brace that opens the body.
+     *
+     * A class without a body (`abstract class Owner`) would otherwise swallow
+     * the body of the declaration that follows it — the next class, object,
+     * interface or function — so the next declaration ends the search and the
+     * class is reported as "no such class".
+     */
+    private fun scanHeader(
+        code: String,
+        from: Int,
+    ): Int? {
+        var index = from
+        while (index < code.length && code[index] != '{') {
+            index = headerStep(code, index) ?: return null
+        }
+        return index.takeIf { index < code.length }
+    }
+
+    /**
+     * The index past the group that starts at [index], or null when the
+     * header cannot be walked any further.
+     */
+    private fun headerStep(
+        code: String,
+        index: Int,
+    ): Int? {
+        val char = code[index]
+        if (char == '<' || char == '(') {
+            val close =
+                if (char == '<') {
+                    matchingAngle(code, index)
+                } else {
+                    SourceScan.closingParen(code, index)
+                }
+            return close.takeIf { it >= 0 }?.plus(1)
+        }
+        if (declarationStartsAt(code, index)) return null
+        return index + 1
+    }
+
+    /**
+     * Whether a declaration of its own starts at [index] — a class, an object,
+     * an interface or a function.
+     *
+     * Such a declaration ends the header of a class without a body: the body
+     * that follows belongs to the declaration, not to the class that lost its
+     * own body.
+     */
+    private fun declarationStartsAt(
+        code: String,
+        index: Int,
+    ): Boolean = declarationKeywords.any { startsWithWord(code, index, it) }
+
+    /** The index of the first non-space character at or after [index]. */
+    private fun skipSpaces(
+        code: String,
+        index: Int,
+    ): Int {
+        var cursor = index
+        while (cursor < code.length && code[cursor].isWhitespace()) cursor++
+        return cursor
+    }
+
+    /**
+     * The index after the type parameter list that starts at [index], or
+     * [index] when there is none.
+     */
+    private fun skipTypeParameters(
+        code: String,
+        index: Int,
+    ): Int {
+        if (index >= code.length || code[index] != '<') return index
+        val close = matchingAngle(code, index)
+        return if (close < 0) index else close + 1
+    }
+
+    /**
+     * The index after the primary constructor that starts at [index], or
+     * [index] when there is none.
+     */
+    private fun skipPrimaryConstructor(
+        code: String,
+        index: Int,
+    ): Int {
+        val start = skipSpaces(code, index)
+        if (start >= code.length || code[start] != '(') return start
+        val close = SourceScan.closingParen(code, start)
+        return if (close < 0) start else skipSpaces(code, close + 1)
+    }
+
+    /**
+     * The index of the `>` that closes the `<` at [openIndex], or -1.
+     *
+     * Nested type arguments close with several `>` in a row, and a function
+     * type closes with `->`, so a plain counter over `>` would end the list
+     * too early.
+     */
+    private fun matchingAngle(
+        code: String,
+        openIndex: Int,
+    ): Int {
+        var depth = 0
+        var index = openIndex
+        while (index < code.length) {
+            val char = code[index]
+            val closesArrow = char == '>' && index > 0 && code[index - 1] == '-'
+            if (char == '<') {
+                depth++
+            } else if (char == '>' && !closesArrow) {
+                depth--
+                if (depth == 0) return index
+            }
+            index++
+        }
+        return -1
+    }
+
+    /**
+     * Whether the word [word] starts at [index] as a word of its own.
+     *
+     * The word must stand on its own: a name that merely ends in it — the
+     * supertype `Myinterface`, the class `Myclass` — is a name, not a
+     * declaration, and must not end a header. A qualified name that contains
+     * the word — `com.example.interfaces.Owner` — is a name as well, so the
+     * word must start the line or follow whitespace.
+     */
+    private fun startsWithWord(
+        code: String,
+        index: Int,
+        word: String,
+    ): Boolean {
+        if (!code.startsWith(word, index)) return false
+        val before = index - 1
+        if (before >= 0 && !code[before].isWhitespace()) return false
+        val after = index + word.length
+        return after >= code.length || (!code[after].isLetterOrDigit() && code[after] != '_')
+    }
+
+    /** The name inside the backticks of a matrix cell. */
+    private val backticked = Regex("`([^`]+)`")
+
+    /** A test annotation — `kotlin.test.Test` or a qualified variant of it. */
+    private val testAnnotation = Regex("""@(?:[A-Za-z0-9_]+\.)*Test\b""")
+
+    /** The keywords that start a declaration of its own. */
+    private val declarationKeywords = listOf("class", "object", "interface", "fun")
+
+    /** A function declaration, with the name it declares. */
+    private val functionDeclaration =
+        Regex("""\bfun\s+(?:<[^>]*>\s*)?(`[^`]+`|[A-Za-z_][A-Za-z0-9_]*)""")
+
+    /** A class declaration, with the name it declares. */
+    private val classDeclaration = Regex("""\bclass\s+([A-Za-z_][A-Za-z0-9_]*)""")
+
+    /** A table separator — dashes, colons and pipes only. */
+    private val separator = Regex("""^[|\-:\s]+$""")
+
+    /** How far past a test annotation a declaration may start. */
+    private const val LOOKAHEAD = 200
+
+    private fun isSeparator(line: String): Boolean = separator.matches(line)
+}
