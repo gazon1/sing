@@ -889,6 +889,18 @@ class RoundNineRegressionTest(PlanTest):
         self.assertLess(provision.index('# Pass 1: record'), provision.index('# Pass 2: write'))
 
 
+    def test_the_password_lock_is_undone_for_an_adopted_account(self):
+        """`apply` must lock it; rollback must not keep an adopted account locked."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('record_ownership passwd $password_state', provision, 'the state before the lock')
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('recorded_value passwd', rollback)
+        self.assertIn('passwd --unlock', rollback)
+        # Only where it was usable before: `L` and `NP` stay as they are.
+        self.assertIn('test "$was_password" = P', rollback)
+
+
 class RunTest(AgentAccountTest):
     def test_run_hands_the_command_over_and_drops_the_callers_environment(self):
         """The agent gets a built environment; `env -i` is the mechanism."""

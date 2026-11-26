@@ -285,7 +285,9 @@ away from a pre-existing agent. A rollback that deleted the membership would rem
 from a group they chose, and one that left the privileged groups gone would erase the fact that
 they were there. Both are recorded before the change (`member\t<user>\t<group>` and
 `removed-group\t<group>` in the state file), and rollback keeps a membership it did not add and
-returns a group `apply` took away.
+returns a group `apply` took away. The same asymmetry applies to the password: `apply` locks a
+usable one, so rollback on an adopted account unlocks it again — the state is recorded before the
+lock, and only a password that was usable is restored.
 
 Rollback does not depend on the account existing. A failed `apply` that created the group and then
 could not create the account left both behind, and an early "no `agent`, nothing to do" made them

@@ -271,6 +271,13 @@ function previously_removed_groups
     grep -F -- (printf 'removed-group\t') $file | cut -f2
 end
 
+# The recorded value of a one-word property (`passwd` -> `P`/`L`/`NP`), or empty.
+function recorded_value --argument-names key
+    set -l file (state_file)
+    test -e $file; or return 0
+    grep -F -- (printf '%s\t' $key) $file | tail -1 | cut -f2
+end
+
 # What the ACLs looked like BEFORE `apply` wrote to them, so `rollback` can put
 # them back instead of deleting what it finds.
 #
@@ -506,7 +513,13 @@ function provision
         # "No password, so no login" is the invariant, and a NEW account has it
         # by construction — an existing one may not. `passwd -S` reports the
         # password state: locked (L), usable (P), no password (NP).
+        #
+        # The state before the lock is recorded, because a lock is not undone by
+        # symmetry either: `rollback` on an ADOPTED account must put back the
+        # password state this script found, or it keeps an account locked that
+        # it did not lock.
         set -l password_state (passwd --status $AGENT_USER 2>/dev/null | string split ' ')[2]
+        test -n "$password_state"; and record_ownership passwd $password_state
         if test "$password_state" = P
             test $DRY_RUN -eq 1; and echo "passwd --lock $AGENT_USER"
             test $DRY_RUN -eq 1; or run_cmd passwd --lock $AGENT_USER
@@ -1025,6 +1038,14 @@ function rollback
             getent group $group >/dev/null; or continue
             run_cmd usermod --append --groups $group $AGENT_USER
             echo "returned $AGENT_USER to $group (it held it before apply)"
+        end
+        # And the password state: `apply` locked a usable password, which is
+        # right for the boundary and wrong to keep on an account this script
+        # adopted and is now leaving alone.
+        set -l was_password (recorded_value passwd)
+        if test "$was_password" = P; and test (passwd --status $AGENT_USER 2>/dev/null | string split ' ')[2] = L
+            run_cmd passwd --unlock $AGENT_USER
+            echo "unlocked $AGENT_USER's password (it was usable before apply)"
         end
     end
     if owned_by_script group
