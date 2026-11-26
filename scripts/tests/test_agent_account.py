@@ -1032,6 +1032,25 @@ class EffectivePermissionTest(AgentAccountTest):
         self.assertNotIn('(cat (targets_file))', rollback)
 
 
+    def test_the_rollback_record_outlives_every_destructive_step(self):
+        """`userdel` refuses a busy account; the snapshots must still be there after that."""
+        rollback = SCRIPT.read_text(encoding='utf-8').split('function rollback', 1)[1]
+        deletions = [
+            rollback.index('run_cmd rm --force (targets_file)'),
+            rollback.index('run_cmd rm --force --recursive (acl_dir)'),
+            rollback.index('run_cmd rm --force (state_file)'),
+        ]
+        for marker in (
+            'run_cmd userdel --remove $AGENT_USER',
+            'run_cmd groupdel $AGENT_GROUP',
+        ):
+            self.assertLess(
+                rollback.index(marker), min(deletions),
+                f'{marker} must run while the snapshots still exist — a failure there '
+                f'would leave the host half-rolled-back with nothing to restore from',
+            )
+
+
 class RunTest(AgentAccountTest):
     def test_run_hands_the_command_over_and_drops_the_callers_environment(self):
         """The agent gets a built environment; `env -i` is the mechanism."""

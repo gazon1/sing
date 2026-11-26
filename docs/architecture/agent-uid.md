@@ -316,7 +316,16 @@ is addressed by its `subject:name:` prefix, because `getfacl` normalizes the bit
 requested `rX` comes back as `r-x` or `r--`, so matching the whole entry finds nothing at all. It does **not** touch the worktrees, their branches or the git data:
 undoing the boundary must never be a reason to lose work. `/home/agent` goes with
 `userdel --remove`, which means the agent's Gradle home and its AVD home go too — that is
-cache, and the next `apply` rebuilds it.
+cache, and the next `apply` rebuilds it. **Everything else the agent wrote there goes too**,
+including its AVDs and any file it created outside the authorized worktrees: `rollback` is not
+a cache clear, it is a home removal. `--dry-run` names the `userdel --remove` it would run, so
+the deletion is visible before it happens; anything worth keeping has to be moved out first.
+
+The rollback metadata under `/var/lib/agent-account` is deleted **last**, after every account
+and group step has succeeded. `userdel` refuses an account that still has processes and
+`groupdel` refuses a group that is still somebody's primary one — and an early deletion would
+leave the host half-rolled-back with the snapshots gone, so the next rollback, finding none,
+would *remove* the ACL entries instead of restoring them.
 
 ## Part 5 — What this does not do, and what it costs
 

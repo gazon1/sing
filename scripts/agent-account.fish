@@ -1138,8 +1138,13 @@ function rollback
     else if test -e $sudoers
         echo "kept $sudoers: its content is not what this script wrote — inspect it by hand" >&2
     end
-    run_cmd rm --force (targets_file)
-    run_cmd rm --force --recursive (acl_dir)
+    # The record is NOT deleted here. A failed step below (`userdel` refuses an
+    # account with running processes; `groupdel` refuses a group that is still
+    # somebody's primary group) would otherwise leave the account and the group
+    # in place with the snapshots already gone — and the next rollback, finding
+    # no snapshot, falls back to REMOVING the entries instead of restoring them.
+    # Reversibility is this script's promise, so the metadata outlives every
+    # destructive step and is removed last.
 
     if owned_by_script user
         run_cmd userdel --remove $AGENT_USER
@@ -1177,6 +1182,8 @@ function rollback
             run_cmd gpasswd --delete $DEV_NAME $AGENT_GROUP
         end
     end
+    run_cmd rm --force (targets_file)
+    run_cmd rm --force --recursive (acl_dir)
     run_cmd rm --force (state_file)
     echo "=== rolled back; the worktrees, their branches and their git data were not touched ==="
 end
