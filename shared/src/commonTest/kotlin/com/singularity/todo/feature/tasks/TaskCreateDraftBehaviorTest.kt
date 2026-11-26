@@ -216,6 +216,97 @@ class TaskCreateDraftBehaviorTest {
         }
 
     /**
+     * The cleanup is not final while an autosave is still pending.
+     *
+     * The autosave is debounced, and the save does not cancel the pending
+     * write: the debounce fires after the cleanup and puts the draft back into
+     * the store. The row pins that order — the cleanup happens, and then the
+     * pending write lands on top of it — because a draft that comes back after
+     * the task was created is a real gap, and the parent issue (#3225) owns the
+     * decision about it. What is *not* pinned here is the in-memory draft: the
+     * row is about what the store holds.
+     */
+    @Test
+    fun `a pending autosave rewrites the draft after the save`() =
+        runTest {
+            val projectId = ProjectId("project-1")
+            val vm = createVm(initialProjectId = projectId)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val scopedKey = taskDraftStorageKey(null, projectId, emptySet())
+            vm.onIntent(TaskCreateIntent.TitleChanged("Stored"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertNotNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the autosave stored the draft under the scope's key",
+            )
+
+            // The next edit starts a new debounce, which the save below does
+            // not cancel: the write is still pending when the save runs.
+            vm.onIntent(TaskCreateIntent.TitleChanged("Pending"))
+            runCurrent()
+
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            runCurrent()
+            assertNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the save cleared the persisted draft",
+            )
+
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertNotNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the pending autosave wrote the draft again, after the save cleared it",
+            )
+        }
+
+    /**
+     * The same window, seen from the discard intent: the branch clears the
+     * persisted drafts and does not cancel the pending autosave either, so the
+     * pending write puts the thrown-away text back into the store.
+     *
+     * Like the row above, this pins the order that exists today and leaves the
+     * decision about it to the parent issue (#3225).
+     */
+    @Test
+    fun `a pending autosave rewrites the draft after the discard`() =
+        runTest {
+            val projectId = ProjectId("project-1")
+            val vm = createVm(initialProjectId = projectId)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val scopedKey = taskDraftStorageKey(null, projectId, emptySet())
+            vm.onIntent(TaskCreateIntent.TitleChanged("Stored"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertNotNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the autosave stored the draft under the scope's key",
+            )
+
+            vm.onIntent(TaskCreateIntent.TitleChanged("Pending"))
+            runCurrent()
+
+            vm.onIntent(TaskCreateIntent.Discard)
+            runCurrent()
+            assertNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the discard cleared the persisted draft",
+            )
+
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertNotNull(
+                fakeDraftStore.load(scopedKey, TaskDraft.serializer()),
+                "the pending autosave wrote the draft again, after the discard cleared it",
+            )
+        }
+
+    /**
      * A draft is stored under the scope it was written in — a project, a set of
      * tags. A draft written in one project's agenda must not open in another
      * project's editor, or the task lands in a project the person never chose.
