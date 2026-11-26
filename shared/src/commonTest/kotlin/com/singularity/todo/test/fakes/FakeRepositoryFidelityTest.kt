@@ -3,6 +3,7 @@
 package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.notes.Note
@@ -361,6 +362,71 @@ class FakeRepositoryFidelityTest {
                 listOf("n1"),
                 hits.map { it.id.value },
                 "production searches title only; body matches are a product question, not fake behaviour",
+            )
+        }
+
+    @Test
+    fun `an article attached to a project and to a task is in neither fake library`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeNotesRepository(
+                    currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+                )
+            repo.seed(
+                note("both", alice, title = "Both", body = "## Sources\n\n- https://example.com\n").copy(
+                    projectId = ProjectId("p1"),
+                    taskId = TaskId("t1"),
+                ),
+            )
+            advanceUntilIdle()
+
+            assertTrue(
+                repo.watchKnowledgeArticlesForProject(ProjectId("p1"), 20).first().isEmpty(),
+                "production reads only the notes that hang on the project alone; the fake answered for both",
+            )
+            assertTrue(
+                repo.watchKnowledgeArticlesForTask(TaskId("t1"), 20).first().isEmpty(),
+                "production reads only the notes that hang on the task alone; the fake answered for both",
+            )
+        }
+
+    @Test
+    fun `the fake database reads an article of one owner only`() =
+        runTest {
+            val db = FakeAppDatabase()
+            db.noteDao().upsert(
+                NoteEntity(
+                    id = "both",
+                    userId = alice.value,
+                    title = "Both",
+                    bodyMarkdown = "## Sources\n\n- https://example.com\n",
+                    bodyHtml = "<h2>Sources</h2>",
+                    projectId = "p1",
+                    taskId = "t1",
+                    parentNoteId = null,
+                    createdAt = 0,
+                    updatedAt = 0,
+                    deletedAt = null,
+                    archivedAt = null,
+                ),
+            )
+
+            assertTrue(
+                db
+                    .noteDao()
+                    .watchKnowledgeArticlesForProjectForUser("p1", alice.value, 20)
+                    .first()
+                    .isEmpty(),
+                "production reads only the notes that hang on the project alone; the fake answered for both",
+            )
+            assertTrue(
+                db
+                    .noteDao()
+                    .watchKnowledgeArticlesForTaskForUser("t1", alice.value, 20)
+                    .first()
+                    .isEmpty(),
+                "production reads only the notes that hang on the task alone; the fake answered for both",
             )
         }
 }
