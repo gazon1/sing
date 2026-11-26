@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -44,10 +45,17 @@ import kotlin.time.Duration.Companion.seconds
  *    answers a different question, and every number the harness published for
  *    that read would be a number about two different reads.
  * 2. **the observer sees the write.** The invalidation observer is what the
- *    "invalidation" part of the overhead is priced on, and a pipeline whose
- *    observer never fires would price a part that does not exist. A collector
- *    is alive, the row is written again, and the observer has to answer — the
- *    wait is bounded, and a wait that runs out fails the test.
+ *    "invalidation source" part of the overhead is priced on, and a pipeline
+ *    whose observer never fires would price a part that does not exist. A
+ *    collector is alive, the row is written again, and the observer has to
+ *    answer — the wait is bounded, and a wait that runs out fails the test.
+ * 3. **the control has no observer of its own.** The "invalidation source" is
+ *    the difference between the DAO's Flow and the control — Room's own chain
+ *    with the source of the emissions replaced. A control that had an observer
+ *    would answer again on a write, and the difference would be pricing
+ *    something that is not there. So the control is checked against the real
+ *    thing: it answers once and ends, where the DAO's Flow stays alive and
+ *    answers again after the write.
  *
  * The database is a file, not a memory: the statement form takes a **reader**
  * connection from the pool, and that is a different connection from the one
@@ -116,6 +124,83 @@ class ReadOverheadFormsIntegrationTest {
                         withTimeoutOrNull(OBSERVER_TIMEOUT) { emissions.receive() },
                         "the observer of ${read.label} did not see the write — the invalidation part " +
                             "of the overhead is priced on a reaction that does not happen",
+                    )
+                } finally {
+                    collector.cancel()
+                    scope.cancel()
+                    emissions.close()
+                }
+            }
+        }
+
+    /**
+     * The flow with one emission has no observer of its own.
+     *
+     * The "invalidation source" part of the overhead is the difference between
+     * the DAO's Flow and the control — Room's own chain with the source of the
+     * emissions replaced. The control is only that control if it really has no
+     * observer: a control with one would answer again on a write, and the
+     * difference would be pricing something that is not there.
+     *
+     * So the property is checked directly, and against the real thing:
+     *
+     * - the control's collection **ends** after its first answer — its source
+     *   answers once and completes;
+     * - the DAO's Flow, collected at the same time, **stays alive** and answers
+     *   again after the write that invalidates it.
+     *
+     * A control built on Room's invalidation tracker would never end, and the
+     * bounded wait below would run out — the test fails on a control that has
+     * an observer of its own, and that is the difference the "invalidation
+     * source" is priced on.
+     */
+    @Test
+    fun `the flow with one emission has no observer of its own`() =
+        runBlocking {
+            seed()
+
+            for (read in Read.entries) {
+                val emissions = Channel<Unit>(Channel.UNLIMITED)
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val collector =
+                    scope.launch {
+                        rowsFlow(db, read, TASK_ID, OWNER).collect { emissions.send(Unit) }
+                    }
+                try {
+                    assertNotNull(
+                        withTimeoutOrNull(OBSERVER_TIMEOUT) { emissions.receive() },
+                        "the observer of ${read.label} did not answer its first read",
+                    )
+
+                    val answers =
+                        withTimeoutOrNull(OBSERVER_TIMEOUT) {
+                            plumbingFlow(db, read, TASK_ID, OWNER).toList()
+                        }
+                    assertNotNull(
+                        answers,
+                        "the flow with one emission of ${read.label} did not end — it has an observer " +
+                            "of its own, and the invalidation source is priced on a control that has one",
+                    )
+                    assertEquals(
+                        1,
+                        answers.size,
+                        "the flow with one emission of ${read.label} answered more than once",
+                    )
+                    assertTrue(
+                        answers.first().answer().isNotEmpty(),
+                        "the probe task carries no row of ${read.relation} — there is nothing to compare",
+                    )
+
+                    assertTrue(
+                        collector.isActive,
+                        "the DAO's Flow of ${read.label} ended — it has no observer to keep it alive",
+                    )
+                    val write = changeWriter(db, read, TASK_ID, OWNER)
+                    write()
+                    assertNotNull(
+                        withTimeoutOrNull(OBSERVER_TIMEOUT) { emissions.receive() },
+                        "the observer of ${read.label} did not see the write — the invalidation source " +
+                            "is priced on a reaction that does not happen",
                     )
                 } finally {
                     collector.cancel()

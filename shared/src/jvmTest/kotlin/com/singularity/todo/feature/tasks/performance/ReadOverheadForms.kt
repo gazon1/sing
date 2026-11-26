@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.performance
 
 import androidx.room3.util.performSuspending
+import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteStatement
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.TaskDao
@@ -11,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -36,7 +38,7 @@ private val OBSERVER_TIMEOUT = 30.seconds
 internal enum class ReadForm(val label: String) {
     Statement("statement"),
     OneShot("one-shot"),
-    Plumbing("flow without observer"),
+    Plumbing("flow, one emission"),
     Flow("flow"),
 }
 
@@ -118,33 +120,79 @@ internal suspend fun oneShotRows(
     owner: UserId,
 ): ReadRows =
     performSuspending(db, isReadOnly = true, inTransaction = false) { connection ->
-        val statement = connection.prepare(read.sql)
-        try {
-            read.bind(statement, taskId, owner)
-            read.mapRows(statement)
-        } finally {
-            statement.close()
-        }
+        readRows(connection, read, taskId, owner)
     }
 
 /**
- * The Flow's own machinery, without the invalidation observer.
+ * Room's own Flow chain, with the source of the emissions replaced.
  *
- * The DAO's Flow is the observer's flow, conflated, mapped onto the call. This
- * form is the same pipeline with the observer replaced by a single emission:
- * what is left of the difference between the two is the price of the observer,
- * measured where the Flow really uses it.
+ * Room compiles a Flow DAO method into `androidx.room3.coroutines.createFlow`
+ * (room3 3.0.3), and that function is exactly this chain:
+ *
+ * ```
+ * db.invalidationTracker.createFlow(*tableNames, emitInitialState = true)
+ *     .conflate()
+ *     .map { performSuspending(db, true, inTransaction, block) }
+ * ```
+ *
+ * The chain below is that chain with **one** thing replaced — the source of the
+ * emissions. The operators (`conflate`, `map`) and the suspend call
+ * (`performSuspending(db, isReadOnly = true, inTransaction = false)`, the very
+ * call Room makes for a read) are Room's own, so the difference between this
+ * control and the DAO's Flow is the price of the **source**: the registration
+ * of the observer, the synchronisation of the triggers, the collection of the
+ * table versions, the initial emission and the removal of the observer.
+ *
+ * The control is a control, not a production path: its source answers once and
+ * completes, while Room's source stays alive until the collection is
+ * cancelled. That difference is stated in the report rather than hidden, and
+ * the property that makes the control observer-free — it answers once and
+ * ends, where the DAO's Flow stays alive and re-reads on a write — is checked
+ * by a test on a real database (`ReadOverheadFormsIntegrationTest`).
+ */
+internal fun plumbingFlow(
+    db: AppDatabase,
+    read: Read,
+    taskId: String,
+    owner: UserId,
+): Flow<ReadRows> =
+    flowOf(Unit)
+        .conflate()
+        .map {
+            performSuspending(db, isReadOnly = true, inTransaction = false) { connection ->
+                readRows(connection, read, taskId, owner)
+            }
+        }
+
+/**
+ * The control's answer: Room's Flow chain, with a source that answers once.
+ *
+ * This is the form the "invalidation source" part of the overhead is priced
+ * on — the difference between the DAO's Flow and this control is the price of
+ * the source of the emissions, measured where the Flow really uses it.
  */
 internal suspend fun plumbingRows(
     db: AppDatabase,
     read: Read,
     taskId: String,
     owner: UserId,
-): ReadRows =
-    flowOf(Unit)
-        .conflate()
-        .map { oneShotRows(db, read, taskId, owner) }
-        .first()
+): ReadRows = plumbingFlow(db, read, taskId, owner).first()
+
+/** The rows of a read, read off a connection that is already taken. */
+private fun readRows(
+    connection: SQLiteConnection,
+    read: Read,
+    taskId: String,
+    owner: UserId,
+): ReadRows {
+    val statement = connection.prepare(read.sql)
+    try {
+        read.bind(statement, taskId, owner)
+        return read.mapRows(statement)
+    } finally {
+        statement.close()
+    }
+}
 
 /** The read as the app makes it: the DAO's Flow, collected once. */
 internal suspend fun flowRows(

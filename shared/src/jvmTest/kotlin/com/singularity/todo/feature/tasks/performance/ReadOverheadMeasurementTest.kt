@@ -77,7 +77,7 @@ class ReadOverheadMeasurementTest {
         timings.overhead.forEachIndexed { slot, overhead ->
             assertEquals(
                 overhead,
-                timings.callPath[slot] + timings.flowPlumbing[slot] + timings.invalidation[slot],
+                timings.callPath[slot] + timings.flowOperators[slot] + timings.invalidationSource[slot],
                 "the three parts add up to the overhead in slot $slot",
             )
         }
@@ -168,8 +168,8 @@ class ReadOverheadMeasurementTest {
             listOf(
                 timings.overhead,
                 timings.callPath,
-                timings.flowPlumbing,
-                timings.invalidation,
+                timings.flowOperators,
+                timings.invalidationSource,
             )
         parts.forEach { part ->
             assertEquals(timings.statement.size, part.size)

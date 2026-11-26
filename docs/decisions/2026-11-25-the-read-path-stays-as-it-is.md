@@ -43,10 +43,23 @@ Ask the same read four ways and let the differences price the layers:
 |---|---|---|
 | `statement` | the SQL on a connection the form takes for itself: prepare/bind/step and the row parsing | the Flow and the observer |
 | `one-shot` | the same SQL as a suspend call (`performSuspending`) | the Flow and the observer |
-| `flow without observer` | the same Flow machinery, but the observer replaced by a single emission in the same pipeline | the invalidation observer |
+| `flow, one emission` | **Room's own Flow chain** with the source of the emissions replaced: the same `conflate`, the same `map`, the same `performSuspending` — only the source answers once | the source of the emissions (the invalidation observer) |
 | `flow` | the DAO's Flow, collected once (`first()`) | nothing — this is the full price of a read |
 
-The observer is also measured on its own: `invalidationTracker.createFlow(...)`
+Room compiles a Flow DAO method into `androidx.room3.coroutines.createFlow`
+(room3 3.0.3), and that function is exactly this chain:
+
+```
+db.invalidationTracker.createFlow(*tableNames, emitInitialState = true)
+    .conflate()
+    .map { performSuspending(db, true, inTransaction, block) }
+```
+
+So the control is that chain with **one** element replaced — the source of the
+emissions. The operators and the suspend call are Room's own, and the difference
+between the control and the DAO's Flow is therefore the price of the source.
+
+The source is also measured on its own: `invalidationTracker.createFlow(...)`
 with no query, in its own pass.
 
 The price of a read is `flow − statement`, and it splits into three parts that
@@ -55,16 +68,27 @@ add up to the same number in every iteration:
 | part | what it is | how it is priced |
 |---|---|---|
 | call path | the coroutine hop into the database dispatcher and the call around the query | `one-shot − statement` |
-| Flow plumbing | the Flow machinery around the call: the emission, `conflate`, `map`, the collection | `flow without observer − one-shot` |
-| invalidation | the observer: registration, trigger synchronisation, emission | `flow − flow without observer` |
+| Flow operators | the operators around the source: the emission, `conflate`, `map`, the collection | `flow, one emission − one-shot` |
+| invalidation source | the source of the emissions: the observer's registration, the trigger synchronisation, the collection of the table versions, the initial emission, the removal | `flow − flow, one emission` |
 
-The invalidation share is priced **in place**: the two forms differ by exactly
-the observer — the same machinery, the same pool, the same call — so the
-difference between them is the price of the observer where a Flow really uses
-it. The observer measured apart does not answer that question: measured in
+The invalidation source is priced **in place**: the two forms differ by exactly
+the source of the emissions — the same operators, the same pool, the same call —
+so the difference between them is the price of that source where a Flow really
+uses it. The source measured apart does not answer that question: measured in
 isolation it pays for a connection and a collector of its own, which the Flow
 path pays for as well, so it is published next to the parts and **not
 subtracted** from them.
+
+Two limits of that split are stated rather than hidden. The difference is the
+price of the source **as a whole**, not an isolated price of the tracker: it
+contains the whole life of Room's source — the registration of the observer, the
+trigger synchronisation, the collection of the table versions, the initial
+emission and the removal of the observer. And the control is a control, not a
+production path: its source answers once and completes, while Room's source
+stays alive until the collection is cancelled. The two parts are a model of the
+Flow's price, and their sum is the Flow's price. That the control has no
+observer of its own is checked on a real database: it answers once and ends,
+where the DAO's Flow stays alive and re-reads on a write.
 
 The parts are priced **per iteration**, not as the difference of two medians of
 two separate passes: the four forms run in one loop, so the difference between
@@ -112,7 +136,7 @@ differences.
 Every form that runs the query materialises its rows into a list and keeps it,
 the way a DAO does. No form absorbs the price of building the result, and the
 difference between two forms is never that price. Before the clock starts, the
-statement, the one-shot call, the Flow without the observer and the Flow are
+statement, the one-shot call, the flow with one emission and the Flow are
 asked for the same tasks and their answers are compared: the SQL in the
 harness is a copy of the DAO's, and a copy that has drifted would be a
 comparison of two different reads, so the comparison is a check that fails the
@@ -154,13 +178,19 @@ and not two. Both checks stop the run instead of publishing a number:
 
 The arithmetic of the measurement is checked separately, without a clock, by
 `ReadOverheadMeasurementTest`: the nearest-rank percentile, the identity
-"overhead = call path + Flow plumbing + invalidation" in every slot, the refusal
-to pair forms whose samples do not have the same count, and the evenness of the
-shifted order. The forms themselves and the observer's reaction are checked on a
-**real Room database** by `ReadOverheadFormsIntegrationTest`: all four forms
-answer the same rows, the write that invalidates the read really does trigger a
-re-read — with a bounded wait, so a missing re-read fails the test — and a read
-scoped to its owner does not answer a task owned by another user.
+"overhead = call path + Flow operators + invalidation source" in every slot, the
+refusal to pair forms whose samples do not have the same count, and the evenness
+of the shifted order. The forms themselves, the observer's reaction and the
+absence of an observer in the control are checked on a **real Room database** by
+`ReadOverheadFormsIntegrationTest`: all four forms answer the same rows, the write
+that invalidates the read really does trigger a re-read — with a bounded wait, so
+a missing re-read fails the test — a read scoped to its owner does not answer a
+task owned by another user, and the control has no observer of its own: its
+collection ends after the first answer, while the DAO's Flow, collected at the
+same moment, stays alive and answers again after the write. That last claim was
+checked by mutation as well — replacing the control's source with Room's own
+(`db.invalidationTracker.createFlow(...)`) makes that test fail by name and leaves
+the other three green.
 
 That last assertion is about the **scope**, not about the rows, and the fixture
 exists for it. The harness compares the forms with each other, so a copy of the
@@ -182,7 +212,7 @@ without the state of the machine is not a measurement.
 **The checks are tests, and they were run.** A compilation is not an execution:
 the pull request's body carries the actual result of
 `./gw :shared:jvmTest --tests "*ReadOverhead*" -Ptest.tags=all` — 9 tests in
-`ReadOverheadMeasurementTest` and 3 in `ReadOverheadFormsIntegrationTest`, no
+`ReadOverheadMeasurementTest` and 4 in `ReadOverheadFormsIntegrationTest`, no
 failures, no errors, none skipped. The integration test carries
 `@Tag("slow") @Tag("slow:data")`, as every database test in this repository
 does, and that has a consequence worth stating: the default run excludes `slow`,
@@ -200,39 +230,42 @@ so a run that discovered nothing would fail rather than report success.
 The measurement says the remaining price of a read is Room's own machinery, and
 that it is a per-call constant rather than a function of the database:
 
-- the statement — connection included — costs **0.06–0.17 ms**;
-- the call path costs **0.00–0.05 ms**;
-- the Flow plumbing costs **0.03–0.10 ms**;
-- the invalidation costs **0.10–0.26 ms** — the largest of the three parts, and
-  priced in place, as a share of the Flow price rather than a lower bound;
-- the observer measured on its own costs **0.06–0.68 ms**; it is published next
+- the statement — connection included — costs **0.03–0.07 ms**;
+- the call path costs **0.00–0.02 ms**;
+- the Flow operators cost **0.02–0.05 ms**;
+- the invalidation source costs **0.04–0.12 ms** — the largest of the three
+  parts, and priced in place, as a share of the Flow price rather than a lower
+  bound; it is the price of the source **as a whole**, not an isolated price of
+  the tracker;
+- the observer measured on its own costs **0.03–0.15 ms**; it is published next
   to the parts and not subtracted from them;
-- the whole overhead of a read costs **0.16–0.56 ms**;
+- the whole overhead of a read costs **0.07–0.19 ms**;
 - the SQL work inside the connection — the preparation, the binding, the
-  execution and the mapping — costs **0.02–0.08 ms**, and it is measured, not
+  execution and the mapping — costs **0.01–0.03 ms**, and it is measured, not
   derived: it is taken inside the connection in the same slot as the whole call;
 - the connection's share of the slot — the hop to the dispatcher, taking the
-  connection from the pool and handing it back — costs **0.03–0.09 ms**, and it
+  connection from the pool and handing it back — costs **0.02–0.04 ms**, and it
   is the difference of the samples of one slot, not the difference of two
   separately measured percentiles;
-- taking a connection from the pool costs **0.05–0.26 ms** (p50), and it is
+- taking a connection from the pool costs **0.04–0.09 ms** (p50), and it is
   inside `statement`;
 - on a change, the observer's latency — the wait from the end of the write to
-  the re-read it triggers — is **0.02–0.83 ms**.
+  the re-read it triggers — is **0.14–0.34 ms**.
 
 A 10k-task profile and a 100k-task profile produce the same numbers, so
 nothing in the remaining price grows with the profile. The task detail screen
 reads four Flows (`watchByIdForUser`, `blockingDependencyIdsForUser`,
 `followUpDependencyIdsForUser`, `getTagIdsForUser` — `TaskRepositoryImpl.observe(id)`);
-the three of them measured here cost **0.93–1.56 ms** per emission together,
+the three of them measured here cost **0.38–0.62 ms** per emission together,
 inside a 16 ms frame.
 
-The runs were taken on a busy machine (load average 41–48 on 16 cores), so the
-absolute numbers are larger than in the earlier round of this same issue; the
-form of the measurement and the harness itself are unchanged, and every run
-prints its load average. The published ranges are over six independent runs of
-each dataset; the observer's latency is the noisiest of the numbers, because it
-waits for the tracker's background work rather than for SQLite.
+The runs were taken on a shared host with a load average of 7.5–8.8 on 16 cores,
+so the absolute numbers are smaller than in the earlier round of this same issue
+(load 41–48) — the form of the measurement is unchanged, and every run prints
+its load average. The published ranges are over six independent runs of each
+dataset (twelve runs in total, in two batches); the observer's latency is the
+noisiest of the numbers, because it waits for the tracker's background work
+rather than for SQLite.
 
 The measurement harness is a program, not a test class: a dataset-dependent
 test would either skip itself or fail for a reason that has nothing to do with
@@ -251,26 +284,27 @@ program, one dataset pipeline, one set of arguments.
 The verdict follows from the numbers rather than from an argument about
 complexity. Two facts do the work.
 
-First, the price is not in the query any more: the statement is 0.06–0.17 ms
-including the connection, and the SQL work is 0.02–0.08 ms of that. There
+First, the price is not in the query any more: the statement is 0.03–0.07 ms
+including the connection, and the SQL work is 0.01–0.03 ms of that. There
 is nothing left for a rewrite of the SQL to remove.
 
 Second, the price does not grow with the database: the same reads on 10 000
-tasks and on 100 000 tasks cost the same 0.16–0.56 ms. A change to the read
+tasks and on 100 000 tasks cost the same 0.07–0.19 ms. A change to the read
 path would therefore have to buy a constant, not a curve — and the constant is
 already small enough to sit inside a frame.
 
 The split says where the constant sits, and that is what makes the verdict
-safe: the largest part is the invalidation observer, which is exactly the
-contract the issue forbids touching. The other two parts — the call path and
-the Flow plumbing — are Room's own machinery, and replacing them means
-reimplementing what Room does, for a fraction of a millisecond.
+safe: the largest part is the source of the invalidation — the whole life of
+the observer — which is exactly the contract the issue forbids touching. The
+other two parts — the call path and the Flow operators — are Room's own
+machinery, and replacing them means reimplementing what Room does, for a
+fraction of a millisecond.
 
 What a change would cost is concrete too. Replacing Room's Flow machinery means
 taking on the invalidation contract — which tables invalidate which read, and
 when — and the risk of getting it wrong is a screen that stops updating or
 updates on the wrong write. The issue forbids touching that contract, and a
-measurement that prices a constant at 0.16–0.56 ms does not justify taking it
+measurement that prices a constant at 0.07–0.19 ms does not justify taking it
 on.
 
 The alternative — proposing a change with its own evidence — was not chosen
@@ -285,13 +319,26 @@ like #3194 for the checklist reads.
 - The read path is unchanged: no DAO signature, no SQL, no invalidation
   contract, no write path. The measurement is the whole deliverable.
 - The number "0.3–2.1 ms per read" in the performance report was an estimate
-  and is now a measurement: 0.16–0.56 ms per read, split into the call path
-  (0.00–0.05 ms), the Flow plumbing (0.03–0.10 ms) and the invalidation
-  (0.10–0.26 ms), with the observer measured on its own (0.06–0.68 ms)
+  and is now a measurement: 0.07–0.19 ms per read, split into the call path
+  (0.00–0.02 ms), the Flow operators (0.02–0.05 ms) and the invalidation
+  source (0.04–0.12 ms), with the observer measured on its own (0.03–0.15 ms)
   published next to the parts rather than subtracted from them.
-- The observer's share inside a real Flow read is a **measured share**, not a
-  lower bound: it is the difference between the DAO's Flow and the same Flow
-  with the observer replaced by a single emission, measured on one pool.
+- The source's share inside a real Flow read is a **measured share**, not a
+  lower bound: it is the difference between the DAO's Flow and the same Room
+  chain with the source of the emissions replaced by a single emission,
+  measured on one pool. The limits of that share are stated rather than
+  hidden: it is the price of the source **as a whole** — the registration of
+  the observer, the trigger synchronisation, the collection of the table
+  versions, the initial emission and the removal — not an isolated price of
+  the tracker, and the control is a control, not a production path (its source
+  answers once and completes, Room's stays alive until the collection is
+  cancelled).
+- The control is a control because it is checked to be one: on a real Room
+  database the control's collection ends after its first answer, while the
+  DAO's Flow, collected at the same moment, stays alive and answers again
+  after the write that invalidates it. The claim was checked by mutation as
+  well — giving the control Room's own source makes that test fail by name
+  and leaves the other three green.
 - The scope of the reads is checked, not assumed: the fixture of the integration
   test holds a second user, and a read that lost its `user_id` predicate fails
   the test by name. The copy of the DAO's SQL in the harness is verified against

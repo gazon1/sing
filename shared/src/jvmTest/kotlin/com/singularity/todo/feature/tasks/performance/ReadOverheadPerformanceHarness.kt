@@ -33,11 +33,15 @@ import kotlin.time.Duration
  * - **one-shot** — the same SQL as a suspend call: Room's call path
  *   (`performSuspending` — the very call a suspend DAO method is compiled
  *   into), without a Flow and without an observer.
- * - **flow without observer** — the Flow's own machinery around the call: the
- *   same pipeline the DAO's Flow is, with the invalidation observer replaced
- *   by a single emission.
+ * - **flow, one emission** — Room's own Flow chain
+ *   (`androidx.room3.coroutines.createFlow`: the source of the emissions,
+ *   `conflate`, `map { performSuspending(...) }`) with **one** thing replaced:
+ *   the source of the emissions. The operators and the suspend call are Room's
+ *   own, so the difference between this control and the DAO's Flow is the
+ *   price of the source.
  * - **flow** — the DAO's Flow, collected once (`first()`): the read as the app
- *   makes it — observer registration, Flow plumbing, and the statement.
+ *   makes it — the observer's registration, the Flow plumbing, and the
+ *   statement.
  *
  * All four take their connection from the same pool — the readers' — and every
  * one of them takes a connection of its own. No form is measured on a
@@ -50,14 +54,28 @@ import kotlin.time.Duration
  * | part | what it is | how it is priced |
  * |---|---|---|
  * | call path | the hop to the database's dispatcher and the call around the statement | `one-shot − statement` |
- * | Flow plumbing | the Flow's own machinery around the call | `flow without observer − one-shot` |
- * | invalidation | the observer: its registration, the trigger sync and the emission | `flow − flow without observer` |
+ * | Flow operators | the operators around the source: the emission, `conflate`, `map`, the collection | `flow, one emission − one-shot` |
+ * | invalidation source | the source of the emissions: the observer's registration, the trigger sync, the collection of the table versions, the initial emission, the removal | `flow − flow, one emission` |
  *
- * The invalidation part is priced *in place*: the two forms differ only in
- * the observer, both run the same pipeline on the same pool, and the observer
- * is what the difference is. An observer measured on its own would not answer
- * the question — it pays for a connection and a collector of its own, and it
- * is published separately, as the price of one registration.
+ * The invalidation source is priced *in place*: the two forms differ only in
+ * the source of the emissions, both run the same operators and the same call
+ * on the same pool, and the source is what the difference is. What that
+ * difference contains is the whole life of Room's source — the registration of
+ * the observer, the synchronisation of the triggers, the collection of the
+ * table versions, the initial emission and the removal of the observer — so it
+ * is **not** an isolated price of the tracker, and it is not published as one.
+ * The control is a control, not a production path: its source answers once and
+ * completes, while Room's source stays alive until the collection is
+ * cancelled. The two parts are a model of the Flow's price, and their sum is
+ * the Flow's price. An observer measured on its own would not answer the
+ * question — it pays for a connection and a collector of its own, and it is
+ * published separately, as the price of one registration.
+ *
+ * The property that makes the control a control — it has no observer of its
+ * own, so it answers once and ends, where the DAO's Flow stays alive and
+ * re-reads on a write — is checked on a real Room database by
+ * `ReadOverheadFormsIntegrationTest`, so it is verified on every run of the
+ * test suite and not only when this program is run.
  *
  * The parts are priced per iteration, not as the difference of two medians:
  * the forms run in one loop, so the difference between two of them is the
@@ -96,7 +114,7 @@ import kotlin.time.Duration
  *
  * What the program does check is that the forms of a read answer the same
  * question — the same rows. Before the clock starts, the statement, the
- * one-shot call, the Flow without the observer and the Flow are each asked for
+ * one-shot call, the flow with one emission and the Flow are each asked for
  * the same task, and their answers are compared. A comparison of a statement
  * with a Flow that answers something else would be a comparison of two
  * different reads, and the SQL here is a copy of the DAO's — a copy that has
@@ -110,8 +128,9 @@ import kotlin.time.Duration
  * number of iterations, so a run that saw fewer re-reads than it wrote cannot
  * publish its numbers as if it had seen all of them.
  *
- * Both claims — the forms answer the same rows, and the observer sees the
- * write — are checked a second time by a test on a real Room database
+ * Three claims — the forms answer the same rows, the observer sees the write,
+ * and the control really has no observer of its own — are checked a second
+ * time by a test on a real Room database
  * (`ReadOverheadFormsIntegrationTest`), so they are verified on every run of
  * the test suite and not only when this program is run.
  *
@@ -130,10 +149,17 @@ import kotlin.time.Duration
  *
  * ```
  * ./gw :shared:dependencyQueryPerf -Pperf.experiment=read-overhead \
- *   -Pperf.archive=$PWD/build/perf/10k-tags.zip
+ *   -Pperf.archive=$PWD/build/perf/10k-tags.zip \
+ *   -Pperf.iterations=30 -Pperf.warmup=10
  * ./gw :shared:dependencyQueryPerf -Pperf.experiment=read-overhead \
- *   -Pperf.dataset=$PWD/build/perf/100k-tags
+ *   -Pperf.dataset=$PWD/build/perf/100k-tags \
+ *   -Pperf.iterations=30 -Pperf.warmup=10
  * ```
+ *
+ * The iteration count and the warmup are written out on purpose: they are the
+ * configuration the published numbers were taken with, and the defaults of
+ * `ReadOverheadConfig.parse` (10 iterations, 3 warmup) are a quicker smoke
+ * run, not the published one. A command without them measures something else.
  *
  * One invocation produces one set of percentiles. The published ranges come
  * from six independent invocations of each dataset, kept as they were, so
@@ -261,17 +287,26 @@ internal data class FormTimings(
     /** The path a call takes around the statement. */
     val callPath: List<Duration> get() = paired(oneShot, statement, "one-shot and statement")
 
-    /** The Flow's own machinery around the call, without the observer. */
-    val flowPlumbing: List<Duration> get() = paired(plumbing, oneShot, "flow plumbing and one-shot")
+    /**
+     * The operators around the source of the emissions.
+     *
+     * The control is Room's own chain — `conflate`, `map`, the collection —
+     * with a source that answers once, so this is the price of the operators
+     * around such a source.
+     */
+    val flowOperators: List<Duration> get() = paired(plumbing, oneShot, "flow operators and one-shot")
 
     /**
-     * The observer's share of the Flow's price, measured in place.
+     * The source of the emissions, priced in place.
      *
-     * The two forms differ only in the observer: the same pipeline, the same
-     * pool, the same call — and the difference is what the observer costs
-     * where the Flow really uses it.
+     * The two forms differ only in the source: the DAO's Flow takes it from
+     * Room's invalidation tracker, the control answers once. The difference is
+     * therefore the price of that source — the registration of the observer,
+     * the trigger synchronisation, the collection of the table versions, the
+     * initial emission and the removal of the observer — and **not** an
+     * isolated price of the tracker, which is published on its own.
      */
-    val invalidation: List<Duration> get() = paired(flow, plumbing, "flow and flow plumbing")
+    val invalidationSource: List<Duration> get() = paired(flow, plumbing, "flow and flow with one emission")
 
     /**
      * The connection's share of the statement, in the same slot.
@@ -367,8 +402,8 @@ private suspend fun measure(config: ReadOverheadConfig): String {
             measurements += priced(read, "connection in slot", timings.connection)
             measurements += priced(read, "observer alone", timings.tracker)
             measurements += priced(read, "call path", timings.callPath)
-            measurements += priced(read, "Flow plumbing", timings.flowPlumbing)
-            measurements += priced(read, "invalidation", timings.invalidation)
+            measurements += priced(read, "Flow operators", timings.flowOperators)
+            measurements += priced(read, "invalidation source", timings.invalidationSource)
             measurements += priced(read, "overhead", timings.overhead)
             changes += measureChange(db, read, probes.first(), config)
         }
@@ -412,7 +447,7 @@ private suspend fun collectRows(
                 "the SQL of ${read.label} has drifted from the DAO"
         }
         check(fromPlumbing == fromStatement) {
-            "the Flow without the observer answers a different question than the statement for $taskId — " +
+            "the flow with one emission answers a different question than the statement for $taskId — " +
                 "the SQL of ${read.label} has drifted from the DAO"
         }
         check(fromFlow == fromStatement) {
@@ -472,7 +507,7 @@ private suspend fun StringBuilder.appendHeader(
     appendLine("- jvm: ${System.getProperty("java.version")} (${System.getProperty("java.vm.name")})")
     appendLine("- machine: ${Runtime.getRuntime().availableProcessors()} cores, load ${loadAverage()}")
     appendLine(
-        "- rows checked: the statement, the one-shot call, the Flow without the observer and " +
+        "- rows checked: the statement, the one-shot call, the flow with one emission and " +
             "the Flow answered the same rows",
     )
     appendLine()
@@ -491,8 +526,8 @@ private fun StringBuilder.appendFormsTable(measurements: List<OverheadMeasuremen
 /** The parts of the overhead, read by read. */
 private fun StringBuilder.appendPartsTable(measurements: List<OverheadMeasurement>) {
     appendLine(
-        "| read | statement | one-shot | flow w/o observer | flow | call path | Flow plumbing | " +
-            "invalidation | overhead | observer alone |",
+        "| read | statement | one-shot | flow, one emission | flow | call path | Flow operators | " +
+            "invalidation source | overhead | observer alone |",
     )
     appendLine("|---|---|---|---|---|---|---|---|---|---|")
     for (read in Read.entries) {
@@ -502,24 +537,63 @@ private fun StringBuilder.appendPartsTable(measurements: List<OverheadMeasuremen
         val flow = measurements.median(read, ReadForm.Flow.label)
         val tracker = measurements.median(read, "observer alone")
         val callPath = measurements.median(read, "call path")
-        val machinery = measurements.median(read, "Flow plumbing")
-        val invalidation = measurements.median(read, "invalidation")
+        val operators = measurements.median(read, "Flow operators")
+        val invalidation = measurements.median(read, "invalidation source")
         val overhead = measurements.median(read, "overhead")
         appendLine(
             "| ${read.label} | ${millis(statement)} | ${millis(oneShot)} | ${millis(plumbing)} | " +
-                "${millis(flow)} | ${millis(callPath)} | ${millis(machinery)} | ${millis(invalidation)} | " +
+                "${millis(flow)} | ${millis(callPath)} | ${millis(operators)} | ${millis(invalidation)} | " +
                 "${millis(overhead)} | ${millis(tracker)} |",
         )
     }
     appendLine()
     appendLine(
-        "The overhead is the call path plus the Flow plumbing plus the invalidation, in every " +
-            "iteration. All four forms take their connection from the readers' pool, so no part of " +
-            "a difference is a difference of pools. The order of the forms is rotated from slot to " +
+        "The overhead is the call path plus the Flow operators plus the invalidation source, in " +
+            "every iteration. All four forms take their connection from the readers' pool, so no part " +
+            "of a difference is a difference of pools. The order of the forms is rotated from slot to " +
             "slot, so that no form is always measured first or always last: the position a form was " +
-            "measured in is not part of its price. The invalidation is priced in place: the Flow " +
-            "and the Flow without the observer differ only in the observer. The observer alone is " +
-            "published, not subtracted: it is the price of one registration, in a pass of its own.",
+            "measured in is not part of its price.",
+    )
+    appendLine()
+    appendLine(
+        "Room compiles a Flow DAO method into `androidx.room3.coroutines.createFlow` (room3 3.0.3), " +
+            "and that function is exactly this chain:",
+    )
+    appendLine()
+    appendLine(
+        "```",
+    )
+    appendLine(
+        "db.invalidationTracker.createFlow(*tableNames, emitInitialState = true)",
+    )
+    appendLine(
+        "    .conflate()",
+    )
+    appendLine(
+        "    .map { performSuspending(db, true, inTransaction, block) }",
+    )
+    appendLine(
+        "```",
+    )
+    appendLine()
+    appendLine(
+        "The form \"flow, one emission\" is that chain with one thing replaced: the source of the " +
+            "emissions. The operators and the suspend call are Room's own, so the difference between " +
+            "the two forms is the price of the source — the registration of the observer, the trigger " +
+            "synchronisation, the collection of the table versions, the initial emission and the " +
+            "removal of the observer. It is priced in place: the two forms differ only in the source, " +
+            "both run the same operators and the same call on the same pool.",
+    )
+    appendLine()
+    appendLine(
+        "Two limits of that split are stated rather than hidden. The difference is the price of the " +
+            "source **as a whole**, not an isolated price of the tracker — the tracker measured on its " +
+            "own is in the last column, and it is published, not subtracted. And the control is a " +
+            "control, not a production path: its source answers once and completes, while Room's " +
+            "source stays alive until the collection is cancelled. The two parts are a model of the " +
+            "Flow's price, and their sum is the Flow's price. That the control has no observer of its " +
+            "own is checked on a real database: it answers once and ends, where the DAO's Flow stays " +
+            "alive and re-reads on a write.",
     )
     appendLine()
 }
