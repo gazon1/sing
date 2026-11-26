@@ -125,6 +125,44 @@ class ReadOverheadFormsIntegrationTest {
             }
         }
 
+    /**
+     * A read scoped to its owner does not answer a foreign task.
+     *
+     * The harness measures a **copy** of the DAO's SQL, and the copy is checked
+     * against the DAO by comparing the rows of the forms. That comparison only
+     * notices a drifted copy if the database holds a case where the two
+     * disagree — and a database that holds only the owner's rows does not: a
+     * copy that dropped the `user_id` predicate would answer the same rows as
+     * the DAO on every task the owner owns.
+     *
+     * So the fixture carries a second user with a task of their own, an edge
+     * and a tag. Asking for that task **as the owner** must answer nothing:
+     * the DAO scopes the read through the task's own row, and so must the
+     * copy. A copy that lost the predicate would answer the foreign rows, and
+     * the forms would disagree.
+     */
+    @Test
+    fun `a read scoped to its owner does not answer a foreign task`() =
+        runBlocking {
+            seed()
+
+            for (read in Read.entries) {
+                val statement = statementRows(db, read, FOREIGN_TASK_ID, OWNER)
+                val oneShot = oneShotRows(db, read, FOREIGN_TASK_ID, OWNER)
+                val plumbing = plumbingRows(db, read, FOREIGN_TASK_ID, OWNER)
+                val flow = flowRows(db, read, FOREIGN_TASK_ID, OWNER)
+
+                assertTrue(
+                    statement.answer().isEmpty(),
+                    "the statement form of ${read.label} answered the rows of a task owned by another user — " +
+                        "the copy of the DAO's SQL has lost its user scope",
+                )
+                assertEquals(statement, oneShot, "the one-shot form of ${read.label} answers another question")
+                assertEquals(statement, plumbing, "the Flow without the observer of ${read.label} answers another")
+                assertEquals(statement, flow, "the Flow form of ${read.label} answers another question")
+            }
+        }
+
     /** The rows of a read, in the shape the DAO answers in. */
     private fun ReadRows.answer(): List<Any> =
         when (this) {
@@ -147,19 +185,34 @@ class ReadOverheadFormsIntegrationTest {
         }
     }
 
-    /** The rows the forms are asked about: one task, one edge, one tag. */
+    /**
+     * The rows the forms are asked about.
+     *
+     * Two users: the owner of the probe task, with an edge and a tag of their
+     * own, and a second user with a task, an edge and a tag of **theirs**. The
+     * second user's rows are what makes the user scope of the reads visible:
+     * without them a copy of the DAO's SQL that lost the `user_id` predicate
+     * would answer the same rows as the DAO, and the comparison would not
+     * notice.
+     */
     private suspend fun seed() {
         val dao = db.taskDao()
         val now = System.currentTimeMillis()
-        dao.upsert(task(TASK_ID, now))
-        dao.upsert(task(BLOCKED_BY, now))
+        dao.upsert(task(TASK_ID, now, OWNER))
+        dao.upsert(task(BLOCKED_BY, now, OWNER))
         dao.upsertDependencyForUser(TASK_ID, BLOCKED_BY, BLOCKING_VERB, OWNER.value)
         dao.upsertTagCrossRefForUser(TASK_ID, TAG_ID, OWNER.value)
+
+        dao.upsert(task(FOREIGN_TASK_ID, now, FOREIGN_OWNER))
+        dao.upsert(task(FOREIGN_BLOCKED_BY, now, FOREIGN_OWNER))
+        dao.upsertDependencyForUser(FOREIGN_TASK_ID, FOREIGN_BLOCKED_BY, BLOCKING_VERB, FOREIGN_OWNER.value)
+        dao.upsertTagCrossRefForUser(FOREIGN_TASK_ID, FOREIGN_TAG_ID, FOREIGN_OWNER.value)
     }
 
     private fun task(
         id: String,
         now: Long,
+        owner: UserId,
     ): TaskEntity =
         TaskEntity(
             id = id,
@@ -180,7 +233,7 @@ class ReadOverheadFormsIntegrationTest {
             isPinned = false,
             createdAt = now,
             updatedAt = now,
-            userId = OWNER.value,
+            userId = owner.value,
         )
 
     private companion object {
@@ -191,7 +244,14 @@ class ReadOverheadFormsIntegrationTest {
         private const val BLOCKED_BY = "task-2"
         private const val TAG_ID = "tag-1"
 
+        private const val FOREIGN_TASK_ID = "task-3"
+        private const val FOREIGN_BLOCKED_BY = "task-4"
+        private const val FOREIGN_TAG_ID = "tag-2"
+
         private val OWNER = UserId("owner-1")
+
+        /** A second user, whose rows the reads must not answer. */
+        private val FOREIGN_OWNER = UserId("owner-2")
 
         /** How long the observer gets to answer before the test is broken. */
         private val OBSERVER_TIMEOUT = 30.seconds
