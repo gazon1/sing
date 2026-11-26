@@ -7,6 +7,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import com.singularity.todo.test.helpers.VmScope
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -21,6 +22,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.singularity.todo.test.helpers.testVm as harnessTestVm
 
 private val testLogger = Logger.withTag("DraftMviViewModelTest")
 
@@ -106,7 +108,14 @@ private fun testVm(block: suspend TestScope.() -> Unit) =
         block()
     }
 
-/** Creates a VM whose lifecycle is owned by runTest's backgroundScope. */
+/**
+ * Creates a VM whose lifecycle is owned by runTest's backgroundScope.
+ *
+ * The scope comes from the shared harness ([harnessTestVm]) with
+ * [VmScope.Background]: the autosave collector never ends, so it belongs in the
+ * background scope — the same arrangement the repository's other ViewModel
+ * tests use.
+ */
 private fun TestScope.testVm(
     initialDraft: TestDraft,
     autosaveBlock: (suspend (TestDraft) -> Unit)? = null,
@@ -116,16 +125,21 @@ private fun TestScope.testVm(
     hooks: TestHooks = TestHooks(),
     autosaveDebounceMs: Long = 10L,
 ): TestDraftVm =
-    TestDraftVm(
-        initialDraft = initialDraft,
-        autosaveBlock = autosaveBlock,
-        restoreBlock = restoreBlock,
-        validateBlock = validateBlock,
-        persistBlock = persistBlock,
-        hooks = hooks,
-        autosaveDebounceMs = autosaveDebounceMs,
-        scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
-    )
+    harnessTestVm(
+        stateAccessor = { it.stateFlow },
+        vmScope = VmScope.Background,
+    ) { scope ->
+        TestDraftVm(
+            initialDraft = initialDraft,
+            autosaveBlock = autosaveBlock,
+            restoreBlock = restoreBlock,
+            validateBlock = validateBlock,
+            persistBlock = persistBlock,
+            hooks = hooks,
+            autosaveDebounceMs = autosaveDebounceMs,
+            scope = scope,
+        )
+    }.vm
 
 /**
  * Subscribes to the VM's one-shot events and collects them into a list.
@@ -362,6 +376,11 @@ class DraftMviViewModelTest {
      * The restore runs to completion before the autosave loop starts. A restore
      * that raced the first keystroke could lose the draft the user was already
      * writing — or write the restored draft over it.
+     *
+     * The edit below happens while the restore is still in flight, and it is
+     * what makes the assertion mean something: the autosave collector drops the
+     * first value it sees, so a collector that started too early would have had
+     * nothing to write until the user typed. The typed draft is that something.
      */
     @Test
     fun `autosave does not start before the restore settles`() =
@@ -380,14 +399,28 @@ class DraftMviViewModelTest {
             assertFalse(restoreGate.isCompleted, "the restore has not answered yet")
             assertFalse(autosaved, "no autosave may run while the restore is in flight")
 
+            // The user types while the store is still answering.
+            vm.updateDraft { it.copy(title = "typed") }
+            advanceTimeBy(50L)
+            runCurrent()
+            assertFalse(
+                autosaved,
+                "the edit must not be written while the restore is in flight — the autosave loop starts only after it",
+            )
+
             restoreGate.complete(TestDraft(title = "restored"))
             advanceTimeBy(20L)
             runCurrent()
             assertTrue(restoreGate.isCompleted, "the restore has answered")
             assertFalse(autosaved, "the restored draft is the collector's first value — it is dropped, not written")
+            assertEquals(
+                "typed",
+                vm.stateFlow.value.draft.title,
+                "a restore must not overwrite what the user typed while it was loading",
+            )
 
             // The collector is live now: an edit autosaves.
-            vm.updateDraft { it.copy(title = "typed") }
+            vm.updateDraft { it.copy(title = "typed-again") }
             advanceTimeBy(50L)
             runCurrent()
             assertTrue(autosaved)
