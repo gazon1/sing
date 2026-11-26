@@ -29,11 +29,16 @@ import kotlin.test.assertTrue
  * ## How a row is read
  *
  * A row's test is written in backticks. It is either the bare name of a test
- * in the matrix's own file, or `ClassName.test name` — the form the rows of the
- * subclasses use, because those tests live in other files. A class-qualified
- * name is checked in the file that declares the class, so a name that exists
- * in the wrong file is still a finding — and a class that no longer exists is
- * a finding as well, not a row that quietly falls back to the matrix file.
+ * of the class that carries the matrix, or `ClassName.test name` — the form
+ * the rows of the subclasses use, because those tests live in other classes.
+ * A class-qualified name is checked in the class it names, so a name that
+ * exists in the wrong class is still a finding — and a class that no longer
+ * exists is a finding as well, not a row that quietly falls back to the
+ * matrix file.
+ *
+ * A row that names no test at all is a finding too: a table line that lost
+ * its test name would otherwise drop out of the check, and the table would
+ * claim a guarantee nothing verifies.
  *
  * The rule itself lives in [BehaviorMatrixGate], and
  * [BehaviorMatrixGateSelfTest] drives it with synthetic sources.
@@ -53,6 +58,9 @@ class BehaviorMatrixDriftTest {
             .commonTestSourcesRoot()
             .resolve("com/singularity/todo/core/ui/DraftMviViewModelTest.kt")
 
+    /** The class whose KDoc carries the matrix — the class a bare row names. */
+    private val matrixClass: String = "DraftMviViewModelTest"
+
     /** Every test source of this module — `commonTest` compiles into `jvmTest`. */
     private val testSources: List<File> by lazy {
         listOf(SourceScan.commonTestSourcesRoot(), SourceScan.jvmTestSourcesRoot())
@@ -61,13 +69,35 @@ class BehaviorMatrixDriftTest {
             }
     }
 
+    /** The bodies of every test class of this module, by class name. */
+    private val classBodies: Map<String, String> by lazy {
+        val bodies = mutableMapOf<String, String>()
+        for (file in testSources) {
+            for ((name, body) in BehaviorMatrixGate.classBodies(file.readText())) {
+                bodies.putIfAbsent(name, body)
+            }
+        }
+        bodies
+    }
+
     @Test
     fun `every row of the behavior matrix names a test that exists`() {
-        val matrixSource = matrixFile.readText()
-        val rows = BehaviorMatrixGate.rows(matrixSource)
-        assertTrue(rows.isNotEmpty(), "the matrix in ${matrixFile.path} has no rows to check")
+        val matrix = BehaviorMatrixGate.parse(matrixFile.readText())
+        assertTrue(matrix.rows.isNotEmpty(), "the matrix in ${matrixFile.path} has no rows to check")
+        assertTrue(
+            matrix.malformed.isEmpty(),
+            "these lines of the behavior matrix name no test at all:\n" +
+                matrix.malformed.joinToString("\n") { "  ${it.trim()}" } +
+                "\n\nA row without a test name checks nothing, and the table would claim a " +
+                "guarantee that nothing verifies.",
+        )
 
-        val missing = BehaviorMatrixGate.missingRows(rows, matrixSource, ::ownerSource)
+        val missing =
+            BehaviorMatrixGate.missingRows(
+                rows = matrix.rows,
+                matrixClassBody = classBodies[matrixClass],
+                ownerBody = { classBodies[it] },
+            )
         assertTrue(
             missing.isEmpty(),
             "these rows of the behavior matrix name a test that does not exist:\n" +
@@ -76,24 +106,5 @@ class BehaviorMatrixDriftTest {
                 "covered. Rename the row after the test, or point it at the test that holds the " +
                 "guarantee now.",
         )
-    }
-
-    /**
-     * The source of the file that declares [className], or null when this
-     * module has no such class.
-     *
-     * Comments are stripped before the declaration is looked for, so a class
-     * mentioned in a KDoc cannot pass for a declaration.
-     */
-    private fun ownerSource(className: String): String? =
-        testSources
-            .firstOrNull { file -> classDeclaration(className).containsMatchIn(stripped(file)) }
-            ?.readText()
-
-    private fun stripped(file: File): String = KotlinText.stripComments(file.readText())
-
-    private companion object {
-        /** A declaration of [className] — the owner of a class-qualified row. */
-        fun classDeclaration(className: String): Regex = Regex("""\bclass\s+$className\b""")
     }
 }
