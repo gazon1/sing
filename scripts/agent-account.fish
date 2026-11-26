@@ -226,12 +226,66 @@ function recorded_targets
     grep -F -- (printf '%s\t' $argv[1]) $file | cut -f2
 end
 
-function record_grant
+# The prior entries recorded for one target, or `-` when the record has none.
+function recorded_state
     set -l file (grants_file)
-    test $DRY_RUN -eq 1; and echo "record $(string join ' ' $argv)" >&2
+    test -e $file; or echo -; and return 0
+    set -l lines (grep -F -- (printf '\t%s\t' $argv[1]) $file)
+    test (count $lines) -gt 0; or echo -; and return 0
+    echo (string split \t -- $lines[1])[4]
+end
+
+# Puts a recorded prior ACL back, entry by entry, at the paths it named.
+function restore_acl
+    set -l target $argv[1]
+    set -l state $argv[2]
+    for pair in (string split ';' -- $state)
+        set -l path (string split '=' -- $pair)[1]
+        set -l entry (string split '=' -- $pair)[2]
+        test -n "$path"; and test -n "$entry"; or continue
+        test -e "$path"; or continue
+        run_cmd setfacl --modify "$entry" $path
+    end
+end
+
+# Records a target AND the ACL entries that were already there, so rollback can
+# put them back instead of deleting them.
+#
+# `setfacl --modify` overwrites a named entry that already existed, and the
+# rollback's `-x` removed it outright: a host that granted `sing-dev` rwx on a
+# worktree before `apply` ran lost that grant to a rollback of a change this
+# script did not make. The record keeps enough to restore the previous value.
+function record_grant
+    set -l root $argv[1]
+    set -l target $argv[2]
+    set -l subject $argv[3]           # `u:agent` or `g:sing-dev`
+    set -l file (grants_file)
+    test $DRY_RUN -eq 1; and echo "record $root $target (previous $subject entries kept)" >&2
     test $DRY_RUN -eq 1; and return 0
     run_cmd install --directory --owner=root --group=root --mode=0755 (dirname $file)
-    printf '%s\t%s\n' $argv[1] $argv[2] >> $file
+    # The previous value of the entry at the top of the tree, and at its
+    # directories. `getfacl` prints `# file:` lines, so they are asked per path
+    # and joined; an entry that was absent is recorded as `-`.
+    set -l previous (prior_acl $target $subject)
+    printf '%s\t%s\t%s\t%s\n' $root $target $subject $previous >> $file
+end
+
+# Every value `subject` held under `target`, as `path=value` pairs, or `-`.
+function prior_acl
+    set -l target $argv[1]
+    set -l subject $argv[2]
+    set -l found
+    # The target first, then every directory under it: `--recursive --modify`
+    # writes the entry at each, and the tree is capped so a huge worktree does
+    # not turn a provisioning run into a filesystem walk.
+    for path in $target (find $target -type d 2>/dev/null | head -200 | sort -u)
+        set -l line (getfacl --omit-header --absolute-names $path 2>/dev/null |
+            string match -r "^$subject:[^\t]*")
+        test -n "$line"; or continue
+        contains -- "$path=$line" $found; and continue
+        set -a found "$path=$line"
+    end
+    test (count $found) -gt 0; and string join ';' $found; or echo -
 end
 
 # Is the path a WORKING TREE? `--git-common-dir` cannot answer: on a bare
@@ -348,8 +402,15 @@ function provision
     set -l account (getent passwd $AGENT_USER)
     if test -z "$account"
         record_ownership user created
-        record_ownership group created
-        run_cmd groupadd --system $AGENT_GROUP
+        # The group is INDEPENDENT of the account: a host may carry `sing-dev`
+        # and no `agent`. Recording it as created without asking made rollback
+        # delete a group this script never made.
+        if getent group $AGENT_GROUP >/dev/null
+            record_ownership group adopted
+        else
+            record_ownership group created
+            run_cmd groupadd --system $AGENT_GROUP
+        end
         run_cmd useradd --create-home --user-group --shell /bin/bash $AGENT_USER
         run_cmd chmod 700 $agent_home_dir
     else
@@ -471,9 +532,9 @@ function provision
     # used to verify a grant `provision` never wrote.
     for root in $ROOTS
         for target in $root (git_common_dir $root)
+            record_grant $root $target "group:$AGENT_GROUP"
             run_cmd setfacl --recursive --modify "group:$AGENT_GROUP:rwX" \
                 --modify "default:group:$AGENT_GROUP:rwX" $target
-            record_grant $root $target
         end
     end
  
@@ -756,22 +817,29 @@ function rollback
     end
     run_cmd setfacl --remove-user $AGENT_USER $home
 
+    # Every target the record names, NOT only the roots passed in. Undoing the
+    # grants of wt1 left wt2 writable, and then deleted the group whose gid those
+    # entries named. A target that was not recorded is still cleaned from the
+    # roots given, so a host provisioned before the record existed can be undone.
+    set -l recorded
+    test -e (grants_file); and set recorded (cut -f2 (grants_file) | sort -u)
+    set -l targets
     for root in $ROOTS
-        # A removed worktree must not skip its store. The common git dir lives
-        # under the MAIN checkout and outlives the linked worktree, so it is
-        # resolved when the root is still there and read from the record when it
-        # is not.
-        set -l targets
-        if test -d "$root"
-            set targets $root (git_common_dir $root 2>/dev/null)
+        test -d "$root"; and set -a targets $root (git_common_dir $root 2>/dev/null)
+    end
+    for target in $recorded $targets
+        test -n "$target"; or continue
+        set -l target_state (recorded_state $target)
+        if test -e "$target"
+            if test "$target_state" = '-'
+                # Nothing was there before: the entry is ours to remove.
+                run_cmd setfacl --recursive -x "g:$AGENT_GROUP" -x "d:g:$AGENT_GROUP" $target
+            else
+                # Something was there: put it back instead of deleting it.
+                restore_acl $target "$target_state"
+            end
         else
-            set targets (recorded_targets $root)
-            test (count $targets) -gt 0
-            or echo "note: $root is gone and was not recorded — its store is not cleaned" >&2
-        end
-        for target in $targets
-            test -d $target; or continue
-            run_cmd setfacl --recursive -x "g:$AGENT_GROUP" -x "d:g:$AGENT_GROUP" $target
+            echo "note: recorded target $target no longer exists" >&2
         end
     end
  

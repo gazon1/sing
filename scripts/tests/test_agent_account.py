@@ -500,7 +500,11 @@ class RoundFiveRegressionTest(PlanTest):
         provision = body.split('function provision', 1)[1]
         self.assertIn('record_grant $root $target', provision)
         rollback = body.split('function rollback', 1)[1]
-        self.assertIn('recorded_targets', rollback)
+        # Every recorded target is walked, not only the roots passed in: undoing
+        # wt1 left wt2 writable, and the group whose gid those entries named was
+        # deleted right afterwards.
+        self.assertIn('set recorded (cut -f2 (grants_file) | sort -u)', rollback)
+        self.assertIn('for target in $recorded $targets', rollback)
 
     def test_check_reads_the_effective_permission_not_the_raw_entry(self):
         """A named entry under a restrictive mask is read-only, not writable."""
@@ -534,6 +538,27 @@ class RoundSixRegressionTest(PlanTest):
         rollback = body.split('function rollback', 1)[1]
         self.assertIn('NOPASSWD: /usr/bin/env', rollback, 'rollback must know what it wrote')
         self.assertIn('kept $sudoers', rollback)
+
+
+class RoundSevenRegressionTest(PlanTest):
+    """The seventh round: rollback undid more than apply wrote, and less."""
+
+    def test_a_pre_existing_acl_is_restored_not_deleted(self):
+        """`--modify` overwrites an entry that existed; `-x` deleted it."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        self.assertIn('prior_acl $target $subject', body)
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('restore_acl', rollback)
+        # Deletion is reserved for the case where nothing was there before.
+        self.assertIn("test \"$target_state\" = '-'", rollback)
+
+    def test_the_group_owner_is_checked_independently_of_the_account(self):
+        """A host may carry `sing-dev` and no `agent`."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        branch = provision.split('if test -z "$account"', 1)[1].split('else', 1)[0]
+        self.assertIn('getent group $AGENT_GROUP', branch)
+        self.assertIn('record_ownership group adopted', branch)
 
 
 class RunTest(AgentAccountTest):

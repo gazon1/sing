@@ -251,10 +251,14 @@ write); `rollback` deletes an owned one and keeps an adopted one, saying so. The
 re-checked against its exact content before deletion, because an administrator may have added a
 rule to it after `apply` ran.
 
-Grants are recorded too (one line per target, in `/var/lib/agent-account/grants`), because a
-linked worktree's object store lives outside it: once the worktree is removed the store's path
-cannot be re-derived, and a rollback that skipped it would leave a recursive group ACL on the
-main checkout pointing at a GID that may later be reused.
+Grants are recorded too (one line per target and subject, in `/var/lib/agent-account/grants`,
+with the entries that were **already** there), for two reasons. A linked worktree's object store
+lives outside it, so once the worktree is removed the store's path cannot be re-derived. And
+`setfacl --modify` overwrites a named entry that already existed: a host that granted `sing-dev`
+on a worktree before `apply` ran must get that grant **back** on rollback, not lose it. Rollback
+walks every recorded target — not only the roots passed in, since undoing one worktree used to
+leave another writable — and restores the recorded value where there was one, removing the entry
+only where there was none.
 
 `check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
 named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported
