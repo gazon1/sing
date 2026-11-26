@@ -577,20 +577,35 @@ class RoundEightRegressionTest(PlanTest):
         self.assertIn('--recursive', record, 'the write is recursive, so the snapshot must be')
         code = '\n'.join(line for line in body.splitlines() if not line.lstrip().startswith('#'))
         self.assertNotIn('head -200', code, 'a capped walk is not a snapshot')
-        # Taken before, or it records the state `apply` itself wrote.
+        # TWO PASSES: every snapshot precedes every write. A nested repository
+        # lies inside the outer tree's dump, so an interleaved loop snapshots it
+        # after the outer grant already wrote there — recording `sing-dev:rwX`
+        # as the "previous" state that rollback then restores.
         provision = body.split('function provision', 1)[1]
-        for target, write in (
-            ('record_acl $dev_home_dir node', 'setfacl --modify "user:$AGENT_USER:--x"'),
-            ('record_acl $target tree', 'setfacl --recursive --modify "group:$AGENT_GROUP:rwX"'),
-        ):
-            self.assertLess(provision.index(target), provision.index(write), f'{target} must precede {write}')
+        first_write = min(
+            provision.index(marker) for marker in (
+                'run_cmd setfacl --modify "user:$AGENT_USER:--x"',
+                'run_cmd setfacl --recursive --modify "user:$AGENT_USER:rX"',
+                'run_cmd setfacl --recursive --modify "group:$AGENT_GROUP:rwX"',
+            )
+        )
+        last_snapshot = max(
+            provision.index(marker) for marker in ('record_acl $writable node', 'record_acl $target tree')
+        )
+        self.assertLess(
+            last_snapshot, first_write,
+            'every target must be snapshotted before the first write, or a nested one records our own grant',
+        )
 
     def test_the_home_and_the_toolchain_are_snapshotted_too(self):
         """The home is granted non-recursively and the toolchain recursively."""
         body = SCRIPT.read_text(encoding='utf-8')
         provision = body.split('function provision', 1)[1]
-        self.assertIn('record_acl $dev_home_dir node', provision, 'the traverse grant needs a snapshot')
-        self.assertIn('record_acl $dev_home_dir/$rel tree', provision, 'the SDK and mise grants are recursive')
+        self.assertIn('record_acl $writable node', provision, 'the traverse grant needs a snapshot')
+        self.assertIn('record_acl $target tree', provision, 'the SDK, mise and the worktrees are recursive')
+        # The toolchain reaches `granted` through the same loop as the worktrees.
+        self.assertIn('set -a granted $dev_home_dir/$rel', provision)
+        self.assertIn('set -a granted $target', provision)
 
     def test_a_snapshot_is_the_tools_own_dump(self):
         """The inverse must be `setfacl --restore`, or every delimiter is a guess."""
@@ -813,6 +828,65 @@ end
         dumps = list((self.tmp / 'acl').iterdir())
         self.assertEqual(1, len(dumps), dumps)
         self.assertNotIn(';', dumps[0].name, 'the file name must not carry the raw delimiters')
+
+
+class RoundNineRegressionTest(PlanTest):
+    """The ninth round: rollback fidelity and the two ways to escape the boundary.
+
+    Role A found no BLOCKING defect and six real ones. Each test here fails when
+    its fix is reverted — checked by reverting, not assumed.
+    """
+
+    def test_an_adopted_home_inside_the_developers_home_is_refused(self):
+        """A stale passwd record made `apply` chmod and populate the developer's home."""
+        getent = self.stubs / 'getent'
+        getent.write_text(
+            '#!/usr/bin/env bash\n'
+            "case \"$1 ${2:-}\" in\n"
+            f"  'passwd devel') echo 'devel:x:1000:1000:Devel:{self.home}:/bin/bash' ;;\n"
+            f"  'passwd agent') echo 'agent:x:{AGENT_UID}:{AGENT_UID}::'\"{self.home}\"'/inside:/bin/bash' ;;\n"
+            "  'group sing-dev') echo 'sing-dev:x:2001:devel,agent' ;;\n"
+            "  'group wheel') echo 'wheel:x:10:devel' ;;\n"
+            "  'group docker') echo 'docker:x:969:devel' ;;\n"
+            "  'group kvm') echo 'kvm:x:36:devel' ;;\n"
+            '  *) exit 2 ;;\n'
+            'esac\n',
+            encoding='utf-8',
+        )
+        plan = self._plan(str(self._worktree()))
+        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
+        self.assertIn('inside the developer', plan.stderr)
+        self.assertNotIn('setfacl', plan.stdout, 'nothing may be granted before the home is refused')
+
+    def test_the_root_as_an_agent_home_is_refused(self):
+        """`chmod 700 /` on an adopted account whose home is the root."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        guard = body.split('function require_own_home', 1)[1].split('\nend', 1)[0]
+        self.assertIn('"$resolved" = /', guard)
+        # Quoted: an unquoted `/*` is expanded before `string match` sees it.
+        self.assertIn("string match -q -- '/*'", guard)
+
+    def test_an_adopted_accounts_sudo_rule_stops_the_run(self):
+        """Group reconciliation does not touch a sudoers rule, and that is the escalation."""
+        provision = SCRIPT.read_text(encoding='utf-8').split('function provision', 1)[1]
+        self.assertIn('--list --other-user=$AGENT_USER', provision)
+        self.assertIn('holds a sudo rule', provision)
+        # Reported, never silently "fixed": removing somebody else's rule is not this script's call.
+        self.assertNotIn('visudo --remove', provision)
+
+    def test_a_created_group_is_rolled_back_even_without_the_account(self):
+        """A failed `apply` created the group, then could not create the account."""
+        rollback = SCRIPT.read_text(encoding='utf-8').split('function rollback', 1)[1]
+        guard = rollback.split('set -l home', 1)[0]
+        self.assertIn('has_record', guard, 'the record, not the passwd database, decides what is undone')
+        self.assertIn('owned_by_script group', guard)
+
+    def test_every_target_is_snapshotted_before_any_write(self):
+        """A nested repository lies inside the outer tree's dump."""
+        provision = SCRIPT.read_text(encoding='utf-8').split('function provision', 1)[1]
+        self.assertIn('# Pass 1: record', provision)
+        self.assertIn('# Pass 2: write', provision)
+        self.assertLess(provision.index('# Pass 1: record'), provision.index('# Pass 2: write'))
 
 
 class RunTest(AgentAccountTest):

@@ -160,6 +160,31 @@ function agent_home
     test -n "$home"; or set home /home/$AGENT_USER
     printf '%s' $home
 end
+
+# The agent's home has to be its OWN. An adopted `agent` whose passwd entry
+# points at `/home/devel`, `/`, or the developer's home makes `apply` chmod 700
+# and install `.gradle`/`.android`/`.cache` INSIDE the developer's home — the
+# exact separation this script exists to create, undone by one stale record.
+# Nothing asked this question, and the grants it writes then land in a home the
+# agent could already write.
+function require_own_home --argument-names home
+    test -n "$home"; or die "$AGENT_USER has no home directory in the passwd database"
+    # The glob has to be QUOTED: `string match -q -- /* $home` matches nothing,
+    # because an unquoted `/*` is expanded by the shell before the test sees it.
+    string match -q -- '/*' "$home"; or die "$AGENT_USER's home is not absolute: $home"
+    set -l resolved (readlink -f -- $home 2>/dev/null)
+    test -n "$resolved"; or set resolved (string replace -r '/*$' '' -- $home)
+    if test "$resolved" = /
+        die "$AGENT_USER's home is / — apply would write the agent's state into the root"
+    end
+    set -l dev_home (readlink -f -- $DEV_HOME 2>/dev/null)
+    test -n "$dev_home"; or set dev_home $DEV_HOME
+    for forbidden in $DEV_HOME $dev_home
+        if test "$resolved" = "$forbidden"; or string match -q -- "$forbidden/*" "$resolved"
+            die "$AGENT_USER's home is inside the developer's home ($resolved) — it is the same identity's files"
+        end
+    end
+end
  
 function agent_uid
     getent passwd $AGENT_USER | cut -d: -f3
@@ -298,6 +323,12 @@ function record_acl --argument-names target kind
     # The FIRST snapshot is the one taken before `apply` ever ran. A second
     # `apply` would otherwise record the state `apply` itself wrote, and the
     # rollback would faithfully restore that instead of the host's own setup.
+    #
+    # `apply` therefore snapshots EVERY target before writing ANY of them: a
+    # repository nested in another authorized root is inside the outer tree's
+    # recursive dump, and an inner snapshot taken after the outer grant had
+    # already written to it would record `sing-dev:rwX` as the previous state
+    # and reintroduce the grant on rollback.
     if not test -e $file
         getfacl $flags $target > $file
         or die "could not snapshot the ACL of $target"
@@ -435,6 +466,10 @@ function provision
     # `run` asked the passwd database — an account with any other home got its
     # .gradle created in one directory and its environment built from another.
     set -l agent_home_dir (agent_home)
+    # Asked before the first write: `apply` chmods this path and installs the
+    # agent's private state in it, so a home that is the developer's would be a
+    # separation undone by one stale passwd record.
+    require_own_home $agent_home_dir
  
     echo "=== agent account: $AGENT_USER (group $AGENT_GROUP) for $dev ==="
  
@@ -486,6 +521,32 @@ function provision
             in_group $group $AGENT_USER; or continue
             record_removed_group $group
             remove_group $group
+        end
+
+        # And a pre-existing account may hold a sudo rule, which no group
+        # reconciliation touches: that is the escalation this whole change
+        # forbids, and it survives `apply` unless it is refused here. `check`
+        # reports it, but reporting is not provisioning.
+        #
+        # This script does not edit sudoers to remove somebody else's rule, and
+        # it cannot read another user's rules without root — so the human is
+        # told to fix it, and the run stops rather than declaring a boundary
+        # that does not hold. An unreadable answer is NOT proof of a clean one.
+        set -l agent_sudo (sudo --non-interactive --list --other-user=$AGENT_USER 2>/dev/null)
+        set -l sudo_known 0
+        test $status -eq 0; and set sudo_known 1
+        if test $sudo_known -eq 1
+            set -l rules (printf '%s\n' $agent_sudo |
+                sed -n '/may run the following commands/,$p' |
+                string match -rv -- '^\s*$' |
+                string match -rv -- '^User ' |
+                string match -rv -- '^\s*may run')
+            if test (count $rules) -gt 0
+                die "$AGENT_USER holds a sudo rule; it can leave its account: "(string join '; ' $rules)
+            end
+        else
+            echo "note: $AGENT_USER's sudo rights are unverified here (needs root to read);" >&2
+            echo "      run '$SELF_NAME check' after provisioning" >&2
         end
     end
  
@@ -554,13 +615,34 @@ function provision
         or die "$sudoers does not parse"
     end
  
-    # Traverse the developer home: path access, never a listing.
-    #
-    # Snapshotted before the write, not after: `rollback` puts this ACL back, and
-    # a snapshot taken afterwards would record the entry `apply` itself wrote.
-    record_acl $dev_home_dir node
-    run_cmd setfacl --modify "user:$AGENT_USER:--x" $dev_home_dir
- 
+    # Snapshot EVERY target before writing to ANY of them. Two passes, not one
+    # interleaved loop: a repository nested inside another authorized root lies
+    # within the outer tree's recursive dump, so a snapshot taken after the
+    # outer grant had already written there records `sing-dev:rwX` as the
+    # "previous" state — and rollback then reintroduces the grant it was
+    # supposed to undo. Measured on `git init` inside a worktree: the outer dump
+    # names 27 paths under the inner `.git`.
+    set -l writable $dev_home_dir
+    set -l granted
+    for rel in $SDK_DIR_REL $TOOLCHAIN_RELS
+        test -d $dev_home_dir/$rel; and set -a granted $dev_home_dir/$rel
+    end
+    for root in $ROOTS
+        for target in $root (git_common_dir $root)
+            set -a granted $target
+        end
+    end
+
+    # Pass 1: record. Nothing is written to the host here.
+    record_acl $writable node
+    for target in $granted
+        record_acl $target tree
+    end
+
+    # Pass 2: write. The plan a reader approves is still one code path — the
+    # snapshot above prints its own command under --dry-run.
+    run_cmd setfacl --modify "user:$AGENT_USER:--x" $writable
+
     # Read the SDK and the toolchain. `--recursive` covers today's files; the
     # default entry covers the files sdkmanager and mise write tomorrow.
     #
@@ -571,11 +653,10 @@ function provision
             echo "skipped (not on this host): $dev_home_dir/$rel"
             continue
         end
-        record_acl $dev_home_dir/$rel tree
         run_cmd setfacl --recursive --modify "user:$AGENT_USER:rX" \
             --modify "default:user:$AGENT_USER:rX" $dev_home_dir/$rel
     end
- 
+
     # The authorized worktrees: today's files, and whatever git writes next —
     # which is why the default entry is here and `setgid` would not do.
     #
@@ -586,7 +667,6 @@ function provision
     # used to verify a grant `provision` never wrote.
     for root in $ROOTS
         for target in $root (git_common_dir $root)
-            record_acl $target tree
             run_cmd setfacl --recursive --modify "group:$AGENT_GROUP:rwX" \
                 --modify "default:group:$AGENT_GROUP:rwX" $target
         end
@@ -851,9 +931,22 @@ end
  
 function rollback
     set -l existing (getent passwd $AGENT_USER)
+    # The ACCOUNT may be gone while this script's own writes are not: a failed
+    # `apply` that created the group and then could not create the account left
+    # both behind, and an early return here made them permanent. The grants sit
+    # on the developer's paths and outlive the account by design, so the record
+    # decides what is rolled back — not the passwd database.
+    set -l has_record 0
+    test -e (targets_file); and set has_record 1
+    if test -z "$existing"; and test $has_record -eq 0
+        # Nothing this script did to undo, unless a group it created is there.
+        if not owned_by_script group
+            echo "nothing to roll back: no $AGENT_USER"
+            return 0
+        end
+    end
     if test -z "$existing"
-        echo "nothing to roll back: no $AGENT_USER"
-        return 0
+        echo "the $AGENT_USER account is already gone; undoing this script's remaining writes" >&2
     end
  
     set -l home $DEV_HOME

@@ -266,6 +266,12 @@ worktree **and** its common git dir. The list lives in `/var/lib/agent-account/t
 rollback walks every one of them and not only the roots it is passed — undoing one worktree used
 to leave another writable.
 
+`apply` snapshots **every** target before writing to **any** of them. A repository nested inside
+another authorized root is inside the outer tree's recursive dump (measured: a `git init` inside a
+worktree puts 27 paths of the inner `.git` into the outer dump), so an interleaved loop would
+snapshot the inner target after the outer grant had already written there — recording
+`sing-dev:rwX` as the previous state, which rollback would then faithfully reintroduce.
+
 It then removes the sudoers rule, the account and the group — **only if this script created
 them**. `apply` deliberately adopts a pre-existing `agent`, `sing-dev` or sudoers file, so it
 records which of the three it created (`/var/lib/agent-account/state`, written before the first
@@ -280,6 +286,24 @@ from a group they chose, and one that left the privileged groups gone would eras
 they were there. Both are recorded before the change (`member\t<user>\t<group>` and
 `removed-group\t<group>` in the state file), and rollback keeps a membership it did not add and
 returns a group `apply` took away.
+
+Rollback does not depend on the account existing. A failed `apply` that created the group and then
+could not create the account left both behind, and an early "no `agent`, nothing to do" made them
+permanent. The record decides what is undone; the passwd database only says whether the account
+itself is still there to delete.
+
+**Two things make `apply` refuse before it writes**, because each one makes the boundary a lie
+that the rest of the run would then report as holding:
+
+- an adopted `agent` whose home is `/`, or inside the developer's home. `apply` chmods that path
+  and installs the agent's `.gradle`/`.android`/`.cache` into it, so a stale passwd record would
+  put the agent's private state *inside* the files it must not share — the separation undone by
+  one line of `/etc/passwd`;
+- an adopted `agent` that already holds a **sudo rule**. Reconciling groups does not touch
+  sudoers, and a rule is exactly the escalation this change forbids. This script does not edit
+  somebody else's sudoers line — it refuses and names the rule, so a human decides. A run that
+  cannot read the rules (no root) says so and tells the reader to run `check` afterwards, because
+  an unverified claim is not a clean one.
 
 `check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
 named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported
