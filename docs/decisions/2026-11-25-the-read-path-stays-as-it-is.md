@@ -90,10 +90,23 @@ calls. A reader connection cannot be held across a nested writer registration
 — Room refuses to upgrade a reader connection to a writer one
 (`Cannot upgrade connection from reader to writer`) — so the statement form
 takes its connection for the duration of its own measurement only, and the
-price of taking a connection is therefore **inside** `statement`: the clean
-price of the query is `statement` minus the price of the connection. The
-connection is measured on its own, without a query, and is not carried into
-the tables: it is paid identically by all the forms and does not enter the
+price of taking a connection is therefore **inside** `statement`.
+
+**The statement form is timed twice in the same call:** the whole call, and the
+**SQL work** inside the connection — the preparation, the binding, the execution
+and the mapping. What is left of the whole call is what the call paid before
+the statement was prepared: the hop to the database's dispatcher, taking a
+connection from the pool and handing it back. The two are paired **by slot**, so
+the connection's share is the difference of the samples of one slot and not the
+difference of two separately measured percentiles — the difference of two
+percentiles is not the percentile of the difference, and a report that claimed
+the price of the SQL from such a difference would claim something the
+measurement does not establish. Both numbers are published: the SQL work next to
+the statement, the connection's share next to it. The connection does not enter
+the differences of the parts: it is paid identically by every form.
+
+The connection is also measured on its own, without a query, and is not carried
+into the tables: it is paid identically by all the forms and does not enter the
 differences.
 
 Every form that runs the query materialises its rows into a list and keeps it,
@@ -143,7 +156,11 @@ The arithmetic of the measurement is checked separately, without a clock, by
 `ReadOverheadMeasurementTest`: the nearest-rank percentile, the identity
 "overhead = call path + Flow plumbing + invalidation" in every slot, the refusal
 to pair forms whose samples do not have the same count, and the evenness of the
-shifted order. The numbers are published as ranges over six runs, so the
+shifted order. The forms themselves and the observer's reaction are checked on a
+**real Room database** by `ReadOverheadFormsIntegrationTest`: all four forms
+answer the same rows, and the write that invalidates the read really does
+trigger a re-read — with a bounded wait, so a missing re-read fails the test.
+The numbers are published as ranges over six runs, so the
 run-to-run spread is visible rather than smoothed away, and every run prints the
 JVM, the core count and the load average of the machine it ran on: a latency
 without the state of the machine is not a measurement.
@@ -155,27 +172,34 @@ without the state of the machine is not a measurement.
 The measurement says the remaining price of a read is Room's own machinery, and
 that it is a per-call constant rather than a function of the database:
 
-- the statement — connection included — costs **0.04–0.17 ms**;
-- the call path costs **0.00–0.07 ms**;
-- the Flow plumbing costs **0.03–0.13 ms**;
-- the invalidation costs **0.09–0.30 ms** — the largest of the three parts, and
+- the statement — connection included — costs **0.06–0.17 ms**;
+- the call path costs **0.00–0.05 ms**;
+- the Flow plumbing costs **0.03–0.10 ms**;
+- the invalidation costs **0.10–0.26 ms** — the largest of the three parts, and
   priced in place, as a share of the Flow price rather than a lower bound;
-- the observer measured on its own costs **0.07–0.75 ms**; it is published next
+- the observer measured on its own costs **0.06–0.68 ms**; it is published next
   to the parts and not subtracted from them;
-- the whole overhead of a read costs **0.16–0.63 ms**;
-- taking a connection from the pool costs **0.06–0.31 ms** (p50), and it is
+- the whole overhead of a read costs **0.16–0.56 ms**;
+- the SQL work inside the connection — the preparation, the binding, the
+  execution and the mapping — costs **0.02–0.08 ms**, and it is measured, not
+  derived: it is taken inside the connection in the same slot as the whole call;
+- the connection's share of the slot — the hop to the dispatcher, taking the
+  connection from the pool and handing it back — costs **0.03–0.09 ms**, and it
+  is the difference of the samples of one slot, not the difference of two
+  separately measured percentiles;
+- taking a connection from the pool costs **0.05–0.26 ms** (p50), and it is
   inside `statement`;
 - on a change, the observer's latency — the wait from the end of the write to
-  the re-read it triggers — is **0.02–0.56 ms**.
+  the re-read it triggers — is **0.02–0.83 ms**.
 
 A 10k-task profile and a 100k-task profile produce the same numbers, so
 nothing in the remaining price grows with the profile. The task detail screen
 reads four Flows (`watchByIdForUser`, `blockingDependencyIdsForUser`,
 `followUpDependencyIdsForUser`, `getTagIdsForUser` — `TaskRepositoryImpl.observe(id)`);
-the three of them measured here cost **0.92–1.59 ms** per emission together,
+the three of them measured here cost **0.86–1.70 ms** per emission together,
 inside a 16 ms frame.
 
-The runs were taken on a busy machine (load average 34–45 on 16 cores), so the
+The runs were taken on a busy machine (load average 41–48 on 16 cores), so the
 absolute numbers are larger than in the earlier round of this same issue; the
 form of the measurement and the harness itself are unchanged, and every run
 prints its load average. The published ranges are over six independent runs of
@@ -188,19 +212,23 @@ the claim. It lives in
 `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadPerformanceHarness.kt`
 (orchestration and report) and
 `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadForms.kt`
-(the read forms and the write), and is run through `:shared:readOverheadPerf`.
+(the read forms and the write). It runs through the harness of the SQL
+comparison (#3174) as its second experiment —
+`:shared:dependencyQueryPerf -Pperf.experiment=read-overhead` — so that the
+measurement does not add a second benchmark framework to the repository: one
+program, one dataset pipeline, one set of arguments.
 
 ## Rationale
 
 The verdict follows from the numbers rather than from an argument about
 complexity. Two facts do the work.
 
-First, the price is not in the query any more: the statement is 0.04–0.17 ms
-including the connection, and the query itself is 0.02–0.07 ms of that. There
+First, the price is not in the query any more: the statement is 0.06–0.17 ms
+including the connection, and the SQL work is 0.02–0.08 ms of that. There
 is nothing left for a rewrite of the SQL to remove.
 
 Second, the price does not grow with the database: the same reads on 10 000
-tasks and on 100 000 tasks cost the same 0.16–0.63 ms. A change to the read
+tasks and on 100 000 tasks cost the same 0.16–0.56 ms. A change to the read
 path would therefore have to buy a constant, not a curve — and the constant is
 already small enough to sit inside a frame.
 
@@ -214,7 +242,7 @@ What a change would cost is concrete too. Replacing Room's Flow machinery means
 taking on the invalidation contract — which tables invalidate which read, and
 when — and the risk of getting it wrong is a screen that stops updating or
 updates on the wrong write. The issue forbids touching that contract, and a
-measurement that prices a constant at 0.16–0.63 ms does not justify taking it
+measurement that prices a constant at 0.16–0.56 ms does not justify taking it
 on.
 
 The alternative — proposing a change with its own evidence — was not chosen
@@ -229,9 +257,9 @@ like #3194 for the checklist reads.
 - The read path is unchanged: no DAO signature, no SQL, no invalidation
   contract, no write path. The measurement is the whole deliverable.
 - The number "0.3–2.1 ms per read" in the performance report was an estimate
-  and is now a measurement: 0.16–0.63 ms per read, split into the call path
-  (0.00–0.07 ms), the Flow plumbing (0.03–0.13 ms) and the invalidation
-  (0.09–0.30 ms), with the observer measured on its own (0.07–0.75 ms)
+  and is now a measurement: 0.16–0.56 ms per read, split into the call path
+  (0.00–0.05 ms), the Flow plumbing (0.03–0.10 ms) and the invalidation
+  (0.10–0.26 ms), with the observer measured on its own (0.06–0.68 ms)
   published next to the parts rather than subtracted from them.
 - The observer's share inside a real Flow read is a **measured share**, not a
   lower bound: it is the difference between the DAO's Flow and the same Flow
@@ -258,7 +286,8 @@ like #3194 for the checklist reads.
 - Harness: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadPerformanceHarness.kt`
 - Read forms and write: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadForms.kt`
 - Arithmetic of the measurement: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadMeasurementTest.kt`
-- Gradle task: `:shared:readOverheadPerf` in `shared/build.gradle.kts`
+- Forms and observer on a real database: `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/performance/ReadOverheadFormsIntegrationTest.kt`
+- Gradle task: `:shared:dependencyQueryPerf -Pperf.experiment=read-overhead` in `shared/build.gradle.kts`
 - Issue: https://github.com/gazon1/sing/issues/3196
 - Previous measurements: https://github.com/gazon1/sing/issues/3195, https://github.com/gazon1/sing/issues/3176, https://github.com/gazon1/sing/issues/3157
 - Dataset generator: https://github.com/gazon1/sing/issues/3090
