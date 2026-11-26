@@ -158,12 +158,40 @@ The arithmetic of the measurement is checked separately, without a clock, by
 to pair forms whose samples do not have the same count, and the evenness of the
 shifted order. The forms themselves and the observer's reaction are checked on a
 **real Room database** by `ReadOverheadFormsIntegrationTest`: all four forms
-answer the same rows, and the write that invalidates the read really does
-trigger a re-read — with a bounded wait, so a missing re-read fails the test.
+answer the same rows, the write that invalidates the read really does trigger a
+re-read — with a bounded wait, so a missing re-read fails the test — and a read
+scoped to its owner does not answer a task owned by another user.
+
+That last assertion is about the **scope**, not about the rows, and the fixture
+exists for it. The harness compares the forms with each other, so a copy of the
+DAO's SQL that had drifted would be noticed only if the database held a case
+where the copy and the DAO answer differently — and a database that holds only
+the owner's rows holds no such case: a copy that lost the `user_id` predicate
+would answer the same rows as the DAO. So the fixture carries a second user with
+a task, an edge and a tag of their own, and asking for that task **as the owner**
+must answer nothing. The claim was checked by mutation: removing the `t.user_id`
+predicate from the copy (keeping the number of parameters, so the failure is the
+scope and not a binding error) fails that test by name and leaves the other two
+green.
+
 The numbers are published as ranges over six runs, so the
 run-to-run spread is visible rather than smoothed away, and every run prints the
 JVM, the core count and the load average of the machine it ran on: a latency
 without the state of the machine is not a measurement.
+
+**The checks are tests, and they were run.** A compilation is not an execution:
+the pull request's body carries the actual result of
+`./gw :shared:jvmTest --tests "*ReadOverhead*" -Ptest.tags=all` — 9 tests in
+`ReadOverheadMeasurementTest` and 3 in `ReadOverheadFormsIntegrationTest`, no
+failures, no errors, none skipped. The integration test carries
+`@Tag("slow") @Tag("slow:data")`, as every database test in this repository
+does, and that has a consequence worth stating: the default run excludes `slow`,
+and a pull request runs the `fast` population (`fast=fast` in
+`config/test-populations.properties`), so **this test does not run in the PR's
+own CI selection** — the nightly `full` population (`fast,slow`) is the one that
+runs it. It is therefore started explicitly, with `-Ptest.tags=all`, which drops
+the tag filter altogether; and `:shared` sets `failOnNoDiscoveredTests = true`,
+so a run that discovered nothing would fail rather than report success.
 
 ## Decision
 
@@ -196,7 +224,7 @@ A 10k-task profile and a 100k-task profile produce the same numbers, so
 nothing in the remaining price grows with the profile. The task detail screen
 reads four Flows (`watchByIdForUser`, `blockingDependencyIdsForUser`,
 `followUpDependencyIdsForUser`, `getTagIdsForUser` — `TaskRepositoryImpl.observe(id)`);
-the three of them measured here cost **0.86–1.70 ms** per emission together,
+the three of them measured here cost **0.93–1.56 ms** per emission together,
 inside a 16 ms frame.
 
 The runs were taken on a busy machine (load average 41–48 on 16 cores), so the
@@ -264,6 +292,10 @@ like #3194 for the checklist reads.
 - The observer's share inside a real Flow read is a **measured share**, not a
   lower bound: it is the difference between the DAO's Flow and the same Flow
   with the observer replaced by a single emission, measured on one pool.
+- The scope of the reads is checked, not assumed: the fixture of the integration
+  test holds a second user, and a read that lost its `user_id` predicate fails
+  the test by name. The copy of the DAO's SQL in the harness is verified against
+  the DAO on a database that makes the difference visible.
 - The remaining per-read cost is documented as **not** growing with the profile.
   A future reader who sees a slow screen does not have to re-measure this to
   know that the read path is not where the time goes.
