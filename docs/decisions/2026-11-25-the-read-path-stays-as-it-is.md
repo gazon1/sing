@@ -211,6 +211,15 @@ foreign edge and tag fails the same test by name with «the foreign task carries
 no row of `task_dependencies` — the scope of the read is not proved by an empty
 answer».
 
+The verb predicate is protected the same way: the owner's task carries two
+edges — one with `BLOCKS`, one with `FOLLOWS_UP`. A copy of the SQL that lost
+the `d.verb = ?` predicate would answer both edges where the DAO's Flow answers
+one, and on a fixture that holds nothing but the blocking verb the two would
+agree and the drift would pass unnoticed. Replacing the predicate with a
+condition that is always true (the number of parameters kept, so the failure is
+the sense and not a binding error) fails `the four forms of a read answer the
+same rows` by name.
+
 The numbers are published as ranges over six runs, so the
 run-to-run spread is visible rather than smoothed away, and every run prints the
 JVM, the core count and the load average of the machine it ran on: a latency

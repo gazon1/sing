@@ -305,6 +305,16 @@ class ReadOverheadFormsIntegrationTest {
         dao.upsertDependencyForUser(TASK_ID, BLOCKED_BY, BLOCKING_VERB, OWNER.value)
         dao.upsertTagCrossRefForUser(TASK_ID, TAG_ID, OWNER.value)
 
+        // A second edge of another verb on the same task. The blocking read
+        // asks for one verb, so the answer must not carry this one — and the
+        // comparison of the forms notices that only when the fixture holds a
+        // competing verb: a copy of the SQL that lost the `verb` predicate
+        // would answer both edges while the DAO's Flow answers one, and on a
+        // fixture that holds nothing but the blocking verb the two would
+        // agree and the drift would pass unnoticed.
+        dao.upsert(task(FOLLOWS_UP_BY, now, OWNER))
+        dao.upsertDependencyForUser(TASK_ID, FOLLOWS_UP_BY, FOLLOW_UP_VERB, OWNER.value)
+
         dao.upsert(task(FOREIGN_TASK_ID, now, FOREIGN_OWNER))
         dao.upsert(task(FOREIGN_BLOCKED_BY, now, FOREIGN_OWNER))
         dao.upsertDependencyForUser(FOREIGN_TASK_ID, FOREIGN_BLOCKED_BY, BLOCKING_VERB, FOREIGN_OWNER.value)
@@ -342,9 +352,15 @@ class ReadOverheadFormsIntegrationTest {
         /** The verb the blocking read asks for. */
         private const val BLOCKING_VERB = "BLOCKS"
 
+        /** A competing verb: the blocking read must not answer this edge. */
+        private const val FOLLOW_UP_VERB = "FOLLOWS_UP"
+
         private const val TASK_ID = "task-1"
         private const val BLOCKED_BY = "task-2"
         private const val TAG_ID = "tag-1"
+
+        /** The target of the second edge — one of another verb. */
+        private const val FOLLOWS_UP_BY = "task-5"
 
         private const val FOREIGN_TASK_ID = "task-3"
         private const val FOREIGN_BLOCKED_BY = "task-4"

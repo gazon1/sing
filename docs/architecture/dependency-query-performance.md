@@ -1205,7 +1205,9 @@ production-путь: его источник отвечает один раз и
 Имена тестов `ReadOverheadFormsIntegrationTest`:
 
 - `the four forms of a read answer the same rows` — четыре формы отвечают
-  одними строками на задаче владельца;
+  одними строками на задаче владельца; у задачи владельца два ребра — одно с
+  глаголом `BLOCKS`, одно с `FOLLOWS_UP`, — поэтому потеря глагольного
+  предиката в копии SQL была бы видна, а не спряталась в пустой фикстуре;
 - `a read scoped to its owner does not answer a foreign task` — чужой
   пользователь не отвечает (пустой ответ и равенство всех четырёх форм), а то
   же чтение от имени чужого владельца отвечает непустотой — иначе пустой ответ
@@ -1256,6 +1258,16 @@ invalidation source is priced on a control that has one», а остальные
 пользователя, тест `a read scoped to its owner does not answer a foreign task`
 падает с сообщением «the foreign task carries no row of `task_dependencies` —
 the scope of the read is not proved by an empty answer». Мутация откачена.
+
+Тот же приём защищает глагольный предикат: у задачи владельца два ребра — одно
+с `BLOCKS`, одно с `FOLLOWS_UP`. Если в копии SQL предикат `d.verb = ?`
+заменить на условие, всегда истинное (число параметров при этом прежнее,
+чтобы не словить ошибку привязки вместо ошибки смысла), тест `the four forms
+of a read answer the same rows` падает с сообщением «the Flow form of
+`getBlockingEdgeIdsForUser` answers another question ==> expected:
+<Texts(values=[task-2, task-5])> but was: <Texts(values=[task-2])>». На фикстуре
+без конкурирующего глагола такая мутация прошла бы незамеченной. Мутация
+откачена.
 
 ### Как воспроизвести
 
