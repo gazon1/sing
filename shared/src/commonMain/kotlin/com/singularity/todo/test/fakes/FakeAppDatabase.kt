@@ -4639,7 +4639,19 @@ private class FakeChatConversationDao(private val store: MutableStateFlow<Map<St
 private class FakeChatMessageDao(private val store: MutableStateFlow<Map<String, ChatMessageEntity>>) :
     ChatMessageDao {
     override suspend fun insertMessage(entity: ChatMessageEntity) {
-        store.update { it + (entity.id to entity) }
+        store.update { current ->
+            require(!current.containsKey(entity.id)) {
+                "Chat message already exists: ${entity.id}"
+            }
+            val positionCollision =
+                current.values.any {
+                    it.conversationId == entity.conversationId && it.position == entity.position
+                }
+            require(!positionCollision) {
+                "Chat message position already exists: ${entity.conversationId}/${entity.position}"
+            }
+            current + (entity.id to entity)
+        }
     }
 
     override fun observeByConversationForUser(

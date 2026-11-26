@@ -52,7 +52,19 @@ class FakeChatConversationRepository(
 
     override suspend fun insertMessage(message: ChatMessageRecord): Result<Unit> =
         runCatchingCancellable {
-            messages.update { it + (message.id to message) }
+            messages.update { current ->
+                require(!current.containsKey(message.id)) {
+                    "Chat message already exists: ${message.id.value}"
+                }
+                val positionCollision =
+                    current.values.any {
+                        it.conversationId == message.conversationId && it.position == message.position
+                    }
+                require(!positionCollision) {
+                    "Chat message position already exists: ${message.conversationId.value}/${message.position}"
+                }
+                current + (message.id to message)
+            }
         }
 
     override suspend fun updateMessageContent(
