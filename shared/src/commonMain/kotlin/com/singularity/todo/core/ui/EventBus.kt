@@ -17,11 +17,30 @@ import kotlin.concurrent.atomics.incrementAndFetch
  * Channel-backed one-shot event bus.
  *
  * Default buffer capacity is [Channel.BUFFERED] (default 64 elements).
- * Channel guarantees no event loss for a single consumer — this is the correct
- * default for ViewModels where a single collector (typically [NotificationHost])
- * handles all events.
+ * This is the correct default for ViewModels where a single collector (typically
+ * [NotificationHost]) handles all events.
  *
  * For multi-subscriber broadcast scenarios, collect a shared flow directly.
+ *
+ * ## Guarantees
+ *
+ * 1. **One consumer.** The bus is a channel, so it has exactly one consumer: two
+ *    collectors of [flow] *split* the events — each event goes to one of them, never
+ *    to both. A screen that collects the same bus twice races for every event; see
+ *    ADR `2026-10-22-an-event-bus-has-one-consumer`.
+ * 2. **No loss, backpressure instead.** [emit] suspends while the buffer is full
+ *    instead of dropping, so a live consumer loses nothing — the sender waits.
+ * 3. **Try-emit never blocks.** [tryEmit] returns `false` when the buffer is full or
+ *    the bus is closed, and `true` otherwise. It never counts as a discard.
+ * 4. **Close is graceful, not a cut.** After [close] the events already in the buffer
+ *    are still delivered, a send that was already in flight can still complete, and the
+ *    collecting flow then completes. Only a *new* [emit] after the close is discarded.
+ * 5. **Send after close is absorbed.** [emit] on a closed bus discards the event,
+ *    counts it in [droppedAfterClose], and never reports it as a crash — a discard is
+ *    a lifecycle race, not a defect.
+ * 6. **Cancellation is not a discard.** Cancelling a suspended [emit] propagates the
+ *    [kotlinx.coroutines.CancellationException] and is not counted in
+ *    [droppedAfterClose].
  *
  * @param capacity Buffer capacity. Defaults to [Channel.BUFFERED].
  * @param crashReporter Deliberately **never** called for the drop-after-close case
@@ -49,6 +68,12 @@ class EventBus<E : MviEvent>(
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) {
     private val _channel = Channel<E>(capacity)
+
+    /**
+     * The events, as a flow. **One consumer**: collecting it twice splits the events
+     * between the two collectors instead of duplicating them. The flow completes when
+     * the bus is closed and the buffer is drained.
+     */
     val flow: Flow<E> = _channel.receiveAsFlow()
 
     /**
@@ -70,15 +95,19 @@ class EventBus<E : MviEvent>(
     /**
      * Sends [event], or discards it if the bus is closed.
      *
+     * Sends **suspend** while the buffer is full: backpressure, not loss. A live
+     * consumer therefore never misses an event — the sender waits for room.
+     *
      * A closed bus means the owning screen is gone, which is a lifecycle race rather
      * than a defect: work on the ViewModel scope can still be in flight when
      * [close] runs. Throwing here escalated that race to an uncaught exception, and once
      * the background failure handler existed it turned into a non-fatal report per
      * occurrence — noise on a channel that is supposed to mean "something is wrong".
+     * Such a discard is counted in [droppedAfterClose] and never reported.
      *
-     * Sending still suspends when the buffer is full, so the no-loss guarantee for a
-     * live consumer is unchanged. Only the *closed* case is absorbed; a full buffer
-     * still applies backpressure.
+     * Only the *closed* case is absorbed; a full buffer still applies backpressure, and
+     * the caller's own cancellation still propagates (see [tryEmit] for the
+     * non-suspending variant).
      */
     suspend fun emit(event: E) {
         try {
@@ -99,7 +128,22 @@ class EventBus<E : MviEvent>(
         }
     }
 
+    /**
+     * Sends [event] without suspending.
+     *
+     * @return `true` if the event was accepted, `false` if the buffer is full or the
+     *   bus is closed. A refused send is not a discard and is not counted in
+     *   [droppedAfterClose] — only a suspending [emit] on a closed bus is.
+     */
     fun tryEmit(event: E): Boolean = _channel.trySend(event).isSuccess
 
+    /**
+     * Closes the bus.
+     *
+     * The close is graceful: the events already in the buffer are still delivered, a
+     * send that was already in flight can still complete, and the collecting flow
+     * completes afterwards. A later [emit] is discarded the same way as any other
+     * send after the close — counted in [droppedAfterClose], never reported.
+     */
     fun close() = _channel.close()
 }
