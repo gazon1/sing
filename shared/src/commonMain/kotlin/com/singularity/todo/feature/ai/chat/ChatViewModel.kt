@@ -235,6 +235,14 @@ class ChatViewModel(
         showUserMessage: Boolean,
     ) = vmScope.launch {
         restoreJob?.join()
+        // A restoration that could not read the transcript leaves the earlier turns unknown, so
+        // the conversation must not be asked over: appending a question to a conversation whose
+        // context the reader does not hold would silently continue a conversation with less
+        // context than the reader remembers. The reader is told, and the turn is not started.
+        if (transcript?.restoreFailed == true) {
+            emit(ChatUiEvent.Error(TRANSCRIPT_RESTORE_FAILED))
+            return@launch
+        }
         if (!claimTurn()) return@launch
 
         val assistantId = newId()
@@ -544,6 +552,9 @@ class ChatViewModel(
 
         /** What the reader is told when the question could not be recorded. */
         const val TRANSCRIPT_START_FAILED = "The conversation could not be saved. Please try again."
+
+        /** What the reader is told when the conversation could not be read back. */
+        const val TRANSCRIPT_RESTORE_FAILED = "The conversation could not be loaded. Please try again."
     }
 
     private fun newId(): String = idGen.next()

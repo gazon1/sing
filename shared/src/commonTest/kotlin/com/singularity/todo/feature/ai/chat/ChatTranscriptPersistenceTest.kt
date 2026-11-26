@@ -22,6 +22,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -246,6 +247,53 @@ class ChatTranscriptPersistenceTest {
                     .isEmpty(),
                 "a transcript that cannot be reconciled must not be shown",
             )
+        }
+
+    @Test
+    fun `a turn is not started when the transcript could not be restored`() =
+        runTest {
+            // The reader could not read the conversation, so the earlier turns are unknown to it.
+            // The turn must not be asked over: the reader would have continued a conversation it
+            // held only partially — and an empty screen plus a question would have extended a
+            // history the model did not see.
+            val conversation = ChatConversation(ChatConversationId.fromString("c1"), "u1", 1L, 2L)
+            val repo =
+                FakeChatConversationRepository(
+                    initialConversations = listOf(conversation),
+                    initialMessages =
+                        listOf(
+                            ChatMessageRecord(
+                                id = ChatMessageId.fromString("m1"),
+                                conversationId = conversation.id,
+                                userId = "u1",
+                                role = PersistedChatRole.Assistant,
+                                content = "partial",
+                                status = ChatMessageStatus.InProgress,
+                                position = 0,
+                                createdAt = 1L,
+                                updatedAt = 1L,
+                            ),
+                        ),
+                    failReconciliation = true,
+                )
+            val agent = RecordingTextGen(flowOf(AgentEvent.TurnCompleted))
+            val vm = vm(this, repo, agent)
+            advanceUntilIdle()
+
+            val events = mutableListOf<ChatUiEvent>()
+            val job = launch { vm.events.collect { event: ChatUiEvent -> events += event } }
+            vm.onIntent(ChatViewModel.Intent.InputChanged("question"))
+            vm.onIntent(ChatViewModel.Intent.Send)
+            advanceUntilIdle()
+            job.cancel()
+
+            assertTrue(agent.requests.isEmpty(), "Nothing is asked over a conversation that could not be read")
+            assertFalse(vm.stateFlow.value.isLoading)
+            assertTrue(
+                vm.stateFlow.value.messages
+                    .isEmpty(),
+            )
+            assertTrue(events.any { it is ChatUiEvent.Error })
         }
 
     @Test

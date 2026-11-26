@@ -57,14 +57,29 @@ internal class ChatTranscriptWriter(
     private var lastWrittenAt: Long = 0L
 
     /**
+     * Whether the last [restore] could not read the transcript.
+     *
+     * Kept apart from the returned list on purpose: an empty list means "no conversation", and a
+     * failed read must not be read as one, or the next turn would be asked over a conversation
+     * whose earlier turns the reader never held.
+     */
+    internal var restoreFailed: Boolean = false
+
+    /**
      * The newest conversation, reconciled and in order, or an empty list when there is none.
      *
      * Reconciling is part of reading: a row still marked `InProgress` cannot be running,
      * because the process that wrote it is gone. It becomes `Interrupted`, its partial text
      * kept — the alternative is a transcript that claims a request is still in flight.
+     *
+     * An empty list therefore means "no conversation", never "could not read": the failure is
+     * tracked separately ([restoreFailed]) so the caller can tell a profile without a transcript
+     * apart from one it could not read, and refuse to ask the model over a conversation whose
+     * earlier turns it does not hold.
      */
-    suspend fun restore(): List<ChatMessageRecord> =
-        runCatchingCancellable {
+    suspend fun restore(): List<ChatMessageRecord> {
+        restoreFailed = false
+        return runCatchingCancellable {
             val conversation =
                 repository.observeLatestConversation().firstOrNull() ?: return@runCatchingCancellable emptyList()
             val now = clock.now().toEpochMilliseconds()
@@ -79,9 +94,11 @@ internal class ChatTranscriptWriter(
             nextPosition = (records.maxOfOrNull { it.position } ?: -1) + 1
             records
         }.getOrElse { error ->
+            restoreFailed = true
             log.e(error) { "Chat transcript restoration failed" }
             emptyList()
         }
+    }
 
     /**
      * Records the question and the answer's placeholder before generation starts.
