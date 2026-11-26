@@ -21,6 +21,7 @@ import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeFailingDraftStore
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
@@ -242,7 +243,7 @@ class TaskCreateDraftBehaviorTest {
     @Test
     fun `a failed autosave leaves the editor usable`() =
         runTest {
-            val store = FailingDraftStore()
+            val store = FakeFailingDraftStore()
             val vm = createVm(draftStore = store)
             advanceTimeBy(1_000)
             runCurrent()
@@ -261,34 +262,4 @@ class TaskCreateDraftBehaviorTest {
 
             assertEquals(1, fakeTaskRepo.tasks.value.size, "the task is created from the editor's copy")
         }
-}
-
-/**
- * A store whose writes fail.
- *
- * The editor has to survive it: the autosave is a safety net, and a broken
- * store must not take the editor down with it.
- */
-private class FailingDraftStore : DraftStore {
-    /** How many writes were attempted — a failure the editor never saw proves nothing. */
-    var saveAttempts = 0
-        private set
-
-    override suspend fun <T> load(
-        key: String,
-        deserializer: kotlinx.serialization.DeserializationStrategy<T>,
-    ): T? = null
-
-    override suspend fun <T> save(
-        key: String,
-        value: T,
-        serializer: kotlinx.serialization.SerializationStrategy<T>,
-    ) {
-        saveAttempts++
-        throw IllegalStateException("the store is down")
-    }
-
-    override suspend fun clear(key: String) = Unit
-
-    override suspend fun clearPrefix(prefix: String) = Unit
 }
