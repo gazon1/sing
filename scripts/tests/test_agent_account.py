@@ -166,8 +166,19 @@ class AgentAccountTest(unittest.TestCase):
         return self._run('apply', '--dry-run', *args)
 
     def _worktree(self) -> pathlib.Path:
+        """A real git worktree, because provision resolves its common git dir.
+
+        A plain directory would let the plan pass while the thing that matters —
+        the object store a linked worktree writes to — is never resolved. A real
+        `git init` costs milliseconds and exercises the same `git rev-parse`.
+        """
         worktree = self.tmp / 'worktrees' / 'wt'
         worktree.mkdir(parents=True)
+        subprocess.run(
+            ['git', 'init', '--quiet', str(worktree)],
+            capture_output=True,
+            check=True,
+        )
         return worktree
 
 
@@ -203,6 +214,7 @@ class PlanTest(AgentAccountTest):
         """The traverse grant is the one cost, so silence is not consent."""
         inside = self.home / 'work' / 'wt'
         inside.mkdir(parents=True)
+        subprocess.run(['git', 'init', '--quiet', str(inside)], capture_output=True, check=True)
 
         refused = self._plan(str(inside))
         self.assertEqual(2, refused.returncode, refused.stdout + refused.stderr)
@@ -243,6 +255,58 @@ class PlanTest(AgentAccountTest):
         # creating — and it still names the grants it would write.
         self.assertIn(f'usermod --append --groups sing-dev {DEV}', plan.stdout)
         self.assertIn(f'setfacl --modify user:agent:--x {self.home}', plan.stdout)
+
+
+class RegressionTest(PlanTest):
+    """The four defects the first review found, each held by a plan-level test.
+
+    Every one of them was a real bug that the eight tests above did not see,
+    because they checked a verb's output rather than the resource it forgot.
+    """
+
+    def test_the_common_git_dir_is_granted_not_only_the_worktree(self):
+        """A linked worktree keeps its objects in ONE shared store."""
+        worktree = self._worktree()
+        plan = self._plan(str(worktree))
+        self.assertEqual(0, plan.returncode, plan.stdout + plan.stderr)
+
+        common = subprocess.run(
+            ['git', '-C', str(worktree), 'rev-parse', '--git-common-dir'],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        resolved = os.path.realpath(os.path.join(str(worktree), common))
+        self.assertIn(
+            f'group:sing-dev:rwX --modify default:group:sing-dev:rwX {resolved}',
+            plan.stdout,
+            'provision must grant the same store `check` verifies, or the agent '
+            'can read its sources and cannot commit',
+        )
+
+    def test_rollback_removes_only_its_own_acl_entries(self):
+        """`--remove-default` takes every default entry, including a foreign one."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        rollback = body.split('function rollback', 1)[1]
+        self.assertNotIn(
+            '--recursive --remove-default ',
+            rollback,
+            'a bare --remove-default wipes default entries this script never wrote',
+        )
+        # The form that names one subject and leaves the others alone.
+        self.assertIn('-x "d:u:$AGENT_USER"', rollback)
+        self.assertIn('-x "d:g:$AGENT_GROUP"', rollback)
+
+    def test_an_existing_account_is_reconciled_out_of_privileged_groups(self):
+        """`check` reporting it is not `apply` fixing it."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1].split('# The group is the collaboration')[0]
+        self.assertIn('for group in wheel docker kvm', provision)
+        self.assertIn('gpasswd --delete $AGENT_USER $group', provision)
+
+    def test_the_agent_path_reaches_the_toolchain_it_documents(self):
+        """java, node and heavy are mise SHIMS, not ~/.local/bin."""
+        result = self._run('run', '--', 'echo', 'ok')
+        argv = self.sudo_record.read_text(encoding='utf-8')
+        self.assertIn('.local/share/mise/shims', argv, 'the build toolchain is unresolved without this')
 
 
 class RunTest(AgentAccountTest):

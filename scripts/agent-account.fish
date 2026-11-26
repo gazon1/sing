@@ -150,6 +150,16 @@ function agent_uid
     getent passwd $AGENT_USER | cut -d: -f3
 end
  
+# The object store a worktree's git operations write to. One clone with many
+# worktrees shares exactly one of these, and it is NOT under the worktree: a
+# linked worktree only carries a `.git` file pointing here.
+function git_common_dir
+    set -l common (git -C $argv[1] rev-parse --git-common-dir 2>/dev/null)
+    test -n "$common"; or die "$argv[1] is not a git worktree"
+    string match -q -- '/*' "$common"; or set common $argv[1]/$common
+    readlink -f $common
+end
+
 # Absolute, so a verdict names a path a reader can act on from anywhere — and
 # the message names the spelling the caller used, because that is what they can
 # correct.
@@ -223,6 +233,17 @@ function provision
                 die "$AGENT_USER has no shell ($login_shell); an agent cannot run in it"
         end
         getent group $AGENT_GROUP >/dev/null; or run_cmd groupadd --system $AGENT_GROUP
+
+        # A pre-existing account that still holds a privileged group is the
+        # whole boundary defeated — `docker` alone is root-equivalent. `apply`
+        # is what a human re-runs, so it reconciles instead of only reporting.
+        for group in wheel docker kvm
+            in_group $group $AGENT_USER; or continue
+            test $DRY_RUN -eq 1; and echo "gpasswd --delete $AGENT_USER $group"
+            test $DRY_RUN -eq 1; and continue
+            gpasswd --delete $AGENT_USER $group
+            or die "could not remove $AGENT_USER from $group"
+        end
     end
  
     # The group is the collaboration seam: both identities, nobody else.
@@ -262,11 +283,19 @@ function provision
  
     # The authorized worktrees: today's files, and whatever git writes next —
     # which is why the default entry is here and `setgid` would not do.
+    #
+    # The common git dir is granted too, not only the worktree. A linked
+    # worktree keeps its objects and refs in ONE shared store owned by the main
+    # checkout, so a writable worktree over a read-only object store is a
+    # worktree the agent cannot commit in. `check` verifies this path, and it
+    # used to verify a grant `provision` never wrote.
     for root in $ROOTS
         test -d "$root"; or die "not a directory: $root"
         in_home_guard $root
-        run_cmd setfacl --recursive --modify "group:$AGENT_GROUP:rwX" \
-            --modify "default:group:$AGENT_GROUP:rwX" $root
+        for target in $root (git_common_dir $root)
+            run_cmd setfacl --recursive --modify "group:$AGENT_GROUP:rwX" \
+                --modify "default:group:$AGENT_GROUP:rwX" $target
+        end
     end
  
     echo "=== done; verify with: $SELF_NAME check $ROOTS ==="
@@ -452,7 +481,7 @@ function run_as_agent
         SHELL=/bin/bash \
         TERM=$term_value \
         TMPDIR=/tmp \
-        PATH=/usr/local/bin:/usr/bin:/bin:$DEV_HOME/.local/bin \
+        PATH=$DEV_HOME/.local/share/mise/shims:$DEV_HOME/.local/bin:/usr/local/bin:/usr/bin:/bin \
         GRADLE_USER_HOME=$ahome/.gradle \
         ANDROID_HOME=$android_home \
         ANDROID_USER_HOME=$ahome/.android \
@@ -474,17 +503,23 @@ function rollback
  
     # Grants first: they sit on the developer's paths, and removing the account
     # while they are there leaves entries nobody can resolve.
+    # Remove only the entries this script wrote. A plain `--remove-default`
+    # takes EVERY default entry with it — including one another tool put there,
+    # which would silently change the modes of files nobody here wrote.
+    # `-x d:u:NAME` names the default entry; `-m` cannot (measured: "Option -m
+    # incomplete"), and `--remove-default` alone is the all-or-nothing form.
     for rel in $SDK_DIR_REL $TOOLCHAIN_RELS
         test -e $home/$rel; or continue
-        run_cmd setfacl --recursive --remove-default $home/$rel
-        run_cmd setfacl --recursive --remove-user $AGENT_USER $home/$rel
+        run_cmd setfacl --recursive -x "u:$AGENT_USER" -x "d:u:$AGENT_USER" $home/$rel
     end
     run_cmd setfacl --remove-user $AGENT_USER $home
- 
+
     for root in $ROOTS
         test -d "$root"; or continue
-        run_cmd setfacl --recursive --remove-default $root
-        run_cmd setfacl --recursive --remove-group $AGENT_GROUP $root
+        for target in $root (git_common_dir $root)
+            test -d $target; or continue
+            run_cmd setfacl --recursive -x "g:$AGENT_GROUP" -x "d:g:$AGENT_GROUP" $target
+        end
     end
  
     run_cmd rm --force /etc/sudoers.d/50-agent-run

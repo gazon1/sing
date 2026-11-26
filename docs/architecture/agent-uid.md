@@ -89,6 +89,7 @@ produced by the same code path that executes it.
 | `$HOME/.local/share/mise` | `rX` + default `rX`, recursive | `java`, `node`, `heavy`, `ktlint` — the toolchain every build calls |
 | `$HOME/.local/bin` | `rX` + default `rX`, recursive | `mise` itself |
 | each authorized worktree | `group:sing-dev:rwX` + default `rwX`, recursive | The sources, the build outputs, the worktree's `.git` file |
+| the worktree's common git dir | same grant, resolved per worktree | Objects and refs — **one** store shared by every worktree of the clone |
 | the clone's common `.git` | `group:sing-dev:rwX` + default `rwX`, recursive | Objects, refs, the index — a worktree an agent cannot commit in is not a worktree |
 
 **Why a default ACL and not `setgid`.** `setgid` propagates the group to new files; it does
@@ -147,6 +148,10 @@ Two consequences, both real:
   answers with the real binary, which is what both `as_root` and the tests use.
 
 It executes `sudo -n --user=agent -- /usr/bin/env -i HOME=… PATH=… GRADLE_USER_HOME=… "$@"`.
+The `PATH` it sets is `$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin`
+— the shims first, because `java`, `node` and `heavy` are **shims** mise generates there, not
+files in `~/.local/bin`, so a `PATH` without that directory cannot find the toolchain the build
+calls.
 `-i` matters: without it, every token and credential path in the developer's shell rides
 into the agent, which is the opposite of what a dedicated UID is for. `check` asserts that
 the variable it plants in the caller's environment does not arrive.
@@ -216,9 +221,11 @@ is unguarded *and* trusted to write:
 ./scripts/agent-account.fish rollback ~/work/wt1
 ```
 
-It removes the ACL entries (the default entries first — they sit on the developer's paths,
-and an ACL naming a deleted user cannot be reasoned about later), the sudoers rule, the
-account and the group. It does **not** touch the worktrees, their branches or the git data:
+It removes **only the entries this script wrote** — `setfacl -x u:agent` and
+`-x d:u:agent`, which name one subject and leave a foreign default entry alone. A bare
+`--remove-default` would take every default entry with it, and would silently change the
+modes of files nobody here wrote (measured on a throwaway tree: a `docker` default entry
+disappeared with the agent's). It then removes the sudoers rule, the account and the group. It does **not** touch the worktrees, their branches or the git data:
 undoing the boundary must never be a reason to lose work. `/home/agent` goes with
 `userdel --remove`, which means the agent's Gradle home and its AVD home go too — that is
 cache, and the next `apply` rebuilds it.
