@@ -309,7 +309,10 @@ that the rest of the run would then report as holding:
 
 `check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
 named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported
-as such. It does **not** touch the worktrees, their branches or the git data:
+as such. It compares the effective bits against the bits the grant asks for, entry by entry —
+a check that grepped for the word "read" called a mask of `-wx` (read denied) healthy. The entry
+is addressed by its `subject:name:` prefix, because `getfacl` normalizes the bits it prints: a
+requested `rX` comes back as `r-x` or `r--`, so matching the whole entry finds nothing at all. It does **not** touch the worktrees, their branches or the git data:
 undoing the boundary must never be a reason to lose work. `/home/agent` goes with
 `userdel --remove`, which means the agent's Gradle home and its AVD home go too — that is
 cache, and the next `apply` rebuilds it.

@@ -509,8 +509,16 @@ class RoundFiveRegressionTest(PlanTest):
     def test_check_reads_the_effective_permission_not_the_raw_entry(self):
         """A named entry under a restrictive mask is read-only, not writable."""
         body = SCRIPT.read_text(encoding='utf-8')
-        helper = body.split('function check_acl', 1)[1].split('\nend', 1)[0]
-        self.assertIn('#effective:r', helper)
+        helper = body.split('function effective_bits', 1)[1].split('\nend', 1)[0]
+        self.assertIn('#effective:', helper)
+        # The comparison is bit-wise, in BOTH directions. Grepping for the word
+        # `r` called a mask of `-wx` (read denied) healthy, because the check
+        # expected `rX` — and a mask of `r--` on a `rwx` entry also passed,
+        # because it went through a different branch.
+        coverage = body.split('function bits_cover', 1)[1].split('\nend', 1)[0]
+        for bit in ('r', 'w', 'x'):
+            self.assertIn(f"case {bit}", coverage)
+        self.assertIn('case X', coverage)
 
 
 class RoundSixRegressionTest(PlanTest):
@@ -903,6 +911,85 @@ class RoundNineRegressionTest(PlanTest):
         self.assertIn('passwd --unlock', rollback)
         # Only where it was usable before: `L` and `NP` stay as they are.
         self.assertIn('test "$was_password" = P', rollback)
+
+
+class EffectivePermissionTest(AgentAccountTest):
+    """`check_acl` judged the mask by grepping a letter, in one direction only.
+
+    These run the script's own `entry_bits` / `effective_bits` / `bits_cover`
+    against real `getfacl` output on a throwaway directory — the two mask
+    directions are not symmetric and the old check called one of them healthy.
+    """
+
+    def _functions(self) -> str:
+        body = SCRIPT.read_text(encoding='utf-8')
+        parts = []
+        for name in ('entry_bits', 'entry_subject', 'effective_bits', 'bits_cover'):
+            tail = body.split(f'\nfunction {name}', 1)[1]
+            signature, _, _ = tail.partition('\nend')
+            parts.append(f'function {name}{signature}\nend')
+        return '\n'.join(parts)
+
+    def _verdict(self, path: pathlib.Path, entry: str) -> str:
+        """`covers` when the grant survives the mask, `limited` when it does not."""
+        # The dump is joined with a REAL newline, not `string join \\n`: in a
+        # fish word `\\n` is the two characters backslash-n, so the lines never
+        # split and every entry looked absent (measured).
+        script = self._functions() + (
+            f'\nset -l acl_dump (getfacl --absolute-names "{path}" | string join "|")\n'
+            f'set -l effective (effective_bits $acl_dump "{entry}")\n'
+            f'set -l needed (entry_bits "{entry}")\n'
+            f'echo "$effective|$needed"\n'
+            f'bits_cover "$effective" "$needed"; and echo covers; or echo limited\n'
+        )
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        return result.stdout.strip().splitlines()[-1]
+
+    def test_a_mask_that_denies_read_is_reported(self):
+        """`mask::-wx` limits `rX` to no read — and `#effective:-wx` has no `r`."""
+        tree = self.tmp / 'deny-read'
+        tree.mkdir()
+        subprocess.run(['setfacl', '-m', 'u:nobody:rX', '-m', 'm::-wx', str(tree)], check=True)
+        self.assertEqual('limited', self._verdict(tree, 'user:nobody:rX'))
+
+    def test_a_sufficient_mask_is_accepted(self):
+        """The same grant under a mask that keeps read is fine."""
+        tree = self.tmp / 'allow-read'
+        tree.mkdir()
+        subprocess.run(['setfacl', '-m', 'u:nobody:rX', '-m', 'm::r-x', str(tree)], check=True)
+        self.assertEqual('covers', self._verdict(tree, 'user:nobody:rX'))
+
+    def test_an_unlimited_entry_is_accepted(self):
+        """No `#effective:` marker at all means the mask does not constrain it."""
+        tree = self.tmp / 'unlimited'
+        tree.mkdir()
+        subprocess.run(['setfacl', '-m', 'u:nobody:rwx', str(tree)], check=True)
+        self.assertEqual('covers', self._verdict(tree, 'user:nobody:rwx'))
+
+    def test_a_mask_that_denies_write_is_reported(self):
+        """The other direction: `rwx` under `mask::r--` is read-only."""
+        tree = self.tmp / 'deny-write'
+        tree.mkdir()
+        subprocess.run(['setfacl', '-m', 'u:nobody:rwx', '-m', 'm::r--', str(tree)], check=True)
+        self.assertEqual('limited', self._verdict(tree, 'user:nobody:rwx'))
+
+    def test_check_acl_asks_the_bit_wise_question(self):
+        """The helpers are right; `check` must actually use them for both entries."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        check = body.split('\nfunction check_acl', 1)[1].split('\nend', 1)[0]
+        self.assertEqual(
+            2, check.count('bits_cover "$effective" "$needed"'),
+            'both the named entry and the default entry are judged by bits, not by a grep',
+        )
+        self.assertNotIn('#effective:r', check, 'a read-only grep cannot answer this')
+        # And the entry has to be found by SUBJECT: `getfacl` rewrites `rX` to
+        # `r-x`/`r--`, so matching the whole entry finds nothing at all.
+        self.assertIn('(entry_subject $entry)', check)
+        self.assertIn('(entry_subject $default_entry)', check)
 
 
 class RunTest(AgentAccountTest):

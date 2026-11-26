@@ -774,6 +774,84 @@ function in_group --argument-names group member
     contains -- $group $groups
 end
  
+# The permission bits an entry grants, from `group:sing-dev:rwX` -> `rwX`.
+function entry_bits --argument-names entry
+    string replace -r '^(?:default:)?[^:]+:[^:]+:' '' -- $entry
+end
+
+# The `subject:name:` half of an entry — what `getfacl` prints before the bits.
+#
+# It cannot be matched on the WHOLE entry: `getfacl` normalizes the bits it
+# prints, so a requested `rX` comes back as `r-x` or `r-x` — `X` is "execute if
+# a directory", which only `getfacl` can decide, and on a regular file it
+# prints `r--`. Matching `user:nobody:rX` against that found nothing at all, and
+# `check` reported a grant it could not see rather than a grant that is wrong.
+function entry_subject --argument-names entry
+    string replace -r ':([^:]+)$' ':' -- $entry
+end
+
+# The bits `getfacl` says are EFFECTIVE for that entry, or the bits it names
+# when the mask does not limit it (then `getfacl` prints no `#effective:`).
+#
+# The question is "do the bits I need survive the mask", not "does the word
+# read appear": a mask of `-wx` limits a `rX` grant to no read at all and
+# `#effective:-wx` does not start with `r` either — but a mask of `r--` on an
+# entry that needs only `r` is fine, and a check that just looked for `r` in
+# the wrong place called both of them the same.
+# The full `getfacl` dump of one path, as ONE newline-joined string.
+#
+# `--argument-names name` binds a LIST to its FIRST element only (measured: a
+# nine-line dump arrived as one line), so every helper that has to read the
+# dump takes it already joined. `string join \n` is not a newline — in a fish
+# word that is the two characters backslash-n — so the separator is a real one.
+function acl_dump_of --argument-names path
+    getfacl --absolute-names $path 2>/dev/null | string join '|'
+end
+
+function effective_bits --argument-names joined entry
+    test -n "$joined"; or return 1
+    set -l subject (entry_subject $entry)
+    for line in (string split '|' -- $joined)
+        string match -q -- "$subject*" $line; or continue
+        set -l marker (string match -r -- '#effective:[^[:space:]]+' $line)
+        # An entry the mask does not limit carries no marker, and then the bits
+        # it names ARE the effective ones. Written as an `if`, not `test …; or`:
+        # an `or` after an assignment is a fallback for the ASSIGNMENT, not for
+        # the test — measured, the clean-grant path returned nothing.
+        if test -z "$marker"
+            entry_bits $entry
+            return 0
+        end
+        string replace -r '^#effective:' '' -- $marker
+        return 0
+    end
+    return 1
+end
+
+# Does `needed` survive `granted`? An ACL bit grants itself or, where the
+# entry asks for `X`, any of r/w/x — `X` is "execute if a directory, read if a
+# file", and only the directory case can be checked from here.
+function bits_cover --argument-names granted needed
+    set -l has_read (string match -qr 'r' -- $granted; and echo 1; or echo 0)
+    set -l has_write (string match -qr 'w' -- $granted; and echo 1; or echo 0)
+    set -l has_exec (string match -qr 'x' -- $granted; and echo 1; or echo 0)
+    for bit in (string split '' -- $needed)
+        switch $bit
+            case r
+                test $has_read -eq 1; or return 1
+            case w
+                test $has_write -eq 1; or return 1
+            case x
+                test $has_exec -eq 1; or return 1
+            case X
+                test $has_exec -eq 1 -o $has_read -eq 1; or return 1
+            case '*'
+                continue
+        end
+    end
+    return 0
+end
+
 function check_acl
     set -l target $argv[1]
     set -l entry $argv[2]
@@ -790,18 +868,27 @@ function check_acl
     # every named entry, and `getfacl` writes the result as `#effective:`. A
     # `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree, and a check
     # that only grepped the raw line would call it writable.
-    if getfacl --omit-header --absolute-names "$target" 2>/dev/null | grep -qx "$entry"
-        if getfacl --omit-header --absolute-names "$target" 2>/dev/null | grep -q "^$entry.*#effective:r"
-            fail "$target: '$entry' is present but the ACL mask limits it to read — a write would fail"
-        else
+    set -l joined (acl_dump_of $target)
+    if string match -rq -- "(^|\\|)"(string escape --style=regex (entry_subject $entry))"[^|]*" $joined
+        set -l effective (effective_bits $joined $entry)
+        set -l needed (entry_bits $entry)
+        if bits_cover "$effective" "$needed"
             pass "$target: $entry"
+        else
+            fail "$target: '$entry' is present but the ACL mask limits it to '$effective' — a '$needed' operation would fail"
         end
     else
         fail "$target: no '$entry' — the agent cannot reach it"
     end
     test -n "$default_entry"; or return 0
-    if getfacl --absolute-names "$target" 2>/dev/null | grep -qx "$default_entry"
-        pass "$target: $default_entry"
+    if string match -rq -- "(^|\\|)"(string escape --style=regex (entry_subject $default_entry))"[^|]*" $joined
+        set -l effective (effective_bits $joined $default_entry)
+        set -l needed (entry_bits $default_entry)
+        if bits_cover "$effective" "$needed"
+            pass "$target: $default_entry"
+        else
+            fail "$target: '$default_entry' is limited to '$effective' — a file $writer writes lands unreachable"
+        end
     else
         fail "$target: no '$default_entry' — a file $writer writes lands unreachable"
     end
