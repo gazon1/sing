@@ -516,9 +516,14 @@ private class FakeFtsDao(
      * updated first.
      *
      * The tie is broken the way the DAO breaks it: among the tasks updated at
-     * the same moment, the most recently inserted one comes first. The fake
-     * knows the insertion order from the order of the map it keeps, and the
-     * rowid of the real table is the same order.
+     * the same moment, one of them comes first, and the same one comes first
+     * every time. The real door breaks that tie by the greater `rowid` —
+     * SQLite's own row number, which the table does not promise to be an
+     * insertion chronology for good. The fake has no `rowid`, so it stands in
+     * for the rule with the order of the map it keeps. That is an
+     * approximation of the real tiebreaker, and deliberately so: a test that
+     * passes here is a test about the behaviour, not about the numbers of
+     * SQLite's rows.
      */
     override suspend fun searchTaskTitles(
         userId: String,

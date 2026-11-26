@@ -208,8 +208,11 @@ tiebreaker is nearly free (109.0 ms against 81.4 ms at 100k), because the
 first key already distinguishes the rows. The price buys a rule where there was
 an accident, and on a restored database — where the old door answered with
 twenty arbitrary rows out of a hundred thousand — it buys an answer that means
-something: the twenty rows with the greatest `rowid`, which in a restored
-database are the twenty the restore inserted last.
+something: the twenty rows with the greatest `rowid`, and nothing more than
+that. Which twenty those are is decided by the `rowid`s the restored database
+has right now; the rule does not read a creation date out of them, because the
+`rowid` of a table without an `INTEGER PRIMARY KEY` is not an insertion
+chronology SQLite promises to keep.
 
 The change is a rewrite of one statement, not a new abstraction, because the
 shape of the cost was local: one statement, one door, one sorter.
