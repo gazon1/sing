@@ -594,7 +594,20 @@ function provision
             record_ownership group created
             run_cmd groupadd --system $AGENT_GROUP
         end
+        # Was there a group NAMED `agent` before? `useradd --user-group` creates
+        # one, and `userdel --remove` deletes it again ONLY when USERGROUPS_ENAB
+        # is yes in /etc/login.defs (measured on this host: yes). On a host that
+        # sets it no, every apply/rollback cycle left that group orphaned —
+        # `rollback` deleted `sing-dev` and the account and nothing else. So the
+        # group is recorded like any other adoption, and removed by name.
+        set -l own_group_preexisting 0
+        getent group $AGENT_USER >/dev/null; and set own_group_preexisting 1
         run_cmd useradd --create-home --user-group --shell /bin/bash $AGENT_USER
+        if test $own_group_preexisting -eq 0
+            record_ownership own-group created
+        else
+            record_ownership own-group adopted
+        end
         run_cmd chmod 700 $agent_home_dir
     else
         echo "account exists: $account (adopted, not created by this script)"
@@ -941,10 +954,16 @@ function effective_bits --argument-names joined entry
     return 1
 end
 
-# Does `needed` survive `granted`? An ACL bit grants itself or, where the
-# entry asks for `X`, any of r/w/x — `X` is "execute if a directory, read if a
-# file", and only the directory case can be checked from here.
-function bits_cover --argument-names granted needed
+# Does `granted` survive `needed`?
+#
+# `X` is NOT "read or execute". It is `chmod`'s "execute if a DIRECTORY, read if
+# a regular file", and which one it means has to be asked of the target — the
+# third argument. Treating it as "either bit" told a directory with effective
+# `rw-` that it satisfied `rwX`, and a directory without execute cannot be
+# traversed at all: `check` reported a healthy worktree the agent could not
+# enter. Measured: `getfacl` prints `user:nobody:rwx #effective:rw-` for exactly
+# that mask.
+function bits_cover --argument-names granted needed is_dir
     set -l has_read (string match -qr 'r' -- $granted; and echo 1; or echo 0)
     set -l has_write (string match -qr 'w' -- $granted; and echo 1; or echo 0)
     set -l has_exec (string match -qr 'x' -- $granted; and echo 1; or echo 0)
@@ -957,7 +976,12 @@ function bits_cover --argument-names granted needed
             case x
                 test $has_exec -eq 1; or return 1
             case X
-                test $has_exec -eq 1 -o $has_read -eq 1; or return 1
+                # A directory needs execute; a regular file needs read.
+                if test "$is_dir" = 1
+                    test $has_exec -eq 1; or return 1
+                else
+                    test $has_read -eq 1; or return 1
+                end
             case '*'
                 continue
         end
@@ -985,7 +1009,10 @@ function check_acl
     if string match -rq -- "(^|\\|)"(string escape --style=regex (entry_subject $entry))"[^|]*" $joined
         set -l effective (effective_bits $joined $entry)
         set -l needed (entry_bits $entry)
-        if bits_cover "$effective" "$needed"
+        # `X` means execute on a directory: the check has to know which it is.
+        set -l is_dir 0
+        test -d $target; and set is_dir 1
+        if bits_cover "$effective" "$needed" $is_dir
             pass "$target: $entry"
         else
             fail "$target: '$entry' is present but the ACL mask limits it to '$effective' — a '$needed' operation would fail"
@@ -997,7 +1024,12 @@ function check_acl
     if string match -rq -- "(^|\\|)"(string escape --style=regex (entry_subject $default_entry))"[^|]*" $joined
         set -l effective (effective_bits $joined $default_entry)
         set -l needed (entry_bits $default_entry)
-        if bits_cover "$effective" "$needed"
+        # A DEFAULT entry applies to what gets created BELOW the target, so the
+        # object it lands on decides `X` -- and a default entry only exists on a
+        # directory, so it is the directory case.
+        set -l is_dir 0
+        test -d $target; and set is_dir 1
+        if bits_cover "$effective" "$needed" $is_dir
             pass "$target: $default_entry"
         else
             fail "$target: '$default_entry' is limited to '$effective' — a file $writer writes lands unreachable"
@@ -1400,6 +1432,13 @@ function rollback
             run_cmd passwd --unlock $AGENT_USER
             echo "unlocked $AGENT_USER's password (it was usable before apply)"
         end
+    end
+    # The account's OWN group (`useradd --user-group` makes one named `agent`).
+    # `userdel --remove` already deleted it when USERGROUPS_ENAB is yes — which
+    # is why this asks whether it is still there instead of trusting either
+    # behaviour. Only a group this script created is removed.
+    if owned_by_script own-group; and getent group $AGENT_USER >/dev/null
+        run_cmd groupdel $AGENT_USER
     end
     if owned_by_script group
         run_cmd groupdel $AGENT_GROUP

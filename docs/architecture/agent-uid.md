@@ -276,7 +276,11 @@ snapshot the inner target after the outer grant had already written there — re
 It then removes the sudoers rule, the account and the group — **only if this script created
 them**. `apply` deliberately adopts a pre-existing `agent`, `sing-dev` or sudoers file, so it
 records which of the three it created (`/var/lib/agent-account/state`, written before the first
-write); `rollback` deletes an owned one and keeps an adopted one, saying so. The sudoers file is
+write); `rollback` deletes an owned one and keeps an adopted one, saying so. The account's OWN
+group is one of them: `useradd --user-group` creates a group named `agent`, and `userdel
+--remove` deletes it again **only** when `USERGROUPS_ENAB` is `yes` in `/etc/login.defs`. It is
+`yes` on this host, which is exactly why trusting either behaviour was wrong — on a host that
+sets it `no`, every apply/rollback cycle left that group orphaned. The sudoers file is
 re-checked against its exact content before deletion, because an administrator may have added a
 rule to it after `apply` ran.
 
@@ -364,7 +368,10 @@ wall as a door — so when the transition is broken the probes say `NOTE unverif
 
 `check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
 named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported
-as such. It compares the effective bits against the bits the grant asks for, entry by entry —
+as such. `X` is compared the way `chmod` defines it — execute on a **directory**, read on a
+regular file — because "read or execute" told a directory with effective `rw-` that it satisfied
+`rwX`, and a directory without execute cannot be traversed at all. It compares the effective bits
+against the bits the grant asks for, entry by entry —
 a check that grepped for the word "read" called a mask of `-wx` (read denied) healthy. The entry
 is addressed by its `subject:name:` prefix, because `getfacl` normalizes the bits it prints: a
 requested `rX` comes back as `r-x` or `r--`, so matching the whole entry finds nothing at all. It does **not** touch the worktrees, their branches or the git data:

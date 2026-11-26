@@ -1437,6 +1437,77 @@ esac
         self.assertIn('sudo -n true', argv)
 
 
+class RoundSixteenRegressionTest(PlanTest):
+    """The sixteenth round: `X` is not "read or execute", and a group can leak."""
+
+    def test_X_requires_execute_on_a_directory(self):
+        """`rw-` on a directory satisfies `rwX` only if you read `X` as "r or x".
+
+        Measured: `getfacl` prints `user:nobody:rwx #effective:rw-` for a
+        directory whose mask drops execute, and a directory without execute
+        cannot be traversed at all.
+        """
+        body = SCRIPT.read_text(encoding='utf-8')
+        helper = body.split('function bits_cover', 1)[1].split('\nend', 1)[0]
+        self.assertIn('--argument-names granted needed is_dir', helper)
+        self.assertIn('"$is_dir" = 1', helper, 'the directory case needs execute')
+        self.assertNotIn('test $has_exec -eq 1 -o $has_read -eq 1; or return 1', helper,
+                         '"execute OR read" is the bug')
+        # And `check_acl` has to pass it: `test -d` on the target.
+        check = body.split('function check_acl', 1)[1].split('\nend', 1)[0]
+        self.assertIn('test -d $target; and set is_dir 1', check)
+        self.assertEqual(2, check.count('bits_cover "$effective" "$needed" $is_dir'))
+
+    def test_a_mask_that_drops_execute_is_reported(self):
+        """The property, on a real directory: `rw-` must not cover `rwX`."""
+        tree = self.tmp / 'noexec'
+        tree.mkdir()
+        subprocess.run(['setfacl', '-m', 'u:nobody:rwx', '-m', 'm::rw-', str(tree)], check=True)
+        body = SCRIPT.read_text(encoding='utf-8')
+        parts = []
+        for name in ('entry_bits', 'entry_subject', 'acl_dump_of', 'effective_bits', 'bits_cover'):
+            tail = body.split(f'\nfunction {name}', 1)[1]
+            signature, _, _ = tail.partition('\nend')
+            parts.append(f'function {name}{signature}\nend')
+        script = (
+            '\n'.join(parts) + '\n'
+            'set -l j (acl_dump_of ' + str(tree) + ')\n'
+            'set -l e (effective_bits $j "user:nobody:rwX")\n'
+            'set -l n (entry_bits "user:nobody:rwX")\n'
+            'echo "effective=[$e]"\n'
+            'bits_cover "$e" "$n" 1; and echo covers; or echo limited\n'
+            'bits_cover "$e" "$n" 0; and echo file-covers; or echo file-limited\n'
+        )
+        result = subprocess.run(
+            [fish_interpreter(), '--no-config', '-c', script],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        lines = result.stdout.strip().splitlines()
+        self.assertIn('effective=[rw-]', lines, result.stdout)
+        self.assertIn('limited', lines, 'a directory without execute cannot be traversed')
+        # The same bits DO satisfy a regular file, where `X` means read.
+        self.assertIn('file-covers', lines)
+
+    def test_the_accounts_own_group_is_recorded_and_removed(self):
+        """`useradd --user-group` leaks a group when USERGROUPS_ENAB is no."""
+        body = SCRIPT.read_text(encoding='utf-8')
+        provision = body.split('function provision', 1)[1]
+        self.assertIn('record_ownership own-group created', provision)
+        self.assertIn('record_ownership own-group adopted', provision)
+        self.assertLess(
+            provision.index('getent group $AGENT_USER >/dev/null; and set own_group_preexisting 1'),
+            provision.index('run_cmd useradd'),
+            'the pre-existence must be asked BEFORE useradd creates it',
+        )
+        rollback = body.split('function rollback', 1)[1]
+        self.assertIn('owned_by_script own-group', rollback)
+        self.assertIn('groupdel $AGENT_USER', rollback)
+        # Whether `userdel --remove` already deleted it depends on the host, so
+        # the deletion asks whether the group is still there.
+        self.assertIn('getent group $AGENT_USER >/dev/null', rollback)
+
+
 class RunTest(AgentAccountTest):
     def test_run_hands_the_command_over_and_drops_the_callers_environment(self):
         """The agent gets a built environment; `env -i` is the mechanism."""
