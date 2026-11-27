@@ -1,4 +1,16 @@
+---
+title: "FlowMVI compatibility assessment (2026-11-27)"
+date: 2026-11-27
+status: accepted
+tags: [mvi, framework, compatibility, flowmvi]
+---
+
 # FlowMVI compatibility assessment (2026-11-27)
+
+> **Superseded in part (2026-11-27):** the production-adoption decision this ADR deferred is
+> now closed — see [2026-11-27-mvi-architecture-direction.md](2026-11-27-mvi-architecture-direction.md):
+> **no adoption**. The spike's own verdict (GO for the isolated spike, PR #3259) stands; the
+> adoption question it deferred is now answered by the direction ADR.
 
 ## Decision
 

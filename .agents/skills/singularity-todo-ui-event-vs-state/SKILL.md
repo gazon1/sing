@@ -47,8 +47,8 @@ Composable exceptions that are **not** routing state:
 
 ## See Also
 
-- `singularity-todo-testable-vm` — canonical VM state shape (plain `MutableStateFlow`),
-  scope injection, DraftState; the canonical explanation of `extraBufferCapacity = N` on
+- `singularity-todo-testable-vm` — canonical VM state shape (read-only `StateFlow` with private
+  backing), scope injection, DraftState; the canonical explanation of `extraBufferCapacity = N` on
   `*Event` SharedFlows (why 1 vs 4 vs UNLIMITED, and what actually goes wrong with
   `emit()` on rotation)
 - `singularity-todo-vm-intent-pattern` — sealed Intent + `onIntent` dispatcher; how events

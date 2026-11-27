@@ -17,7 +17,7 @@ This skill documents the **canonical testable pattern** including the MviViewMod
 
 `MviViewModel` provides:
 
-- `state: StateFlow<S>` — plain `MutableStateFlow` under the hood
+- `state: StateFlow<S>` — read-only; backed by a private `MutableStateFlow` (`_state`), per ADR `2026-11-26-mvi-state-is-observed-read-only.md`
 - `events: Flow<E>` — one-shot event channel
 - `emit(event: E)` — suspend emit a one-shot event
 - `updateState(transform: (S) → S)` — suspend state update
@@ -477,4 +477,4 @@ fun `ToggleComplete sets completedAt in repository`() = runTest {
 - `singularity-todo-test-flaky-prevention` — 3 rules to prevent flaky VM tests
 - `singularity-todo-koin-dsl` — canonical Koin 4.x DSL: `viewModelOf` vs `viewModel {}`, `koinViewModel` vs `koinInject`
 - `singularity-todo-feature-scaffold` — canonical 7-file feature template
-- `docs/decisions/2026-09-25-local-mvi-framework.md` — ADR
+- `docs/decisions/2026-11-27-mvi-architecture-direction.md` — the MVI architecture direction ADR; `2026-09-25-local-mvi-framework.md` is its superseded predecessor

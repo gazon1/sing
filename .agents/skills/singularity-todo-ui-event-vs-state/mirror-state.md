@@ -31,8 +31,8 @@ val draftTitle: StateFlow<String> = _draftTitle.asStateFlow()
 // (This `combine + stateIn(WhileSubscribed)` is the *legitimate* read-through
 // shape — single upstream flow, no init-time side effects, no draft mutations on
 // intent. For stateful VMs with init, drafts, or intents that mutate local state,
-// default to plain `MutableStateFlow` written in `init`; see
-// singularity-todo-testable-vm.)
+// default to a read-only `StateFlow` backed by a private `MutableStateFlow` written
+// in `init`; see singularity-todo-testable-vm.)
 val state: StateFlow<TaskDetailUiState> = combine(
     _latest, _draftTitle, _draftDescription, ...
 ) { latest, draftTitle, draftDesc, ... ->
