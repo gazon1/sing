@@ -2081,27 +2081,35 @@ class Rollback:
         else:
             eprint(f"kept the {agent} account: this script adopted it rather than created it")
             # A membership `apply` did not add is not `apply`'s to remove.
+            # ONE list, computed once. Two separate updates each naming the seam
+            # failed on a live host: rollback deletes `sing-dev` first, so the
+            # second declaration was validated against a group that no longer exists
+            # — "Group sing-dev does not exist" — and the privileged groups never
+            # came back. `append: false` REPLACES the list, so the seam must simply
+            # not be in it, and every restored group must be in this same list.
             current = self.accounts.supplementary_groups(agent)
             desired = [g for g in current if g != group]
-            if current != desired:
-                updates.append({"name": agent, "groups": desired, "append": False})
-            # A privileged group `apply` took away comes back: removing the boundary
-            # is what `rollback` is for, but this account held the group before
-            # `apply` ran, and that is the host's own configuration.
+            restored: list[str] = []
+            returned_primary: str | None = None
             for removed in state.removed_groups:
                 if removed.primary:
                     # Held as the PRIMARY gid, so it comes back as the primary gid.
                     if removed.gid is None or self.accounts.group_by_gid(removed.gid) is None:
                         continue
-                    updates.append({"name": agent, "primary_group": removed.group})
+                    returned_primary = removed.group
                     print(f"returning {agent}'s primary group to {removed.group} (gid {removed.gid})")
                 else:
                     if self.ctx.in_group(removed.group, agent) or self.accounts.group(removed.group) is None:
                         continue
-                    appended = [g for g in self.accounts.supplementary_groups(agent) if g != removed.group]
-                    appended.append(removed.group)
-                    updates.append({"name": agent, "groups": appended, "append": False})
-                    print(f"returning {agent} to {removed.group} (it held it before apply)")
+                    if removed.group not in desired:
+                        desired.append(removed.group)
+                    restored.append(removed.group)
+            if desired != current:
+                updates.append({"name": agent, "groups": desired, "append": False})
+            for name in restored:
+                print(f"returning {agent} to {name} (it held it before apply)")
+            if returned_primary is not None:
+                updates.append({"name": agent, "primary_group": returned_primary})
             # And the password state: `apply` locked a usable password, which is right
             # for the boundary and wrong to keep on an account it is leaving.
             if state.passwd == "P" and self._password_state() == "L":

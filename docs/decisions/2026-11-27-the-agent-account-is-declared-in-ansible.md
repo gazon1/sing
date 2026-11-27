@@ -143,12 +143,24 @@ Concretely:
 - Two dependencies where there were none: `ansible-core` (pinned) and the `ansible.posix`
   collection. Both are installed by `mise install` and one `ansible-galaxy` command; both are
   pinned because the script that drives them runs as root.
-- **The live path is still the human's step.** `apply` needs root, and this host's
-  `sudo -n true` demands a password, so what was executed is `apply --dry-run` (against a real
-  worktree, ending in a plan) and `check` (a correct red verdict on an unprovisioned host),
-  plus `ansible-playbook --syntax-check`, `yamllint`, `ansible-lint` (production profile) and
-  the test suite. The `absent` direction of the playbook has not been executed against a real
-  account either — it is covered by unit tests over the declaration, not by a live run.
+- **The lifecycle ran for real on 2026-11-27, in a disposable Fedora container.** Both
+  directions: `apply` created the account, the seam group, the one sudoers rule and the ACLs;
+  `check` reported 20 PASS plus one correct FAIL (no Android SDK in a bare container); the agent
+  committed as uid 1001 through `run`; `rollback` removed the account, its group, the sudoers
+  file and the state directory, and left the worktree ACLs **byte-for-byte identical** to the
+  pre-apply capture. An adopted account with `wheel`/`kvm` and a usable password was
+  provisioned and rolled back too: privileges stripped, account kept, groups and password
+  restored.
+
+  Three findings came out of it, all fixed: `git` needs `safe.directory` for a worktree owned by
+  another uid (a real onboarding step); rollback declared the seam group in a `groups` list
+  after deleting it, so "Group sing-dev does not exist" aborted the restore of `wheel`/`kvm`;
+  and a `mask::r--` that cannot cover the agent's `rwX` grows, making an unrelated
+  `user:nobody` entry effective — the documented trade-off, now measured.
+
+  **Still unverified:** Gradle and the Android SDK under the real agent uid (no SDK in the
+  container), and the external launchers. `sudo` on the *development* host still needs a
+  password, so the host itself has never been provisioned.
 - `check` keeps asking the kernel; a green ACL and a red `access(2)` is still reported as the
   failure it is.
 - The old journal format is read, not migrated: `state`, `targets` and the fish-escaped

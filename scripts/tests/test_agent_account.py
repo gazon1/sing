@@ -1522,12 +1522,49 @@ class RollbackTest(Base):
         state.record_removed_group('docker', 969, False)
         store.save(state)
         rollback = aa.Rollback(ctx, store)
-        updates = []
         ctx.accounts.groups['docker'] = aa.GroupEntry('docker', 969, ())
         self.quiet(rollback._account_and_groups, ctx.accounts.passwd(AGENT))
         updates = ctx.ansible.variables['agent_user_updates']
         restored = [u for u in updates if 'docker' in (u.get('groups') or [])]
         self.assertTrue(restored, 'a group the account held before apply belongs back')
+
+    def test_the_restored_groups_do_not_name_the_seam_group(self):
+        """Found on a live host, not by any unit test before it.
+
+        Rollback deletes `sing-dev` FIRST, so any `groups` list that still names it
+        is validated against a group that no longer exists —
+        "Group sing-dev does not exist" — and the task aborts before the privileged
+        groups come back. `append: false` replaces the list, so the seam must simply
+        not be in it.
+        """
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        state = aa.State(owned={'user': 'adopted', 'group': 'created'})
+        state.record_removed_group('docker', 969, False)
+        state.record_removed_group('kvm', 36, False)
+        store.save(state)
+        ctx.accounts.groups['docker'] = aa.GroupEntry('docker', 969, ())
+        ctx.accounts.groups['kvm'] = aa.GroupEntry('kvm', 36, ())
+        rollback = aa.Rollback(ctx, store)
+        self.quiet(rollback._account_and_groups, ctx.accounts.passwd(AGENT))
+
+        updates = ctx.ansible.variables['agent_user_updates']
+        grouped = [u for u in updates if u.get('groups') is not None]
+        self.assertEqual(1, len(grouped), 'ONE list, not one per restored group')
+        self.assertNotIn(SEAM, grouped[0]['groups'], 'the seam is being deleted in the same run')
+        self.assertEqual({'docker', 'kvm'}, set(grouped[0]['groups']))
+
+    def test_a_restored_group_is_visible_as_a_single_update(self):
+        """Two updates each naming the seam is the exact shape that failed live."""
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        state = aa.State(owned={'user': 'adopted', 'group': 'created'})
+        state.record_removed_group('wheel', 10, False)
+        store.save(state)
+        ctx.accounts.groups['wheel'] = aa.GroupEntry('wheel', 10, ())
+        rollback = aa.Rollback(ctx, store)
+        _, out, _ = self.quiet(rollback._account_and_groups, ctx.accounts.passwd(AGENT))
+        self.assertIn('returning agent to wheel', out)
 
     def test_the_password_lock_is_undone_for_an_adopted_account(self):
         ctx = self.context()

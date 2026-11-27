@@ -20,13 +20,38 @@ live run is the human's step (§4). What *was* executed is the plan (`--dry-run`
 verdict (`check`) against an unprovisioned host, and the test suite in
 `scripts/tests/test_agent_account.py`.
 
-**The provisioning lifecycle is still unverified end to end**, and that is the largest known
-gap: no account has ever been created, rolled back and compared on a real host. Unit tests
-over the declaration and the journal do not establish that. The check that would close it is
-a disposable Fedora VM (or a container running systemd) running: `apply` → verify the real
-uid, groups, sudoers and ACLs → run `git` and Gradle as the agent and commit in a linked
-worktree → `rollback` → diff the account and ACL state against the captured original. Until
-that exists, treat a first `apply` as a change to be watched, not as a verified operation.
+**The lifecycle was verified end to end on 2026-11-27, on a disposable Fedora container**, not
+on this host: `apply` → real uid/groups/sudoers/ACL inspection → `check` → a `git` commit made
+by the agent as uid 1001 → `rollback` → the ACLs compared byte-for-byte with the pre-apply
+capture. Result: `check` reported 20 PASS and one correct FAIL (no Android SDK in a bare
+container), the commit succeeded inside the deny rules, and rollback left the ACLs
+**identical** with the account, its group, the sudoers file and the state directory gone.
+
+Three things that run taught, none of which the unit tests could:
+
+- **`git` needs `safe.directory`.** Every worktree is owned by the developer; the agent is a
+  different uid, so `git` refuses with "detected dubious ownership" before it reads a single
+  object. `run -- git commit` fails until the agent's own `git config --global --add
+  safe.directory <worktree>` exists. That is a real onboarding step, not a bug: it is the
+  protection working. Linked worktrees need their own entry.
+- **Rollback deleted the seam group while still naming it.** The restore of a privileged group
+  the account held before `apply` was a second `user.groups` declaration that still listed
+  `sing-dev`, which rollback removes first — so the task aborted with "Group sing-dev does not
+  exist" and `wheel`/`kvm` never came back. The list is now computed once and does not name the
+  group being deleted. `RollbackTest` pins it.
+- **A mask that cannot cover the grant must grow.** Measured live: `mask::r--` on a file that
+  also carried an unrelated `user:nobody:rwx` grew to `mask::rwx` when the agent's `rwX` was
+  added, so `nobody`'s entry became fully effective. That is the documented trade-off — the
+  alternative forfeits the agent's own grant — but it is a real expansion of somebody else's
+  permission, and the reason `apply` preserves the mask wherever it already covers.
+
+**Still unverified:** Gradle and the Android SDK under the real agent uid (the container has no
+SDK), and the external launchers — so #3239's "every agent in scope" stays open.
+
+**Before that run, nothing had ever been provisioned**: no account had been created, rolled back
+and compared on a real host. Unit tests over the declaration and the journal do not establish
+that. Treat a first `apply` on a new host as a change to be watched, not as a verified
+operation.
 
 ## The one-line answer
 
