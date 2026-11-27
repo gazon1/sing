@@ -942,6 +942,72 @@ class CheckTest(Base):
 
 
 # ---------------------------------------------------------------------------
+# elevation
+# ---------------------------------------------------------------------------
+
+
+class ElevateTest(Base):
+    """A transition that never started is an error (2), not a failed invariant (1).
+
+    `execvp` only returns by raising, so the exceptions are the whole surface of a
+    failed elevation: 127 not-on-PATH, 126 not-executable, EPERM. Measured before
+    this: a refused sudo left a raw traceback and exit 1.
+    """
+
+    def _deps(self, raising):
+        deps = aa.Deps()
+        deps.geteuid = lambda: 1000
+
+        def execvp(name, argv):
+            raise raising
+
+        deps.execvp = execvp
+        return deps
+
+    def test_a_missing_sudo_is_a_refusal_and_not_a_traceback(self):
+        import errno
+
+        ctx = self.context()
+        deps = self._deps(FileNotFoundError(errno.ENOENT, 'No such file or directory', 'sudo'))
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            aa.elevate(deps, ctx.cfg, 'apply')
+        self.assertIn('cannot elevate to root', str(caught.exception))
+        self.assertIn('sudo', str(caught.exception))
+
+    def test_a_refused_password_is_a_refusal(self):
+        import errno
+
+        ctx = self.context()
+        deps = self._deps(OSError(errno.EPERM, 'Operation not permitted'))
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            aa.elevate(deps, ctx.cfg, 'apply')
+        self.assertIn('cannot elevate to root', str(caught.exception))
+
+    def test_root_and_a_dry_run_do_not_elevate(self):
+        ctx = self.context()
+        calls = []
+        deps = aa.Deps()
+        deps.geteuid = lambda: 0
+        deps.execvp = lambda name, argv: calls.append(argv)
+        aa.elevate(deps, ctx.cfg, 'apply')
+        self.assertEqual([], calls, 'already root: nothing to elevate')
+
+        dry = self.context(dry_run=True)
+        deps.geteuid = lambda: 1000
+        aa.elevate(deps, dry.cfg, 'apply')
+        self.assertEqual([], calls, 'a plan needs no root')
+
+    def test_the_elevated_command_carries_what_root_cannot_find(self):
+        """Measured: neither Ansible nor its collection path is on root's
+        secure_path or HOME, so both travel with the command."""
+        ctx = self.context()
+        command = aa.reexec_command(ctx.cfg, 'apply')
+        self.assertIn(str(ctx.cfg.ansible_playbook), command)
+        self.assertIn(str(ctx.cfg.ansible_collections_path), command)
+        self.assertIn('-I', command, 'isolated mode: root must not inherit PYTHON* variables')
+
+
+# ---------------------------------------------------------------------------
 # run
 # ---------------------------------------------------------------------------
 

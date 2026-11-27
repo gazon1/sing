@@ -2088,7 +2088,19 @@ def elevate(deps: Deps, cfg: Config, verb: str) -> None:
     if cfg.dry_run or deps.geteuid() == 0:
         return
     command = reexec_command(cfg, verb)
-    deps.execvp(command[0], command)
+    try:
+        deps.execvp(command[0], command)
+    except OSError as error:
+        # `execvp` only returns by RAISING: 127 "not on PATH", 126 "not
+        # executable", EPERM/ENOEXEC the rest. Measured on a PATH without sudo: a
+        # raw traceback and exit 1, which the CLI documents as "an invariant does
+        # not hold" — the wrong answer for a transition that never started.
+        #
+        # A sudo that RUNS and cannot read a password is not this case: execvp
+        # succeeded, so this process IS sudo, and its own exit 1 is the honest
+        # answer. The message says so, in sudo's words, and nothing here can
+        # improve on that without guessing.
+        raise AgentAccountError(f"cannot elevate to root ({error.strerror or error}): {' '.join(command)}") from None
 
 
 def agent_options(command: Callable) -> Callable:
