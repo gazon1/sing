@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Task metadata: dates, priority, project, tags, kind, pin, recurrence, dependencies.
@@ -56,6 +58,34 @@ class TaskEntitySlot(
 ) : FeatureSlot<TaskEntityState, TaskEntityIntent> {
     private val _state = MutableStateFlow(TaskEntityState())
     override val state: StateFlow<TaskEntityState> = _state.asStateFlow()
+
+    /**
+     * Serialises every write to this task's tag set.
+     *
+     * All three paths — [setTags], [removeTag] and [restoreTag] — write the task's whole tag
+     * list, so they all belong to one consistency boundary and take one lock.
+     *
+     * The two deltas are not the only writers that can lose an edit. A delta reads the set
+     * and writes the result of that read, so a replacement landing *between* the read and
+     * the write is erased by it:
+     *
+     * ```
+     * 1. the task carries {A}
+     * 2. RemoveTag(A) reads {A}
+     * 3. SetTags({B}) writes {B}
+     * 4. RemoveTag(A) writes {} — from the read in step 2
+     * ```
+     *
+     * Tag B is gone, and both operations reported success. A replacement stating the whole
+     * set does not protect it: the stale delta overwrites the replacement, not the other way
+     * round. So [setTags] is inside the lock too, which orders a replacement against the
+     * deltas that straddle it.
+     *
+     * The lock is this slot's, so it orders the tag writes of one slot on one screen.
+     * Another screen's slot holds its own, and nothing here synchronises the two: a shared
+     * owner across ViewModels is tracked in #3280.
+     */
+    private val tagWriteLock = Mutex()
 
     init {
         scope.launch {
@@ -275,11 +305,13 @@ class TaskEntitySlot(
      */
     private fun restoreTag(tagId: TagId) =
         scope.launch {
-            val current = core.taskRepo.getTagIds(taskId).first()
-            if (tagId in current) return@launch
-            core.taskRepo
-                .setTags(taskId, current + tagId, actor = TagEditActor.UserUndo)
-                .onFailure { onError("Failed to set tags") }
+            tagWriteLock.withLock {
+                val current = core.taskRepo.getTagIds(taskId).first()
+                if (tagId in current) return@withLock
+                core.taskRepo
+                    .setTags(taskId, current + tagId, actor = TagEditActor.UserUndo)
+                    .onFailure { onError("Failed to set tags") }
+            }
         }
 
     /**
@@ -298,9 +330,11 @@ class TaskEntitySlot(
         task: Task,
         tagIds: List<TagId>,
     ) = scope.launch {
-        core.taskRepo
-            .setTags(task.id, tagIds)
-            .onFailure { onError("Failed to set tags") }
+        tagWriteLock.withLock {
+            core.taskRepo
+                .setTags(task.id, tagIds)
+                .onFailure { onError("Failed to set tags") }
+        }
     }
 
     /**
@@ -319,14 +353,16 @@ class TaskEntitySlot(
         tagId: TagId,
         tag: Tag?,
     ) = scope.launch {
-        val current = core.taskRepo.getTagIds(task.id).first()
-        // The tag is not on the task any more — another device took it off, or the
-        // user tapped twice. There is nothing to remove, and nothing to undo.
-        if (tagId !in current) return@launch
-        core.taskRepo
-            .setTags(task.id, current - tagId)
-            .onSuccess { if (tag != null) onUndoRemoveTag(tag) }
-            .onFailure { onError("Failed to set tags") }
+        tagWriteLock.withLock {
+            val current = core.taskRepo.getTagIds(task.id).first()
+            // The tag is not on the task any more — another device took it off, or the
+            // user tapped twice. There is nothing to remove, and nothing to undo.
+            if (tagId !in current) return@withLock
+            core.taskRepo
+                .setTags(task.id, current - tagId)
+                .onSuccess { if (tag != null) onUndoRemoveTag(tag) }
+                .onFailure { onError("Failed to set tags") }
+        }
     }
 
     /**
