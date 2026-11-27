@@ -68,12 +68,13 @@ reverse of each. This file owns everything Ansible cannot decide:
 
 PORTING NOTES
 
-  - The root half is re-executed as `sudo -- <sys.executable> -I <this file>`.
-    `-I` (isolated mode) ignores PYTHON* variables and the user site. sudo's
-    secure_path is never consulted for the interpreter, and it is not consulted
-    for `ansible-playbook` either: both paths are resolved by the UNPRIVILEGED
-    caller and passed through, because a developer-installed Ansible is not on
-    root's secure_path.
+  - The root half is re-executed as `sudo -- <sys.executable> -E <this file>`.
+    `-E` ignores PYTHON* variables. NOT `-I`: it also implies `-s` and drops the
+    user site, where a `pip install --user` pydantic lives — measured on this host
+    ("No module named 'pydantic'" from the root half). sudo's secure_path is never
+    consulted for the interpreter, and it is not consulted for `ansible-playbook`
+    either: both paths are resolved by the UNPRIVILEGED caller and passed through,
+    because a developer-installed Ansible is not on root's secure_path.
 
   - `ANSIBLE_COLLECTIONS_PATH` is passed explicitly for the same reason. Measured:
     under a root-like HOME the playbook fails with "couldn't resolve
@@ -115,6 +116,39 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Callable, Iterator, Literal, Mapping, Sequence
+
+
+def _bootstrap_site_packages() -> None:
+    """Add the caller's user site BEFORE `click` and `pydantic` are imported.
+
+    The elevated half runs under root, whose user site is `/root/.local` — so a
+    dependency installed with `pip install --user` by the developer is invisible
+    there, and this file dies on its own imports before `click` can parse anything.
+    Measured on this host: "No module named 'pydantic'" from the root half while the
+    plan had just been computed by an interpreter that had imported it.
+
+    `-E` stops the environment from carrying it (root must not inherit a PYTHONPATH),
+    so it travels as an argument and is read here, before any import that needs it.
+    The option is spelled the same as the one the CLI declares, and is removed from
+    argv once consumed so click never sees it.
+    """
+    argv = sys.argv
+    for index, item in enumerate(argv):
+        if item == "--site-packages" and index + 1 < len(argv):
+            path = argv[index + 1]
+            del argv[index : index + 2]
+            if path and os.path.isdir(path) and path not in sys.path:
+                sys.path.append(path)
+            return
+        if item.startswith("--site-packages="):
+            path = item.split("=", 1)[1]
+            del argv[index]
+            if path and os.path.isdir(path) and path not in sys.path:
+                sys.path.append(path)
+            return
+
+
+_bootstrap_site_packages()
 
 import click
 from pydantic import (
@@ -217,6 +251,7 @@ class Config(BaseModel):
     allow_in_home: bool = False
     ansible_playbook: AbsolutePath = Path("/usr/bin/ansible-playbook")
     ansible_collections_path: str = ""
+    site_packages: str = ""
 
     @model_validator(mode="after")
     def _the_agent_is_somebody_else(self) -> "Config":
@@ -239,6 +274,29 @@ class Config(BaseModel):
     @property
     def toolchain_dirs(self) -> tuple[Path, ...]:
         return tuple(self.dev_home / rel for rel in self.toolchain_rels)
+
+    @property
+    def toolchain_parents(self) -> tuple[Path, ...]:
+        """The intermediate directories between `$HOME` and a toolchain path.
+
+        A grant on the leaf is not enough when an ancestor is 0700: measured on this
+        host, `.local` is 0700 with no ACL, so `agent` could not traverse into
+        `.local/bin` however richly that directory itself was granted —
+        `test -x /home/max/.local` answered 1 and the toolchain was unreachable while
+        `check`'s ACL half said PASS. The kernel half is what caught it, which is the
+        whole reason `check` asks the kernel as well.
+
+        `$HOME` itself is excluded: it is granted `--x` deliberately and is nobody's
+        parent here.
+        """
+        parents: list[Path] = []
+        for directory in self.toolchain_dirs:
+            for parent in directory.parents:
+                if parent == self.dev_home or len(parent.parts) <= len(self.dev_home.parts):
+                    break
+                if parent not in parents:
+                    parents.append(parent)
+        return tuple(parents)
 
 
 # ---------------------------------------------------------------------------
@@ -1185,6 +1243,23 @@ def acl_grants(cfg: Config, ctx: Context, agent_home: str, *, state: str = "pres
             "state": state,
         }
     ]
+    # Traverse the intermediate directories (`$HOME/.local`) — a leaf grant is
+    # unreachable through a 0700 ancestor. `--x` only: it opens the path without a
+    # listing, exactly like the grant on `$HOME`.
+    for parent in cfg.toolchain_parents:
+        if not parent.is_dir():
+            continue
+        grants.append(
+            {
+                "path": str(parent),
+                "entity": cfg.agent_user,
+                "etype": "user",
+                "permissions": "--x",
+                "recursive": False,
+                "default": False,
+                "state": state,
+            }
+        )
     for directory in (cfg.sdk_dir, *cfg.toolchain_dirs):
         if not directory.is_dir():
             continue
@@ -1423,6 +1498,11 @@ class Provisioner:
         """
         cfg = self.cfg
         targets: list[tuple[Path, str]] = [(cfg.dev_home, "node")]  # the `--x` grant is not recursive
+        # The intermediate directories get a `--x` grant too, so they are snapshotted
+        # as a node: a tree dump would be enormous and is not what is written.
+        for parent in cfg.toolchain_parents:
+            if parent.is_dir() and (parent, "node") not in targets:
+                targets.append((parent, "node"))
         for directory in (cfg.sdk_dir, *cfg.toolchain_dirs):
             if directory.is_dir():
                 targets.append((directory, "tree"))
@@ -1785,6 +1865,11 @@ class Checker:
 
         read = AclSpec("user", agent, "r-x")
         self.check_grant(cfg.sdk_dir, read, read.as_default(), "sdkmanager")
+        for parent in cfg.toolchain_parents:
+            if parent.is_dir():
+                # The traverse grant on an intermediate directory; without it the
+                # leaf is unreachable and only the kernel probe notices.
+                self.check_grant(parent, AclSpec("user", agent, "--x"))
         for directory in cfg.toolchain_dirs:
             if directory.is_dir():
                 # The DEFAULT entry too: `apply` writes it, and a host whose default
@@ -1909,6 +1994,25 @@ class Checker:
 # ---------------------------------------------------------------------------
 
 
+def mise_bin_dirs(dev_home: Path) -> str:
+    """The agent-visible, real `bin` directories of the developer's mise installs.
+
+    Shims only, as this used to be, assume the mise environment that `run`
+    deliberately drops. The install tree needs nothing but the filesystem, which is
+    what the ACL grants.
+    """
+    installs = dev_home / ".local" / "share" / "mise" / "installs"
+    dirs: list[str] = []
+    if installs.is_dir():
+        # Two layouts on one host: a language toolchain keeps its binaries in
+        # `<tool>/<version>/bin` (ansible-core, rust), while a single-binary tool
+        # drops the executable in `<tool>/<version>/` (heavy). Both are searched.
+        dirs += [str(path) for path in sorted(installs.glob("*/*/bin")) if path.is_dir()]
+        dirs += [str(path) for path in sorted(installs.glob("*/*")) if path.is_dir() and (path / "heavy").is_file()]
+    dirs.append(str(dev_home / ".local" / "bin"))
+    return ":".join(dirs)
+
+
 class Launcher:
     def __init__(
         self,
@@ -1936,7 +2040,13 @@ class Launcher:
             "SHELL=/bin/bash",
             f"TERM={self.environ.get('TERM') or 'dumb'}",
             "TMPDIR=/tmp",
-            f"PATH={dev}/.local/share/mise/shims:{dev}/.local/bin:/usr/local/bin:/usr/bin:/bin",
+            # The REAL install tree before the shims. A shim is a launcher that
+            # needs MISE_DATA_DIR and the rest of the developer's mise environment,
+            # and `run` strips the environment on purpose — so every shim resolved to
+            # nothing: measured on this host, `heavy` answered "heavy is not a valid
+            # shim" for the agent while the real
+            # `mise/installs/github-mokevnin-heavy/latest/heavy` ran fine.
+            f"PATH={mise_bin_dirs(dev)}:{dev}/.local/share/mise/shims:{dev}/.local/bin:/usr/local/bin:/usr/bin:/bin",
             f"GRADLE_USER_HOME={home}/.gradle",
             f"ANDROID_HOME={self.environ.get('ANDROID_HOME') or cfg.sdk_dir}",
             f"ANDROID_USER_HOME={home}/.android",
@@ -2187,6 +2297,8 @@ class Deps:
     # `ansible-playbook` nor the collection path is on root's secure_path/HOME.
     ansible_playbook: Path | None = None
     ansible_collections_path: str = ""
+    #: The caller's user site, so the ROOT half can import this file's own imports.
+    site_packages: str = ""
     #: The test seam: a fake declares nothing to Ansible and records the variables
     #: a real run would have handed the playbook.
     ansible_factory: Callable[["Config", Runner], "Ansible"] = Ansible
@@ -2204,7 +2316,7 @@ def resolve_dev(accounts: SystemAccounts, requested: str | None) -> tuple[str, P
     return name, Path(entry.home)
 
 
-def resolve_ansible(playbook: Path | None) -> tuple[Path, str]:
+def resolve_ansible(playbook: Path | None, explicit: str = "") -> tuple[Path, str]:
     """Where Ansible is, resolved BEFORE sudo drops the environment.
 
     Measured: under a root-like HOME, `ansible-playbook` is not on secure_path, and
@@ -2217,7 +2329,13 @@ def resolve_ansible(playbook: Path | None) -> tuple[Path, str]:
         if not located:
             raise AgentAccountError("ansible-playbook is not on PATH; install ansible-core (see mise.toml)")
         found = Path(located)
-    collections = os.environ.get("ANSIBLE_COLLECTIONS_PATH", "")
+    # The EXPLICIT setting wins: `--ansible-collections` was resolved by the
+    # unprivileged caller and passed through sudo, and root's environment has no
+    # ANSIBLE_COLLECTIONS_PATH at all. Falling back to `ansible-playbook --version`
+    # here re-resolved it as `/root/.ansible/collections`, which does not exist —
+    # the playbook then died with "couldn't resolve module/action
+    # 'ansible.posix.acl'". Measured on the first live run on this host.
+    collections = explicit or os.environ.get("ANSIBLE_COLLECTIONS_PATH", "")
     if not collections:
         # Run the binary AS FOUND, without `.resolve()`: a mise shim is a symlink to
         # `mise`, and collapsing it runs `mise <playbook>` — measured as
@@ -2231,6 +2349,24 @@ def resolve_ansible(playbook: Path | None) -> tuple[Path, str]:
     if not collections:
         collections = f"{Path.home()}/.ansible/collections:/usr/share/ansible/collections"
     return _unyielding(found), collections
+
+
+def caller_site_packages() -> str:
+    """The caller's user site, carried through sudo.
+
+    `-E` keeps `PYTHONPATH` from being inherited, which is the point — but root's
+    user site is `/root/.local`, not the developer's, so a `pip install --user`
+    dependency is invisible to the elevated half whatever the flag. Measured on this
+    host: `apply` died with "No module named 'pydantic'" and the plan had already
+    been computed by an interpreter that had imported it.
+
+    Resolved by the UNPRIVILEGED caller and passed through, exactly like
+    `ansible-playbook` and the collection path.
+    """
+    for path in sys.path:
+        if path.endswith("site-packages") and os.access(path, os.R_OK):
+            return path
+    return ""
 
 
 def _unyielding(found: Path) -> Path:
@@ -2267,7 +2403,8 @@ def _unyielding(found: Path) -> Path:
     return found.absolute()
 
 
-def _with_ansible(deps: Deps, playbook: Path | None, collections: str | None) -> Deps:
+def _with_ansible(deps: Deps, playbook: Path | None, collections: str | None,
+                  site_packages: str | None = None) -> Deps:
     """Carry the caller-resolved Ansible paths onto the deps the verb sees.
 
     Both are optional: without them `resolve_ansible` locates Ansible on the
@@ -2277,6 +2414,8 @@ def _with_ansible(deps: Deps, playbook: Path | None, collections: str | None) ->
         deps.ansible_playbook = Path(playbook)
     if collections:
         deps.ansible_collections_path = collections
+    if site_packages:
+        deps.site_packages = site_packages
     return deps
 
 
@@ -2292,7 +2431,7 @@ def make_context(
     allow_in_home: bool = False,
 ) -> Context:
     name, home = resolve_dev(deps.accounts, dev)
-    playbook, collections = resolve_ansible(deps.ansible_playbook)
+    playbook, collections = resolve_ansible(deps.ansible_playbook, deps.ansible_collections_path)
     try:
         cfg = Config(
             agent_user=agent_user,
@@ -2307,6 +2446,7 @@ def make_context(
             allow_in_home=allow_in_home,
             ansible_playbook=playbook,
             ansible_collections_path=collections,
+            site_packages=deps.site_packages or caller_site_packages(),
         )
     except ValidationError as error:
         raise AgentAccountError(describe_validation_error(error)) from error
@@ -2318,9 +2458,17 @@ def reexec_command(cfg: Config, verb: str) -> list[str]:
     """The root half re-executes this file, so `apply` needs one password prompt and
     the plan cannot drift from what runs. The interpreter is NAMED, not found: sudo's
     secure_path has no developer-installed interpreters. Every setting is passed
-    explicitly, because sudo drops the environment."""
+    explicitly, because sudo drops the environment.
+
+    `-E`, not `-I`. Both ignore PYTHON* variables, which is the point — root must not
+    inherit a PYTHONPATH from the shell that invoked it. But `-I` also implies `-s`,
+    which drops the USER SITE, and on a host where `pydantic`/`click` are installed
+    with `pip install --user` that is where they live: measured on this host, the
+    root half died with "No module named 'pydantic'" while the unprivileged half had
+    imported it happily a millisecond earlier. `sys.path[0]` is not a hole here,
+    because script mode sets it to this file's directory rather than the cwd."""
     argv = [
-        "sudo", "--", sys.executable, "-I", str(SELF_PATH), verb,
+        "sudo", "--", sys.executable, "-E", str(SELF_PATH), verb,
         "--dev", cfg.dev_name,
         "--agent-user", cfg.agent_user,
         "--agent-group", cfg.agent_group,
@@ -2328,6 +2476,8 @@ def reexec_command(cfg: Config, verb: str) -> list[str]:
         "--ansible-playbook", str(cfg.ansible_playbook),
         "--ansible-collections", cfg.ansible_collections_path,
     ]  # fmt: skip
+    if cfg.site_packages:
+        argv += ["--site-packages", cfg.site_packages]
     if cfg.allow_in_home:
         argv.append("--allow-in-home")
     return argv + ["--", *map(str, cfg.roots)]
@@ -2369,6 +2519,10 @@ def agent_options(command: Callable) -> Callable:
             "--ansible-collections", default=None,
             help="Ansible collections search path. Default: ansible-playbook's own, resolved before sudo.",
         ),
+        click.option(
+            "--site-packages", default=None,
+            help="Where this script's own dependencies live. Default: the caller's user site, resolved before sudo.",
+        ),
     ]  # fmt: skip
     for option in reversed(options):
         command = option(command)
@@ -2401,13 +2555,14 @@ def cli(ctx: click.Context) -> None:
 @roots_argument
 @click.pass_obj
 def apply(deps: Deps, dry_run: bool, allow_in_home: bool, roots: tuple[Path, ...],
-         ansible_playbook: Path | None, ansible_collections: str | None, **identity: object) -> None:
+         ansible_playbook: Path | None, ansible_collections: str | None,
+         site_packages: str | None, **identity: object) -> None:
     """Create or reconcile the account and authorize the worktree ROOTS.
 
     Needs root: re-executes itself through sudo, so there is one password prompt and
     the plan cannot drift from what runs.
     """
-    deps = _with_ansible(deps, ansible_playbook, ansible_collections)
+    deps = _with_ansible(deps, ansible_playbook, ansible_collections, site_packages)
     ctx = make_context(deps, roots=roots, dry_run=dry_run, allow_in_home=allow_in_home, **identity)
     ctx.require_unprivileged_uid()
     validate_roots(ctx)  # everything that can refuse, refuses before the first write
@@ -2422,9 +2577,10 @@ def apply(deps: Deps, dry_run: bool, allow_in_home: bool, roots: tuple[Path, ...
 @roots_argument
 @click.pass_obj
 def check(deps: Deps, roots: tuple[Path, ...],
-         ansible_playbook: Path | None, ansible_collections: str | None, **identity: object) -> None:
+         ansible_playbook: Path | None, ansible_collections: str | None,
+         site_packages: str | None, **identity: object) -> None:
     """Print a verdict on every invariant. Needs no root."""
-    deps = _with_ansible(deps, ansible_playbook, ansible_collections)
+    deps = _with_ansible(deps, ansible_playbook, ansible_collections, site_packages)
     ctx = make_context(deps, roots=roots, **identity)
     click.get_current_context().exit(Checker(ctx).run())
 
@@ -2434,9 +2590,10 @@ def check(deps: Deps, roots: tuple[Path, ...],
 @click.argument("command", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
 def run(deps: Deps, command: tuple[str, ...],
-       ansible_playbook: Path | None, ansible_collections: str | None, **identity: object) -> None:
+       ansible_playbook: Path | None, ansible_collections: str | None,
+         site_packages: str | None, **identity: object) -> None:
     """Run COMMAND as the agent (needs no root, gains none): run -- CMD [ARGS...]"""
-    deps = _with_ansible(deps, ansible_playbook, ansible_collections)
+    deps = _with_ansible(deps, ansible_playbook, ansible_collections, site_packages)
     ctx = make_context(deps, roots=(), **identity)
     # The invariant belongs on the verb that EXECUTES, not only on the one that
     # provisions: `run -- id` must not answer uid 0 — and must not start an agent
@@ -2452,9 +2609,10 @@ def run(deps: Deps, command: tuple[str, ...],
 @roots_argument
 @click.pass_obj
 def rollback(deps: Deps, dry_run: bool, roots: tuple[Path, ...],
-            ansible_playbook: Path | None, ansible_collections: str | None, **identity: object) -> None:
+            ansible_playbook: Path | None, ansible_collections: str | None,
+         site_packages: str | None, **identity: object) -> None:
     """Undo what apply did, from the record it left. Needs root."""
-    deps = _with_ansible(deps, ansible_playbook, ansible_collections)
+    deps = _with_ansible(deps, ansible_playbook, ansible_collections, site_packages)
     ctx = make_context(deps, roots=roots, dry_run=dry_run, **identity)
     elevate(deps, ctx.cfg, "rollback")
     store = StateStore(ctx.cfg.state_dir, ctx.cfg.dry_run)

@@ -1100,6 +1100,39 @@ class ElevateTest(Base):
         aa.elevate(deps, dry.cfg, 'apply')
         self.assertEqual([], calls, 'a plan needs no root')
 
+    def test_the_elevated_command_carries_the_callers_site_packages(self):
+        """Measured on this host: `apply` died with "No module named 'pydantic'".
+
+        The root half runs under root, whose user site is `/root/.local`, so a
+        `pip install --user` dependency is invisible there whatever the interpreter
+        flag. It has to travel as an argument, and be added BEFORE the imports that
+        need it.
+        """
+        ctx = self.context()
+        ctx.cfg = ctx.cfg.model_copy(update={'site_packages': '/home/x/.local/lib/python3/site-packages'})
+        command = aa.reexec_command(ctx.cfg, 'apply')
+        self.assertIn('--site-packages', command)
+        self.assertIn('/home/x/.local/lib/python3/site-packages', command)
+
+    def test_the_bootstrap_makes_an_isolated_interpreter_import_the_deps(self):
+        """The real thing: `-E` (no PYTHONPATH) plus the flag must still import.
+
+        `-E` is what stops root inheriting a PYTHONPATH, so the dependency path can
+        only arrive as an argument — and it has to be added before `click` and
+        `pydantic` are imported, which is why the bootstrap sits above them.
+        """
+        import subprocess as sp
+
+        site = aa.caller_site_packages()
+        if not site:
+            self.skipTest('no user site to prove it with')
+        out = sp.run(
+            [sys.executable, '-E', str(SCRIPT), '--site-packages', site, '--help'],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, out.returncode, out.stderr)
+        self.assertIn('Usage:', out.stdout, 'the imports resolved under -E')
+
     def test_the_elevated_command_carries_what_root_cannot_find(self):
         """Measured: neither Ansible nor its collection path is on root's
         secure_path or HOME, so both travel with the command."""
@@ -1107,7 +1140,12 @@ class ElevateTest(Base):
         command = aa.reexec_command(ctx.cfg, 'apply')
         self.assertIn(str(ctx.cfg.ansible_playbook), command)
         self.assertIn(str(ctx.cfg.ansible_collections_path), command)
-        self.assertIn('-I', command, 'isolated mode: root must not inherit PYTHON* variables')
+        # `-E` and not `-I`: both ignore PYTHON* variables, but `-I` also implies
+        # `-s`, which drops the user site where a `pip install --user` pydantic
+        # lives. Measured on this host: the root half died with
+        # "No module named 'pydantic'" under `-I` and imports fine under `-E`.
+        self.assertIn('-E', command, 'root must not inherit PYTHON* variables')
+        self.assertNotIn('-I', command, '-I drops the user site those deps may live in')
 
 
 # ---------------------------------------------------------------------------
@@ -1178,6 +1216,45 @@ class ToolchainDefaultTest(Base):
         self.assertTrue(sdk and toolchain, 'both are checked')
         self.assertIn('read.as_default()', sdk[0])
         self.assertIn('read.as_default()', toolchain[0], 'the toolchain asks for the default too')
+
+
+class RunPathTest(Base):
+    """`run` must put the REAL install tree before the shims.
+
+    Found on the first live run on this host: the agent's commit died in the
+    pre-commit hook with "heavy is not a valid shim". A mise shim is a launcher that
+    needs MISE_DATA_DIR and the rest of the developer's mise environment, and `run`
+    strips the environment on purpose — so every shim resolved to nothing, while the
+    real `mise/installs/github-mokevnin-heavy/<v>/heavy` ran fine.
+    """
+
+    def test_the_real_install_dirs_come_before_the_shims(self):
+        import shutil as sh
+
+        installs = self.home / '.local' / 'share' / 'mise' / 'installs'
+        binary_tool = installs / 'heavy' / '0'
+        binary_tool.mkdir(parents=True)
+        (binary_tool / 'heavy').write_text('#!/bin/sh\n', encoding='utf-8')
+        toolchain = installs / 'ansible-core' / '2.21.5' / 'bin'
+        toolchain.mkdir(parents=True)
+
+        path = aa.mise_bin_dirs(self.home)
+        entries = path.split(':')
+        self.assertIn(str(toolchain), entries, 'a tool that keeps a bin/ dir')
+        self.assertIn(str(binary_tool), entries, 'a tool that drops its binary in the version dir')
+        self.assertLess(entries.index(str(toolchain)), 1_000)
+
+    def test_the_shims_are_still_present_but_later(self):
+        installs = self.home / '.local' / 'share' / 'mise' / 'installs'
+        version = installs / 'heavy' / '0'
+        version.mkdir(parents=True)
+        # The single-binary layout is recognised BY the binary being there.
+        (version / 'heavy').write_text('#!/bin/sh\n', encoding='utf-8')
+        ctx = self.context()
+        argv = aa.Launcher(ctx, {}).command(('true',))
+        path = [a for a in argv if a.startswith('PATH=')][0]
+        self.assertIn('mise/shims', path, 'a shim that DOES work in the agent env still resolves')
+        self.assertLess(path.index('mise/installs'), path.index('mise/shims'), 'real tree first')
 
 
 class RunBoundaryTest(Base):
@@ -1350,6 +1427,49 @@ class SharedGitStoreTest(Base):
         checker.report = aa.Report()
         _, out, _ = self.quiet(checker._acls)
         self.assertIn('no write grant', out)
+
+
+class ToolchainTraverseTest(Base):
+    """A grant on the LEAF is unreachable through a 0700 ancestor.
+
+    Found on the first live run on this host: `/home/max/.local` is 0700 with no
+    ACL, so `agent` could not traverse into `.local/bin` however richly that
+    directory was granted. `check`'s ACL half said PASS while the kernel refused —
+    which is exactly what the behavioural probes exist to catch.
+    """
+
+    def test_every_intermediate_directory_gets_a_traverse_grant(self):
+        ctx = self.context()
+        grants = aa.acl_grants(ctx.cfg, ctx, str(self.agent_home))
+        # `$HOME` is granted separately; the intermediate is `.local`.
+        intermediate = [g for g in grants if g['path'] == str(self.home / '.local')]
+        self.assertEqual(1, len(intermediate), 'the 0700 parent needs its own entry')
+        self.assertEqual('--x', intermediate[0]['permissions'], 'traverse, never a listing')
+        self.assertFalse(intermediate[0]['recursive'], 'one entry, not a tree')
+
+    def test_the_home_itself_is_not_listed_as_a_parent(self):
+        ctx = self.context()
+        parents = ctx.cfg.toolchain_parents
+        self.assertNotIn(self.home, parents)
+        self.assertIn(self.home / '.local', parents)
+        self.assertNotIn(self.home / '.local' / 'bin', parents, 'the leaf is not its own parent')
+
+    def test_an_intermediate_is_snapshotted_before_it_is_written(self):
+        ctx = self.context()
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, 'user::rwx\nother::---\n')),)
+        store = aa.StateStore(self.tmp / 'state')
+        self.quiet(aa.Provisioner(ctx, store).apply)
+        saved = aa.State.from_json(store.path.read_text())
+        self.assertIn(str(self.home / '.local'), saved.targets)
+        self.assertEqual('node', saved.targets[str(self.home / '.local')].kind)
+
+    def test_check_asks_for_the_intermediate_traverse(self):
+        ctx = self.context()
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, 'user::rwx\nother::---\n')),)
+        checker = aa.Checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn(f"{self.home}/.local: no 'user:agent:--x'", out)
 
 
 class MaskPreservationTest(Base):

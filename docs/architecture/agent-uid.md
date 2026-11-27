@@ -20,7 +20,33 @@ live run is the human's step (§4). What *was* executed is the plan (`--dry-run`
 verdict (`check`) against an unprovisioned host, and the test suite in
 `scripts/tests/test_agent_account.py`.
 
-**The lifecycle was verified end to end on 2026-11-27, on a disposable Fedora container**, not
+**The lifecycle was verified end to end on 2026-11-27, first in a disposable Fedora
+container and then ON THIS HOST** — `apply --allow-in-home .` → 49 PASS in `check` → a
+`git` commit made by uid 1001 → `rollback` → account, group, journal gone and every ACL
+byte-identical to the capture taken before the run. Four more findings came out of the host
+run, none visible to the unit tests:
+
+- **`-I` broke the elevated half on a host with user-installed deps.** The re-exec ran
+  `<python> -I`, and `-I` implies `-s`, which drops `~/.local/lib/pythonX/site-packages`.
+  The plan was computed by an interpreter that had imported `pydantic`; the root half then
+  died with "No module named 'pydantic'". It is `-E` now (ignores `PYTHON*`, keeps the user
+  site), and the caller's site directory travels as `--site-packages` because root's user
+  site is `/root/.local`.
+- **The collection path was re-resolved as root's.** `--ansible-collections` was passed
+  through sudo and then discarded: `resolve_ansible` re-read the environment, which is empty
+  under sudo, and fell back to `/root/.ansible/collections`. The playbook died with
+  "couldn't resolve module/action 'ansible.posix.acl'" after create-home had already run.
+- **A leaf grant is unreachable through a 0700 ancestor.** `/home/max/.local` is 0700 with no
+  ACL, so `.local/bin` and `.local/share/mise` were granted and still unreachable —
+  `test -x` answered 1 for the agent. `apply` now grants `--x` on every intermediate, and
+  `check` asks for it. The kernel probe is what caught this; the ACL half said PASS.
+- **mise SHIMS are not usable by the agent.** `run` strips the environment by design, and a
+  shim needs `MISE_DATA_DIR`: `heavy` answered "heavy is not a valid shim", so the
+  pre-commit hook failed the agent's first commit. `run`'s PATH now puts the real
+  `mise/installs/...` directories first, in both layouts (`<tool>/<version>/bin` and
+  `<tool>/<version>/<binary>`), and keeps the shims after them.
+
+**The disposable-container run below established the rest**, not
 on this host: `apply` → real uid/groups/sudoers/ACL inspection → `check` → a `git` commit made
 by the agent as uid 1001 → `rollback` → the ACLs compared byte-for-byte with the pre-apply
 capture. Result: `check` reported 20 PASS and one correct FAIL (no Android SDK in a bare
