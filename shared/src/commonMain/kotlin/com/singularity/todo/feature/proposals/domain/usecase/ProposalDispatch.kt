@@ -22,6 +22,8 @@ import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 
@@ -92,6 +94,20 @@ class ProposalDispatch(
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) {
     /**
+     * Serialises the tag plans that read the task's tags before writing them.
+     *
+     * [ProposalPlan.AddTags] and [ProposalPlan.RemoveTags] are read-modify-write: they ask
+     * the repository what the task carries, then write the whole set back. Two of them —
+     * the same change confirmed twice, or a confirm racing the bulk confirm — both read the
+     * set that existed before either wrote, and the second write drops the first one's tags
+     * while reporting success to the person who confirmed it.
+     *
+     * [ProposalPlan.SetTaskTags] stays outside: it names the complete set the task should
+     * carry, so a concurrent read cannot lose anything it owns.
+     */
+    private val tagWriteLock = Mutex()
+
+    /**
      * Applies [plan].
      *
      * This is the only `when` over [ProposalPlan] in the codebase; adding a new
@@ -119,15 +135,19 @@ class ProposalDispatch(
         when (plan) {
             is ProposalPlan.AddTags -> {
                 tagRow(plan.taskId) { taskId ->
-                    val current = tasks.getTagIds(taskId).first().toSet()
-                    tasks.setTags(taskId, (current + plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
+                    tagWriteLock.withLock {
+                        val current = tasks.getTagIds(taskId).first().toSet()
+                        tasks.setTags(taskId, (current + plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
+                    }
                 }
             }
 
             is ProposalPlan.RemoveTags -> {
                 tagRow(plan.taskId) { taskId ->
-                    val current = tasks.getTagIds(taskId).first().toSet()
-                    tasks.setTags(taskId, (current - plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
+                    tagWriteLock.withLock {
+                        val current = tasks.getTagIds(taskId).first().toSet()
+                        tasks.setTags(taskId, (current - plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
+                    }
                 }
             }
 

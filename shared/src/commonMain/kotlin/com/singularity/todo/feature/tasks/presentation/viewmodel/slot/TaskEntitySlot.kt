@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Task metadata: dates, priority, project, tags, kind, pin, recurrence, dependencies.
@@ -56,6 +58,21 @@ class TaskEntitySlot(
 ) : FeatureSlot<TaskEntityState, TaskEntityIntent> {
     private val _state = MutableStateFlow(TaskEntityState())
     override val state: StateFlow<TaskEntityState> = _state.asStateFlow()
+
+    /**
+     * Serialises the two tag paths that read the task's tags and write them back.
+     *
+     * [removeTag] and [restoreTag] are read-modify-write: they ask the repository for the
+     * tags the task carries *now*, add or drop one, and write the whole list with
+     * `setTags`. Run at once — a remove followed quickly by its undo, both launched on
+     * the slot's scope — the second reads the set the first is about to replace, and one
+     * of the two edits is lost with a reported success.
+     *
+     * [setTags][TaskDetailIntent.Domain.SetTags] deliberately stays outside: it carries the
+     * user's complete tag selection, not a delta, so it has nothing to lose to a concurrent
+     * read. Serialising it would only queue a write that already states its whole result.
+     */
+    private val tagWriteLock = Mutex()
 
     init {
         scope.launch {
@@ -275,11 +292,13 @@ class TaskEntitySlot(
      */
     private fun restoreTag(tagId: TagId) =
         scope.launch {
-            val current = core.taskRepo.getTagIds(taskId).first()
-            if (tagId in current) return@launch
-            core.taskRepo
-                .setTags(taskId, current + tagId, actor = TagEditActor.UserUndo)
-                .onFailure { onError("Failed to set tags") }
+            tagWriteLock.withLock {
+                val current = core.taskRepo.getTagIds(taskId).first()
+                if (tagId in current) return@withLock
+                core.taskRepo
+                    .setTags(taskId, current + tagId, actor = TagEditActor.UserUndo)
+                    .onFailure { onError("Failed to set tags") }
+            }
         }
 
     /**
@@ -319,14 +338,16 @@ class TaskEntitySlot(
         tagId: TagId,
         tag: Tag?,
     ) = scope.launch {
-        val current = core.taskRepo.getTagIds(task.id).first()
-        // The tag is not on the task any more — another device took it off, or the
-        // user tapped twice. There is nothing to remove, and nothing to undo.
-        if (tagId !in current) return@launch
-        core.taskRepo
-            .setTags(task.id, current - tagId)
-            .onSuccess { if (tag != null) onUndoRemoveTag(tag) }
-            .onFailure { onError("Failed to set tags") }
+        tagWriteLock.withLock {
+            val current = core.taskRepo.getTagIds(task.id).first()
+            // The tag is not on the task any more — another device took it off, or the
+            // user tapped twice. There is nothing to remove, and nothing to undo.
+            if (tagId !in current) return@withLock
+            core.taskRepo
+                .setTags(task.id, current - tagId)
+                .onSuccess { if (tag != null) onUndoRemoveTag(tag) }
+                .onFailure { onError("Failed to set tags") }
+        }
     }
 
     /**
