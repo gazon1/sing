@@ -94,20 +94,30 @@ class ProposalDispatch(
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) {
     /**
-     * Serialises the tag plans that read the task's tags before writing them.
+     * Serialises every plan that writes the task's tag set.
      *
      * [ProposalPlan.AddTags] and [ProposalPlan.RemoveTags] are read-modify-write: they ask
      * the repository what the task carries, then write the whole set back. Two of them —
      * the same change confirmed twice, or a confirm racing the bulk confirm — both read the
      * set that existed before either wrote, and the second write drops the first one's tags
-     * while reporting success to the person who confirmed it.
+     * while reporting success.
+     *
+     * [ProposalPlan.SetTaskTags] takes the same lock, and it is not redundant. A replacement
+     * stating the whole set is not immune to a delta straddling it: the delta writes the
+     * result of a read taken *before* the replacement, so it erases it.
+     *
+     * ```
+     * 1. the task carries {A}
+     * 2. AddTags({B}) reads {A}
+     * 3. SetTaskTags({C}) writes {C}
+     * 4. AddTags({B}) writes {A, B} — from the read in step 2, and C is gone
+     * ```
+     *
+     * One lock over all three gives replacement and modification an explicit order.
      *
      * The lock is this dispatch instance's. DI binds the class as a `factory`, so a second
      * ViewModel — or the task detail's own tag writes — holds a different lock and is not
      * ordered against this one. A shared owner across ViewModels is tracked in #3280.
-     *
-     * [ProposalPlan.SetTaskTags] stays outside: it names the complete set the task should
-     * carry, so a concurrent read cannot lose anything it owns.
      */
     private val tagWriteLock = Mutex()
 
@@ -159,7 +169,9 @@ class ProposalDispatch(
                 tagRow(plan.taskId) { taskId ->
                     // A set, not an addition: the proposal says the task carries these tags
                     // and no others, so the current set is replaced rather than merged.
-                    tasks.setTags(taskId, plan.tagIds.toList(), TagEditActor.AiProposal).getOrThrow()
+                    tagWriteLock.withLock {
+                        tasks.setTags(taskId, plan.tagIds.toList(), TagEditActor.AiProposal).getOrThrow()
+                    }
                 }
             }
 

@@ -43,16 +43,31 @@ description flush, and an entity edit (`TaskEntitySlot`) are three independent c
 calling in here for the same task. Two of them overlap, both read the row as it was, and
 the second write silently reverts the first field — while both report success.
 
-**`TaskEntitySlot` serialises the two tag paths that read and write the tag set.**
+**`TaskEntitySlot` puts every writer of the tag set behind one lock.**
 `RemoveTag` and `RestoreTag` ask the repository what the task carries *now*, change one
-member, and write the whole list. A remove and its undo, both launched on the slot's
-scope, read the same pre-change set and one edit is lost. `SetTags` stays outside on
-purpose: it states the user's complete selection, so a concurrent read can lose nothing it
-owns.
+member, and write the whole list; a remove and its undo read the same pre-change set and
+one edit is lost. `SetTags` takes the same lock, and the first revision of this ADR was
+wrong to exclude it.
 
-**`ProposalDispatch` serialises the additive tag plans for the same reason.** `AddTags`
-and `RemoveTags` are deltas computed from a fresh read; `SetTaskTags` is a replacement and
-stays outside. A confirm racing the bulk confirm is two additive plans against one set.
+**A replacement is not immune to a stale delta.** The argument that a write stating the
+whole set can lose nothing confuses *the replacement overwriting nobody* with *nobody
+overwriting the replacement*. A delta writes the result of a read taken before the
+replacement, so it erases it:
+
+```
+1. the task carries {A}
+2. RemoveTag(A) reads {A}
+3. SetTags({B}) writes {B}
+4. RemoveTag(A) writes {} — from the read in step 2, and B is gone
+```
+
+Both operations report success. A set is only consistent if **every** writer of it shares
+one boundary, so replacement and delta take the same lock.
+
+**`ProposalDispatch` applies the same rule to the same three plans.** `AddTags` and
+`RemoveTags` are deltas from a fresh read, `SetTaskTags` is a replacement, and all three are
+inside `tagWriteLock`. A confirm racing the bulk confirm is two additive plans against one
+set; a replacement straddled by an add is the same defect with the roles swapped.
 
 ## What was audited and left alone
 
@@ -86,11 +101,16 @@ different objects. Two screens editing one task can still lose an update locally
   lock. A series edit can still race a single-occurrence edit of the same row. Recorded
   as a `shortcut:` in `UpdateTask.kt`; the upgrade is the optimistic version column that
   `2026-09-27-write-layer-soundness.md` already defers.
-- No synchronization was added for uniformity: `SetTags`, `SetTaskTags`, and the
-  `flatMapLatest` readers stay lock-free.
+- No synchronization was added for uniformity. The locks cover exactly the writers of one
+  resource — the tag set of one task, the row of one task — and nothing else: the
+  `flatMapLatest` readers stay lock-free, because cancellation already gives them
+  latest-wins.
 - Regression tests hold one write open with a `CompletableDeferred` and assert the second
   waits, so they fail if the lock is removed. No sleeps. One per fixed site:
-  `UpdateTaskUseCaseTest`, `TaskEntitySlotTagRaceTest`, `ProposalDispatchTagRaceTest`.
+  `UpdateTaskUseCaseTest`, `TaskEntitySlotTagRaceTest`, `ProposalDispatchTagRaceTest` — the
+  last two covering delta-vs-delta, delta-vs-replacement and replacement-vs-delta in both
+  orderings. Removing only the replacement locks fails 7 of those tests, which is the
+  defect this correction fixes.
 
 ## Links
 

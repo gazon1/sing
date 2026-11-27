@@ -53,6 +53,7 @@ class ProposalDispatchTagRaceTest {
     private val taskId = TaskId("t1")
     private val tagA = TagId.fromString("tag-a")
     private val tagB = TagId.fromString("tag-b")
+    private val tagC = TagId.fromString("tag-c")
 
     private fun seedTask(): FakeTaskRepository =
         FakeTaskRepository().apply {
@@ -231,4 +232,152 @@ class ProposalDispatchTagRaceTest {
                 "a plan after a failure is not blocked by it",
             )
         }
+
+    // ── A replacement and a delta share one boundary ────────────────────────────
+    //
+    // SetTaskTags states the whole set, which does not make it immune: a delta writes the
+    // result of a read taken *before* the replacement, so it erases it. These hold one side
+    // open to prove the two are ordered.
+
+    @Test
+    fun `a replacement that starts during an add is not erased by it`() =
+        runTest {
+            val tasks = GatedTagRepository()
+            tasks.seed(task(tags = listOf(tagA)))
+            val dispatch = dispatch(tasks)
+
+            // AddTags reads {A} and is held inside its write.
+            val addingB = launch { dispatch.dispatch(ProposalPlan.AddTags(taskId, setOf(tagB)), user) }
+            tasks.writeStarted.await()
+
+            // The replacement starts while the add is in flight.
+            val replacing = launch { dispatch.dispatch(ProposalPlan.SetTaskTags(taskId, setOf(tagA)), user) }
+            runCurrent()
+
+            assertEquals(
+                1,
+                tasks.setTagsCalls,
+                "the replacement must wait for the add, not be overwritten by its stale read",
+            )
+
+            tasks.releaseWrite.complete(Unit)
+            runCurrent()
+            addingB.join()
+            replacing.join()
+
+            assertEquals(
+                setOf(tagA),
+                tasks.tasks.value["t1"]
+                    ?.tags
+                    ?.toSet(),
+                "the replacement is the later decision, and the add's stale write cannot undo it",
+            )
+        }
+
+    @Test
+    fun `an add that starts during a replacement is ordered after it`() =
+        runTest {
+            val tasks = GatedTagRepository()
+            tasks.seed(task(tags = listOf(tagA)))
+            val dispatch = dispatch(tasks)
+
+            // The replacement drops A and is held open mid-write.
+            val replacing = launch { dispatch.dispatch(ProposalPlan.SetTaskTags(taskId, setOf(tagB)), user) }
+            tasks.writeStarted.await()
+
+            // The add names a tag the *pre-replacement* set did not carry, so a stale read
+            // shows up as A coming back.
+            val addingC = launch { dispatch.dispatch(ProposalPlan.AddTags(taskId, setOf(tagC)), user) }
+            runCurrent()
+
+            assertEquals(
+                1,
+                tasks.setTagsCalls,
+                "the add must wait for the replacement to land",
+            )
+
+            tasks.releaseWrite.complete(Unit)
+            runCurrent()
+            replacing.join()
+            addingC.join()
+
+            assertEquals(
+                setOf(tagB, tagC),
+                tasks.tasks.value["t1"]
+                    ?.tags
+                    ?.toSet(),
+                "the add reads the set the replacement wrote, so A does not come back",
+            )
+        }
+
+    @Test
+    fun `a replacement that starts during a remove is not erased by it`() =
+        runTest {
+            val tasks = GatedTagRepository()
+            tasks.seed(task(tags = listOf(tagA)))
+            val dispatch = dispatch(tasks)
+
+            // RemoveTags reads {A} and is held inside its write.
+            val removingA = launch { dispatch.dispatch(ProposalPlan.RemoveTags(taskId, setOf(tagA)), user) }
+            tasks.writeStarted.await()
+
+            val replacing = launch { dispatch.dispatch(ProposalPlan.SetTaskTags(taskId, setOf(tagB)), user) }
+            runCurrent()
+
+            assertEquals(1, tasks.setTagsCalls, "the replacement must wait for the remove")
+
+            tasks.releaseWrite.complete(Unit)
+            runCurrent()
+            removingA.join()
+            replacing.join()
+
+            assertEquals(
+                setOf(tagB),
+                tasks.tasks.value["t1"]
+                    ?.tags
+                    ?.toSet(),
+                "the replacement stands against the remove's stale write",
+            )
+        }
+
+    @Test
+    fun `a remove that starts during a replacement is ordered after it`() =
+        runTest {
+            val tasks = GatedTagRepository()
+            tasks.seed(task(tags = listOf(tagA)))
+            val dispatch = dispatch(tasks)
+
+            // The replacement is held open mid-write.
+            val replacing = launch { dispatch.dispatch(ProposalPlan.SetTaskTags(taskId, setOf(tagA, tagB)), user) }
+            tasks.writeStarted.await()
+
+            val removingA = launch { dispatch.dispatch(ProposalPlan.RemoveTags(taskId, setOf(tagA)), user) }
+            runCurrent()
+
+            assertEquals(1, tasks.setTagsCalls, "the remove must wait for the replacement")
+
+            tasks.releaseWrite.complete(Unit)
+            runCurrent()
+            replacing.join()
+            removingA.join()
+
+            assertEquals(
+                setOf(tagB),
+                tasks.tasks.value["t1"]
+                    ?.tags
+                    ?.toSet(),
+                "the remove reads what the replacement wrote, so only A goes",
+            )
+        }
+
+    /** A seeded task for these tests, with the given starting tags. */
+    private fun task(tags: List<TagId>) =
+        Task(
+            id = taskId,
+            title = "A task",
+            tags = tags,
+            userId = user,
+            createdAt = now,
+            updatedAt = now,
+        )
 }

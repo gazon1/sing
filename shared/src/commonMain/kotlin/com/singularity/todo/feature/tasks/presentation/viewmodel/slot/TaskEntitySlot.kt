@@ -60,21 +60,30 @@ class TaskEntitySlot(
     override val state: StateFlow<TaskEntityState> = _state.asStateFlow()
 
     /**
-     * Serialises the two tag paths that read the task's tags and write them back.
+     * Serialises every write to this task's tag set.
      *
-     * [removeTag] and [restoreTag] are read-modify-write: they ask the repository for the
-     * tags the task carries *now*, add or drop one, and write the whole list with
-     * `setTags`. Run at once — a remove followed quickly by its undo, both launched on
-     * the slot's scope — the second reads the set the first is about to replace, and one
-     * of the two edits is lost with a reported success.
+     * All three paths — [setTags], [removeTag] and [restoreTag] — write the task's whole tag
+     * list, so they all belong to one consistency boundary and take one lock.
+     *
+     * The two deltas are not the only writers that can lose an edit. A delta reads the set
+     * and writes the result of that read, so a replacement landing *between* the read and
+     * the write is erased by it:
+     *
+     * ```
+     * 1. the task carries {A}
+     * 2. RemoveTag(A) reads {A}
+     * 3. SetTags({B}) writes {B}
+     * 4. RemoveTag(A) writes {} — from the read in step 2
+     * ```
+     *
+     * Tag B is gone, and both operations reported success. A replacement stating the whole
+     * set does not protect it: the stale delta overwrites the replacement, not the other way
+     * round. So [setTags] is inside the lock too, which orders a replacement against the
+     * deltas that straddle it.
      *
      * The lock is this slot's, so it orders the tag writes of one slot on one screen.
      * Another screen's slot holds its own, and nothing here synchronises the two: a shared
      * owner across ViewModels is tracked in #3280.
-     *
-     * [setTags][TaskDetailIntent.Domain.SetTags] deliberately stays outside: it carries the
-     * user's complete tag selection, not a delta, so it has nothing to lose to a concurrent
-     * read. Serialising it would only queue a write that already states its whole result.
      */
     private val tagWriteLock = Mutex()
 
@@ -321,9 +330,11 @@ class TaskEntitySlot(
         task: Task,
         tagIds: List<TagId>,
     ) = scope.launch {
-        core.taskRepo
-            .setTags(task.id, tagIds)
-            .onFailure { onError("Failed to set tags") }
+        tagWriteLock.withLock {
+            core.taskRepo
+                .setTags(task.id, tagIds)
+                .onFailure { onError("Failed to set tags") }
+        }
     }
 
     /**

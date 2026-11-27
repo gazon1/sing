@@ -9,6 +9,7 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -34,6 +35,7 @@ import kotlin.test.assertTrue
 @Feature("Presentation")
 class TaskEntitySlotTagRaceTest {
     private val tagA = TagId.fromString("tag-a")
+    private val tagB = TagId.fromString("tag-b")
 
     /** A repository whose first tag write is held open, so a second one can start behind it. */
     private class GatedTagRepository : FakeTaskRepository() {
@@ -136,4 +138,127 @@ class TaskEntitySlotTagRaceTest {
                 "the undo puts the tag back exactly once",
             )
         }
+
+    // ── A replacement and a delta share one boundary ────────────────────────────
+    //
+    // A replacement states the whole set, which does not make it immune: a delta writes the
+    // result of a read taken *before* the replacement, so it erases it. These two hold the
+    // delta open to prove the replacement is ordered against it in both directions.
+
+    @Test
+    fun `a replacement that starts during a removal is not erased by it`() =
+        runTest {
+            val taskRepo = GatedTagRepository()
+            val slot = slotFor(taskRepo, listOf(tagA), backgroundScope)
+            runCurrent()
+
+            // The removal reads {A} and is held inside its write.
+            slot.onIntent(TaskDetailIntent.Domain.RemoveTag(tagA))
+            taskRepo.writeStarted.await()
+
+            // The replacement starts while the removal is in flight.
+            slot.onIntent(TaskDetailIntent.Domain.SetTags(listOf(tagB)))
+            runCurrent()
+
+            assertEquals(
+                1,
+                taskRepo.setTagsCalls,
+                "the replacement must wait for the delta, not be overwritten by its stale read",
+            )
+
+            taskRepo.releaseWrite.complete(Unit)
+            runCurrent()
+
+            assertEquals(
+                listOf(tagB),
+                taskRepo.tasks.value["t1"]
+                    ?.tags,
+                "the replacement is the later decision, and the removal's stale write cannot undo it",
+            )
+        }
+
+    @Test
+    fun `a removal that starts during a replacement is ordered after it`() =
+        runTest {
+            val taskRepo = GatedTagRepository()
+            val slot = slotFor(taskRepo, listOf(tagA), backgroundScope)
+            runCurrent()
+
+            // The replacement is held open mid-write.
+            slot.onIntent(TaskDetailIntent.Domain.SetTags(listOf(tagA, tagB)))
+            taskRepo.writeStarted.await()
+
+            // The removal is issued while the replacement is in flight.
+            slot.onIntent(TaskDetailIntent.Domain.RemoveTag(tagA))
+            runCurrent()
+
+            assertEquals(
+                1,
+                taskRepo.setTagsCalls,
+                "the removal must wait for the replacement to land",
+            )
+
+            taskRepo.releaseWrite.complete(Unit)
+            runCurrent()
+
+            assertEquals(
+                listOf(tagB),
+                taskRepo.tasks.value["t1"]
+                    ?.tags,
+                "the removal reads the set the replacement wrote, so B survives it",
+            )
+        }
+
+    @Test
+    fun `an undo that starts during a replacement is ordered after it`() =
+        runTest {
+            val taskRepo = GatedTagRepository()
+            val slot = slotFor(taskRepo, listOf(tagA), backgroundScope)
+            runCurrent()
+
+            // The replacement drops A and adds B, and is held open mid-write.
+            slot.onIntent(TaskDetailIntent.Domain.SetTags(listOf(tagB)))
+            taskRepo.writeStarted.await()
+
+            slot.onIntent(TaskDetailIntent.Domain.RestoreTag(tagA))
+            runCurrent()
+
+            assertEquals(1, taskRepo.setTagsCalls, "the undo must wait for the replacement")
+
+            taskRepo.releaseWrite.complete(Unit)
+            runCurrent()
+
+            assertEquals(
+                setOf(tagA, tagB),
+                taskRepo.tasks.value["t1"]
+                    ?.tags
+                    ?.toSet(),
+                "the undo adds the tag back onto the set the replacement wrote",
+            )
+        }
+
+    /**
+     * A slot over [taskRepo], whose screen shows [tags] on the task.
+     *
+     * The repository is seeded to agree with the screen, so the first write the test
+     * triggers is the one the gate holds.
+     */
+    private fun slotFor(
+        taskRepo: FakeTaskRepository,
+        tags: List<TagId>,
+        scope: CoroutineScope,
+    ): TaskEntitySlot {
+        val fakes = SlotFakes()
+        val seeded = task("t1").copy(tags = tags)
+        taskRepo.seed(seeded)
+        fakes.tagsRepo.seed(tag(tagA, "A"), tag(tagB, "B"))
+        return TaskEntitySlot(
+            taskId = TaskId("t1"),
+            core = fakes.core().copy(taskRepo = taskRepo),
+            children = fakes.children(),
+            scope = testSlotScope(scope),
+            taskFlow = TaskSource(seeded).state,
+            onError = {},
+        )
+    }
 }
