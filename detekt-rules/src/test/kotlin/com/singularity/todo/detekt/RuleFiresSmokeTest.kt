@@ -626,6 +626,57 @@ class MviViewModelRuleFiresTest {
     }
 
     @Test
+    fun `VmCloseable fires on an MVI subclass whose name does not end in ViewModel`() {
+        // TaskDetailCoordinator is a real MVI subclass whose name breaks the naming
+        // convention, so a rule gated on `*ViewModel` never sees it. The MVI branch must
+        // therefore not depend on the class name.
+        assertFires(
+            rule(RuleName("VmCloseable")),
+            """
+            package com.example
+
+            class TaskDetailCoordinator(
+                private val deps: Deps,
+                private val scope: CoroutineScope,
+            ) : MviViewModel<UiState, Intent, Event>(
+                initialState = UiState.Loading,
+                scope = scope,
+            ) {
+                init {
+                    addCloseable(scope)
+                }
+            }
+            """,
+            "VmCloseable",
+        )
+    }
+
+    @Test
+    fun `VmCloseable fires on a DraftMviViewModel subclass`() {
+        assertFires(
+            rule(RuleName("VmCloseable")),
+            """
+            package com.example
+
+            class TaskCreateViewModel(
+                initialDraft: String,
+                scope: CoroutineScope,
+            ) : DraftMviViewModel<String, Intent, Event>(
+                initialDraft = initialDraft,
+                autosave = { },
+                logger = Logger(),
+                scope = scope,
+            ) {
+                init {
+                    addCloseable(scope)
+                }
+            }
+            """,
+            "VmCloseable",
+        )
+    }
+
+    @Test
     fun `VmCloseable allows a different closeable in an MviViewModel subclass`() {
         val found =
             findings(

@@ -111,7 +111,7 @@ All existing; no new lint framework.
 
 | Invariant | Rule |
 |---|---|
-| a VM with its own scope closes it; an MVI subclass does not register the base's scope twice | `VmCloseable` (`mvi-viewmodel`) |
+| a VM with its own scope closes it; an MVI subclass does not register the base's scope twice — detected by inheritance from `MviViewModel`/`DraftMviViewModel`, **not** by the `*ViewModel` name, so `TaskDetailCoordinator`, `NoteEditor` and `NotePreview` are covered | `VmCloseable` (`mvi-viewmodel`) |
 | an intent handler is named `onIntent` | `IntentMethodName` |
 | `scope` is the last constructor parameter | `VmScopePosition` |
 | no shadow `uiState`/`_uiState` beside the base state | `ShadowedState` |

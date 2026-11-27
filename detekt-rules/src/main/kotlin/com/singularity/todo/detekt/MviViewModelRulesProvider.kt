@@ -189,27 +189,21 @@ internal class VmCloseableRule(config: Config) : Rule(config, "", null) {
     }
 
     private fun checkClass(clazz: KtClass) {
-        if (!isViewModelClass(clazz)) return
-
-        val primaryConstructor = clazz.primaryConstructor
-        if (primaryConstructor == null) return
+        val primaryConstructor = clazz.primaryConstructor ?: return
         val paramRefs = primaryConstructor.valueParameters
         val hasScope = paramRefs.any { it.name == "scope" }
         if (!hasScope) return
 
-        // MviViewModel/DraftMviViewModel subclasses manage scope lifecycle internally —
-        // the base initializer calls addCloseable(scope). Supertype text includes generic
-        // args (e.g. "MviViewModel<S, I, E>"), so compare the raw-name prefix.
-        val mviBaseNames = setOf("MviViewModel", "DraftMviViewModel")
-        val extendsBase =
-            clazz.superTypeListEntries.any { entry ->
-                val rawName = entry.typeReference?.text?.substringBefore('<')
-                rawName in mviBaseNames
-            }
-        if (extendsBase) {
+        // Checked before the name gate, and deliberately not gated on it: the MVI base owns
+        // the scope registration for every subclass, and `TaskDetailCoordinator` /
+        // `NoteEditor` / `NotePreview` are MVI subclasses whose names do not end in
+        // `ViewModel`. A name-gated rule is blind to exactly those.
+        if (extendsMviBase(clazz)) {
             reportDuplicateRegistration(clazz)
             return
         }
+
+        if (!isViewModelClass(clazz)) return
 
         val classBody = clazz.body
         if (classBody == null) {
@@ -250,6 +244,22 @@ internal class VmCloseableRule(config: Config) : Rule(config, "", null) {
                 suppressReasons = emptyList(),
             ),
         )
+    }
+
+    /**
+     * True when [clazz] extends `MviViewModel` or `DraftMviViewModel`.
+     *
+     * Supertype text includes the generic arguments (`MviViewModel<S, I, E>`), so the raw
+     * name is the prefix before `<`. PSI has no type resolution here, which is why the base
+     * is recognised by name rather than by resolving the type.
+     */
+    private fun extendsMviBase(clazz: KtClass): Boolean =
+        clazz.superTypeListEntries.any { entry ->
+            entry.typeReference?.text?.substringBefore('<') in MVI_BASE_NAMES
+        }
+
+    private companion object {
+        val MVI_BASE_NAMES = setOf("MviViewModel", "DraftMviViewModel")
     }
 
     /**

@@ -36,12 +36,17 @@ import kotlin.concurrent.atomics.incrementAndFetch
  * 4. **Close is graceful, not a cut.** After [close] the events already in the buffer
  *    are still delivered and the collecting flow completes once they are drained. A
  *    send that was already suspended when the close happened is **not** failed and
- *    **not** counted as a discard: a channel close resumes the waiting *receivers*,
- *    while the waiting *senders* are the ones `cancel()` tears down, so the pending
- *    send keeps its slot and completes normally — its event is delivered as soon as
- *    a receiver frees capacity. Only a *new* [emit] after the close is discarded.
- *    A pending send therefore stays suspended until a receiver drains the buffer or
- *    the emitter is cancelled; closing the bus does not release it.
+ *    **not** counted as a discard: `BufferedChannel.close()` cancels the waiting
+ *    *receivers* (`cancelSuspendedReceiveRequests`) and leaves the waiting *senders*
+ *    alone — only `cancel()` tears senders down (`removeUnprocessedElements`). So the
+ *    pending send keeps its slot and completes normally, and its event is delivered as
+ *    soon as a receiver frees capacity. Only a *new* [emit] after the close is
+ *    discarded. A pending send therefore stays suspended until a receiver drains the
+ *    buffer or the emitter is cancelled; closing the bus does not release it.
+ *    **`close()` and `cancel()` are opposite here, and the difference is the whole
+ *    guarantee**: cancelling a channel fails a suspended send with
+ *    `CancellationException` ("Channel was cancelled"), while closing it does not. The
+ *    bus only ever closes — see [EventBus.close].
  * 5. **Send after close is absorbed.** [emit] on a closed bus discards the event,
  *    counts it in [droppedAfterClose], and never reports it as a crash — a discard is
  *    a lifecycle race, not a defect.

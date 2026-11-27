@@ -130,6 +130,43 @@ class EventBusContractTest {
         }
 
     @Test
+    fun `a cancelled channel fails a suspended sender, which close does not`() =
+        runTest {
+            // The guarantee above is *specifically* about `close()`, and it is easy to
+            // state backwards: cancelling a channel resumes a suspended sender with
+            // `CancellationException` ("Channel was cancelled"), while closing it does
+            // not. Pinned here against the raw channel, because the doc on
+            // `EventBus.close` rests on that distinction — if a kotlinx upgrade ever
+            // made close() tear down senders, this fails and the KDoc is wrong.
+            val channel = kotlinx.coroutines.channels.Channel<TestEvent>(capacity = 1)
+            channel.send(TestEvent.Signal) // fills the buffer
+
+            var cancelFailure: Throwable? = null
+            val sender =
+                launch {
+                    try {
+                        channel.send(TestEvent.Text("pending")) // never delivered: the receiver is gone
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        cancelFailure = e
+                    }
+                }
+            advanceUntilIdle()
+            assertFalse(sender.isCompleted, "The sender waits on a full buffer")
+
+            channel.cancel()
+            advanceUntilIdle()
+
+            assertTrue(
+                sender.isCompleted,
+                "cancel() tears a suspended sender down — unlike close(), which leaves it pending",
+            )
+            assertTrue(
+                cancelFailure != null,
+                "the pending send fails with a CancellationException when the channel is cancelled",
+            )
+        }
+
+    @Test
     fun `close is graceful and a send that was already in flight is still delivered`() =
         runTest {
             // `close()` is graceful, not a cut — and it is graceful in a specific way.
