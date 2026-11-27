@@ -2,6 +2,7 @@ package spike
 
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import spike.scenario.ListEvent
 import spike.scenario.ListIntent
 import spike.scenario.ListState
 import spike.scenario.TaskFilter
@@ -80,14 +81,31 @@ object ScenarioSuite {
 
     /**
      * 5. A repository failure surfaces as an event, and the list does not collapse.
-     * This is the case where the two frameworks are expected to differ in *how* the
-     * failure travels, so the assertion is on what the screen keeps showing.
+     *
+     * The error is only observable to the user through the one-shot channel: a failed
+     * write leaves no trace in the state, so a variant that swallowed the failure would
+     * render exactly the same rows as one that reported it. The first version of this
+     * case asserted only the rows and therefore could not tell those two apart — the
+     * event is what makes this a comparison of behavior rather than of state.
      */
     fun errorState(scenario: TaskListScenario, scope: TestScope, source: FakeTaskSource): List<String> {
         settle(scenario, scope)
+        assertEquals(emptyList(), scenario.events(), "a healthy load emits no event")
+
         source.failOnComplete = true
         val after = settle(scenario, scope, listOf(ListIntent.Complete("1"))) as ListState.Ready
+
         assertEquals(2, after.rows.size, "a failed write does not empty the list")
+        val messages = scenario.events().map { (it as ListEvent.ShowMessage).message }
+        assertEquals(
+            1,
+            messages.size,
+            "a failed write must produce exactly one error event, got: $messages",
+        )
+        assertTrue(
+            messages.single().contains("repository is unavailable"),
+            "the error event must carry the failure's own message, got: ${messages.single()}",
+        )
         return after.rows.map { it.title }
     }
 

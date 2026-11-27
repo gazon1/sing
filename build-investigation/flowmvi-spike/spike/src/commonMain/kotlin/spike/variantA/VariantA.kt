@@ -30,10 +30,10 @@ sealed interface ListVmEvent : MviEvent {
  */
 class InRepoTaskListViewModel(
     private val source: TaskSource,
-    vmScope: AutoCloseableCoroutineScope,
+    private val scope: AutoCloseableCoroutineScope,
 ) : MviViewModel<ListState, ListVmIntent, ListVmEvent>(
         initialState = ListState.Loading,
-        scope = vmScope,
+        scope = scope,
     ) {
 
     init {
@@ -78,25 +78,42 @@ class InRepoTaskListViewModel(
         emit(ListVmEvent.Message(message))
     }
 
-    fun asScenario(): TaskListScenario = ScenarioOf(this)
+    fun asScenario(): TaskListScenario = ScenarioOf(
+        vm = this,
+        scope = scope,
+    )
 }
 
-private class ScenarioOf(private val vm: InRepoTaskListViewModel) : TaskListScenario {
+private class ScenarioOf(
+    private val vm: InRepoTaskListViewModel,
+    scope: CoroutineScope,
+) : TaskListScenario {
     override val name: String = "in-repo MviViewModel"
+
+    private val received = mutableListOf<ListEvent>()
+
+    /**
+     * The screen's effect layer: collects the one-shot events.
+     *
+     * Started here rather than left to the caller, because [events] is part of the
+     * contract — a scenario whose event channel nobody collects reports "no events" for
+     * both success and failure, which is the same blindness as not looking.
+     */
+    init {
+        scope.launch {
+            vm.events.collect { event ->
+                when (event) {
+                    is ListVmEvent.Message -> received += ListEvent.ShowMessage(event.text)
+                }
+            }
+        }
+    }
 
     override fun intent(intent: ListIntent) = vm.onIntent(ListVmIntent.Changed(intent))
 
     override fun rendered(): ListState = vm.state.value
 
-    /** The screen's effect layer: collects the one-shot events. */
-    fun collectEvents(scope: CoroutineScope, onEvent: (ListEvent) -> Unit) =
-        scope.launch {
-            vm.events.collect { event ->
-                when (event) {
-                    is ListVmEvent.Message -> onEvent(ListEvent.ShowMessage(event.text))
-                }
-            }
-        }
+    override fun events(): List<ListEvent> = received.toList()
 }
 
 private fun List<TaskRow>.forFilter(filter: TaskFilter): List<TaskRow> = when (filter) {

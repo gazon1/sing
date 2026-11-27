@@ -52,6 +52,17 @@ interface TaskListScenario {
      * reads after, which is deterministic.
      */
     fun rendered(): ListState
+
+    /**
+     * The one-shot events the effect layer has received so far, in order.
+     *
+     * A synchronous snapshot for the same reason as [rendered], and part of the contract
+     * because a failure is *observable to the user* only through this channel: an error
+     * that changes no state and emits nothing looks exactly like a success. Comparing
+     * `rendered()` alone therefore cannot show that two implementations handle a failure
+     * the same way — the error case needs this.
+     */
+    fun events(): List<ListEvent>
 }
 
 /** Mean of injecting a repository — the app's real seam (Room Flow in production). */

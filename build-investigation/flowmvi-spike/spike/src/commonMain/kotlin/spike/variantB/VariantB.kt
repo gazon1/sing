@@ -89,13 +89,15 @@ fun buildTaskListStore(
 class FlowMviScenario(
     private val store: Store<FlowMviListState, FlowMviIntent, FlowMviAction>,
     private val scope: CoroutineScope,
-    private val onEvent: (ListEvent) -> Unit = {},
 ) : TaskListScenario {
     override val name: String = "FlowMVI 3.2.1"
 
     private val mirror: MutableStateFlow<ListState> = MutableStateFlow<ListState>(ListState.Loading)
     private val rendered: StateFlow<ListState> = mirror.asStateFlow()
     private var subscription: Job? = null
+
+    /** The effect layer's inbox, part of the contract — see [TaskListScenario.events]. */
+    private val received = mutableListOf<ListEvent>()
 
     init {
         resubscribe()
@@ -108,7 +110,7 @@ class FlowMviScenario(
                 store = store,
                 consume = { action: FlowMviAction ->
                     when (action) {
-                        is FlowMviAction.Message -> onEvent(ListEvent.ShowMessage(action.text))
+                        is FlowMviAction.Message -> received += ListEvent.ShowMessage(action.text)
                     }
                 },
                 render = { state: FlowMviListState -> mirror.value = state.value },
@@ -125,6 +127,8 @@ class FlowMviScenario(
     override fun intent(intent: ListIntent) = store.intent(FlowMviIntent.Changed(intent))
 
     override fun rendered(): ListState = mirror.value
+
+    override fun events(): List<ListEvent> = received.toList()
 }
 
 private fun List<TaskRow>.forFilter(filter: TaskFilter): List<TaskRow> = when (filter) {

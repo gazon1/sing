@@ -90,8 +90,12 @@ The residue is structural, not a compile error:
 ## Behavior: the six comparable scenarios are **identical**
 
 One contract (`spike/scenario/Scenario.kt`), two implementations, one suite. The suite
-runs every case against both and asserts the *observable* results are equal. Measured
-outputs, taken from a run that printed both sides:
+runs every case against both and asserts the *observable* results are equal. "Observable"
+includes the one-shot event channel, not only the rendered state: a failure leaves no
+trace in state, so a variant that swallowed an error would render exactly the same rows as
+one that reported it. `TaskListScenario.events()` was added for that reason, and the error
+case asserts an event carrying the failure's own message — the rows alone could not tell
+the two apart. Measured outputs, taken from a run that printed both sides:
 
 | Scenario | in-repo `MviViewModel` | FlowMVI 3.2.1 |
 |---|---|---|
@@ -99,7 +103,7 @@ outputs, taken from a run that printed both sides:
 | filter changes | `[]` | same |
 | task completion | `[Write the spike, Read the assessment]` | same |
 | Room Flow updates | `[…, Inserted elsewhere]` | same |
-| loading/error | `[Write the spike, Read the assessment]` | same |
+| loading/error | `[Write the spike, Read the assessment]` + 1 error event | same |
 | rapid intents (20) | `filter=Completed, rows=0` | same |
 
 `spike`: 18 tests, 0 failures (11 semantic-gap + 6 comparison + 1 fatal-`Error` contract,
@@ -127,23 +131,41 @@ from a reducer is **not** passed to the `recover` hook, so the plausible
 `runCatchingCancellable` in the app, which re-throws cancellation and catches
 `Exception`. No gap.
 
-### 1b. Fatal JVM errors — FlowMVI is *worse*, and silently
+### 1b. Fatal JVM errors — FlowMVI is *worse*: unobservable, and silent
 
 `runCatchingCancellable` catches `Exception` only, so an `Error` propagates out of the
 in-repo loop. `FlowMVI does not offer a fatal JVM error to recovery` confirms `recover`
 never sees it either — but the rest of the measurement is the finding:
 
 - the pipeline stops reducing: every intent sent afterwards is dropped;
-- **nothing reports it** — not `recover`, not the store's own
-  `CoroutineExceptionHandler`, not the owner scope's;
+- **nothing the application can observe reports it** — not `recover`, not the owner
+  scope's `CoroutineExceptionHandler`;
 - `store.isActive` still answers `true`, so the store looks alive while doing nothing;
 - `close()` does not throw.
 
+Both "nothing arrived" claims are backed by live instruments, and both instruments are
+proven **inside this test** before the fatal case runs — no assertion depends on another
+test having exercised them. An ordinary `IllegalStateException` on the same store must
+reach `recover`, and a control throw on the owner scope must reach its handler. A third
+control pins the baseline the fatal result is read against: after that ordinary recovery
+the pipeline must **keep reducing**, so the stall observed after the fatal error is
+attributable to the `Error` and not to the recovery that preceded it.
+
+FlowMVI's own `config.coroutineContext` handler is **not** used as evidence — measured, it
+is never invoked, not for a fatal `Error` and **not for a plain `IllegalStateException`
+either**, so an assertion resting on it could not observe anything.
+
 That is the same failure mode as the `init` trap below: a dead store that reports no
 error. The in-repo loop at least lets the error reach the scope's uncaught-exception
-handler. This test lives in `FatalErrorContractTest`, in **its own JVM fork** — the error
-resurfaces on an unrelated thread and `runTest` otherwise fails whichever test runs next
-with `UncaughtExceptionsBeforeTest`.
+handler.
+
+The error is not *lost*, though, and that distinction matters. With the owner handler
+proven live by the control above, the fatal `Error` still bypasses it and escapes on a
+thread no handler in this test covers: run against a sibling test in the same JVM, it
+lands as an `UncaughtExceptionsBeforeTest` in whichever test runs next. So the accurate
+statement is **the application cannot observe the error through any handler it can
+install**, not that the error disappears. This test therefore lives in
+`FatalErrorContractTest`, in its own JVM fork.
 
 ### 2. Atomic state — both correct
 
