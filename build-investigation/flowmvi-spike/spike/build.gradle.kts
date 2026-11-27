@@ -73,3 +73,25 @@ tasks.named("compileTestKotlinJvm") { dependsOn(stageProductionSources) }
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
 }
+
+// `FatalErrorContractTest` provokes a JVM-fatal Error on purpose. FlowMVI's pipeline
+// swallows it, but it resurfaces on an unrelated thread, and `runTest` then fails
+// whichever test happens to run next with `UncaughtExceptionsBeforeTest` — a
+// process-wide effect no assertion inside the test can contain. A separate fork gives it
+// its own JVM, so the leak reaches nothing else.
+tasks.named<Test>("jvmTest") {
+    val fatal = "spike.FatalErrorContractTest"
+    filter {
+        includeTestsMatching("*")
+        excludeTestsMatching(fatal)
+    }
+}
+
+tasks.register<Test>("jvmTestFatalErrors") {
+    description = "Runs the fatal-Error contract in its own JVM; see FatalErrorContractTest."
+    group = "verification"
+    testClassesDirs = tasks.named<Test>("jvmTest").get().testClassesDirs
+    classpath = tasks.named<Test>("jvmTest").get().classpath
+    useJUnitPlatform()
+    filter { includeTestsMatching("spike.FatalErrorContractTest") }
+}

@@ -59,10 +59,23 @@ artifact: `atomicfu` comes with it, and it drags the app's Compose *and* lifecyc
 versions backwards. `atomicfu` 0.28.0 (already in the app via Compose) is also forced to
 0.30.0-beta.
 
-## Gate 2 — Koin 4.2.2 and Navigation 3 1.2.0 ownership: **passed, with friction**
+## Gate 2 — Koin 4.2.2 and Navigation 3 1.2.0 ownership: **passed, measured**
 
-`resolveProof/.../Ownership.kt` compiles `koinViewModel`, `viewModel` from
-`org.koin.core.module.dsl`, and a Koin graph that provides a store-owning ViewModel.
+`Ownership.kt` compiles `koinViewModel`, `viewModel` from `org.koin.core.module.dsl`, and
+a Koin graph that provides a store-owning ViewModel. `ProofStoreHolder` **starts** the
+store in `init` and **closes** it in `onCleared`: a holder that only holds proves nothing,
+because an unstarted store reduces no intents and an unclosed one outlives its destination.
+
+`DestinationOwnershipTest` drives the real thing — a `NavDisplay` with
+`rememberViewModelStoreNavEntryDecorator` (the decorator the app's nested graphs apply),
+the holder resolved through `koinViewModel`, and three claims asserted in order:
+
+| Claim | Assertion | Mutating it |
+|---|---|---|
+| the entry owns its ViewModel store | entry store ≠ composition store | — |
+| the holder starts the store | an intent from the entry reaches the published state | removing `start` fails the test |
+| popping the destination stops the store | `store.isActive == false` after the pop | removing `onCleared`'s teardown fails the test |
+
 The residue is structural, not a compile error:
 
 - **A FlowMVI store is not a ViewModel.** The app scopes a destination with
@@ -89,13 +102,15 @@ outputs, taken from a run that printed both sides:
 | loading/error | `[Write the spike, Read the assessment]` | same |
 | rapid intents (20) | `filter=Completed, rows=0` | same |
 
-`spike/src/jvmTest: 13 tests, 0 failures`.
+`spike`: 18 tests, 0 failures (11 semantic-gap + 6 comparison + 1 fatal-`Error` contract,
+the last in its own JVM fork). `resolveProof`: 1 test, 0 failures. 19 in total.
 
 Variant A is not a re-implementation: the app's own `MviViewModel`, `EventBus`,
 `Markers`, `AppError`, `RunCatching`, `AutoCloseableCoroutineScope` and
 `CrashReportingPort` are staged into the probe by a `Sync` task whose **inputs are those
-files**, so editing production invalidates the staging. Variant B is FlowMVI configured
-the way the assessment said is fair, not at its defaults: `parallelIntents = false`,
+files**, so editing production invalidates the staging. Variant B — the store the
+scenario suite drives — is FlowMVI configured the way the assessment said is fair, not at
+its defaults: `parallelIntents = false`,
 `intentCapacity = Channel.UNLIMITED`, `onOverflow = SUSPEND`, default
 `StateStrategy.Atomic(reentrant = true)`, `ActionShareBehavior.Distribute`. The defaults
 drop intents (`DROP_OLDEST`) — that difference is a configuration choice, not
@@ -112,11 +127,36 @@ from a reducer is **not** passed to the `recover` hook, so the plausible
 `runCatchingCancellable` in the app, which re-throws cancellation and catches
 `Exception`. No gap.
 
+### 1b. Fatal JVM errors — FlowMVI is *worse*, and silently
+
+`runCatchingCancellable` catches `Exception` only, so an `Error` propagates out of the
+in-repo loop. `FlowMVI does not offer a fatal JVM error to recovery` confirms `recover`
+never sees it either — but the rest of the measurement is the finding:
+
+- the pipeline stops reducing: every intent sent afterwards is dropped;
+- **nothing reports it** — not `recover`, not the store's own
+  `CoroutineExceptionHandler`, not the owner scope's;
+- `store.isActive` still answers `true`, so the store looks alive while doing nothing;
+- `close()` does not throw.
+
+That is the same failure mode as the `init` trap below: a dead store that reports no
+error. The in-repo loop at least lets the error reach the scope's uncaught-exception
+handler. This test lives in `FatalErrorContractTest`, in **its own JVM fork** — the error
+resurfaces on an unrelated thread and `runTest` otherwise fails whichever test runs next
+with `UncaughtExceptionsBeforeTest`.
+
 ### 2. Atomic state — both correct
 
-200 increments issued back-to-back are all applied by both: in-repo via
-`MutableStateFlow.update` (CAS), FlowMVI via FIFO-serialized transactions under the
-default `Atomic` strategy. Neither loses a write.
+200 increments from 200 genuinely concurrent writers are all applied by both: in-repo via
+`MutableStateFlow.update` (CAS), FlowMVI via its atomic state strategy. That test builds
+its own store with `parallelIntents = true` — the scenario store is sequential, which
+would test FlowMVI's queue rather than its concurrent writes. Neither loses a write.
+
+The first version of this test measured `mirrored.get()` — a counter the reducer
+incremented beside `updateState` — so it passed even when the store applied nothing.
+`neither framework loses a concurrent increment` now reads the state each side actually
+published: the in-repo `StateFlow.value`, and the FlowMVI state delivered to a subscriber.
+Mutating the reducer to drop the `updateState` call fails the test; it passed before.
 
 ### 3. Store start/stop/restart — FlowMVI has a capability the app has no equivalent for
 
@@ -137,13 +177,22 @@ the change it missed (`a returning subscriber sees what changed while it was awa
 passes). The in-repo loop behaves the same through `stateFlow`, which is a
 `StateFlow`.
 
-### 5. Action delivery with no subscriber — no loss, in the pinned mode
+### 5. Action delivery — three of the four cases match; the counter does not exist
 
-`an action emitted before a subscriber is delivered once one subscribes` passes. The
-assessment warned that `Share` loses actions with no subscriber; `Distribute` — the mode
-pinned here and the one closest to the app's single-consumer bus — is a channel, so it
-buffers. The app's post-close/drop counter (`droppedAfterClose`) still has no equivalent,
-but for the delivery question the two agree.
+Four focused tests, all discriminating (switching `Distribute` to `Share` fails every one
+of them):
+
+| Case | in-repo `EventBus` | FlowMVI `Distribute` |
+|---|---|---|
+| action emitted before any subscriber | buffered, delivered | same |
+| subscriber cancelled, action arrives | next subscriber gets it | same |
+| close with actions buffered | delivered after close | same |
+| buffer saturation | `emit` suspends, never drops | `DROP_OLDEST` drops silently; `SUSPEND` does not |
+| count of discards | `droppedAfterClose: Int` | **no equivalent, in any mode** |
+
+So the assessment's one open question — the missing `droppedAfterClose` equivalent — is
+answered: it is genuinely missing. A discarded action is indistinguishable from one that
+was never emitted, and the only way to avoid discards is to configure `SUSPEND`.
 
 ### 6. The finding that is not on the assessment's list: `init` silently eats intents
 
@@ -203,14 +252,21 @@ through the repository's wrapper with `-p`:
 
 ```bash
 cd build-investigation/flowmvi-spike
-../../gw -p . :spike:jvmTest                                         # 13 tests, 0 failures
+../../gw -p . :spike:jvmTest :spike:jvmTestFatalErrors                # 18 tests, 0 failures
+../../gw -p . :resolveProof:jvmTest                                  # 1 test, 0 failures
 ../../gw -p . :resolveProof:compileKotlinJvm :resolveProof:compileAndroidMain
 ```
 
+`:spike:jvmTestFatalErrors` is a separate fork on purpose: `FatalErrorContractTest`
+provokes a JVM-fatal `Error`, which FlowMVI swallows but which resurfaces on an unrelated
+thread. Sharing a JVM with the other tests turns that into an
+`UncaughtExceptionsBeforeTest` in whichever test runs next.
+
 ## What this does not prove
 
-- No Compose UI test: the Compose integration is proven to **compile** and to deliver
-  states/actions to a subscriber, not to render. No screen was driven.
+- No app screen was driven: the Compose integration is proven to compile, to deliver
+  states/actions to a subscriber, and (in `DestinationOwnershipTest`) to start and stop a
+  store under a real `NavDisplay`. Nothing renders a production screen.
 - No Room. The repository is a `FakeTaskSource`; a real Room `Flow` would add threading
   the fake does not reproduce.
 - No instrumentation on Android: the Android side is a compile proof only.

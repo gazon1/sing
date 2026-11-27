@@ -27,7 +27,7 @@ from here, so the production MVI is staged by a `Sync` task instead — see belo
 | `spike/src/commonMain/kotlin/spike/variantB/` | The same behavior in FlowMVI 3.2.1. |
 | `spike/src/commonTest/` | The six scenarios, written once. |
 | `spike/src/jvmTest/` | The comparison run and the semantic-gap tests. |
-| `resolveProof/` | The issue's stop/go gate: FlowMVI core + compose on both targets, plus Koin and Navigation 3 ownership. |
+| `resolveProof/` | The issue's stop/go gate: FlowMVI core + compose on both targets, plus Koin and Navigation 3 ownership. Its `jvmTest` drives a real `NavDisplay` and asserts the store is started, reduces, and is stopped when the destination is popped. |
 
 ## Variant A is the real thing, not a copy
 
@@ -51,9 +51,15 @@ with `-p`, which is also how the `kt-62686` probe is run.
 
 ```bash
 cd build-investigation/flowmvi-spike
-../../gw -p . :spike:jvmTest
+../../gw -p . :spike:jvmTest :spike:jvmTestFatalErrors
+../../gw -p . :resolveProof:jvmTest
 ../../gw -p . :resolveProof:compileKotlinJvm :resolveProof:compileAndroidMain
 ```
 
-Measured on 2026-11-27, host idle, via exactly those two commands: 13 tests / 0 failures,
-and BUILD SUCCESSFUL for both targets.
+`:spike:jvmTestFatalErrors` is a second fork on purpose: the fatal-`Error` contract test
+provokes a JVM-fatal condition that FlowMVI swallows but that resurfaces on an unrelated
+thread, so it must not share a JVM with the rest.
+
+Measured on 2026-11-27, host idle, via exactly those commands: 18 tests / 0 failures in
+`spike` (11 semantic-gap + 6 comparison + 1 fatal, the last in its own fork), 1 test / 0
+failures in `resolveProof`, and BUILD SUCCESSFUL for both targets.

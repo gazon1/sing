@@ -38,11 +38,30 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
             implementation("org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
             implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
+            implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-navigation3:2.11.0")
             // Gate 2 of #3234: Koin 4.2.2 and Navigation 3 as the app actually pins them.
             implementation("io.insert-koin:koin-core:4.2.2")
             implementation("io.insert-koin:koin-compose:4.2.2")
             implementation("io.insert-koin:koin-compose-viewmodel:4.2.2")
             implementation("androidx.navigation3:navigation3-runtime:1.2.0")
         }
+        jvmTest.dependencies {
+            // The ownership test drives a real NavDisplay with a real decorator, so it
+            // needs the same UI and test surfaces the app's desktop flow tests use.
+            implementation(kotlin("test"))
+            implementation("org.jetbrains.compose.ui:ui-test:1.12.2")
+            implementation("org.jetbrains.compose.desktop:desktop-jvm-linux-x64:1.12.2")
+            // The JetBrains port, not `androidx.navigation3:navigation3-ui`: the latter's
+            // desktop artifact is a `TODO()` stub, so NavDisplay throws on Desktop.
+            implementation("org.jetbrains.androidx.navigation3:navigation3-ui:1.2.0")
+            implementation("org.jetbrains.compose.foundation:foundation:1.12.2")
+            // Compose Desktop's UI test harness needs the Swing main dispatcher.
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.11.0")
+        }
     }
+}
+
+// The ownership test is a plain JVM (`kotlin.test` → JUnit 5) test.
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
 }
