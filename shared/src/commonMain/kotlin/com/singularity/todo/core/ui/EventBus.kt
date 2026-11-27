@@ -9,6 +9,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedSendChannelException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
@@ -31,8 +32,13 @@ import kotlin.concurrent.atomics.incrementAndFetch
  *    ADR `2026-10-22-an-event-bus-has-one-consumer`.
  * 2. **No loss, backpressure instead.** [emit] suspends while the buffer is full
  *    instead of dropping, so a live consumer loses nothing — the sender waits.
- * 3. **Try-emit never blocks.** [tryEmit] returns `false` when the buffer is full or
- *    the bus is closed, and `true` otherwise. It never counts as a discard.
+ * 3. **Try-emit never blocks.** [tryEmit] returns `false` when the event could not be
+ *    handed over right now or the bus is closed, and `true` otherwise. It never counts
+ *    as a discard in [droppedAfterClose], which keeps its single meaning: a *suspending*
+ *    [emit] on a closed bus. A refusal on a live bus is real loss, so the first one per
+ *    bus is logged at `warn` — otherwise it is recorded nowhere, because every call site
+ *    ignores the returned flag. On a rendezvous bus the refusal means "no receiver was
+ *    waiting" and the message says so, rather than claiming a buffer is full.
  * 4. **Close is graceful, not a cut.** After [close] the events already in the buffer
  *    are still delivered and the collecting flow completes once they are drained. A
  *    send that was already suspended when the close happened is **not** failed and
@@ -61,15 +67,22 @@ import kotlin.concurrent.atomics.incrementAndFetch
  *   test can inject a [com.singularity.todo.test.fakes.RecordingCrashReportingPort]
  *   and assert `reports.isEmpty()` — the absence of a report is the contract, and only
  *   an injectable reporter can prove it.
+ * @param log Kermit logger, defaulted so `MviViewModel` and every test construct the bus
+ *   without knowing a log tag exists. Both outcomes are logged rather than only counted:
+ *   a counter is read by whoever is already looking, a log line is read by whoever is
+ *   looking *now*. Injectable for the same reason [crashReporter] is — the severity of the
+ *   full-buffer line is part of the contract (it has to survive the release filter), and
+ *   only a test with a captured writer can prove which one was used.
  * @see MviEvent
  */
 @Stable
 // The stdlib's atomic types are still marked experimental, so the opt-in is here rather
-// than pushed onto every caller that constructs an event bus. `AtomicInt` is the
-// multiplatform name for what is `java.util.concurrent.atomic.AtomicInteger` on JVM and
-// Android, so the counter is the same object with a name that also means something on a
-// target without `java.util.concurrent`; `incrementAndFetch` is the stdlib's spelling of
-// `incrementAndGet`.
+// than pushed onto every caller that constructs an event bus. `AtomicInt` and
+// `AtomicBoolean` are the multiplatform names for what are
+// `java.util.concurrent.atomic.AtomicInteger`/`AtomicBoolean` on JVM and Android, so the
+// state is the same object with a name that also means something on a target without
+// `java.util.concurrent`; `incrementAndFetch` and `compareAndSet` are the stdlib's
+// spellings of `incrementAndGet` and `compareAndSet`.
 @OptIn(ExperimentalAtomicApi::class)
 class EventBus<E : MviEvent>(
     capacity: Int = Channel.BUFFERED,
@@ -78,8 +91,21 @@ class EventBus<E : MviEvent>(
     // The suppression is for that seam, not to hide a missed call site.
     @Suppress("UnusedPrivateProperty") // see the line above: the unread property IS the guard
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    private val log: Logger = Logger.withTag("EventBus"),
 ) {
     private val _channel = Channel<E>(capacity)
+
+    /**
+     * Whether this bus has no buffer to fill.
+     *
+     * [Channel.RENDEZVOUS] is capacity `0`, and it is the only capacity for which
+     * "full" is a false description: a `trySend` there fails because no receiver is
+     * waiting, not because a buffer is occupied. The other negative capacities cannot
+     * fail on `trySend` at all (`UNLIMITED`/`CONFLATED` accept everything), so `0` is
+     * the whole distinction. Worth knowing because the message is read by someone
+     * diagnosing a missing event, and a wrong cause sends them the wrong way.
+     */
+    private val isRendezvous: Boolean = capacity == Channel.RENDEZVOUS
 
     /**
      * The events, as a flow. **One consumer**: collecting it twice splits the events
@@ -98,11 +124,22 @@ class EventBus<E : MviEvent>(
     private val droppedAfterCloseCount = AtomicInt(0)
 
     /**
-     * Kermit logger, defaulted so `MviViewModel` and every test construct the bus without
-     * knowing a log tag exists. The drop is logged rather than only counted: a counter is
-     * read by whoever is already looking, a log line is read by whoever is looking *now*.
+     * Whether the one refusal warning has already been written.
+     *
+     * A guard, not a counter: the number of refusals is not a fact anyone acts on, only
+     * whether the reader was told once. `compareAndSet(false, true)` makes "first one
+     * wins" the whole operation, with no count to maintain.
+     *
+     * Not exposed: the only production bus is `MviViewModel`'s private one, so a public
+     * getter would have no production reader — state added to justify itself.
+     *
+     * The suppression is deliberately permanent rather than rate-limited. A bus that
+     * refused once and later hits a sustained overload logs nothing for the second
+     * episode. A time-window limiter was considered and left out: it needs a clock the
+     * bus does not have, and one line per ViewModel lifetime is enough to point a reader
+     * at the code without turning a flood into a slower flood.
      */
-    private val log: Logger = Logger.withTag("EventBus")
+    private val hasLoggedRefusal = AtomicBoolean(false)
 
     /**
      * Sends [event], or discards it if the bus is closed.
@@ -143,11 +180,47 @@ class EventBus<E : MviEvent>(
     /**
      * Sends [event] without suspending.
      *
-     * @return `true` if the event was accepted, `false` if the buffer is full or the
-     *   bus is closed. A refused send is not a discard and is not counted in
-     *   [droppedAfterClose] — only a suspending [emit] on a closed bus is.
+     * @return `true` if the event was accepted, `false` if it could not be handed over
+     *   right now or the bus is closed. A refused send is not a discard and is not
+     *   counted in [droppedAfterClose] — only a suspending [emit] on a closed bus is.
+     *
+     * A refusal has two causes with opposite diagnoses, and only one is logged: a
+     * **closed** bus is a lifecycle race that [emit] already absorbs, while a refusal on
+     * a live bus is real loss — the event is gone and no counter anywhere receives it.
+     *
+     * "Real loss" is the accurate framing, not "full": on a [Channel.RENDEZVOUS] bus
+     * (capacity `0`) the send fails because no receiver is waiting, and there is no
+     * buffer to fill. The log message says which of the two happened, because a reader
+     * who is handed the wrong cause looks in the wrong place.
+     *
+     * The severity is not incidental. The release build filters below `Warn`
+     * (`applyGlobalSeverity`), so a `debug` line — which is what [emit]'s discard
+     * uses — does not exist in the build where a missing snackbar would be reported.
+     * One line per bus, not per event: see [hasLoggedRefusal] for that trade-off.
+     *
+     * The message reports only what is observed. Producers outrunning the collector
+     * does not establish that the collector has stopped.
      */
-    fun tryEmit(event: E): Boolean = _channel.trySend(event).isSuccess
+    fun tryEmit(event: E): Boolean {
+        val result = _channel.trySend(event)
+        if (result.isSuccess) return true
+        // A closed bus is the lifecycle race `emit` already absorbs: expected at
+        // teardown, so it must not become a production warning.
+        if (result.isClosed) return false
+        if (hasLoggedRefusal.compareAndSet(false, true)) {
+            // "Full" would be a lie on a rendezvous bus: there is no buffer, and the
+            // refusal means no receiver was waiting. Two messages, because a reader who
+            // trusts a wrong cause looks in the wrong place.
+            log.w {
+                if (isRendezvous) {
+                    "EventBus refused an event; no receiver was waiting"
+                } else {
+                    "EventBus buffer full; refused an event"
+                }
+            }
+        }
+        return false
+    }
 
     /**
      * Closes the bus.

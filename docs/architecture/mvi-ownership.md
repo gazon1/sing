@@ -10,7 +10,7 @@
 | Abstraction | File | Owns | Production call sites |
 |---|---|---|---|
 | `MviViewModel<S, I, E>` | `core/ui/MviViewModel.kt` | the state flow, the event channel, the scope registration, the error path | 33 subclasses (36 including `DraftMviViewModel` and the base itself) |
-| `EventBus<E>` | `core/ui/EventBus.kt` | one-consumer delivery, backpressure, graceful close, drop counter | **1** — the private bus inside `MviViewModel`. Nothing else constructs one. |
+| `EventBus<E>` | `core/ui/EventBus.kt` | one-consumer delivery, backpressure, graceful close, drop counter, full-buffer refusal log | **1** — the private bus inside `MviViewModel`. Nothing else constructs one. |
 | `MviIntent` / `MviEvent` | `core/ui/Markers.kt` | typing only; no behaviour | every feature's intent/event hierarchy |
 | `AutoCloseableCoroutineScope` | `core/coroutines/AutoCloseableCoroutineScope.kt` | a scope whose `close()` cancels its job | every VM's `scope` parameter; also `CurrentUser`, `SyncEngine`, `SyncCoordinator` |
 | `DraftMviViewModel` / `DraftState` | `core/ui/DraftMviViewModel.kt`, `DraftState.kt` | the draft value, its checkpoint, debounced autosave, explicit save | `TaskCreateViewModel`, `NoteEditor`, plus the test fixture |
@@ -77,6 +77,16 @@ shape, so it cannot come back.
 - **Close is graceful.** `onCleared()` closes the bus; buffered events still arrive and the
   flow then completes. An `emit` after the close is dropped, counted in
   `droppedAfterClose`, logged — and never reported as a crash.
+- **A refused `tryEmit` is logged, once.** `tryEmit` returns `false` when the event could
+  not be handed over right now, or the bus is closed. Every call site ignores the result,
+  so a refusal used to be recorded nowhere. The first refusal on a live bus per bus now
+  logs one `warn` line (warn, not debug: release filters below `Warn`), naming the cause it
+  can see — `buffer full` for a buffered bus, `no receiver was waiting` for a
+  `Channel.RENDEZVOUS` bus, which has no buffer. A closed bus logs nothing: it is an
+  expected teardown race. The guard behind it (`hasLoggedRefusal`, a private
+  `AtomicBoolean`) is not exposed — the production bus is `MviViewModel`'s private
+  `_events`, so an exposed getter would have no production reader. See
+  `2026-11-27-mvi-instrumentation-is-not-a-new-seam.md`.
 
 A feature-local `MutableSharedFlow` remains correct where a genuine broadcast exists
 (`Nav3State`, `OnboardingSettingsRepository`, `TaskDraftSlot`'s per-field input flows). It is
