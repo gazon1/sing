@@ -91,8 +91,13 @@ override fun onCleared() {
    scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
 
    // After
-   scope = AutoCloseableCoroutineScope(),
+   scope = reportingScope(crashReporter),
    ```
+
+   `AutoCloseableCoroutineScope` has no no-arg constructor — it takes a
+   `CoroutineContext`, and a scope built without a failure handler escalates every
+   unhandled collector failure to the platform's uncaught-exception handler. Use
+   `reportingScope(crashReporter)` in production and `testScope(this)` in a test.
 
 5. Remove `override fun onCleared() { scope.cancel(); super.onCleared() }`
 
@@ -120,14 +125,19 @@ class MyViewModel(
 // AFTER
 class MyViewModel(
     private val deps: MyDeps,
-    private val scope: AutoCloseableCoroutineScope,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : ViewModel() {
     init { addCloseable(scope) }
-    constructor(deps: MyDeps) : this(deps, AutoCloseableCoroutineScope())
+    // no secondary constructor — the default parameter replaced it
     ...
     // onCleared removed
 }
 ```
+
+**If the class extends `MviViewModel`/`DraftMviViewModel`, skip step 3's `init {
+addCloseable(scope) }`.** The base initializer already registers the scope it was handed, so a
+second call registers one resource twice — and the `VmCloseable` detekt rule reports it.
 
 ### Step 3 — Update Test Factory
 

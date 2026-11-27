@@ -603,6 +603,54 @@ class MviViewModelRuleFiresTest {
     }
 
     @Test
+    fun `VmCloseable fires when an MviViewModel subclass registers the base-owned scope again`() {
+        assertFires(
+            rule(RuleName("VmCloseable")),
+            """
+            package com.example
+
+            class AgendaViewModel(
+                private val deps: Deps,
+                private val scope: CoroutineScope,
+            ) : MviViewModel<UiState, Intent, Event>(
+                initialState = UiState.Loading,
+                scope = scope,
+            ) {
+                init {
+                    addCloseable(scope)
+                }
+            }
+            """,
+            "VmCloseable",
+        )
+    }
+
+    @Test
+    fun `VmCloseable allows a different closeable in an MviViewModel subclass`() {
+        val found =
+            findings(
+                rule(RuleName("VmCloseable")),
+                """
+            package com.example
+
+            class AgendaViewModel(
+                private val deps: Deps,
+                private val agent: Agent,
+                private val scope: CoroutineScope,
+            ) : MviViewModel<UiState, Intent, Event>(
+                initialState = UiState.Loading,
+                scope = scope,
+            ) {
+                init {
+                    addCloseable { agent.terminate() }
+                }
+            }
+            """,
+            )
+        assertTrue(found.isEmpty(), "a non-scope closeable is still one owner, got $found")
+    }
+
+    @Test
     fun `ShadowedState fires on a VM that redeclares MviViewModel state`() {
         assertFires(
             rule(RuleName("ShadowedState")),

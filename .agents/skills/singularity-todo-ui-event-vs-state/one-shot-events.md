@@ -6,6 +6,18 @@
 
 See `docs/decisions/2026-09-15-viewmodel-state-ownership.md` for the canonical decision record with the full rationale and anti-pattern catalog.
 
+## The transport: `vm.events`, one consumer
+
+`MviViewModel.events` is `EventBus.flow` — a `Channel` behind a `Flow`, not a
+`SharedFlow`. It has exactly one consumer, `emit` applies backpressure instead of
+dropping, and `onCleared()` closes it gracefully (buffered events still arrive, the flow
+then completes). Collect it **once**, in one `CollectEvents(vm.events) { … }`; two
+collectors split the events between them instead of each seeing every event.
+
+Reach for a feature-local `MutableSharedFlow` only where the broadcast contract is real —
+several independent subscribers that each need every value. A pulse event that a single
+screen animates from is still a single consumer, so the channel path serves it.
+
 ## ⚠️ Per-feature UiEvent (not global)
 
 Every feature has its **own** `sealed interface XxxUiEvent` — not a shared global `UiEvent`. This prevents naming conflicts when multiple screens emit `NavigateBack` or `ShowError`.
@@ -100,6 +112,10 @@ fun NoteEditorScreen(...) {
 
 **Why not `mutableStateOf<String?>` for the pill?** Because that would duplicate the VM's knowledge of when a save happened. The screen should only react to the VM's event, not maintain its own mirror state.
 
+(Pulse events shown here as a `MutableSharedFlow` predate the Channel-backed `vm.events`
+path; a pulse with one consumer belongs there too. The example is kept because the
+`Animatable` dedup on the screen side is the part it teaches.)
+
 ## The `CollectEvents` helper
 
 Always use `CollectEvents(flow) { … }` instead of `LaunchedEffect(Unit) { vm.events.collectLatest { … } }`:
@@ -125,17 +141,16 @@ fun NoteEditorScreen(
 }
 ```
 
-`CollectEvents` is a thin wrapper:
+`CollectEvents` is a thin wrapper over any `Flow` — the event bus is a `Flow`, so the
+same helper serves it:
 
 ```kotlin
 @Composable
-fun <T : UiEvent> CollectEvents(
-    flow: SharedFlow<T>,
+fun <T> CollectEvents(
+    flow: Flow<T>,
     onEvent: (T) -> Unit,
 ) {
-    LaunchedEffect(flow) {
-        flow.collect { onEvent(it) }
-    }
+    LaunchedEffect(flow) { flow.collect(onEvent) }
 }
 ```
 

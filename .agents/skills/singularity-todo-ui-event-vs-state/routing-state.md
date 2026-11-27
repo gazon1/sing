@@ -7,7 +7,7 @@ There are **three** kinds of UI-related data, not two:
 | Category | Where it lives | Example |
 |---|---|---|
 | **UI state** | `StateFlow<UiState>` on VM | task list, filter, loading branch |
-| **One-shot events** | `SharedFlow<UiEvent>` on VM | snackbar, dialog, navigate back |
+| **One-shot events** | `MviViewModel.events` (Channel-backed) | snackbar, dialog, navigate back |
 | **Routing state** | `remember { mutableStateOf(...) }` on screen | `activeSheet: ActiveSheet?`, `menuExpanded: Boolean` |
 
 Routing state is the **which sheet / dialog / menu is currently open**. It belongs on the screen, not in the VM, because:
@@ -16,7 +16,7 @@ Routing state is the **which sheet / dialog / menu is currently open**. It belon
 - It has no persistence requirement (rotating the device closes the sheet).
 - Routing decisions are cheap and local (no repository call needed).
 
-**The anti-pattern: routing through the VM's SharedFlow.**
+**The anti-pattern: routing through the VM's event bus.**
 
 ```kotlin
 // ❌ WRONG — opening a date picker goes through the VM
@@ -41,7 +41,7 @@ val actions = remember { TaskDetailActions { intent ->
 
 `ConfirmDelete`/`ConfirmArchive` in the original `TaskDetailScreen` were already doing this correctly — the round-trip was unnecessary.
 
-**Exception: routing that requires domain data.** If you need to ask the VM which project to pre-select in a picker, read that from `state.ui.project` (already available). You do not need to emit a `SharedFlow` event to ask.
+**Exception: routing that requires domain data.** If you need to ask the VM which project to pre-select in a picker, read that from `state.ui.project` (already available). You do not need to emit an event to ask.
 
 **ProjectDetailIntent follows the same pattern.** Routing variants (`OpenColorSheet`, `OpenIconSheet`, `OpenDeleteSheet`, etc.) are `Routing` sealed-subinterface members. They are handled on the screen via `remember { ProjectDetailActions { ... } }` that sets `activeSheet = ActiveSheet.PickColor` directly. The VM never knows which sheet is open.
 

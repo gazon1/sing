@@ -158,7 +158,7 @@ class StatisticsViewModel(
             .map { }
 
     init {
-        addCloseable(scope)
+        // No addCloseable(scope): MviViewModel's initializer already registers it.
 
         // ── Task statistics (recomputed when rangeDays changes) ─────────────
         // The chart draws one bar per day of the selected range, so the

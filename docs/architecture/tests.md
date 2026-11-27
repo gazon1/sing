@@ -366,14 +366,25 @@ warn`): шаг с `always()` выполняется и тогда, когда о
 ```kotlin
 class MyViewModel(
     private val deps: MyDeps,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
-    init { addCloseable(scope) }
-    private val _state = MutableStateFlow<UiState>(UiState.Loading)
-    val state: StateFlow<UiState> = _state.asStateFlow()
-    init { scope.launch { repo.observe().collect { _state.value = it } } }
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+) : MviViewModel<UiState, MyIntent, MyEvent>(
+    initialState = UiState.Loading,
+    crashReporter = crashReporter,
+    scope = scope,
+) {
+    // `addCloseable(scope)` is already called by MviViewModel's initializer — calling it
+    // again here registers one scope twice, and the VmCloseable rule reports it.
+    private val collected = scope.launch { deps.repo.observe().collect { updateState { it } } }
+
+    override fun onIntent(intent: MyIntent) { … }
 }
 ```
+
+`AutoCloseableCoroutineScope` has no no-arg constructor: it takes a `CoroutineContext`, and a
+scope without a failure handler escalates every unhandled collector failure to the platform's
+uncaught-exception handler (process death on Android). `reportingScope(crashReporter)` is the
+production spelling; a test passes `testScope(this)`.
 
 Подробности: `singularity-todo-testable-vm`, `singularity-todo-vm-migration-playbook`.
 

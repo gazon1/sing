@@ -20,7 +20,7 @@ This skill documents the **canonical testable pattern** including the MviViewMod
 - `state: StateFlow<S>` — read-only; backed by a private `MutableStateFlow` (`_state`), per ADR `2026-11-26-mvi-state-is-observed-read-only.md`
 - `events: Flow<E>` — one-shot event channel
 - `emit(event: E)` — suspend emit a one-shot event
-- `updateState(transform: (S) → S)` — suspend state update
+- `updateState(transform: (S) → S)` — CAS state update (non-suspending)
 - `onIntent(intent: I)` — abstract dispatcher
 
 ---
@@ -36,7 +36,7 @@ class TagsViewModel(
     scope = scope,
 ) {
 
-    init { addCloseable(scope) }
+    // No addCloseable(scope): the base class registers the scope it was given.
 
     init {
         scope.launch {
@@ -64,11 +64,14 @@ class TagsViewModel(
 
 **Key properties:**
 
-1. **`scope` is `private val` and LAST** — MviViewModel's init block calls `addCloseable(scope)`, so `scope` must be stored as a property
-2. **Two `init` blocks**: first calls `addCloseable(scope)`, second launches collectors
+1. **`scope` is LAST** — `VmScopePosition` detekt rule; the base class takes it as a parameter
+2. **No `addCloseable(scope)`** — MviViewModel's initializer already registers that scope. A
+   second call in the subclass gives one resource two owners, and `VmCloseable` reports it.
+   Only a plain `androidx.lifecycle.ViewModel` needs its own `init { addCloseable(scope) }`.
 3. **No manual `_state` or `_events`** — MviViewModel provides them
 4. **`emit()` is protected suspend fun** — wrap in `scope.launch {}` when calling from non-suspend context
-5. **`updateState(transform: (S) → S)`** is suspend — always called from within a coroutine
+5. **`updateState(transform: (S) → S)`** is not suspend, but it belongs to the VM's own code
+   path (`onIntent`, a collector, `catchTo`) — never a Composable
 
 ---
 
@@ -285,11 +288,11 @@ All of these fail the build (`ignoreFailures = false`). Rule names as registered
 | `factory { SomeViewModel(...) }` in DI | `NoFactoryViewModel` | `no-factory-viewmodel` | Not lifecycle-bound; scope never closed |
 | ViewModel without KDoc | `ViewModelMustHaveKDoc` | `kdoc-enforcement` | `AGENTS.md` requires a "why" on every VM |
 | `_state.value =` outside `updateState` | `ShadowedState` | `mvi-viewmodel` | Single state-update entry point |
-| scope not registered via `addCloseable` | `VmCloseable` | `mvi-viewmodel` | Leaks the coroutine scope |
+| scope parameter never registered via `addCloseable` (non-MVI `ViewModel`) | `VmCloseable` | `mvi-viewmodel` | Leaks the coroutine scope |
+| `addCloseable(scope)` repeated in an MVI subclass | `VmCloseable` | `mvi-viewmodel` | Two owners for the base-class-owned scope |
 | scope not last constructor param | `VmScopePosition` | `mvi-viewmodel` | Koin `get()` ordering |
 | Side effect inside `combine`/`flatMapLatest` | N/A (manual) | Error | TOCTOU race, stale closures |
 | `emit()` from non-suspend context | N/A (compile error) | Error | `emit` is `protected suspend fun` |
-| `scope` not `private val` in MviViewModel | N/A (compile error) | Error | `addCloseable(scope)` in init requires scope as property |
 
 ---
 

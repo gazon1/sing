@@ -25,13 +25,16 @@ class MyViewModel(
     private val deps: MyDeps,
     private val mode: MyScreenMode,
     // ... all non-defaulted dependencies ...
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<MyUiState, MyIntent, MyEvent>(
     initialState = MyUiState.Loading,
+    crashReporter = crashReporter,
     scope = scope,
 ) {
 
-    init { addCloseable(scope) }
+    // No addCloseable(scope): MviViewModel's initializer already registers the scope it
+    // was given. A second call gives one resource two owners; `VmCloseable` reports it.
 
     init {
         scope.launch { /* populate state via updateState */ }
@@ -45,12 +48,14 @@ class MyViewModel(
 
 Key properties:
 
-1. **`scope` is `private val` and LAST** — MviViewModel's init block calls `addCloseable(scope)`
+1. **`scope` is LAST** — `VmScopePosition` detekt rule
 2. **No manual `_state` or `_events`** — MviViewModel provides them
-3. **`emit()` for events, `updateState()` for state** — both are suspend functions
+3. **`emit()` is suspend, `updateState()` is not** — `emit` needs a coroutine, `updateState` does not
 4. **`onIntent` is the dispatcher** — `IntentMethodName` detekt rule enforces this
-5. **Default param = `AutoCloseableCoroutineScope()`** — no secondary ctor needed.
-6. **`init { addCloseable(scope) }`** registers cleanup.
+5. **No `addCloseable(scope)`** — the base class registers that scope. See step 3.
+6. **`scope` has no no-arg default** — `AutoCloseableCoroutineScope` takes a
+   `CoroutineContext`. Production writes `reportingScope(crashReporter)`; a test passes
+   `testScope(this)`. `singularity-todo-testable-vm` has the contract.
 7. **`sharingStarted: () -> SharingStarted` — remove entirely** (was only needed for `stateIn`).
 8. **DI binding uses explicit `viewModel { MyViewModel(...) }`** — never `viewModelOf` for VMs with complex ctors.
 
@@ -93,7 +98,7 @@ sealed interface MyEvent : MviEvent {
 // Before
 class MyViewModel(
     private val deps: MyDeps,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope,  // a plain ViewModel registers it itself
 ) : ViewModel() {
     init { addCloseable(scope) }
     private val _state = MutableStateFlow<MyUiState>(MyUiState.Loading)
@@ -104,12 +109,14 @@ class MyViewModel(
 // After
 class MyViewModel(
     private val deps: MyDeps,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<MyUiState, MyIntent, MyEvent>(
     initialState = MyUiState.Loading,
+    crashReporter = crashReporter,
     scope = scope,
 ) {
-    init { addCloseable(scope) }
+    // no addCloseable(scope) — the base initializer already registered it
     // state and events are inherited from MviViewModel
 ```
 
@@ -190,12 +197,12 @@ class FooViewModel(
 class FooViewModel(
     private val deps: FooDeps,
     param1: Type1,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),  // NEW
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),  // NEW
 ) : ViewModel() {
-    // no getter — scope is plain val
+    // no getter — scope is a plain constructor parameter
 ```
 
-### Step 3: Delete secondary constructor (if present), add `init { addCloseable(scope) }`
+### Step 3: Delete secondary constructor (if present); register the scope once
 
 **Before:**
 
@@ -206,23 +213,29 @@ class FooViewModel(
     private val scope: AutoCloseableCoroutineScope,  // non-defaulted
 ) : ViewModel() {
     constructor(deps: FooDeps, param1: Type1) : this(
-        deps, param1, AutoCloseableCoroutineScope(),
+        deps, param1, reportingScope(NoOpCrashReportingPort()),
     )
 ```
 
-**After:**
+**After (plain `androidx.lifecycle.ViewModel` — it needs the registration):**
 
 ```kotlin
 class FooViewModel(
     private val deps: FooDeps,
     param1: Type1,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),  // default added
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),  // default added
 ) : ViewModel() {
     init {
         addCloseable(scope)  // Tier-1 cleanup
     }
     // no secondary constructor
 ```
+
+**But if the class extends `MviViewModel`/`DraftMviViewModel`, stop here:** the base
+initializer already registers that scope, so the `init { addCloseable(scope) }` above is the
+duplicate the `VmCloseable` rule reports. Delete the secondary constructor and the default
+parameter's bare `AutoCloseableCoroutineScope()` — nothing else. Registering a *different*
+closeable (a subprocess, a file handle) is still correct.
 
 ### Step 4: Extract side-effects from `combine`/`flatMapLatest`
 
@@ -338,8 +351,8 @@ private val _state = MutableStateFlow<FooUiState>(FooUiState.Loading)  // 1. ini
 val state: StateFlow<FooUiState> = _state.asStateFlow()
 
 init {
-    addCloseable(scope)
-    scope.launch { /* 2. collectors start after */ }
+    // 2. collectors start after; no addCloseable(scope) on an MVI subclass
+    scope.launch { }
 }
 ```
 
@@ -347,7 +360,7 @@ init {
 
 ## Migration Order (multi-VM MR)
 
-1. **Simple VMs first**: add `scope` default + `init { addCloseable }` (no scopeOverride)
+1. **Simple VMs first**: add the `scope` default (a plain `ViewModel` also adds `init { addCloseable(scope) }`; an MVI subclass does not)
 2. **Standard broken VMs next**: replace scopeOverride getter pattern → scope default param
 3. **Side-effects-in-combine VMs last**: extract side-effects first, then migrate
 4. Run tests: `./gradlew :shared:jvmTest --no-daemon`

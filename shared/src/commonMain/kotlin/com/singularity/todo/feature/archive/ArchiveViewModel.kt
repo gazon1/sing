@@ -73,7 +73,7 @@ class ArchiveViewModel(
     private val reloadTrigger = ReloadTrigger()
 
     init {
-        addCloseable(scope)
+        // No addCloseable(scope): MviViewModel's initializer already registers it.
         scope.launch {
             reloadOn(
                 trigger = reloadTrigger,

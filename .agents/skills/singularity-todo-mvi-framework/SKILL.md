@@ -28,7 +28,7 @@ Minimal local MVI framework providing base classes and utilities for ViewModels.
 ```kotlin
 class TagsViewModel(
     private val tagRepo: TagsRepository,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    private val scope: AutoCloseableCoroutineScope,  // a plain ViewModel registers it itself
 ) : ViewModel() {
     private val _state = MutableStateFlow<TagsUiState>(TagsUiState.Loading)
     val state: StateFlow<TagsUiState> = _state.asStateFlow()
@@ -55,14 +55,17 @@ class TagsViewModel(
 ```kotlin
 class TagsViewModel(
     private val tagRepo: TagsRepository,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
     initialState = TagsUiState.Loading,
+    crashReporter = crashReporter,
     scope = scope,
 ) {
 
+    // No addCloseable(scope) here: MviViewModel's initializer already registers the
+    // scope it was given, so a second call states two owners for one resource.
     init {
-        addCloseable(scope)
         scope.launch {
             tagRepo.observeAll()
                 .catch { updateState { TagsUiState.Error(it.message ?: "Error") } }
@@ -132,6 +135,25 @@ drift the event bus cannot see. Writes go through `updateState` / `setState` onl
 In a subclass, read the current value with the protected `currentState`; do not reach
 for a mutable flow of your own.
 
+### `events` is a Channel-backed single-consumer path
+
+`events: Flow<E>` is `EventBus.flow`, which is `Channel.receiveAsFlow()` — **not** a
+broadcast `SharedFlow`. The distinction is load-bearing:
+
+- **One consumer.** Two collectors of `vm.events` *split* the events; each event reaches
+  exactly one of them. A screen collects once, in one `CollectEvents(vm.events) { … }`.
+- **Backpressure, not loss.** `emit` suspends while the buffer is full, so a live collector
+  loses nothing — the sender waits. `tryEmit` returns `false` instead of suspending.
+- **Close is graceful.** `onCleared()` closes the bus: buffered events are still delivered,
+  then the flow completes. An `emit` after the close is discarded, counted in
+  `droppedAfterClose`, and never reported as a crash — a discard there is a lifecycle race,
+  not a defect.
+
+A **feature-local `SharedFlow` is still the right tool when a real broadcast contract
+exists** — several independent subscribers that each need every value (a saved pulse, a
+navigation signal). Collecting the same event bus twice is not that: it races. See
+`singularity-todo-ui-event-vs-state`.
+
 ### `IntentActions<I>`
 
 Replaces per-feature `@JvmInline value class XxxActions` with a single generic type:
@@ -179,9 +201,30 @@ fun processIntent(intent: TagsIntent) { ... }
 
 **`scope` must be the last constructor parameter** — enforced by `VmScopePosition` detekt rule.
 
-## Init block
+## Scope registration
 
-**Always call `addCloseable(scope)` in init** — enforced by `VmCloseable` detekt rule.
+**The base class owns the scope; a subclass does not register it again.**
+
+`MviViewModel`'s initializer calls `addCloseable(scope)` on the scope it was handed, so
+`clear()` cancels it and cancelling it *is* the teardown — a Tier-1 ViewModel needs no
+`onCleared()` override. A second `addCloseable(scope)` in a subclass registers the same
+object twice: two owners for one resource, and the detekt `VmCloseable` rule reports it.
+
+```kotlin
+// ✅ base class registers the scope
+) : MviViewModel<UiState, Intent, Event>(initialState = UiState.Loading, scope = scope) {
+    init { scope.launch { … } }
+
+// ❌ duplicate registration — reported by VmCloseable
+    init { addCloseable(scope); scope.launch { … } }
+```
+
+A plain `androidx.lifecycle.ViewModel` (not an MVI subclass) still needs its own
+`init { addCloseable(scope) }` — there, `VmCloseable` reports the opposite violation: a
+scope parameter that nothing ever closes.
+
+Registering a *different* closeable is fine and is how a resource that must outlive the
+scope is torn down (`AcpExternalAgentViewModel` does this for its agent process).
 
 ## `FeatureSlot` — splitting a god VM
 

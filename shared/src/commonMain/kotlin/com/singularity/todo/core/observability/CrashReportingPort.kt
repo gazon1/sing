@@ -40,13 +40,27 @@ interface CrashReportingPort {
     )
 
     /**
-     * Adds [message] to a bounded ring buffer that is attached to subsequent
-     * events, so a report shows what preceded it.
+     * Records a breadcrumb: a line meant to explain a *later* report.
      *
-     * The buffer is finite (64 KB on AppTracer). Breadcrumbs are for state
-     * transitions — sync started, profile switched, app foregrounded — never for
-     * task titles, note bodies, or other user content, and never at a rate that
-     * would evict the entries worth reading. If in doubt, omit it.
+     * **Best-effort, and platform-shaped.** The contract promises only that the call
+     * is safe and never blocks; it does **not** promise that the record is retained,
+     * and it certainly does not promise the same behaviour on every target:
+     *
+     * - Free Android (`FileCrashReportingPort`) — one `Logger.d` line in the rolling
+     *   Kermit file log. It survives process death, is never uploaded, and is read by
+     *   whoever exports the log bundle.
+     * - Pro Android (`TracerCrashReportingPort`) — `TracerCrashReport.log`, which
+     *   attaches to the vendor buffer below and rides along with subsequent reports.
+     *   The buffer is finite (64 KB); a record can be evicted before anyone reads it.
+     * - JVM Desktop (`JvmCrashReportingPort`) — a no-op. The desktop app keeps its own
+     *   Kermit file log as its only sink, so a breadcrumb written here goes nowhere.
+     *
+     * A caller that needs the record to be read on a given target must say so there,
+     * not assume it here.
+     *
+     * Breadcrumbs are for state transitions — sync started, profile switched, app
+     * foregrounded — never for task titles, note bodies, or other user content, and
+     * never at a rate that would evict the entries worth reading. If in doubt, omit it.
      */
     fun addBreadcrumb(message: String)
 }

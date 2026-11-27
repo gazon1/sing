@@ -183,12 +183,15 @@ class <Feature>ViewModel(
     private val repo: <Feature>Repository,
     private val create<Feature>: Create<Feature>UseCase,
     private val settings: SettingsRepository,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<<Feature>UiState, <Feature>Intent, <Feature>UiEvent>(
-    initialState = <Feature>UiState.Loading, scope = scope,
+    initialState = <Feature>UiState.Loading,
+    crashReporter = crashReporter,
+    scope = scope,
 ) {
+    // No addCloseable(scope): MviViewModel's initializer already registers it.
     init {
-        addCloseable(scope)
         scope.launch {
             val userId = UserId.fromString(settings.userId.first())
             repo.watchAll(userId)

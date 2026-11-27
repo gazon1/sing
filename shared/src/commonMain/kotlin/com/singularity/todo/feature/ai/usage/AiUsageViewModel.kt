@@ -50,7 +50,7 @@ class AiUsageViewModel(
         scope = scope,
     ) {
     init {
-        addCloseable(scope)
+        // No addCloseable(scope): MviViewModel's initializer already registers it.
         scope.launch {
             combine(
                 profileRepository.activeProfile(),
