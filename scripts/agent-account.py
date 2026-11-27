@@ -797,6 +797,50 @@ def home_read_grant(
     return grants
 
 
+def unrelated_would_widen(
+    entries: Sequence[AclEntry],
+    our_entities: Sequence[str],
+    needed: str,
+    is_dir: bool,
+    default: bool = False,
+) -> list[str]:
+    """Which EXISTING entries would gain effective permissions if the mask grew.
+
+    Growing the mask is what `setfacl --modify` does when our grant does not fit,
+    and the mask caps every named entry on the inode — so growing it for us can hand
+    somebody else rights nobody intended. Measured: `user:nobody:rwx #effective:r--`
+    under `mask::r--` became fully effective `rwx` the moment an unrelated entry was
+    added. That is a permission EXPANSION for a third party, on files the agent is
+    about to run against, caused by provisioning that was meant for the agent alone.
+
+    The rule the review asks for, and the one implemented here: compare each existing
+    entry's effective bits BEFORE and AFTER the mask would become `needed`-capable,
+    and name the ones that widen. The caller then refuses, rather than silently
+    rewriting somebody else's entry — an administrator may have set that mask
+    deliberately, and this tool has no business loosening it.
+    """
+    mask = find_entry(entries, AclSpec("mask", "", "rwx", default=default))
+    old_ceiling = mask.perms if mask is not None else None
+    widened: list[str] = []
+    entities = set(our_entities)
+    for entry in entries:
+        if entry.tag == "mask" or entry.qualifier in entities:
+            continue
+        if not entry.named:
+            continue
+        before = entry.effective_perms
+        if old_ceiling is None:
+            # No mask: the entry's own bits are already effective, nothing to widen.
+            continue
+        after = "".join(
+            bit if (bit in entry.perms and bit in needed) or (bit in entry.perms and bit in old_ceiling) else "-"
+            for bit in "rwx"
+        )
+        if after != before:
+            widened.append(f"{entry} ({before} -> {after})")
+    return widened
+
+
 def mask_covers(entries: Sequence[AclEntry], needed: str, is_dir: bool, default: bool = False) -> bool:
     """Is our grant already inside the path's ACL mask?
 
@@ -1225,12 +1269,36 @@ def acl_grants(cfg: Config, ctx: Context, agent_home: str, *, state: str = "pres
     our grant, it is left alone.
     """
     def covered(path: Path, needed: str, default: bool) -> bool:
+        """Can our grant be added WITHOUT growing the mask over someone else's bits?
+
+        Two answers, and the second one can be a refusal rather than a boolean:
+        `--no-mask` is safe only when the mask already covers us. When it does not,
+        growing it is the only way to make our own grant effective — but if that
+        growth would widen an UNRELATED entry's effective permissions, provisioning
+        stops with that entry named. Silently rewriting somebody's ACL is not a
+        provisioning detail; the snapshot would restore it, but only at rollback, and
+        the expansion lasts for the whole time the agent works.
+        """
         entries = [
             e
             for e in parse_getfacl(ctx.runner.capture("getfacl", "--absolute-names", str(path)).out)
             if e.default == default
         ]
-        return mask_covers(entries, needed, path.is_dir(), default=default)
+        if mask_covers(entries, needed, path.is_dir(), default=default):
+            return True
+        # BOTH of this tool's identities are exempt in ONE call: a path grants the
+        # agent user or the seam group, and capping "the other one" protects nobody.
+        widened = unrelated_would_widen(
+            entries, (cfg.agent_user, cfg.agent_group), needed, path.is_dir(), default=default
+        )
+        if widened:
+            raise AgentAccountError(
+                f"{path}: granting {needed} needs a wider ACL mask"
+                f"{' (default)' if default else ''}, and that would widen permissions nobody asked about: "
+                + "; ".join(widened)
+                + ". Narrow those entries by hand, or drop this path from the authorization"
+            )
+        return False
 
     grants: list[dict[str, object]] = [
         {
@@ -1277,29 +1345,84 @@ def acl_grants(cfg: Config, ctx: Context, agent_home: str, *, state: str = "pres
                 }
             )
     for root in cfg.roots:
-        for target in (root, ctx.git.common_dir(root)):
+        # The WORKTREE only. The common git dir is NOT granted here — it is handled
+        # below, per subdirectory, because a recursive grant on `.git` itself lets
+        # the agent rename a fresh `.git/config.lock` over `config` (POSIX rename
+        # needs write on the DIRECTORY, not on the target).
+        for default in (False, True):
+            grants.append(
+                {
+                    "path": str(root),
+                    "entity": cfg.agent_group,
+                    "etype": "group",
+                    "permissions": "rwX",
+                    "recursive": True,
+                    "default": default,
+                    "preserve_mask": covered(root, "rwX", default),
+                    "state": state,
+                }
+            )
+        # The shared git store: the agent gets EXACTLY the subdirectories git writes
+        # to, and NOT the `.git` directory itself.
+        #
+        # The earlier model — grant `rwX` recursively and then remove the entry from
+        # `config` and `hooks` — does not hold, and a live probe broke it in one
+        # command. `git config --local` writes `config.lock` IN `.git/` and RENAMES
+        # it over `config`; POSIX rename needs write on the DIRECTORY, not on the
+        # target, so the removed entry protected only the old inode. Measured: after
+        # `git config --local core.hooksPath /tmp/evil` as another uid, `.git/config`
+        # was owned by that uid, carried the inherited `user:<uid>:rwx` entry, and the
+        # hook directory it named then ran as the developer. There is no post-hoc
+        # `setfacl` that closes this: the write and the rename happen inside one git
+        # command, before anything of ours runs again.
+        #
+        # So `.git/` itself is `r-x` for the seam (no write => no create, no rename),
+        # and the four directories git genuinely writes are granted recursively:
+        # `objects` (blobs, trees, commits), `refs` (branch tips), `logs` (reflogs)
+        # and `worktrees` (the per-worktree HEAD/index/refs a linked worktree needs).
+        # Measured on a linked worktree as a different uid: `git status`, `git diff`,
+        # `git add`, `git commit`, `git branch` and `git checkout -b` ALL still work,
+        # while `git config --local` answers "could not lock config file … Permission
+        # denied". `git` reports `Unable to create '.git/packed-refs.lock'` and
+        # carries on — the packed form is git's own optimisation, and refs are
+        # written per-branch under `refs/`.
+        #
+        # The denial of `config` and `hooks` stays as well: belt and braces, so a
+        # host that already carries them writable is repaired.
+        common = ctx.git.common_dir(root)
+        for writable in ("objects", "refs", "logs", "worktrees"):
+            directory = common / writable
+            if not directory.is_dir():
+                continue
             for default in (False, True):
                 grants.append(
                     {
-                        "path": str(target),
+                        "path": str(directory),
                         "entity": cfg.agent_group,
                         "etype": "group",
                         "permissions": "rwX",
                         "recursive": True,
                         "default": default,
-                        "preserve_mask": covered(target, "rwX", default),
+                        "preserve_mask": covered(directory, "rwX", default),
                         "state": state,
                     }
                 )
-        # The shared git store is writable so the agent can commit — but NOT
-        # everywhere: `config` chooses `core.hooksPath` and other settings for every
-        # later git invocation, and `hooks/` holds programs git runs. A hook the agent
-        # writes executes as the DEVELOPER on their next git command, which is the
-        # escalation this whole boundary exists to prevent. Measured on this host:
-        # with `.git/config` at 0444 and `.git/hooks` at 0555, commit, branch and
-        # checkout all still work — the object store, refs, logs and the index are
-        # the only things git needs to write.
-        common = ctx.git.common_dir(root)
+        # `.git/` itself: traverse and read, never write. This is what makes the
+        # rename-over-config impossible, and it must come AFTER the recursive grants
+        # above so it is not undone by them.
+        grants.append(
+            {
+                "path": str(common),
+                "entity": cfg.agent_group,
+                "etype": "group",
+                "permissions": "r-x",
+                "recursive": False,
+                "default": False,
+                "state": state,
+            }
+        )
+        # And the two paths that must carry no grant at all, access or default: a host
+        # that already has them writable is repaired here, and `check` fails on them.
         for denied in (common / "config", common / "hooks"):
             if not denied.exists():
                 continue
@@ -1561,17 +1684,43 @@ class Provisioner:
             self.journal.owned("sudoers", "adopted")
         else:
             self.journal.owned("sudoers", "created")
-        # sudo ignores include-dir files whose name contains a dot, so the temporary
-        # name cannot match it.
-        tmp = path.with_name(path.name + ".tmp")
-        tmp.unlink(missing_ok=True)
-        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o440)
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(rule + "\n")
-        if self.runner.capture("visudo", "--check", "--file", str(tmp)).rc != 0:
-            tmp.unlink(missing_ok=True)
-            raise AgentAccountError(f"{path} does not parse")
-        os.replace(tmp, path)
+        # A UNIQUE temporary file, in the target's own directory (so the rename is
+        # atomic on one filesystem), created with mkstemp.
+        #
+        # The fixed `<target>.tmp` this used to use came with
+        # `unlink(missing_ok=True)`, which deleted a file of that name whether or not
+        # this script created it — an administrator's own file, or another run's. And
+        # two concurrent applies shared one path, so one could rename the other's
+        # half-written content into place. `mkstemp` is O_EXCL in effect: the name is
+        # ours because the kernel just made it.
+        #
+        # The mode is set on the DESCRIPTOR before anything is written, so the rule is
+        # never readable by anyone but root, not even between write and chmod. sudo
+        # ignores include-dir names containing a dot, so a `tmp` suffix is safe.
+        fd, tmp_name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
+        tmp = Path(tmp_name)
+        try:
+            os.fchmod(fd, 0o440)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(rule + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            if self.runner.capture("visudo", "--check", "--file", str(tmp)).rc != 0:
+                raise AgentAccountError(f"{path} does not parse")
+            # Nothing about the EXISTING file has been touched until here: the check
+            # passed, so the replacement cannot leave sudo without a working rule.
+            os.replace(tmp, path)
+            # The rename is durable only once the DIRECTORY entry is, too.
+            directory = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        except BaseException:
+            # Only the file this call created; never a path we merely guessed.
+            with contextlib.suppress(OSError):
+                tmp.unlink()
+            raise
 
     def _variables(self, agent_home: str, account: PasswdEntry | None, updates: list[dict[str, object]]) -> dict:
         cfg = self.cfg

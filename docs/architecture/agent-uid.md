@@ -181,18 +181,29 @@ produced by the same code path that executes it.
 | `$HOME/.local/share/mise` | `rX` + default `rX`, recursive | `java`, `node`, `heavy`, `ktlint` — the toolchain every build calls |
 | `$HOME/.local/bin` | `rX` + default `rX`, recursive | `mise` itself |
 | each authorized worktree | `group:sing-dev:rwX` + default `rwX`, recursive | The sources, the build outputs, the worktree's `.git` file |
-| the worktree's common git dir | same grant, resolved per worktree | Objects and refs — **one** store shared by every worktree of the clone |
-| the clone's common `.git` | `group:sing-dev:rwX` + default `rwX`, recursive | Objects, refs, the index — a worktree an agent cannot commit in is not a worktree |
-| `.git/config` and `.git/hooks/` | **no grant at all** — the entry is removed, access and default | Written by git as the **developer**: `config` chooses `core.hooksPath` and every other setting for later invocations, and `hooks/` holds programs git runs. A grant there is code execution as the developer |
+| the clone's common `.git` | **`group:sing-dev:r-x` — traverse and read, NEVER write** | Write on this directory is write on `config`: the rename below |
+| `.git/objects`, `refs`, `logs`, `worktrees` | `group:sing-dev:rwX` + default `rwX`, recursive | The only four directories git writes: blobs/trees/commits, branch tips, reflogs, and the per-worktree HEAD/index a linked worktree needs |
+| `.git/config` and `.git/hooks/` | **no grant at all** — entry removed, access and default | `config` chooses `core.hooksPath`; `hooks/` holds programs git runs as the developer |
 
-**Why the shared `.git` grant stops at objects, refs and the index.** A recursive write grant
-on the whole store is not "the agent can commit", it is "the agent can change what git does
-next" — `core.hooksPath` in `config`, or a `pre-commit` in `hooks/`, both executed by the
-developer's own git commands. Measured on this host: with `.git/config` at `0444` and
-`.git/hooks` at `0555`, `commit`, `branch` and `checkout` all still work, so the denial costs
-the agent nothing it needs. `check` reports a write grant on either path as a FAIL; the
-underlying recommendation — a separate agent-owned clone with an explicit patch or commit
-transfer — is a design change, not a permission, and is not taken here.
+**Why `.git/` itself is never writable — and why denying `config` alone was not enough.** The
+earlier model granted the whole store recursively and then removed the entry from `config` and
+`hooks`. A live probe broke it in one command: `git config --local` writes `config.lock` **in
+`.git/`** and renames it over `config`, and POSIX `rename` needs write on the **directory**, not
+on the target — so the removed entry protected only the old inode. Measured with a second uid:
+after `git config --local core.hooksPath /tmp/evil`, `.git/config` was owned by that uid, carried
+the inherited `user:<uid>:rwx` entry, and the hook directory it named then ran as the developer.
+
+There is no post-hoc `setfacl` that closes this: the write and the rename happen inside one git
+command. So `.git/` is `r-x` and the four writable subdirectories are granted explicitly.
+Measured on a linked worktree with that model: `git status`, `git diff`, `git add`, `git
+commit`, `git branch` and `git checkout -b` **all still work**, while `git config --local`
+answers "could not lock config file … Permission denied". git reports `Unable to create
+'.git/packed-refs.lock'` and carries on — the packed form is an optimisation; refs are written
+per-branch under `refs/`.
+
+`check` still reports a write grant on `config` or `hooks` as a FAIL. The underlying
+recommendation — a separate agent-owned clone with an explicit patch or commit transfer — is a
+design change, not a permission, and is not taken here.
 
 **Why a default ACL and not `setgid`.** `setgid` propagates the group to new files; it does
 not give the group a permission bit the umask would otherwise take away. `git` writes

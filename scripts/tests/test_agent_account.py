@@ -645,6 +645,43 @@ class SudoersTest(Base):
         self.assertIn('does not parse', str(caught.exception))
         self.assertFalse(path.exists(), 'a failed validation must not install the file')
 
+    def test_a_foreign_tmp_file_survives_installation(self):
+        """The fixed `<target>.tmp` came with `unlink(missing_ok=True)`, which deleted
+        a file of that name whether or not this script created it."""
+        ctx = self.context()
+        path = self.tmp / 'sudoers'
+        ctx.cfg = ctx.cfg.model_copy(update={'sudoers_path': path})
+        squatter = self.tmp / 'sudoers.tmp'
+        squatter.write_text('someone else\n', encoding='utf-8')
+        provisioner = aa.Provisioner(ctx, aa.StateStore(self.tmp / 'state'))
+        provisioner._install_sudoers()
+        self.assertTrue(squatter.exists(), 'the script must not delete a file it did not create')
+        self.assertEqual('someone else\n', squatter.read_text(encoding='utf-8'))
+
+    def test_the_temporary_file_is_unique_and_gone_afterwards(self):
+        """Two concurrent applies must not share one temporary path."""
+        ctx = self.context()
+        path = self.tmp / 'sudoers'
+        ctx.cfg = ctx.cfg.model_copy(update={'sudoers_path': path})
+        before = set(self.tmp.glob('sudoers.*.tmp'))
+        provisioner = aa.Provisioner(ctx, aa.StateStore(self.tmp / 'state'))
+        provisioner._install_sudoers()
+        after = set(self.tmp.glob('sudoers.*.tmp'))
+        self.assertEqual(before, after, 'the temporary file is renamed into place, not left behind')
+
+    def test_a_failed_visudo_keeps_the_existing_rule_and_leaves_no_temp(self):
+        ctx = self.context()
+        path = self.tmp / 'sudoers'
+        path.write_text(ctx.cfg.sudoers_rule + '\n', encoding='utf-8')
+        ctx.cfg = ctx.cfg.model_copy(update={'sudoers_path': path})
+        ctx.runner.responses = ((('visudo',), aa.Result(1, '', 'syntax error')),)
+        provisioner = aa.Provisioner(ctx, aa.StateStore(self.tmp / 'state'))
+        with self.assertRaises(aa.AgentAccountError):
+            provisioner._install_sudoers()
+        self.assertEqual(ctx.cfg.sudoers_rule, path.read_text(encoding='utf-8').strip(),
+                         'the working rule survives a failed candidate')
+        self.assertEqual([], list(self.tmp.glob('sudoers.*.tmp')), 'and no temp is left behind')
+
     def test_the_rule_grants_the_developer_and_never_the_agent(self):
         ctx = self.context()
         rule = ctx.cfg.sudoers_rule
@@ -1395,27 +1432,47 @@ class SharedGitStoreTest(Base):
     def _grants(self, ctx):
         return aa.acl_grants(ctx.cfg, ctx, str(self.agent_home))
 
-    def test_the_common_git_dir_is_granted_but_config_and_hooks_are_denied(self):
-        ctx = self.context(roots=(self.wt,))
-        grants = self._grants(ctx)
-        common = str(self.common)
-        self.assertIn((common, 'present'), [(g['path'], g.get('state')) for g in grants])
-        for denied in ('config', 'hooks'):
-            states = [g.get('state') for g in grants if g['path'] == f'{common}/{denied}']
-            self.assertTrue(states, f'{denied} must be declared at all')
-            self.assertEqual({'absent'}, set(states), f'{denied} must be DENIED, not granted')
+    def test_the_common_git_dir_itself_is_never_writable(self):
+        """THE fix for the lock-file + rename escalation.
 
-    def test_the_denial_covers_the_default_entry_too(self):
-        """Otherwise every hook created later inherits the grant again."""
+        `git config --local` writes `config.lock` in `.git/` and renames it over
+        `config`. POSIX rename needs write on the DIRECTORY, so removing the ACL entry
+        from `config` protected only the old inode — measured: the file was replaced
+        and came back owned by the other uid, with an inherited `rwx` entry, and the
+        `core.hooksPath` it named then ran as the developer. `.git/` is `r-x` now.
+        """
         ctx = self.context(roots=(self.wt,))
-        for default in (False, True):
-            found = [
-                g
-                for g in self._grants(ctx)
-                if g['path'] == f'{self.common}/hooks' and g['default'] is default
-            ]
-            self.assertEqual(1, len(found), f'default={default}')
-            self.assertEqual('absent', found[0]['state'])
+        grants = [g for g in self._grants(ctx) if g['path'] == str(self.common)]
+        self.assertTrue(grants, 'the common dir must be declared')
+        for grant in grants:
+            self.assertEqual('r-x', grant['permissions'], 'write on .git/ means rename-over-config')
+            self.assertFalse(grant['recursive'], 'a recursive grant would cover config again')
+
+    def test_only_the_directories_git_writes_are_granted_recursively(self):
+        """objects, refs, logs, worktrees — and nothing else. Measured: with exactly
+        these writable, status/diff/add/commit/branch/checkout all still work."""
+        ctx = self.context(roots=(self.wt,))
+        recursive = {
+            g['path']
+            for g in self._grants(ctx)
+            if g['path'].startswith(str(self.common)) and g['recursive'] and g.get('permissions') == 'rwX'
+        }
+        expected = {f'{self.common}/{name}' for name in ('objects', 'refs', 'logs', 'worktrees')
+                    if (self.common / name).is_dir()}
+        self.assertEqual(expected, recursive)
+
+    def test_config_and_hooks_are_still_denied_outright(self):
+        """Belt and braces: a host that already carries them writable is repaired."""
+        ctx = self.context(roots=(self.wt,))
+        for denied in ('config', 'hooks'):
+            for default in (False, True):
+                found = [
+                    g
+                    for g in self._grants(ctx)
+                    if g['path'] == f'{self.common}/{denied}' and g['default'] is default
+                ]
+                self.assertEqual(1, len(found), f'{denied} default={default}')
+                self.assertEqual('absent', found[0]['state'])
 
     def test_an_absent_config_or_hooks_is_skipped(self):
         import shutil as sh
@@ -1522,13 +1579,33 @@ class MaskPreservationTest(Base):
 
     def test_a_mask_that_does_not_cover_the_grant_lets_it_grow(self):
         """`--no-mask` there would CAP our own entry — measured:
-        `user:agent:rw- #effective:r--` under `mask::r--`."""
+        `user:agent:rw- #effective:r--` under `mask::r--`.
+
+        Growth is allowed when it widens nobody else: here the mask caps only our own
+        entry, so there is nothing of a third party's to protect.
+        """
         ctx = self.context(roots=(self.wt,))
         narrow = 'user::rwx\ngroup:sing-dev:rwx\nmask::r--\nother::---\n'
         ctx.runner.responses = ((('getfacl',), aa.Result(0, narrow)),)
         grants = [g for g in aa.acl_grants(ctx.cfg, ctx, str(self.agent_home)) if g['path'] == str(self.wt)]
         for grant in grants:
             self.assertFalse(grant.get('preserve_mask'), f"mask is too narrow, must grow: {grant}")
+
+    def test_a_growth_that_would_widen_an_unrelated_entry_is_refused(self):
+        """Measured: `user:nobody:rwx #effective:r--` under `mask::r--` became fully
+        effective when the mask grew for our grant. Randomising somebody's ACL is not
+        provisioning, so it is a refusal that names the entry."""
+        ctx = self.context(roots=(self.wt,))
+        colliding = (
+            'user::rwx\nuser:nobody:rwx\t#effective:r--\ngroup:sing-dev:rwx\n'
+            'mask::r--\nother::---\n'
+        )
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, colliding)),)
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            aa.acl_grants(ctx.cfg, ctx, str(self.agent_home))
+        message = str(caught.exception)
+        self.assertIn('widen permissions nobody asked about', message)
+        self.assertIn('nobody', message)
 
     def test_no_mask_at_all_lets_it_be_created(self):
         ctx = self.context(roots=(self.wt,))

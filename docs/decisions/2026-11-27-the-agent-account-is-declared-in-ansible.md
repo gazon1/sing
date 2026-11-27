@@ -103,6 +103,19 @@ Concretely:
 
 ## Consequences
 
+- **`config`/`hooks` had to become "`.git/` is not writable at all".** Denying the two files
+  outright does NOT hold, and a live probe broke it in one command: `git config --local` creates
+  `config.lock` in `.git/` and RENAMES it over `config`, and rename needs write on the directory,
+  not the target — the removed entry protected only the old inode. Measured with a second uid:
+  `.git/config` came back owned by it, carrying the inherited `rwX` entry, and the
+  `core.hooksPath` it then named ran as the developer. `.git/` is `r-x` now and only `objects`,
+  `refs`, `logs` and `worktrees` are granted. Measured: status/diff/add/commit/branch/checkout
+  all still work; `git config --local` is refused.
+- **An ACL mask that would widen a third party's permissions is a refusal.** Measured:
+  `user:nobody:rwx #effective:r--` under `mask::r--` became fully effective when the mask grew
+  for our grant. Provisioning now compares every existing entry's effective bits against the
+  widened mask and stops with the entry named, rather than silently loosening somebody's ACL
+  (the snapshot would restore it only at rollback; the expansion lasts the whole session).
 - **The shared `.git` grant stops at objects, refs and the index.** A review called the
   recursive write grant on the common git dir a merge blocker, and it was right about the
   mechanism: `config` chooses `core.hooksPath` and every setting for later invocations, and
@@ -126,6 +139,11 @@ Concretely:
   produced an agent `run` started happily. An unreadable listing is not evidence of safety:
   `run` now execs `sudo -n true` as the agent, which is the property itself and needs no root,
   and refuses when neither question can be answered.
+- **sudoers is installed from a unique `mkstemp` file.** The fixed `<target>.tmp` came with
+  `unlink(missing_ok=True)`, which deleted a file of that name whether or not this script made
+  it, and two concurrent applies shared one path. It is `mkstemp` in the target's directory
+  (atomic rename), mode set on the descriptor before any write, `visudo` before the replace, the
+  directory fsynced after, and only the file this call created removed on failure.
 - **The home read-grant verdict asks the kernel's question.** A review of the deleted fish
   script found the audit passing a home carrying `default:other::r--`. It was real, and it
   survived the port: the predicate listed NAMED entries with an `r`. Measured consequence — the
