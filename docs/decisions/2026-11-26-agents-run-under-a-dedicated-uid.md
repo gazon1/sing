@@ -44,7 +44,7 @@ Five candidate shapes, and the reason each loses:
 
 ## Decision
 
-Take **(4)**, and only (4): `scripts/agent-account.fish` provisions
+Take **(4)**, and only (4): `scripts/agent-account.py` provisions
 
 - a user `agent`, no password (no login), real shell, in none of `wheel`/`docker`/`kvm`;
 - a group `sing-dev` holding exactly the developer and `agent` — the collaboration seam;
@@ -54,10 +54,10 @@ Take **(4)**, and only (4): `scripts/agent-account.fish` provisions
 - one sudoers rule, written for the **developer**: `ALL=(agent) NOPASSWD: /usr/bin/env` —
   the trusted identity re-executes a fixed binary as the sandboxed one. `agent` holds no
   sudo rule at all;
-- `scripts/agent-account.fish run -- <cmd>` as the transition, which builds the agent's
+- `scripts/agent-account.py run -- <cmd>` as the transition, which builds the agent's
   environment from scratch (`env -i`) instead of inheriting the caller's.
 
-`scripts/agent-account.fish check` turns each acceptance criterion into a verdict, and
+`scripts/agent-account.py check` turns each acceptance criterion into a verdict, and
 `scripts/tests/test_agent_account.py` holds the parts that would be wrong before any
 privileged call runs.
 
@@ -107,20 +107,18 @@ is exactly what must not be shared.
 - The in-app ACP launcher (`AcpAgentLauncher.kt`) is unchanged: it starts an agent the user
   selected, in the user's session, to talk to it — it does not drive the emulator. The seam
   is one file and one DI binding if a later issue decides otherwise.
-- Rollback is `scripts/agent-account.fish rollback`, and it does not touch branches or git
+- Rollback is `scripts/agent-account.py rollback`, and it does not touch branches or git
   data: undoing the boundary must never be a reason to lose work.
-- The script is fish, and `fish` is pinned in `mise.toml` because its tests run it directly:
-  a machine without fish cannot run the script at all, and a skipped test is a silent green.
-  Its shebang carries `--no-config` — a fish config is code that would otherwise run before a
-  script that calls `setfacl` and `sudo` as root — and the root half re-executes with
-  `(status fish-path)` instead of trusting the shebang, because `sudo`'s `secure_path` has no
-  developer-installed fish.
+- The script was fish when this decision was taken and is Python now; the port and the move
+  of the declared state into Ansible are
+  `2026-11-27-the-agent-account-is-declared-in-ansible.md`. What did not change is the
+  invariant this entry records: the boundary, the one sudoers rule and the transition.
 
 ## Links
 
 - Issue: [gazon1/sing#3239](https://github.com/gazon1/sing/issues/3239)
 - Evidence: [`docs/architecture/emulator-launch-inventory.md`](../architecture/emulator-launch-inventory.md)
 - Procedure: [`docs/architecture/agent-uid.md`](../architecture/agent-uid.md)
-- Script: `scripts/agent-account.fish`; tests: `scripts/tests/test_agent_account.py`
+- Script: `scripts/agent-account.py`; tests: `scripts/tests/test_agent_account.py`
 - Sibling issues: #3240 (install and `/dev/kvm`), #3241 (execution confinement), #3242
   (launcher service), #3246 (bypass and recovery tests)

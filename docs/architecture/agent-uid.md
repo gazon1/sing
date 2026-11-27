@@ -22,11 +22,11 @@ verdict (`check`) against an unprovisioned host, and the test suite in
 
 ## The one-line answer
 
-`scripts/agent-account.fish` creates a user `agent` (no password, real shell, in no
+`scripts/agent-account.py` creates a user `agent` (no password, real shell, in no
 privileged group), a group `sing-dev` holding the developer and `agent`, ACLs that let
 `agent` traverse the developer's home and read the SDK and the toolchain but write only the
 worktrees it was given, and one sudoers rule that lets the *developer* re-execute
-`/usr/bin/env` as `agent`. Agents start through `scripts/agent-account.fish run -- …`, and
+`/usr/bin/env` as `agent`. Agents start through `scripts/agent-account.py run -- …`, and
 `check` turns each acceptance criterion of #3239 into PASS/FAIL.
 
 ## Part 1 — What the account is, and what it deliberately is not
@@ -93,7 +93,7 @@ reachable through an ACL (§2), and that is the cost §5 states.
 
 ## Part 2 — The grant, path by path
 
-`scripts/agent-account.fish apply --dry-run <worktree…>` prints exactly this, and the plan is
+`scripts/agent-account.py apply --dry-run <worktree…>` prints exactly this, and the plan is
 produced by the same code path that executes it.
 
 | Path | Grant | Who reads it |
@@ -125,41 +125,59 @@ and the alternative — a separate clone per agent — is exactly what #3239 put
 `run` is the transition, and it needs no root from its caller:
 
 ```bash
-scripts/agent-account.fish run -- ./gw :shared:compileKotlinJvm
-scripts/agent-account.fish run -- bash -lc 'cd ~/work/wt && git status'
+scripts/agent-account.py run -- ./gw :shared:compileKotlinJvm
+scripts/agent-account.py run -- bash -lc 'cd ~/work/wt && git status'
 ```
 
-### The script is fish, and how it is started
+### How it is started, and where the work is split
 
-`scripts/agent-account.fish` is fish because the reader is a fish user, and the three ways to
-start it from a terminal all work — each verified on this host, including the exit code:
+`scripts/agent-account.py` is Python, and `scripts/ansible/agent-account.yml` is the
+declaration it hands the work to. The split follows one rule: **Ansible owns the declared
+system state; the script owns every decision Ansible cannot make.**
+
+| Resource | Owner | Why there |
+|---|---|---|
+| Group `sing-dev`, user `agent`, its home and `.gradle`/`.android`/`.cache` | `ansible.builtin.group` / `user` / `file` | Idempotent declared state |
+| Memberships, the password lock, a primary group change | `ansible.builtin.user` | Same, as facets of the account |
+| ACLs on the home, the SDK, the toolchain and the worktrees | `ansible.posix.acl` | Declared grants, `--check --diff` gives the plan |
+| **Which resource may be REMOVED** | the journal in `agent-account.py` | Ansible matches a declaration; it cannot know an `agent` account predated this tool |
+| **ACL snapshots and the scrub** | `getfacl` dump + `setfacl --restore` in `agent-account.py` | A dump is the tool's own inverse; it is not a declared state |
+| **The sudoers file** | `agent-account.py` | The path is shared, so "who wrote it" decides whether it may be replaced |
+| **`check`** | `agent-account.py` | The verdicts are behaviour: `access(2)`, SELinux, `sudo -l` |
+| **`run`** | `agent-account.py` | It is a transition, not a state |
+
+`apply --dry-run` is `ansible-playbook --check --diff` plus the snapshot lines the plan would
+write: it needs no root and changes nothing. Measured limitation, and why the plan prints two
+things itself: under `--check` on a host that has no `agent` yet, `setfacl` and `user` cannot
+be asked to plan an entry whose NAME does not resolve, so the memberships and ACLs appear as
+`usermod`/`setfacl` lines from the same declaration the playbook executes.
+
+Install once per machine:
 
 ```bash
-./scripts/agent-account.fish check ~/work/wt1      # the shebang; needs the script executable
-fish scripts/agent-account.fish check ~/work/wt1   # names the interpreter explicitly
-fish -c 'source scripts/agent-account.fish check ~/work/wt1'   # injection into another fish
+mise install                                          # ansible-core, pinned in mise.toml
+ansible-galaxy collection install -r scripts/ansible/requirements.yml   # ansible.posix
 ```
 
-The shebang is `#!/usr/bin/env -S fish --no-config`, and both words are load-bearing:
+Three starting forms, each verified on this host:
 
-- **`-S`** is how `env` passes a flag to the interpreter at all (`env -S fish --no-config`), so
-  the script is exec'd directly with its config suppressed.
-- **`--no-config`** matters because the script runs `setfacl`, `usermod` and `sudo` **as root**,
-  and a fish config is code that runs before the script does. Measured: with a config defining
-  `function setfacl`, the run printed `HIJACKED setfacl` where the real tool belonged. A
-  provision script must not inherit the caller's shell environment.
+```bash
+./scripts/agent-account.py check ~/work/wt1     # the shebang; needs the script executable
+python3 scripts/agent-account.py check ~/work/wt1
+uv run scripts/agent-account.py check ~/work/wt1
+```
 
-Two consequences, both real:
+Two facts about the root half, both measured:
 
-- `#!/usr/bin/env fish` alone is **not enough**, and not because of style: `sudo` runs with its
-  own `secure_path`, where a developer-installed (or mise-installed) fish does not exist —
-  `env: 'fish': No such file or directory`. So the root half never relies on the shebang:
-  `as_root` re-executes the script with the interpreter it resolved itself,
-  `sudo -- (status fish-path) --no-config <script> …`. That is also why `apply` works from a
-  shell whose `PATH` a root process would not share.
-- A mise **shim** for `fish` is not the interpreter. The shim needs mise's environment and
-  fails with `No version is set for shim: fish` under a hermetic `PATH`; `(status fish-path)`
-  answers with the real binary, which is what both `as_root` and the tests use.
+- `sudo` runs with its own `secure_path` and its own `HOME`, and **neither** is the
+  developer's. So the root half re-executes the script by an absolute interpreter
+  (`sudo -- /usr/bin/python3 -I <script> …`), and `ansible-playbook` and
+  `ANSIBLE_COLLECTIONS_PATH` are resolved by the **unprivileged** caller and passed through.
+  Without that, the playbook fails with `couldn't resolve module/action 'ansible.posix.acl'`
+  because Ansible's default collection path is `{{ ANSIBLE_HOME }}/collections`.
+- The script runs as root, so its imports are root's code. That is why `ansible-core` is
+  pinned in `mise.toml` and `ansible.posix` in `requirements.yml`: the plugins that became
+  root are the ones this repository reviewed.
 
 It executes `sudo -n --user=agent -- /usr/bin/env -i HOME=… PATH=… GRADLE_USER_HOME=… "$@"`.
 The `PATH` it sets is `$HOME/.local/share/mise/shims:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin`
@@ -172,7 +190,7 @@ the variable it plants in the caller's environment does not arrive.
 
 | Agent | How it starts today | What has to change | Where |
 |---|---|---|---|
-| Terminal coding-agent sessions (the desktop app's per-PTY daemon) | the daemon spawns the agent as the developer, in `user@1000.service` | the daemon spawns `agent-account.fish run -- <agent>` instead of the agent directly | **outside this repository** — the desktop app's PTY daemon |
+| Terminal coding-agent sessions (the desktop app's per-PTY daemon) | the daemon spawns the agent as the developer, in `user@1000.service` | the daemon spawns `agent-account.py run -- <agent>` instead of the agent directly | **outside this repository** — the desktop app's PTY daemon |
 | The AFK runner's sessions (`docs/architecture/afk-runner.md`) | the `pi-afk-runner` extension, as the developer | one issue → one worktree → one session, each wrapped in `run` | **outside this repository** — `gazon1/pi-afk-runner` |
 | In-app ACP agents (Gemini CLI / Claude Code / Codex) | `SubprocessAcpAgentLauncher` (`shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentLauncher.kt:78`), a child of the desktop app, as the developer | not changed here: the application starts agents on the user's behalf in the user's session, and #3239's scope is the agents that drive the emulator | this repository |
 
@@ -195,17 +213,19 @@ one file (`AcpAgentLauncher.kt`) and one DI binding (`AcpDiModule.jvm.kt:35`).
 
 ```bash
 # 1. The plan. No root, nothing happens.
-./scripts/agent-account.fish apply --dry-run ~/work/wt1 ~/work/wt2
+./scripts/agent-account.py apply --dry-run ~/work/wt1 ~/work/wt2
 
 # 2. Apply. One password prompt; the script re-executes itself under sudo.
-./scripts/agent-account.fish apply ~/work/wt1 ~/work/wt2
+./scripts/agent-account.py apply ~/work/wt1 ~/work/wt2
 
 # 3. The verdict: every acceptance criterion, one line each.
-./scripts/agent-account.fish check ~/work/wt1 ~/work/wt2
+./scripts/agent-account.py check ~/work/wt1 ~/work/wt2
 ```
 
-Prerequisites: `fish` (pinned in `mise.toml` — `mise install` puts it on `PATH`) and
-`acl` (`setfacl`/`getfacl`, present on Fedora by default). `apply` is idempotent: it creates
+Prerequisites: `ansible-core` (pinned in `mise.toml` — `mise install` puts it on `PATH`), the
+`ansible.posix` collection (`ansible-galaxy collection install -r scripts/ansible/requirements.yml`,
+for the `acl` module) and `acl` (`setfacl`/`getfacl`, present on Fedora by default). Python 3.12+
+with `click` and `pydantic` — both already required by `scripts/src/pyproject.toml`. `apply` is idempotent: it creates
 what is missing and reconciles what is there. Before the first write it validates every root:
 a directory that is not a git worktree is refused with **nothing created**, because a host
 that is half-provisioned is worse than a refused run. `rollback` is the exception — it accepts
@@ -237,13 +257,13 @@ is unguarded *and* trusted to write:
 3. Restart the launchers (§3) so new sessions start through `run`. Existing sessions finish
    as the developer; kill them if the boundary has to hold immediately.
 4. Re-run `check` with a fresh agent session, and confirm the UID from inside it:
-   `scripts/agent-account.fish run -- id` → `uid=<agent's uid>(agent)`.
+   `scripts/agent-account.py run -- id` → `uid=<agent's uid>(agent)`.
 
 ### 4.3 Rollback
 
 ```bash
-./scripts/agent-account.fish rollback --dry-run ~/work/wt1   # what goes
-./scripts/agent-account.fish rollback ~/work/wt1
+./scripts/agent-account.py rollback --dry-run ~/work/wt1   # what goes
+./scripts/agent-account.py rollback ~/work/wt1
 ```
 
 It puts back the ACL **the target had before `apply` ran**, from a snapshot taken first. Three
@@ -428,8 +448,8 @@ would *remove* the ACL entries instead of restoring them.
 
 ```bash
 # the plan and the verdict, which is the whole procedure
-./scripts/agent-account.fish apply --dry-run <worktree>
-./scripts/agent-account.fish check <worktree>
+./scripts/agent-account.py apply --dry-run <worktree>
+./scripts/agent-account.py check <worktree>
 
 # the account, as the host holds it
 getent passwd agent; getent group sing-dev
@@ -440,8 +460,18 @@ sudo -n -l -U agent            # nothing
 sudo -n -l | grep -A2 'agent'  # the one /usr/bin/env rule, the developer's
 
 # the transition
-./scripts/agent-account.fish run -- id
+./scripts/agent-account.py run -- id
 
 # the test suite
 python3 -m unittest discover -s scripts/tests -p 'test_agent_account.py'
+
+# the declaration itself, without touching the host
+ansible-playbook --syntax-check -i localhost, scripts/ansible/agent-account.yml
+yamllint scripts/ansible/agent-account.yml
+ansible-lint scripts/ansible/agent-account.yml
 ```
+
+The variables file the playbook receives exists only for the duration of a run (`apply` writes
+it, hands it to `ansible-playbook` and unlinks it), so the way to read the declaration is the
+plan: `apply --dry-run` prints the two lines the playbook cannot plan itself and then
+`ansible-playbook --check --diff` prints the rest.
