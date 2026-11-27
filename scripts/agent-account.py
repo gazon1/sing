@@ -1981,7 +1981,41 @@ def resolve_ansible(playbook: Path | None) -> tuple[Path, str]:
             collections = match.group(1).strip()
     if not collections:
         collections = f"{Path.home()}/.ansible/collections:/usr/share/ansible/collections"
-    return found.absolute(), collections
+    return _unyielding(found), collections
+
+
+def _unyielding(found: Path) -> Path:
+    """The real binary behind a mise shim, because the shim needs mise's environment.
+
+    Measured: `/home/max/.local/share/mise/shims/ansible-playbook` run with root's
+    environment (no MISE_*, HOME=/root) answers "ansible-playbook is not a valid
+    shim … Run `mise use <TOOL>`", while
+    `~/.local/share/mise/installs/ansible-core/<v>/bin/ansible-playbook` runs and
+    reports its version. The shim is a launcher for the developer's shell; the root
+    half is not that shell.
+
+    `mise which` is the supported way to ask, and it answers with the install path
+    for exactly the version this checkout pins. A plain binary is returned as is,
+    and so is a shim whose target cannot be determined — the error then names the
+    shim, which is more use than a guess.
+    """
+    resolved = found.resolve()
+    if resolved.name != "mise":
+        return found.absolute()
+    try:
+        # `resolved` is `mise` itself, and it has to be: a shim dispatches on
+        # argv[0], so running the SHIM as `mise which …` becomes
+        # `ansible-playbook which …` — measured as "the playbook: which could not
+        # be found".
+        asked = subprocess.run(
+            [str(resolved), "which", "ansible-playbook"], capture_output=True, text=True, check=False
+        )
+    except OSError:
+        return found.absolute()
+    answer = asked.stdout.strip()
+    if asked.returncode == 0 and answer and Path(answer).is_file():
+        return Path(answer)
+    return found.absolute()
 
 
 def _with_ansible(deps: Deps, playbook: Path | None, collections: str | None) -> Deps:

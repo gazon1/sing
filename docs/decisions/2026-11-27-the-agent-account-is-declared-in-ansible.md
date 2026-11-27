@@ -77,6 +77,14 @@ Concretely:
   caller and passed through `sudo`. Measured: under a root-like `HOME` the playbook fails with
   `couldn't resolve module/action 'ansible.posix.acl'`, since Ansible's default collection path
   is `{{ ANSIBLE_HOME }}/collections`.
+- The `ansible-playbook` that gets passed through is the **real binary**, never a mise shim.
+  Measured while preparing the first live run: the shim in `~/.local/share/mise/shims/` run
+  with root's environment (no `MISE_*`, `HOME=/root`) answers `ansible-playbook is not a valid
+  shim … Run 'mise use <TOOL>'`, while `~/.local/share/mise/installs/ansible-core/<v>/bin/
+  ansible-playbook` runs. A shim is a launcher for the developer's shell, and the root half is
+  not that shell. `mise which` is asked for the install path — by path, because a shim
+  dispatches on `argv[0]` and `shim which ansible-playbook` becomes
+  `ansible-playbook which …` ("the playbook: which could not be found").
 
 ## Rationale
 

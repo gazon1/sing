@@ -1155,28 +1155,57 @@ class AnsibleResolutionTest(unittest.TestCase):
             os.environ.clear()
             os.environ.update(saved)
 
-    def test_a_symlinked_shim_is_run_as_found_not_resolved(self):
-        """Measured: `resolve()` on a mise shim collapses it to `mise`, and the run
-        becomes `mise <playbook>` — "ERROR `…agent-account.yml` is not executable"."""
-        import shutil as sh
+    def test_a_mise_shim_is_asked_for_the_real_binary(self):
+        """Measured: the shim run with root's environment (no MISE_*, HOME=/root)
+        answers "ansible-playbook is not a valid shim", while the install path it
+        names runs. The shim is a launcher for the developer's shell; the root half
+        is not that shell."""
         import tempfile
 
         tmp = pathlib.Path(tempfile.mkdtemp(prefix='aa-shim-'))
         self.addCleanup(__import__('shutil').rmtree, tmp, True)
-        real = tmp / 'mise'
+        install = tmp / 'installs' / 'ansible-core' / '2.21.5' / 'bin'
+        install.mkdir(parents=True)
+        real = install / 'ansible-playbook'
         real.write_text('#!/bin/sh\nexit 0\n', encoding='utf-8')
         real.chmod(0o755)
-        shim = tmp / 'ansible-playbook'
-        shim.symlink_to(real)
+        # The shim is `mise`, so it dispatches on argv[0] and must be asked BY PATH.
+        mise = tmp / 'mise'
+        mise.write_text(f'#!/bin/sh\necho "{real}"\n', encoding='utf-8')
+        mise.chmod(0o755)
+        shim = tmp / 'shims' / 'ansible-playbook'
+        shim.parent.mkdir()
+        shim.symlink_to(mise)
 
-        saved_which = sh.which
+        saved_which = __import__('shutil').which
         try:
-            sh.which = lambda name, *a, **k: str(shim)
+            __import__('shutil').which = lambda name, *a, **k: str(shim)
             found, _ = aa.resolve_ansible(None)
         finally:
-            sh.which = saved_which
-        self.assertEqual(shim, found.absolute())
-        self.assertNotEqual(real, found.absolute(), 'the shim must not be collapsed to its target')
+            __import__('shutil').which = saved_which
+        self.assertEqual(real, found, 'the shim must be traded for the binary it names')
+        self.assertNotEqual(mise, found, 'never collapse the shim to `mise` itself')
+
+    def test_a_shim_that_cannot_name_its_binary_falls_back_to_the_shim(self):
+        """A clearer error names the shim the reader installed, not a guess."""
+        import tempfile
+
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix='aa-shim2-'))
+        self.addCleanup(__import__('shutil').rmtree, tmp, True)
+        mise = tmp / 'mise'
+        mise.write_text('#!/bin/sh\nexit 1\n', encoding='utf-8')
+        mise.chmod(0o755)
+        shim = tmp / 'ansible-playbook'
+        shim.symlink_to(mise)
+
+        saved_which = __import__('shutil').which
+        try:
+            __import__('shutil').which = lambda name, *a, **k: str(shim)
+            found, _ = aa.resolve_ansible(None)
+        finally:
+            __import__('shutil').which = saved_which
+        self.assertEqual(shim, found)
+        self.assertNotEqual(mise, found, 'the shim must not be collapsed to `mise` itself')
 
 
 # ---------------------------------------------------------------------------
