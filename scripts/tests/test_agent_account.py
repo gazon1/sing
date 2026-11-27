@@ -1115,6 +1115,71 @@ class ElevateTest(Base):
 # ---------------------------------------------------------------------------
 
 
+class ToolchainDefaultTest(Base):
+    """Finding: `check` verified the toolchain's ACCESS entry and not its DEFAULT one.
+
+    The consequence is a host that looks healthy while it stops working as it
+    evolves: the binaries mise installed yesterday stay reachable through the access
+    entry, and the next version it installs lands unreachable because nothing
+    inherits the grant. `apply` writes both entries, so a check that inspects one
+    certifies about half of what it provisioned.
+    """
+
+    def _acl(self, *, default: bool) -> str:
+        text = 'user::rwx\nuser:agent:r-x\ngroup::r-x\nmask::r-x\nother::r-x\n'
+        if default:
+            text += 'default:user:agent:r-x\ndefault:group::r-x\ndefault:other::r-x\n'
+        return text
+
+    def test_a_missing_toolchain_default_entry_fails_the_check(self):
+        ctx = self.context()
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, self._acl(default=False))),)
+        checker = aa.Checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn("no 'default:user:agent:r-x'", out)
+        self.assertIn('a file toolchain writes lands unreachable', out)
+
+    def test_each_toolchain_directory_is_asked_independently(self):
+        """Removing the default from ONE of them must fail for that one."""
+        for missing in ('.local/share/mise', '.local/bin'):
+            ctx = self.context()
+            found = {'text': ''}
+
+            def getfacl(argv, input_text, capture, missing=missing, found=found):
+                # Answer per path: the one under test has no default entry.
+                if any(str(missing) in a for a in argv):
+                    found['text'] = self._acl(default=False)
+                else:
+                    found['text'] = self._acl(default=True)
+                return aa.Result(0, found['text'], '')
+
+            ctx.runner._exec = getfacl
+            checker = aa.Checker(ctx)
+            checker.report = aa.Report()
+            _, out, _ = self.quiet(checker._acls)
+            self.assertIn('FAIL', out, missing)
+            self.assertIn('lands unreachable', out, missing)
+
+    def test_both_entries_present_passes(self):
+        ctx = self.context()
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, self._acl(default=True))),)
+        checker = aa.Checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn("PASS", out)
+        self.assertNotIn("no 'default:user:agent:r-x'", out)
+
+    def test_the_sdk_and_the_toolchain_are_checked_the_same_way(self):
+        """The SDK already had both; the toolchain drifting from it was the bug."""
+        source = pathlib.Path(SCRIPT).read_text(encoding='utf-8')
+        sdk = [l for l in source.splitlines() if 'check_grant(cfg.sdk_dir' in l]
+        toolchain = [l for l in source.splitlines() if 'check_grant(directory, read' in l]
+        self.assertTrue(sdk and toolchain, 'both are checked')
+        self.assertIn('read.as_default()', sdk[0])
+        self.assertIn('read.as_default()', toolchain[0], 'the toolchain asks for the default too')
+
+
 class RunBoundaryTest(Base):
     """`run` must not assume `apply`'s verdict still holds.
 
