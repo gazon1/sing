@@ -1257,6 +1257,23 @@ class RunPathTest(Base):
         self.assertLess(path.index('mise/installs'), path.index('mise/shims'), 'real tree first')
 
 
+class HeavySlotsTest(Base):
+    """`heavy` is a machine-wide semaphore whose slots live in `/tmp/heavy`.
+
+    Found live: that directory belongs to the developer, so the agent could not open
+    a slot and `heavy -- <cmd>` died with "Permission denied (os error 13)" — while
+    `heavy --help` worked, because it never acquires one. Every `./gw` build and
+    every pre-commit hook goes through it.
+    """
+
+    def test_the_agent_gets_its_own_slot_directory(self):
+        ctx = self.context()
+        argv = aa.Launcher(ctx, {}).command(('true',))
+        heavy = [a for a in argv if a.startswith('HEAVY_DIR=')]
+        self.assertEqual(1, len(heavy), 'heavy would fall back to /tmp/heavy, which is not ours')
+        self.assertIn(str(self.agent_home), heavy[0], 'inside the agent home, so it can write it')
+
+
 class RunBoundaryTest(Base):
     """`run` must not assume `apply`'s verdict still holds.
 

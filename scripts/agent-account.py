@@ -2047,6 +2047,14 @@ class Launcher:
             # shim" for the agent while the real
             # `mise/installs/github-mokevnin-heavy/latest/heavy` ran fine.
             f"PATH={mise_bin_dirs(dev)}:{dev}/.local/share/mise/shims:{dev}/.local/bin:/usr/local/bin:/usr/bin:/bin",
+            # `heavy` is a machine-wide counting semaphore, and its slot files live
+            # in `/tmp/heavy` — owned by the developer. The agent cannot open them,
+            # so `heavy -- <cmd>` answered "Permission denied (os error 13)" while
+            # `heavy --help` worked (it never acquires a slot). That killed every
+            # `./gw` build and every pre-commit hook. Its own directory is the
+            # supported way out, and it keeps the agent's slot accounting separate,
+            # which is also correct: the two identities are different callers.
+            f"HEAVY_DIR={home}/.cache/heavy-slots",
             f"GRADLE_USER_HOME={home}/.gradle",
             f"ANDROID_HOME={self.environ.get('ANDROID_HOME') or cfg.sdk_dir}",
             f"ANDROID_USER_HOME={home}/.android",

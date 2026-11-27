@@ -46,6 +46,25 @@ run, none visible to the unit tests:
   `mise/installs/...` directories first, in both layouts (`<tool>/<version>/bin` and
   `<tool>/<version>/<binary>`), and keeps the shims after them.
 
+**Gradle was built under the agent uid on this host on 2026-11-27**: `./gw
+:shared:compileKotlinJvm` returned **BUILD SUCCESSFUL in 12m 42s** (23 tasks) as
+uid 1001, with `GRADLE_USER_HOME=/home/agent/.gradle`. Two things that run settled:
+
+- **The agent downloads its own Gradle distribution and toolchain JDK** into
+  `/home/agent/.gradle` — 2.1 GB of daemon RSS during the build, and the daemon
+  binary lives under `/home/agent/.gradle/jdks/`. That is the stated price of not
+  sharing the developer's 110 GB cache, now measured.
+- **The boundary held in the direction that matters**: `max` cannot read
+  `/home/agent/.gradle` at all ("Permission denied"), so the agent's build state is
+  not something the developer's next build reads.
+
+One more finding, and it blocked the build until fixed: **`heavy` is unusable by the
+agent.** It is a machine-wide counting semaphore whose slot files live in `/tmp/heavy`,
+owned by the developer — so `heavy -- <cmd>` failed with "Permission denied (os error
+13)" while `heavy --help` worked, since it never acquires a slot. Every `./gw` build and
+every pre-commit hook goes through `heavy`, so this stopped the first build and the
+agent's first commit. `run` now sets `HEAVY_DIR` inside the agent's home.
+
 **The disposable-container run below established the rest**, not
 on this host: `apply` → real uid/groups/sudoers/ACL inspection → `check` → a `git` commit made
 by the agent as uid 1001 → `rollback` → the ACLs compared byte-for-byte with the pre-apply
@@ -293,8 +312,8 @@ the variable it plants in the caller's environment does not arrive.
 | Agent | How it starts today | What has to change | Where |
 |---|---|---|---|
 | Terminal coding-agent sessions (the desktop app's per-PTY daemon) | the daemon spawns the agent as the developer, in `user@1000.service` | the daemon spawns `agent-account.py run -- <agent>` instead of the agent directly | **outside this repository** — the desktop app's PTY daemon |
-| The AFK runner's sessions (`docs/architecture/afk-runner.md`) | the `pi-afk-runner` extension, as the developer | one issue → one worktree → one session, each wrapped in `run` | **outside this repository** — `gazon1/pi-afk-runner` |
-| In-app ACP agents (Gemini CLI / Claude Code / Codex) | `SubprocessAcpAgentLauncher` (`shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentLauncher.kt:78`), a child of the desktop app, as the developer | not changed here: the application starts agents on the user's behalf in the user's session, and #3239's scope is the agents that drive the emulator | this repository |
+| The AFK runner's sessions (`docs/architecture/afk-runner.md`) | **verified 2026-11-27:** `pi-afk-runner` runs its agent IN-PROCESS on Mastra (`src/mastra/agent.ts`: `new Agent(...)` with `LocalSandbox` + `LocalFilesystem` over the worktree). There is no child CLI to wrap, so `run -- <agent>` does not apply | the whole **node process** would have to start as `agent` (a service or a `run`-wrapped node entry point), not a spawn site — a different change than assumed here | **outside this repository** — `gazon1/pi-afk-runner` |
+| In-app ACP agents (Gemini CLI / Claude Code / Codex) | `SubprocessAcpAgentLauncher` (`shared/src/jvmMain/.../acp/AcpAgentLauncher.kt:88-93`): `Subprocess.spawnDuplex(argv = listOf(profile.command) + profile.args)` — the profile's executable directly, no wrapper | not changed here: the application starts agents on the user's behalf in the user's session, and #3239's scope is the agents that drive the emulator. **Verified 2026-11-27**: there is no `run` in that argv, so switching it would be one line plus a profile change | this repository |
 
 The two launchers outside this repository are the reason the acceptance criterion "every
 agent in scope runs with UID `agent`" cannot be closed by this change alone: what this
