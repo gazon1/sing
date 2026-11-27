@@ -116,6 +116,20 @@ Concretely:
   for our grant. Provisioning now compares every existing entry's effective bits against the
   widened mask and stops with the entry named, rather than silently loosening somebody's ACL
   (the snapshot would restore it only at rollback; the expansion lasts the whole session).
+  Two holes in the first version of that check, found after it merged and both verified on
+  the kernel: `AclEntry.named` is FALSE for `group::`, so the OWNING GROUP was skipped —
+  `group::rwx #effective:r--` under `mask::r--` widened to `rwx` just like a named entry,
+  because the mask caps the whole group class; and `X` was compared as a letter, so
+  `'x' in "rX"` was False and the execute bit vanished from the calculation. `user::`
+  (owner) and `other::` are deliberately NOT reported: both sit outside the mask —
+  measured, `user::rwx` under `mask::r--` stays `rwx`.
+  Two holes in the first version of that check, both found after it merged and both
+  verified on the kernel: `AclEntry.named` is FALSE for `group::`, so the OWNING GROUP
+  was skipped — `group::rwx #effective:r--` under `mask::r--` widened to `rwx` just
+  like a named entry, because the mask caps the whole group class; and `X` was
+  compared as a letter, so `'x' in "rX"` was False and the execute bit vanished from
+  the calculation. `user::` (owner) and `other::` are deliberately NOT reported: both
+  sit outside the mask — measured, `user::rwx` under `mask::r--` stays `rwx`.
 - **The shared `.git` grant stops at objects, refs and the index.** A review called the
   recursive write grant on the common git dir a merge blocker, and it was right about the
   mechanism: `config` chooses `core.hooksPath` and every setting for later invocations, and

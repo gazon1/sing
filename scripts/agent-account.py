@@ -806,36 +806,59 @@ def unrelated_would_widen(
 ) -> list[str]:
     """Which EXISTING entries would gain effective permissions if the mask grew.
 
-    Growing the mask is what `setfacl --modify` does when our grant does not fit,
-    and the mask caps every named entry on the inode — so growing it for us can hand
-    somebody else rights nobody intended. Measured: `user:nobody:rwx #effective:r--`
-    under `mask::r--` became fully effective `rwx` the moment an unrelated entry was
-    added. That is a permission EXPANSION for a third party, on files the agent is
-    about to run against, caused by provisioning that was meant for the agent alone.
+    Growing the mask is what `setfacl --modify` does when our grant does not fit, and
+    the mask caps the group class — so growing it for us can hand somebody else rights
+    nobody intended. Measured: `user:nobody:rwx #effective:r--` under `mask::r--`
+    became fully effective `rwx` the moment an unrelated entry was added.
 
-    The rule the review asks for, and the one implemented here: compare each existing
-    entry's effective bits BEFORE and AFTER the mask would become `needed`-capable,
-    and name the ones that widen. The caller then refuses, rather than silently
-    rewriting somebody else's entry — an administrator may have set that mask
-    deliberately, and this tool has no business loosening it.
+    Covered by the mask, and therefore checked here:
+      - NAMED user and group entries (`user:alice:`, `group:devs:`);
+      - the OWNING GROUP (`group::`) — a review caught it being skipped, because
+        `AclEntry.named` is false for it. Verified on the kernel: `group::rwx
+        #effective:r--` under `mask::r--` became fully effective `rwx` when an
+        unrelated entry was added, exactly like a named one.
+
+    NOT covered, and deliberately not reported: `user::` (the OWNER) and `other::`.
+    Both sit outside the mask — measured: `user::rwx` under `mask::r--` stays `rwx`,
+    and `other::rwx` under `mask::r--` stays `rwx`. Reporting them would refuse
+    provisioning for an expansion that cannot happen.
+
+    The comparison is against the mask this grant WOULD produce, not against `needed`:
+    `setfacl --modify` raises the mask to cover the union of the existing mask and the
+    bits it adds. Using `needed` alone would report a widening for bits the new mask
+    never grants.
     """
     mask = find_entry(entries, AclSpec("mask", "", "rwx", default=default))
-    old_ceiling = mask.perms if mask is not None else None
+    if mask is None:
+        # No mask: every entry's own bits are already effective, so a mask appearing
+        # later cannot widen anything — it can only cap.
+        return []
+    old_ceiling = mask.perms
+    # `X` is not a bit: it means "execute on a directory, read on a regular file", so
+    # it has to be resolved to `x`/`-` BEFORE the union. Left as the letter, `'x' in
+    # "rX"` is False and the execute bit silently vanished from the calculation —
+    # measured, and a hole of the same shape as the one this function was written for.
+    wanted = "".join(
+        bit if (bit in needed or (bit == "x" and "X" in needed and is_dir) or (bit == "r" and "X" in needed and not is_dir))
+        else "-"
+        for bit in "rwx"
+    )
+    # What `setfacl --modify` will raise the mask to: the union of what it covers now
+    # and the bits our grant needs.
+    new_ceiling = "".join(bit if (bit in old_ceiling or bit in wanted) else "-" for bit in "rwx")
     widened: list[str] = []
     entities = set(our_entities)
     for entry in entries:
-        if entry.tag == "mask" or entry.qualifier in entities:
+        if entry.tag == "mask":
             continue
-        if not entry.named:
+        # Our own two identities are the point of the grant, not third parties.
+        if entry.qualifier and entry.qualifier in entities:
+            continue
+        # `user::` (owner) and `other::` are outside the mask.
+        if entry.tag in ("user", "other") and entry.qualifier == "":
             continue
         before = entry.effective_perms
-        if old_ceiling is None:
-            # No mask: the entry's own bits are already effective, nothing to widen.
-            continue
-        after = "".join(
-            bit if (bit in entry.perms and bit in needed) or (bit in entry.perms and bit in old_ceiling) else "-"
-            for bit in "rwx"
-        )
+        after = "".join(bit if (bit in entry.perms and bit in new_ceiling) else "-" for bit in "rwx")
         if after != before:
             widened.append(f"{entry} ({before} -> {after})")
     return widened

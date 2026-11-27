@@ -1591,6 +1591,47 @@ class MaskPreservationTest(Base):
         for grant in grants:
             self.assertFalse(grant.get('preserve_mask'), f"mask is too narrow, must grow: {grant}")
 
+    def test_a_growth_that_would_widen_the_OWNING_GROUP_is_refused(self):
+        """The gap a review found: `AclEntry.named` is false for `group::`, so the
+        owning group was skipped and its effective rights could widen unnoticed.
+
+        Verified on the kernel: `group::rwx #effective:r--` under `mask::r--` became
+        fully effective `rwx` when an unrelated entry was added — exactly like a named
+        entry, because the mask caps the whole group class.
+        """
+        ctx = self.context(roots=(self.wt,))
+        owning_group = 'user::rw-\ngroup::rwx\t#effective:r--\nmask::r--\nother::r--\n'
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, owning_group)),)
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            aa.acl_grants(ctx.cfg, ctx, str(self.agent_home))
+        message = str(caught.exception)
+        self.assertIn('widen permissions nobody asked about', message)
+        self.assertIn('group::rwx', message)
+
+    def test_the_X_bit_is_resolved_before_the_union(self):
+        """`X` is not a bit: it means execute-on-a-directory, read-on-a-file. Compared
+        as the letter, `'x' in "rX"` is False and the execute bit vanishes from the
+        calculation — the same shape of hole as the owning-group one."""
+        entries = aa.parse_getfacl('user::rwx\ngroup::rwx\t#effective:r--\nmask::r--\nother::---\n')
+        self.assertTrue(
+            aa.unrelated_would_widen(entries, ('agent',), 'rX', is_dir=True),
+            'a DIRECTORY gains execute, so the owning group widens',
+        )
+        self.assertEqual(
+            [], aa.unrelated_would_widen(entries, ('agent',), 'rX', is_dir=False),
+            'a FILE needs read, which it already has',
+        )
+
+    def test_the_owner_and_other_are_not_reported_because_the_mask_cannot_cap_them(self):
+        """`user::` and `other::` sit outside the mask — verified on the kernel:
+        `user::rwx` under `mask::r--` stays `rwx`, and so does `other::rwx`. Reporting
+        them would refuse provisioning for an expansion that cannot happen."""
+        ctx = self.context(roots=(self.wt,))
+        outside = 'user::rwx\ngroup::r--\nmask::r--\nother::rwx\n'
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, outside)),)
+        # Must NOT raise: nothing here can widen.
+        aa.acl_grants(ctx.cfg, ctx, str(self.agent_home))
+
     def test_a_growth_that_would_widen_an_unrelated_entry_is_refused(self):
         """Measured: `user:nobody:rwx #effective:r--` under `mask::r--` became fully
         effective when the mask grew for our grant. Randomising somebody's ACL is not
