@@ -45,12 +45,14 @@ import kotlinx.coroutines.launch
  * ```
  * class TagsViewModel(
  *     private val tagRepo: TagsRepository,
- *     scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+ *     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+ *     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
  * ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
  *     initialState = TagsUiState.Loading,
+ *     crashReporter = crashReporter,
  *     scope = scope,
  * ) {
- *     // no addCloseable(scope) needed here — the base init does it
+ *     // no addCloseable(scope) needed here — the base initializer does it
  *
  *     override fun onIntent(intent: TagsIntent) {
  *         when (intent) {

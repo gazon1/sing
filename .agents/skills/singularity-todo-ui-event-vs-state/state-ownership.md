@@ -46,4 +46,25 @@ val recentlyDeleted: StateFlow<TaskUi?> = _recentlyDeleted.asStateFlow()
 private val _undoEvent = MutableSharedFlow<TaskUi>(extraBufferCapacity = 1)
 ```
 
+### State-first, not event-free
+
+**Prefer state when the value must survive a rebuild; keep the event when it must fire once.**
+The question is not "which is newer" but "what does a user who arrives late need to see":
+
+- **Durable state** — a pending confirmation, an undo offer, a refused close, "this range is
+  the last 30 days". Rebuild it from state on any recomposition or rotation, because a person
+  who looks after a rotation still has to be able to act.
+- **Transient effect** — navigate back, show a snackbar, pulse a "Saved" indicator, open a
+  system dialog. Firing it twice is worse than losing it, and replaying it after a rotation
+  is actively wrong: the snackbar the user dismissed comes back.
+
+**Do not migrate events to state mechanically.** Every snackbar and navigation signal moved
+into `UiState` buys replay and costs a flag to clear, a "already consumed" rule, and a
+screen that shows an error nobody just triggered. Convert an event to state only when a
+late observer must still see it — and then say so in the KDoc, because that is the property
+the migration is for.
+
+See `docs/decisions/2026-11-27-mvi-architecture-direction.md` — a broad event-to-state
+migration is explicitly outside that direction.
+
 ---

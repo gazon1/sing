@@ -79,7 +79,7 @@ class BackupViewModel(
         scope = scope,
     ) {
     init {
-        addCloseable(scope)
+        // No addCloseable(scope): MviViewModel's initializer already registers it.
         scope.launch {
             repository.observeAll().collect { backups ->
                 updateState { it.copy(backups = backups) }

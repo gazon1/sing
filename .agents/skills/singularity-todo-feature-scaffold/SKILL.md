@@ -183,12 +183,16 @@ class <Feature>ViewModel(
     private val repo: <Feature>Repository,
     private val create<Feature>: Create<Feature>UseCase,
     private val settings: SettingsRepository,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<<Feature>UiState, <Feature>Intent, <Feature>UiEvent>(
-    initialState = <Feature>UiState.Loading, scope = scope,
+    initialState = <Feature>UiState.Loading,
+    crashReporter = crashReporter,
+    scope = scope,
 ) {
+    // No addCloseable(scope): MviViewModel's initializer already registers it.
+    // `scope` is a constructor parameter: readable in an init block, nowhere else.
     init {
-        addCloseable(scope)
         scope.launch {
             val userId = UserId.fromString(settings.userId.first())
             repo.watchAll(userId)
@@ -198,8 +202,10 @@ class <Feature>ViewModel(
     }
     override fun onIntent(intent: <Feature>Intent) {
         when (intent) {
-            is <Feature>Intent.Delete -> scope.launch { repo.delete(intent.id).onFailure { emit(<Feature>UiEvent.ShowError(it.message ?: "Error")) } }
-            is <Feature>Intent.Update -> scope.launch { repo.update(intent.<feature>).onFailure { emit(<Feature>UiEvent.ShowError(it.message ?: "Error")) } }
+            // `vmScope` is the base class's protected alias for the same scope — the
+            // constructor parameter is not visible inside a member function.
+            is <Feature>Intent.Delete -> vmScope.launch { repo.delete(intent.id).onFailure { emit(<Feature>UiEvent.ShowError(it.message ?: "Error")) } }
+            is <Feature>Intent.Update -> vmScope.launch { repo.update(intent.<feature>).onFailure { emit(<Feature>UiEvent.ShowError(it.message ?: "Error")) } }
         }
     }
 }

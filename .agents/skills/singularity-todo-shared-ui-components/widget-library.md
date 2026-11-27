@@ -116,20 +116,31 @@ sealed interface UiEvent {
 }
 ```
 
-**ViewModel side:**
+**Per feature, not global.** The seam is the same shape for every screen, but each
+feature declares its own `sealed interface XxxUiEvent : MviEvent`; the global `UiEvent`
+above is the historical form and is not reintroduced.
+
+**ViewModel side** (`MviViewModel` already owns the bus — no `SharedFlow`, no field):
 
 ```kotlin
-private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
-val events: SharedFlow<UiEvent> = _events.asSharedFlow()
+sealed interface TasksUiEvent : MviEvent {
+    data class ShowDialog(val title: String, val text: String) : TasksUiEvent
+    data class ShowError(val message: String) : TasksUiEvent
+}
 
-fun refineTask(task: Task) = viewModelScope.launch {
-    useCase(task).onSuccess {
-        _events.emit(UiEvent.ShowDialog("AI Result", formatResult(it)))
-    }.onFailure {
-        _events.emit(UiEvent.ShowError(it.message ?: "Failed"))
+override fun onIntent(intent: TasksIntent) {
+    when (intent) {
+        is TasksIntent.RefineTask -> emitError("Refine failed", TasksUiEvent::ShowError) {
+            useCase(intent.task).onSuccess { emit(TasksUiEvent.ShowDialog("AI Result", formatResult(it))) }
+        }
     }
 }
 ```
+
+`events` is `MviViewModel.events`: a **Channel** behind a `Flow`, single consumer,
+backpressure instead of loss, closed gracefully in `onCleared()`. Collect it once per
+screen. A `SharedFlow` field is only for a genuine broadcast (several subscribers, each
+needing every value) — see `singularity-todo-mvi-framework`.
 
 **Screen side:**
 
@@ -151,9 +162,9 @@ fun TasksScreen(...) {
 }
 ```
 
-`extraBufferCapacity = 4` is the project convention for `*UiEvent` SharedFlows — see
-`singularity-todo-testable-vm` for the full explanation (why 4 vs 1 vs UNLIMITED, what
-actually goes wrong with `emit()` on rotation, and the distinction from `tryEmit()`).
+`MviViewModel(extraEventCapacity = …)` sizes the bus when the default `Channel.BUFFERED`
+does not fit a screen; see `singularity-todo-mvi-framework` for the delivery, backpressure
+and close semantics.
 
 ### The `NotificationHost` mapper — sealed interface gotcha
 

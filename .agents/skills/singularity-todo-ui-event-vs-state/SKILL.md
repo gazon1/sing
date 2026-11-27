@@ -16,8 +16,16 @@ exclusive:
 | Category | Lives in | Replays on rotation? | Read pattern |
 |---|---|---|---|
 | **UI state** — task list, current filter, editor state, loading branch | `StateFlow<UiState>` on the VM | Yes | `collectAsStateWithLifecycle()` |
-| **One-shot events** — "AI Result" dialog, navigate back, snackbar, saved pulse | `SharedFlow<UiEvent>` on the VM | **No** | `CollectEvents(vm.events) { … }` → `ResultDialog` / navigation lambda |
+| **One-shot events** — "AI Result" dialog, navigate back, snackbar, saved pulse | `MviViewModel.events` — a **Channel** behind `Flow<UiEvent>` | **No** | `CollectEvents(vm.events) { … }` → `ResultDialog` / navigation lambda |
+| **Broadcast signals** — several independent subscribers that each need every value | a feature-local `MutableSharedFlow` on the VM | No | one collector per subscriber |
 | **Routing state** — which sheet/dialog/menu is open | `remember { mutableStateOf }` | No | local to the composable |
+
+> **Which one is "one-shot"?** The primary path is the Channel-backed `vm.events`
+> (`EventBus`), not a `SharedFlow`. It has **one** consumer: collecting it twice splits the
+> events between the collectors instead of copying them. A `SharedFlow` is the right tool
+> only where a real broadcast contract exists — several subscribers, each needing every
+> value. `singularity-todo-mvi-framework` has the full delivery/backpressure/close contract.
+
 
 Composable exceptions that are **not** routing state:
 
@@ -40,7 +48,7 @@ Composable exceptions that are **not** routing state:
 | Writing a test that asserts an event fired | [`vm-event-tests.md`](vm-event-tests.md) |
 | Checking code you are about to write for known violations | [`anti-patterns.md`](anti-patterns.md) |
 | Which sheet is open; whether a flag belongs in the Composable or the VM | [`routing-state.md`](routing-state.md) |
-| Who owns a draft / form value; the state-ownership boundary | [`state-ownership.md`](state-ownership.md) |
+| Who owns a draft / form value; the state-ownership boundary; state-first vs event | [`state-ownership.md`](state-ownership.md) |
 | Debounced inline edit + silent save, and the write loop it can create | [`debounced-edits.md`](debounced-edits.md) |
 | `.first()` snapshot vs continuous `.collect()` for a list in Compose | [`collection-strategy.md`](collection-strategy.md) |
 | A Composable that keeps its own copy of VM state | [`mirror-state.md`](mirror-state.md) |
@@ -48,9 +56,8 @@ Composable exceptions that are **not** routing state:
 ## See Also
 
 - `singularity-todo-testable-vm` — canonical VM state shape (read-only `StateFlow` with private
-  backing), scope injection, DraftState; the canonical explanation of `extraBufferCapacity = N` on
-  `*Event` SharedFlows (why 1 vs 4 vs UNLIMITED, and what actually goes wrong with
-  `emit()` on rotation)
+  backing), scope injection, DraftState; `extraBufferCapacity = N` where a feature-local
+  `SharedFlow` is genuinely needed
 - `singularity-todo-vm-intent-pattern` — sealed Intent + `onIntent` dispatcher; how events
   and state interact with intents
 - `singularity-todo-shared-ui-components` — `CollectEvents` helper, `NotificationHost`,

@@ -42,7 +42,7 @@
 | `RepositoryInterfaceMustHaveKDoc` | `KDocEnforcementRules.kt` | `kdoc-enforcement` | Requires class-level KDoc on every repository interface, so the contract is written down where it is depended on. | `RuleFiresSmokeTest (shared)` | yes |
 | `ShadowedState` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Flags a class that extends [MviViewModel] but declares its own `uiState` / `_uiState`. | `RuleFiresSmokeTest (shared)` | yes |
 | `ViewModelMustHaveKDoc` | `KDocEnforcementRules.kt` | `kdoc-enforcement` | Requires class-level KDoc on every ViewModel, describing what the state means rather than restating the name. | `RuleFiresSmokeTest (shared)` | yes |
-| `VmCloseable` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Requires a ViewModel with a `scope` parameter to call `addCloseable(scope)`, or its scope is never cancelled. | `RuleFiresSmokeTest (shared)` | yes |
+| `VmCloseable` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Keeps one owner for the scope: a ViewModel with its own `scope` must call `addCloseable(scope)`; an MVI subclass must not. | `RuleFiresSmokeTest (shared)` | yes |
 | `VmScopePosition` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a `scope` parameter that is not last, so injected dependencies read in declaration order. | `RuleFiresSmokeTest (shared)` | yes |
 
 **37 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.

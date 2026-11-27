@@ -72,7 +72,7 @@ class TagGroupsViewModel(
         scope = scope,
     ) {
     init {
-        addCloseable(scope)
+        // No addCloseable(scope): MviViewModel's initializer already registers it.
         scope.launch {
             tagGroupRepo
                 .observeAll()

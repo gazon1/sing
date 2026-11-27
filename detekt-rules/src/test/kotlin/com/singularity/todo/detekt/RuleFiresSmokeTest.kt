@@ -603,6 +603,136 @@ class MviViewModelRuleFiresTest {
     }
 
     @Test
+    fun `VmCloseable fires when an MviViewModel subclass registers the base-owned scope again`() {
+        assertFires(
+            rule(RuleName("VmCloseable")),
+            """
+            package com.example
+
+            class AgendaViewModel(
+                private val deps: Deps,
+                private val scope: CoroutineScope,
+            ) : MviViewModel<UiState, Intent, Event>(
+                initialState = UiState.Loading,
+                scope = scope,
+            ) {
+                init {
+                    addCloseable(scope)
+                }
+            }
+            """,
+            "VmCloseable",
+        )
+    }
+
+    @Test
+    fun `VmCloseable fires on an MVI subclass whose name does not end in ViewModel`() {
+        // TaskDetailCoordinator is a real MVI subclass whose name breaks the naming
+        // convention, so a rule gated on `*ViewModel` never sees it. The MVI branch must
+        // therefore not depend on the class name.
+        assertFires(
+            rule(RuleName("VmCloseable")),
+            """
+            package com.example
+
+            class TaskDetailCoordinator(
+                private val deps: Deps,
+                private val scope: CoroutineScope,
+            ) : MviViewModel<UiState, Intent, Event>(
+                initialState = UiState.Loading,
+                scope = scope,
+            ) {
+                init {
+                    addCloseable(scope)
+                }
+            }
+            """,
+            "VmCloseable",
+        )
+    }
+
+    @Test
+    fun `VmCloseable fires on a DraftMviViewModel subclass`() {
+        assertFires(
+            rule(RuleName("VmCloseable")),
+            """
+            package com.example
+
+            class TaskCreateViewModel(
+                initialDraft: String,
+                scope: CoroutineScope,
+            ) : DraftMviViewModel<String, Intent, Event>(
+                initialDraft = initialDraft,
+                autosave = { },
+                logger = Logger(),
+                scope = scope,
+            ) {
+                init {
+                    addCloseable(scope)
+                }
+            }
+            """,
+            "VmCloseable",
+        )
+    }
+
+    @Test
+    fun `VmCloseable allows a different closeable in an MviViewModel subclass`() {
+        val found =
+            findings(
+                rule(RuleName("VmCloseable")),
+                """
+            package com.example
+
+            class AgendaViewModel(
+                private val deps: Deps,
+                private val agent: Agent,
+                private val scope: CoroutineScope,
+            ) : MviViewModel<UiState, Intent, Event>(
+                initialState = UiState.Loading,
+                scope = scope,
+            ) {
+                init {
+                    addCloseable { agent.terminate() }
+                }
+            }
+            """,
+            )
+        assertTrue(found.isEmpty(), "a non-scope closeable is still one owner, got $found")
+    }
+
+    @Test
+    fun `VmCloseable also fires on a shadowed local named scope, a known limitation`() {
+        // Documents measured behaviour, not desired behaviour. The rule compares the
+        // argument's text, so a local that shadows the constructor parameter is reported
+        // too. Pinned so the limitation is a fact the next reader can see and a future
+        // type-resolution rewrite has something to change: when it is fixed, this test
+        // turns red and the KDoc on reportDuplicateRegistration comes with it.
+        assertFires(
+            rule(RuleName("VmCloseable")),
+            """
+            package com.example
+
+            class AgendaViewModel(
+                private val deps: Deps,
+                scope: CoroutineScope,
+            ) : MviViewModel<UiState, Intent, Event>(
+                initialState = UiState.Loading,
+                scope = scope,
+            ) {
+                init {
+                    run {
+                        val scope = SomethingElse()
+                        addCloseable(scope)
+                    }
+                }
+            }
+            """,
+            "VmCloseable",
+        )
+    }
+
+    @Test
     fun `ShadowedState fires on a VM that redeclares MviViewModel state`() {
         assertFires(
             rule(RuleName("ShadowedState")),

@@ -8,15 +8,18 @@ import dev.detekt.api.RuleName
 import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
+import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtClassInitializer
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtFunction
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
 import org.jetbrains.kotlin.psi.KtWhenConditionIsPattern
 import org.jetbrains.kotlin.psi.KtWhenExpression
+import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
 
 /** Bans a ViewModel managing its own `MutableStateFlow` instead of the base's single state source. */
 internal class MviViewModelExtRule(config: Config) : Rule(config, "", null) {
@@ -169,7 +172,14 @@ internal class VmScopePositionRule(config: Config) : Rule(config, "", null) {
     }
 }
 
-/** Requires a ViewModel with a `scope` parameter to call `addCloseable(scope)`, or its scope is never cancelled. */
+/**
+ * Keeps one owner for the scope: a ViewModel with its own `scope` must call `addCloseable(scope)`; an MVI subclass must not.
+ *
+ * A ViewModel with its own `scope` parameter that never registers it never cancels it — the
+ * scope leaks. A `MviViewModel`/`DraftMviViewModel` subclass is the opposite case: the base
+ * class's initializer already registers that scope, so a second call in the subclass
+ * registers the same object twice and states two owners for one resource.
+ */
 internal class VmCloseableRule(config: Config) : Rule(config, "", null) {
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
@@ -179,25 +189,21 @@ internal class VmCloseableRule(config: Config) : Rule(config, "", null) {
     }
 
     private fun checkClass(clazz: KtClass) {
-        if (!isViewModelClass(clazz)) return
-
-        val primaryConstructor = clazz.primaryConstructor
-        if (primaryConstructor == null) return
+        val primaryConstructor = clazz.primaryConstructor ?: return
         val paramRefs = primaryConstructor.valueParameters
         val hasScope = paramRefs.any { it.name == "scope" }
         if (!hasScope) return
 
-        // Skip MviViewModel/DraftMviViewModel subclasses — they
-        // manage scope lifecycle internally (addCloseable in the base init).
-        // Supertype text includes generic args (e.g. "MviViewModel<S, I, E>"), so
-        // compare the raw-name prefix, not the whole text.
-        val mviBaseNames = setOf("MviViewModel", "DraftMviViewModel")
-        val extendsBase =
-            clazz.superTypeListEntries.any { entry ->
-                val rawName = entry.typeReference?.text?.substringBefore('<')
-                rawName in mviBaseNames
-            }
-        if (extendsBase) return
+        // Checked before the name gate, and deliberately not gated on it: the MVI base owns
+        // the scope registration for every subclass, and `TaskDetailCoordinator` /
+        // `NoteEditor` / `NotePreview` are MVI subclasses whose names do not end in
+        // `ViewModel`. A name-gated rule is blind to exactly those.
+        if (extendsMviBase(clazz)) {
+            reportDuplicateRegistration(clazz)
+            return
+        }
+
+        if (!isViewModelClass(clazz)) return
 
         val classBody = clazz.body
         if (classBody == null) {
@@ -238,6 +244,67 @@ internal class VmCloseableRule(config: Config) : Rule(config, "", null) {
                 suppressReasons = emptyList(),
             ),
         )
+    }
+
+    /**
+     * True when [clazz] extends `MviViewModel` or `DraftMviViewModel`.
+     *
+     * Supertype text includes the generic arguments (`MviViewModel<S, I, E>`), so the raw
+     * name is the prefix before `<`. PSI has no type resolution here, which is why the base
+     * is recognised by name rather than by resolving the type.
+     */
+    private fun extendsMviBase(clazz: KtClass): Boolean =
+        clazz.superTypeListEntries.any { entry ->
+            entry.typeReference?.text?.substringBefore('<') in MVI_BASE_NAMES
+        }
+
+    private companion object {
+        val MVI_BASE_NAMES = setOf("MviViewModel", "DraftMviViewModel")
+    }
+
+    /**
+     * Flags `addCloseable(scope)` in a subclass whose base already registers the same scope.
+     *
+     * Text-based on purpose, like the rest of this rule set: PSI has no type resolution
+     * here, and the only thing that has to be recognised is the argument being the scope
+     * itself. A closeable registered for something *else* (`addCloseable { … }`,
+     * `AcpExternalAgentViewModel`) is a different resource and stays legal.
+     *
+     * **Known limitation — a shadowed local named `scope`.** The check compares the argument's
+     * text, so `init { run { val scope = …; addCloseable(scope) } }` is reported even though
+     * that `scope` is not the constructor parameter. Measured, not assumed. No occurrence
+     * exists in the tree today, a false positive fails loud at detekt (it cannot delete a
+     * closeable), and the fix is a one-line suppression at the call site rather than a
+     * resolution-dependent rewrite. Upgrade to type resolution if this ever fires in
+     * production.
+     */
+    private fun reportDuplicateRegistration(clazz: KtClass) {
+        val body = clazz.body ?: return
+        for (initializer in body.declarations.filterIsInstance<KtClassInitializer>()) {
+            val duplicate =
+                initializer.body
+                    ?.collectDescendantsOfType<KtCallExpression>()
+                    ?.firstOrNull { call ->
+                        val callee = call.calleeExpression as? KtNameReferenceExpression
+                        val argument =
+                            call.valueArguments
+                                .firstOrNull()
+                                ?.getArgumentExpression()
+                                ?.text
+                        callee?.text == "addCloseable" && argument == "scope"
+                    } ?: continue
+            report(
+                Finding(
+                    entity = Entity.from(duplicate),
+                    message =
+                        "ViewModel extends an MVI base that already calls addCloseable(scope); " +
+                            "registering the same scope again gives one resource two owners. " +
+                            "Remove the call from the subclass.",
+                    references = emptyList(),
+                    suppressReasons = emptyList(),
+                ),
+            )
+        }
     }
 }
 
