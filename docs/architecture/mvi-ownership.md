@@ -39,12 +39,22 @@ Same contract on Android and JVM Desktop: `AutoCloseableCoroutineScope` is `comm
 targets. A scope built without a `Job` closes as a no-op rather than throwing inside
 `onCleared()`.
 
-**Where the scope is readable.** `scope` is a constructor parameter, not a property: it is
-visible in `init` blocks and property initializers, and nowhere else. `MviViewModel` exposes
-the same object as the protected `vmScope`, which is what a member function uses —
-`scope.launch { }` inside `onIntent` does not compile (`Unresolved reference 'scope'`).
-Declaring `private val scope = scope` to work around that adds the second property the
-`VmCloseable` rule is there to prevent.
+**Where the scope is readable.** The recommended form takes `scope` as a plain constructor
+parameter: it is visible in `init` blocks and property initializers and nowhere else, and a
+member function uses the protected `vmScope`, which is the base class's alias for the same
+object. `scope.launch { }` inside `onIntent` does not compile there (`Unresolved reference
+'scope'`).
+
+That is the form the skills teach. It is **not yet universal**: 16 of the 35 MVI subclasses
+still declare `private val scope` (`AgendaViewModel`, `ArchiveViewModel`, `TagsViewModel`,
+`SearchViewModel`, `StatisticsViewModel`, …). Those compile and behave correctly — a property
+is readable everywhere — so this is a consistency debt, not a defect, and aligning them is a
+separate change. Keep new subclasses on the parameter form; do not add a property that
+duplicates `vmScope` without reason.
+
+Note what the `VmCloseable` rule does and does not police: it reports **duplicate
+registration** (`addCloseable(scope)` in a subclass whose base already registers it). It does
+not require the parameter form, and a `private val scope` property is not a violation of it.
 
 **Duplicate registration was the one real defect, and it is fixed.** Six subclasses
 (`AiUsageViewModel`, `ArchiveViewModel`, `BackupViewModel`, `StatisticsViewModel`,

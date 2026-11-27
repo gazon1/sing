@@ -146,8 +146,11 @@ property initializers read it; a member function cannot, and `scope.launch { …
 
 `vmScope` is the base class's protected alias for the same object, so this adds no second
 scope and no extra property to the subclass. Do **not** "fix" the error by declaring
-`private val scope = scope` — that is the duplicate property the `VmScopePosition` and
-`VmCloseable` rules exist to keep out.
+`private val scope = scope`: `vmScope` already exists, and a second property holding the same
+object gives the class two names for one resource.
+
+(No detekt rule forbids that property — 16 existing subclasses still declare it. It compiles
+and works; the parameter form is the convention for new code, not a gate.)
 
 ```kotlin
 ) : MviViewModel<UiState, Intent, Event>(initialState = UiState.Loading, scope = scope) {

@@ -269,6 +269,14 @@ internal class VmCloseableRule(config: Config) : Rule(config, "", null) {
      * here, and the only thing that has to be recognised is the argument being the scope
      * itself. A closeable registered for something *else* (`addCloseable { … }`,
      * `AcpExternalAgentViewModel`) is a different resource and stays legal.
+     *
+     * **Known limitation — a shadowed local named `scope`.** The check compares the argument's
+     * text, so `init { run { val scope = …; addCloseable(scope) } }` is reported even though
+     * that `scope` is not the constructor parameter. Measured, not assumed. No occurrence
+     * exists in the tree today, a false positive fails loud at detekt (it cannot delete a
+     * closeable), and the fix is a one-line suppression at the call site rather than a
+     * resolution-dependent rewrite. Upgrade to type resolution if this ever fires in
+     * production.
      */
     private fun reportDuplicateRegistration(clazz: KtClass) {
         val body = clazz.body ?: return

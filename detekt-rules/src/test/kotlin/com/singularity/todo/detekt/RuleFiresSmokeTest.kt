@@ -702,6 +702,37 @@ class MviViewModelRuleFiresTest {
     }
 
     @Test
+    fun `VmCloseable also fires on a shadowed local named scope, a known limitation`() {
+        // Documents measured behaviour, not desired behaviour. The rule compares the
+        // argument's text, so a local that shadows the constructor parameter is reported
+        // too. Pinned so the limitation is a fact the next reader can see and a future
+        // type-resolution rewrite has something to change: when it is fixed, this test
+        // turns red and the KDoc on reportDuplicateRegistration comes with it.
+        assertFires(
+            rule(RuleName("VmCloseable")),
+            """
+            package com.example
+
+            class AgendaViewModel(
+                private val deps: Deps,
+                scope: CoroutineScope,
+            ) : MviViewModel<UiState, Intent, Event>(
+                initialState = UiState.Loading,
+                scope = scope,
+            ) {
+                init {
+                    run {
+                        val scope = SomethingElse()
+                        addCloseable(scope)
+                    }
+                }
+            }
+            """,
+            "VmCloseable",
+        )
+    }
+
+    @Test
     fun `ShadowedState fires on a VM that redeclares MviViewModel state`() {
         assertFires(
             rule(RuleName("ShadowedState")),
