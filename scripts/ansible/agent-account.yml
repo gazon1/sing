@@ -1,0 +1,217 @@
+---
+# scripts/ansible/agent-account.yml — the DECLARATIVE half of the agent account.
+#
+# This playbook owns the things Ansible does better than hand-written
+# `useradd`/`usermod`/`install`/`setfacl`: the group, the account, its private
+# home and directories, its ACLs, and the reverse of each. It owns nothing else,
+# on purpose — see "WHAT IS NOT HERE".
+#
+# The caller is `scripts/agent-account.py`, which decides WHAT to declare: whether
+# the account and the group are this tool's to remove, which targets need a
+# snapshot before they are written, and whether a worktree may be authorized at
+# all. Ansible is idempotent and knows none of that: it makes the host match the
+# declaration, including in the cases where the right answer is "do not touch
+# it". So the journal and every refusal stay in Python, and this file receives an
+# already-validated declaration.
+#
+# WHAT IS NOT HERE, AND WHY
+#
+#   sudoers       `template` with `validate: visudo -cf %s` is the right tool,
+#                 but the file is namespaced by OWNER: a host may already carry
+#                 its own /etc/sudoers.d/50-agent-account, and replacing it would
+#                 be somebody else's rule destroyed. That ownership question is
+#                 Python's, so the install stays next to the record that answers it.
+#   check         The verdicts are BEHAVIOUR (does the kernel let the agent in,
+#                 can it run sudo, can it reach /dev/kvm), not declared state.
+#                 They stay in Python.
+#   ACL restore   A `getfacl` dump restored by `setfacl --restore` is the tool's
+#                 own inverse and is not a declared state; it stays in Python.
+#
+# Invoked as:
+#
+#   ansible-playbook scripts/ansible/agent-account.yml -i localhost, -e @vars.json
+#   ansible-playbook ... --check --diff      # the plan; needs no root
+#
+# `agent_account_state: present` provisions, `absent` removes. Both directions are
+# the same resource set, so "what apply creates" and "what rollback removes" cannot
+# drift apart.
+
+- name: Configure the dedicated agent account
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Every value below is supplied by the caller's validated declaration. The
+    # defaults only keep the playbook readable on its own; they are NOT the
+    # contract, and several switch their task off.
+    agent_account_state: present
+    agent_user: agent
+    agent_group: sing-dev
+    agent_home: /home/agent
+    agent_home_mode: "0700"
+    agent_shell: /bin/bash
+    agent_create_group: true
+    agent_create_user: true
+    agent_remove_user: false
+    agent_remove_group: false
+    agent_private_dirs: []
+    #: A group the task below needs to resolve. False only under --check on a host
+    #: that does not have it yet: `user` validates every group it is given, and in
+    #: check mode the group task above reports "changed" without creating it.
+    agent_group_exists: true
+    #: The ACL tasks name their entity, and `setfacl` resolves that name while it
+    #: PLANS. On a fresh host under --check the account does not exist yet, so the
+    #: entry cannot be built — same shape as `agent_group_exists` above.
+    agent_user_exists: true
+    #: [{name, groups, append, primary_group, password_lock, remove, state}]
+    agent_user_updates: []
+    #: [{path, entity, etype, permissions, default, recursive, state}]
+    agent_acl_grants: []
+
+  tasks:
+    # -- the group ---------------------------------------------------------
+    #
+    # The group is INDEPENDENT of the account: a host may carry `sing-dev` and no
+    # `agent`. `state: present` is safe even when the group is adopted — an
+    # existing group is left exactly as it is. Only rollback distinguishes created
+    # from adopted, and that decision arrives as `agent_remove_group`.
+    - name: Ensure the collaboration group exists
+      ansible.builtin.group:
+        name: "{{ agent_group }}"
+        system: true
+        state: present
+      when:
+        - agent_create_group | bool
+        - agent_account_state == 'present'
+
+    - name: Remove the collaboration group this tool created
+      ansible.builtin.group:
+        name: "{{ agent_group }}"
+        state: absent
+      when:
+        - agent_account_state == 'absent'
+        - agent_remove_group | bool
+
+    # `userdel --remove`, and ONLY for an account this tool created: the journal
+    # answers that, so it arrives as `agent_remove_user`. `remove` also deletes the
+    # account's own group when USERGROUPS_ENAB allows it — rollback asks separately
+    # whether that group is still there afterwards.
+    - name: Remove the agent account this tool created
+      ansible.builtin.user:
+        name: "{{ agent_user }}"
+        remove: true
+        state: absent
+      when:
+        - agent_account_state == 'absent'
+        - agent_remove_user | bool
+
+    # `userdel --remove` deletes the account's own group only when USERGROUPS_ENAB
+    # is yes in /etc/login.defs; on a host that sets it no, every apply/rollback
+    # cycle used to leave that group orphaned. So it is declared by name, and the
+    # caller says whether it is still there.
+    - name: Remove the agent's own group this tool created
+      ansible.builtin.group:
+        name: "{{ agent_user }}"
+        state: absent
+      when:
+        - agent_account_state == 'absent'
+        - agent_remove_own_group | bool
+
+    # -- the account -------------------------------------------------------
+    #
+    # `groups` is NEVER set here. Declaring it would make Ansible reconcile the
+    # supplementary list, and on an adopted account that silently drops groups its
+    # owner chose. Membership is a separate, explicit update below.
+    - name: Ensure the agent account exists
+      ansible.builtin.user:
+        name: "{{ agent_user }}"
+        create_home: true
+        home: "{{ agent_home }}"
+        shell: "{{ agent_shell }}"
+        state: present
+      when:
+        - agent_create_user | bool
+        - agent_account_state == 'present'
+
+    - name: Keep the agent's home private
+      ansible.builtin.file:
+        path: "{{ agent_home }}"
+        state: directory
+        owner: "{{ agent_user }}"
+        group: "{{ agent_user }}"
+        mode: "{{ agent_home_mode }}"
+      when:
+        - agent_create_user | bool
+        - agent_account_state == 'present'
+
+    # Created here so the first build does not fail on a directory the agent has
+    # no right to create. `.gradle` is the agent's OWN Gradle home: `run` points
+    # GRADLE_USER_HOME at it, so the agent never writes what the developer's build
+    # reads.
+    - name: Ensure the agent's private state directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ agent_user }}"
+        group: "{{ agent_user }}"
+        mode: "0700"
+      loop: "{{ agent_private_dirs }}"
+      when: agent_account_state == 'present'
+
+    # -- membership, password and the account's own group ------------------
+    #
+    # One loop for every "change this account" step, because each of them is the
+    # same resource with a different facet, and each is decided by Python:
+    #   groups/append      the seam membership, or a privileged group given back
+    #   primary_group      an account moved off `docker` as its PRIMARY gid
+    #   password_lock      an adopted account whose usable password is locked
+    #   remove             `userdel --remove` for an account this tool created
+    - name: Reconcile the declared account facets
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        groups: "{{ item.groups | default(omit) }}"
+        # `omit` and not `true`: "append is True but all of the following are
+        # missing: groups" — measured. An item that sets only `password_lock` or
+        # only `primary_group` names no group at all.
+        append: "{{ (item.append | default(true)) if item.groups is defined else omit }}"
+        group: "{{ item.primary_group | default(omit) }}"
+        password_lock: "{{ item.password_lock | default(omit) }}"
+        remove: "{{ item.remove | default(false) }}"
+        state: "{{ item.state | default('present') }}"
+      loop: "{{ agent_user_updates }}"
+      # Measured: an EXISTING account's `groups` are validated at module execution,
+      # so under --check on a fresh host ("would create sing-dev" is all check mode
+      # can say) this task aborts the plan with "Group sing-dev does not exist".
+      # The caller prints those membership lines instead. Gated on the ITEM, not the
+      # host: a removal or a password lock names no group and must still be planned.
+      when: not (ansible_check_mode and not (agent_group_exists | bool) and item.groups is defined)
+      loop_control:
+        label: "{{ item.name }}: {{ item | dict2items | map(attribute='key') | reject('equalto', 'name') | join(',') }}"
+
+    # -- ACLs --------------------------------------------------------------
+    #
+    # One entry per declared grant. An ACL cannot express "grant the traverse bit
+    # but never read" in a single declaration, so the caller declares each entry
+    # explicitly — and that is also what keeps the traverse grant on the
+    # developer's home visible instead of implied.
+    #
+    # `recursive` and `default` are SEPARATE entries rather than one task with
+    # both flags. Measured with ansible.posix 2.2.2: `recursive: true` together
+    # with `default: true` writes the default entry to DIRECTORIES only and leaves
+    # every existing file untouched — not what `setfacl --recursive --modify …
+    # --modify default:…` does. Two recursive tasks produce exactly that output.
+    - name: Apply the declared ACL grants
+      ansible.posix.acl:
+        path: "{{ item.path }}"
+        entity: "{{ item.entity }}"
+        etype: "{{ item.etype }}"
+        permissions: "{{ item.permissions | default(omit) }}"
+        default: "{{ item.default | default(false) }}"
+        recursive: "{{ item.recursive | default(false) }}"
+        follow: false
+        state: "{{ item.state | default('present') }}"
+      loop: "{{ agent_acl_grants }}"
+      when: not (ansible_check_mode and not (agent_user_exists | bool))
+      loop_control:
+        label: "{{ item.entity }}:{{ item.permissions | default('-') }} {{ item.state | default('present') }} -> {{ item.path }}{{ ' (default)' if item.default | default(false) else '' }}"

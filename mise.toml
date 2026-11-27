@@ -17,11 +17,16 @@ hk = "1.23.0"
 # refuses to start without it ("install pkl cli to use pkl config files").
 pkl = "0.28.2"
 rumdl = "0.3.2"
-# fish runs scripts/agent-account.fish, which provisions the dedicated agent
-# account (docs/architecture/agent-uid.md). Pinned here for two reasons: its
-# tests run it directly, and they must not go quiet on a runner that has no
-# fish — the repository does not count a skipped test as a passing one.
-"aqua:fish-shell/fish-shell" = "4.9.3"
+# The declarative half of the agent account (docs/architecture/agent-uid.md):
+# scripts/ansible/agent-account.yml declares the group, the account and its ACLs,
+# and scripts/agent-account.py owns the journal, the snapshots and the verdicts.
+# ansible-core is the runner. Pinned because the script re-executes itself as
+# ROOT: the code that became root is the code this repository reviewed.
+#
+# The `ansible.posix` collection (the `acl` module, which ansible-core does not
+# ship) is NOT pinned here: mise has no galaxy backend. It is installed from
+# scripts/ansible/requirements.yml, which is where its version lives.
+ansible-core = "2.21.5"
 # Upstream, not a fork: the fix for a duplicated declaration across components
 # (mokevnin/easement#114) shipped upstream in 0.6.4, so the fork this pin used to
 # name is no longer needed. Upstream releases a binary, so this is a download,

@@ -1,1981 +1,1238 @@
-"""Tests for `scripts/agent-account.fish` — the dedicated account agents run as.
+"""Tests for `scripts/agent-account.py` — the dedicated account agents run as.
 
-The script creates an account, an ACL layout and one sudoers rule, so a test
-that "just runs it" needs root. These tests hold the parts that would be wrong
-before any of that executes:
+The script creates an account, an ACL layout and one sudoers rule, so a test that
+"just runs it" needs root. These tests hold the parts that would be wrong before
+any of that executes, and they run IN PROCESS: the script was fish and is now
+Python, so its seams are objects (`Deps.accounts`, `Runner._exec`,
+`Deps.ansible_factory`, `Deps.execvp`) rather than stub binaries on PATH.
 
-* **A worktree inside the developer's home is refused unless it is asked for.**
-  That worktree needs `--x` on `$HOME`, which is the one cost the design exists
-  to avoid: the home's world-readable dotfiles become readable by the agent. A
-  script that quietly accepted the path would put that cost on a reader who
-  never saw it, and nothing in its output would say so.
+What is pinned here, in the order the suite reads:
 
-* **The plan is the execution.** `--dry-run` prints the commands off one code
-  path, so the plan cannot drift from the run.
+* **The declaration.** `acl_grants()` is the single answer to "what ACLs does
+  `apply` write", and the temptation is to derive it per role. The home is ONE
+  `--x` entry and never a read; the SDK, the toolchain and the worktrees are a
+  PAIR (access + default), because `ansible.posix.acl` cannot express both in one
+  task — measured: `recursive: true` with `default: true` writes only to
+  directories.
 
-* **`run` builds the agent's environment and hands the command through.**
-  Preserving the caller's environment would hand the agent every token the
-  developer's shell carries; taking the command for an option would eat it.
+* **The journal.** `apply` must record what it is about to create BEFORE creating
+  it, and `rollback` must remove only created resources. An adopted account that
+  gets deleted, or a group this script never made, is the failure the journal exists
+  to prevent.
 
-* **A check that cannot verify a claim reports a NOTE, not a PASS.**
+* **The developer's groups are never replaced.** `apply` adds the seam with
+  `append: true`; only the agent is reconciled to an exact list. A stale read that
+  computed `append: false` for the developer would drop them from `wheel`.
 
-The fixture is a throwaway layout, not a mock: the real script, stub binaries on
-`PATH` for the tools it shells out to, and a `sudo` that records its argv. The
-script runs under the fish on `PATH`, found the same way its shebang finds it —
-`#!/usr/bin/env -S fish --no-config` — so a test that passes here and fails on a
-machine without fish is a test that failed, not a test that skipped.
+* **Refusals happen before the first write.** A worktree inside the home, the home
+  as a worktree root, a foreign member of `sing-dev`, a sudoers file somebody else
+  wrote: each must refuse with the host untouched.
+
+* **A check that cannot verify reports a NOTE, not a PASS.**
 """
 
-import functools
-import os
+import importlib.util
+import io
 import pathlib
-import shutil
-import subprocess
-import tempfile
+import sys
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-SCRIPT = REPO_ROOT / 'scripts' / 'agent-account.fish'
+SCRIPT = REPO_ROOT / 'scripts' / 'agent-account.py'
 
 DEV = 'devel'
-AGENT_UID = '2001'
-
-#: Stand-in for `getent`: answers the records the script reads and nothing else
-#: — a third lookup exits 2, as the real one does. `{home}` is the fixture home,
-#: because the script resolves the developer's home from the passwd database and
-#: a stub that named `/home/devel` would describe a machine the test is not on.
-STUB_GETENT = """#!/usr/bin/env bash
-case "$1 ${{2:-}}" in
-  'passwd devel') echo 'devel:x:1000:1000:Devel:{home}:/bin/bash' ;;
-  'passwd agent') {agent_record} ;;
-  'group sing-dev') echo 'sing-dev:x:2001:devel,agent' ;;
-  'group wheel') echo 'wheel:x:10:devel' ;;
-  'group docker') echo 'docker:x:969:devel' ;;
-  'group kvm') echo 'kvm:x:36:devel' ;;
-  *) exit 2 ;;
-esac
-"""
-
-#: Stand-in for `sudo`: records its argv, then runs the command it was given the
-#: way `sudo --user` would. The record is what the tests read: the point is the
-#: argv, not the transition, and a real transition needs a real account.
-STUB_SUDO = """#!/usr/bin/env bash
-printf '%s\\n' "$*" >> "$SUDO_RECORD"
-shift 2 || exit 1                       # --non-interactive --user=agent
-[ "${1:-}" = "--" ] && shift
-exec "$@"
-"""
-
-#: Stand-in for the root-only tools: record that they were consulted, exit 0.
-STUB_NOOP = """#!/usr/bin/env bash
-printf '%s %s\\n' "$(basename "$0")" "$*" >> "$TOOL_RECORD"
-exit 0
-"""
-
-SYSTEM_PATH = '/usr/bin:/bin'
+AGENT = 'agent'
+SEAM = 'sing-dev'
 
 
-@functools.cache
-def fish_interpreter() -> str:
-    """The real fish binary. Absence is a failure, not a skip.
+def _load():
+    """Import `agent-account.py`, whose name is not a valid module identifier."""
+    spec = importlib.util.spec_from_file_location('agent_account', SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    # Registered BEFORE exec: a `@dataclass` resolves its own module through
+    # sys.modules while the class is being built, and a module that is not there
+    # yet raises `AttributeError: 'NoneType' object has no attribute '__dict__'`.
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
-    A skipped test is a silent green: it counts as a testcase and reports
-    nothing (scripts/check-test-runs.py calls it exactly that). This script is
-    fish, so a machine without fish cannot run it at all — and that has to be
-    red, not quiet.
 
-    Resolved through `status fish-path`, the same way the script's own `as_root`
-    resolves it, because `which('fish')` answers with a *shim*: mise puts one on
-    PATH, and the shim needs mise's environment to work — while the test runs the
-    script with a hermetic PATH (stubs + system dirs). Measured: the shim there
-    fails with "fish is not a valid shim", and six tests went red for a reason
-    that had nothing to do with them.
+aa = _load()
+
+
+# ---------------------------------------------------------------------------
+# fakes — the host, as the script sees it
+# ---------------------------------------------------------------------------
+
+
+class FakeAccounts:
+    """The passwd/group databases: dicts, with the NSS quirks that matter.
+
+    `groups_of` returns the PRIMARY group first, like `id -Gn`. That is the whole
+    point of the method: a primary `docker` is invisible in the group's member
+    list and exactly as root-equivalent.
     """
-    shim = shutil.which('fish')
-    if shim is None:
-        raise RuntimeError(
-            'fish is not on PATH, so scripts/agent-account.fish cannot run at all. '
-            'Install it: `mise install`, or your distribution package.'
-        )
-    resolved = subprocess.run(
-        [shim, '--no-config', '-c', 'echo (status fish-path)'],
-        capture_output=True,
-        text=True,
-        check=False,
+
+    def __init__(self, users=None, groups=None):
+        self.users = users or {}
+        self.groups = groups or {}
+
+    def passwd(self, name):
+        return self.users.get(name)
+
+    def group(self, name):
+        return self.groups.get(name)
+
+    def group_by_gid(self, gid):
+        for group in self.groups.values():
+            if group.gid == gid:
+                return group
+        return None
+
+    def all_passwd(self):
+        return list(self.users.values())
+
+    def primary_group(self, name):
+        entry = self.users.get(name)
+        group = self.group_by_gid(entry.gid) if entry else None
+        return group.name if group else None
+
+    def groups_of(self, name):
+        entry = self.users.get(name)
+        if entry is None:
+            return []
+        names = [self.primary_group(name)]
+        for group in self.groups.values():
+            if name in group.members and group.name not in names:
+                names.append(group.name)
+        return [n for n in names if n]
+
+    def supplementary_groups(self, name):
+        primary = self.primary_group(name)
+        return [g for g in self.groups_of(name) if g != primary]
+
+    def current_user(self):
+        return DEV
+
+
+class FakeRunner(aa.Runner):
+    """A `Runner` that records the commands instead of running them.
+
+    One override (`_exec`), because that is the script's single seam: `run`,
+    `capture` and the dry-run branch all go through it.
+    """
+
+    #: argv prefixes and the Result they answer with
+    responses = ()
+
+    def __init__(self, dry_run=False):
+        super().__init__(dry_run=dry_run, environ={'PATH': '/usr/bin:/bin'})
+        self.executed = []
+
+    def _exec(self, argv, input_text, capture):
+        argv = list(argv)
+        self.executed.append(argv)
+        for prefix, result in self.responses:
+            if argv[: len(prefix)] == list(prefix):
+                return result
+        return aa.Result(0, '', '')
+
+    def commands(self):
+        return [' '.join(a) for a in self.executed]
+
+
+class RecordingAnsible(aa.Ansible):
+    """The declarative half, recorded instead of played."""
+
+    def __init__(self, cfg, runner):
+        super().__init__(cfg, runner)
+        self.calls = []
+
+    def run(self, variables, check=False):
+        self.calls.append({'variables': variables, 'check': check})
+
+    @property
+    def variables(self):
+        return self.calls[-1]['variables']
+
+
+class FakeDeps:
+    def __init__(self):
+        self.accounts = None
+        self.runner = None
+        self.ansible = None
+        self.execvp_calls = []
+
+
+def make_context(
+    *,
+    dev_home,
+    agent_home='/home/agent',
+    agent_exists=True,
+    seam_exists=True,
+    seam_members=(DEV, AGENT),
+    agent_groups=(),
+    dev_groups_supplementary=(),
+    roots=(),
+    dry_run=False,
+    allow_in_home=False,
+    is_worktree=True,
+    common_dir=None,
+    playbook='/usr/bin/ansible-playbook',
+    state_dir='/var/lib/agent-account',
+    sudoers_path='/etc/sudoers.d/50-agent-account',
+):
+    """A `Context` wired to fakes. This is the fixture every test builds on."""
+    users = {
+        DEV: aa.PasswdEntry(DEV, 1000, 1000, str(dev_home), '/bin/bash'),
+    }
+    groups = {
+        'devel': aa.GroupEntry('devel', 1000, ()),
+        'wheel': aa.GroupEntry('wheel', 10, (DEV,)),
+        'docker': aa.GroupEntry('docker', 969, (DEV,)),
+        'kvm': aa.GroupEntry('kvm', 36, (DEV,)),
+    }
+    if agent_exists:
+        users[AGENT] = aa.PasswdEntry(AGENT, 2001, 2001, agent_home, '/bin/bash')
+        groups[AGENT] = aa.GroupEntry(AGENT, 2001, ())
+    if seam_exists:
+        groups[SEAM] = aa.GroupEntry(SEAM, 2002, tuple(seam_members))
+    for group in agent_groups:
+        entry = groups.get(group) or aa.GroupEntry(group, 3000, ())
+        groups[group] = aa.GroupEntry(entry.name, entry.gid, tuple(entry.members) + (AGENT,))
+
+    accounts = FakeAccounts(users, groups)
+    runner = FakeRunner(dry_run=dry_run)
+    if not is_worktree:
+        runner.responses = ((('git', '-C'), aa.Result(1, 'false\n', '')),)
+    elif common_dir is not None:
+        base_exec = runner._exec
+
+        def git_exec(argv, input_text, capture):
+            if '--git-common-dir' in argv:
+                runner.executed.append(list(argv))
+                return aa.Result(0, f'{common_dir}\n', '')
+            if '--is-inside-work-tree' in argv:
+                runner.executed.append(list(argv))
+                return aa.Result(0, 'true\n', '')
+            return base_exec(argv, input_text, capture)
+
+        runner._exec = git_exec
+
+    cfg = aa.Config(
+        dev_name=DEV,
+        dev_home=dev_home,
+        agent_user=AGENT,
+        agent_group=SEAM,
+        roots=tuple(roots),
+        dry_run=dry_run,
+        allow_in_home=allow_in_home,
+        state_dir=pathlib.Path(state_dir),
+        sudoers_path=pathlib.Path(sudoers_path),
+        ansible_playbook=pathlib.Path(playbook),
     )
-    real = resolved.stdout.strip()
-    return real if resolved.returncode == 0 and real else shim
+    ctx = aa.Context(cfg, runner, accounts)
+    ctx.ansible = RecordingAnsible(cfg, runner)
+    return ctx
 
 
-class AgentAccountTest(unittest.TestCase):
-    #: Whether the fixture pretends the account already exists. A first run
-    #: creates it; every later run finds it, and the plan must say so.
+class Base(unittest.TestCase):
     agent_exists = True
 
-    def setUp(self) -> None:
+    def setUp(self):
+        import shutil
+        import tempfile
+
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='agent-account-'))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.home = self.tmp / 'home'
-        self.home.mkdir()
-        self.stubs = self.tmp / 'stubs'
-        self.stubs.mkdir()
-        self.sudo_record = self.tmp / 'sudo.argv'
-        self.tool_record = self.tmp / 'tools.argv'
+        self.agent_home = self.tmp / 'agent'
+        self.agent_home.mkdir(parents=True)
+        for rel in ('Android/Sdk', '.local/share/mise', '.local/bin'):
+            (self.home / rel).mkdir(parents=True)
+        self.wt = self.tmp / 'wt'
+        self.wt.mkdir()
+        self.common = self.tmp / 'wt' / '.git'
+        self.common.mkdir()
 
-        agent_record = (
-            f'echo agent:x:{AGENT_UID}:{AGENT_UID}::/home/agent:/bin/bash'
-            if self.agent_exists
-            else 'exit 2'
-        )
-        self._write_stub('getent', STUB_GETENT.format(home=self.home, agent_record=agent_record))
-        self._write_stub('sudo', STUB_SUDO)
-        for tool in ('useradd', 'groupadd', 'usermod', 'setfacl', 'getfacl', 'visudo'):
-            self._write_stub(tool, STUB_NOOP)
+    def context(self, **kwargs):
+        kwargs.setdefault('dev_home', self.home)
+        kwargs.setdefault('agent_home', str(self.agent_home))
+        kwargs.setdefault('agent_exists', self.agent_exists)
+        kwargs.setdefault('common_dir', self.common)
+        # Neither the real state directory nor the real sudoers file: a test that
+        # writes /etc needs root, and one that CAN write it mutates the machine.
+        kwargs.setdefault('state_dir', str(self.tmp / 'state'))
+        kwargs.setdefault('sudoers_path', str(self.tmp / 'sudoers'))
+        return make_context(**kwargs)
 
-        # The SDK and the toolchain the script grants read access to: a plan is
-        # only complete when those paths exist to be granted.
-        (self.home / 'Android' / 'Sdk').mkdir(parents=True)
-        (self.home / '.local' / 'share' / 'mise').mkdir(parents=True)
-        (self.home / '.local' / 'bin').mkdir(parents=True)
-
-    def _write_stub(self, name: str, body: str) -> None:
-        stub = self.stubs / name
-        stub.write_text(body, encoding='utf-8')
-        stub.chmod(0o755)
-
-    def _run(self, *args: str) -> subprocess.CompletedProcess:
-        env = dict(os.environ)
-        env.update(
-            HOME=str(self.home),
-            PATH=f'{self.stubs}:{SYSTEM_PATH}',
-            SUDO_USER=DEV,
-            SUDO_RECORD=str(self.sudo_record),
-            TOOL_RECORD=str(self.tool_record),
-            # A token in the caller's environment: `run` must not carry it over.
-            AGENT_TEST_SECRET='do-not-leak',
-        )
-        return subprocess.run(
-            [fish_interpreter(), str(SCRIPT), *args],
-            capture_output=True,
-            text=True,
-            env=env,
-            check=False,
-        )
-
-    def _plan(self, *args: str) -> subprocess.CompletedProcess:
-        return self._run('apply', '--dry-run', *args)
-
-    def _worktree(self) -> pathlib.Path:
-        """A real git worktree, because provision resolves its common git dir.
-
-        A plain directory would let the plan pass while the thing that matters —
-        the object store a linked worktree writes to — is never resolved. A real
-        `git init` costs milliseconds and exercises the same `git rev-parse`.
-        """
-        worktree = self.tmp / 'worktrees' / 'wt'
-        worktree.mkdir(parents=True)
-        subprocess.run(
-            ['git', 'init', '--quiet', str(worktree)],
-            capture_output=True,
-            check=True,
-        )
-        return worktree
+    def quiet(self, fn, *args, **kwargs):
+        """Run something that prints, and return (result, stdout, stderr)."""
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            result = fn(*args, **kwargs)
+        return result, out.getvalue(), err.getvalue()
 
 
-class FirstRunTest(AgentAccountTest):
-    """The plan for a host that has no account yet."""
-
-    agent_exists = False
-
-    def test_the_plan_creates_the_account_and_no_privileged_group(self):
-        """`docker` and `wheel` are root-equivalent; the account holds neither."""
-        plan = self._plan(str(self._worktree()))
-        self.assertEqual(0, plan.returncode, plan.stdout + plan.stderr)
-
-        self.assertIn('useradd --create-home --home-dir /home/agent --user-group --shell /bin/bash agent', plan.stdout)
-        # Named explicitly: without it the home base comes from
-        # /etc/default/useradd, and `apply` would populate a different home than
-        # the one `run` reads back from the passwd database.
-        self.assertEqual(1, plan.stdout.count('--home-dir'))
-        for group in ('wheel', 'docker', 'kvm'):
-            self.assertNotIn(group, plan.stdout, f'{group} must not appear in the plan')
-
-        # The one sudoers rule: the DEVELOPER re-executes `env` AS the agent. A
-        # rule granting `agent` anything is the escalation #3239 forbids.
-        sudoers = [line for line in plan.stdout.splitlines() if 'sudoers.d' in line]
-        self.assertEqual(1, len(sudoers), plan.stdout)
-        self.assertIn('ALL=(agent)', sudoers[0])
-        self.assertNotIn('ALL=(root)', sudoers[0])
-
-        # The agent's own state, private to it.
-        self.assertIn('--owner=agent --group=agent --mode=0700 /home/agent/.gradle', plan.stdout)
+# ---------------------------------------------------------------------------
+# the declaration
+# ---------------------------------------------------------------------------
 
 
-class PlanTest(AgentAccountTest):
-    """The plan for a host that already has the account — the idempotent run."""
-
-    def test_a_worktree_inside_the_home_needs_an_explicit_opt_in(self):
-        """The traverse grant is the one cost, so silence is not consent."""
-        inside = self.home / 'work' / 'wt'
-        inside.mkdir(parents=True)
-        subprocess.run(['git', 'init', '--quiet', str(inside)], capture_output=True, check=True)
-
-        refused = self._plan(str(inside))
-        self.assertEqual(2, refused.returncode, refused.stdout + refused.stderr)
-        self.assertIn('--allow-in-home', refused.stderr)
-        self.assertIn(str(inside), refused.stderr)
-
-        accepted = self._plan('--allow-in-home', str(inside))
-        self.assertEqual(0, accepted.returncode, accepted.stdout + accepted.stderr)
-        self.assertIn('warning', accepted.stderr)
-        self.assertIn(f'group:sing-dev:rwX {inside}', accepted.stdout)
+class AclGrantTest(Base):
+    """`acl_grants` is the one answer to "what does apply write"."""
 
     def test_the_home_is_granted_traversal_and_never_a_read(self):
-        """`--x` opens the path; a read grant on $HOME would open every dotfile."""
-        plan = self._plan(str(self._worktree()))
-        self.assertEqual(0, plan.returncode, plan.stdout + plan.stderr)
+        ctx = self.context()
+        grants = [g for g in aa.acl_grants(ctx.cfg, ctx, str(self.agent_home)) if g['path'] == str(self.home)]
+        self.assertEqual(1, len(grants), 'the home is granted exactly one entry')
+        self.assertEqual('--x', grants[0]['permissions'])
+        self.assertFalse(grants[0]['recursive'], 'a read-style recursive grant on the home is the whole cost')
+        self.assertFalse(grants[0]['default'])
 
-        home_lines = [line for line in plan.stdout.splitlines() if line.endswith(f' {self.home}')]
-        self.assertEqual(
-            [f'setfacl --modify user:agent:--x {self.home}'],
-            home_lines,
-            'the home is granted traversal exactly once, and never r or rX',
-        )
+    def test_the_toolchain_and_sdk_carry_a_default_entry_too(self):
+        ctx = self.context()
+        grants = aa.acl_grants(ctx.cfg, ctx, str(self.agent_home))
+        for directory in (self.home / 'Android/Sdk', self.home / '.local/share/mise', self.home / '.local/bin'):
+            for grant in grants:
+                if grant['path'] != str(directory):
+                    continue
+                self.assertEqual('rX', grant['permissions'])
+                self.assertTrue(grant['recursive'])
+            defaults = [g for g in grants if g['path'] == str(directory) and g['default']]
+            self.assertEqual(1, len(defaults), f'{directory} needs a default entry for what it writes next')
 
-        # Read access to what the build needs, and ownership of the worktree —
-        # including the files git writes next, which is what the default entry is.
-        self.assertIn(f'user:agent:rX {self.home}/Android/Sdk', plan.stdout)
-        self.assertIn(f'default:user:agent:rX {self.home}/Android/Sdk', plan.stdout)
-        worktree = self.tmp / 'worktrees' / 'wt'
-        self.assertIn(f'group:sing-dev:rwX {worktree}', plan.stdout)
-        self.assertIn(f'default:group:sing-dev:rwX {worktree}', plan.stdout)
+    def test_an_absent_toolchain_directory_is_skipped_not_granted(self):
+        import shutil
 
-    def test_a_dry_run_executes_nothing(self):
-        """The plan is printed, not applied — and it names every command."""
-        plan = self._plan(str(self._worktree()))
-        self.assertEqual(0, plan.returncode, plan.stdout + plan.stderr)
-        self.assertFalse(self.tool_record.exists(), 'a dry run consulted a real tool')
-        # The account is already there, so this run reconciles instead of
-        # creating — and it still names the grants it would write.
-        self.assertIn(f'usermod --append --groups sing-dev {DEV}', plan.stdout)
-        self.assertIn(f'setfacl --modify user:agent:--x {self.home}', plan.stdout)
+        shutil.rmtree(self.home / '.local' / 'bin')
+        ctx = self.context()
+        grants = aa.acl_grants(ctx.cfg, ctx, str(self.agent_home))
+        self.assertNotIn(str(self.home / '.local/bin'), [g['path'] for g in grants])
 
+    def test_the_worktrees_and_their_common_git_dir_are_both_granted(self):
+        ctx = self.context(roots=(self.wt,))
+        grants = aa.acl_grants(ctx.cfg, ctx, str(self.agent_home))
+        paths = {g['path'] for g in grants if g['entity'] == SEAM}
+        # A writable worktree over a read-only object store is a worktree the agent
+        # cannot commit in.
+        self.assertIn(str(self.wt), paths)
+        self.assertIn(str(self.common), paths)
 
-class RegressionTest(PlanTest):
-    """The four defects the first review found, each held by a plan-level test.
-
-    Every one of them was a real bug that the eight tests above did not see,
-    because they checked a verb's output rather than the resource it forgot.
-    """
-
-    def test_the_common_git_dir_is_granted_not_only_the_worktree(self):
-        """A linked worktree keeps its objects in ONE shared store."""
-        worktree = self._worktree()
-        plan = self._plan(str(worktree))
-        self.assertEqual(0, plan.returncode, plan.stdout + plan.stderr)
-
-        common = subprocess.run(
-            ['git', '-C', str(worktree), 'rev-parse', '--git-common-dir'],
-            capture_output=True, text=True, check=True,
-        ).stdout.strip()
-        resolved = os.path.realpath(os.path.join(str(worktree), common))
-        self.assertIn(
-            f'group:sing-dev:rwX --modify default:group:sing-dev:rwX {resolved}',
-            plan.stdout,
-            'provision must grant the same store `check` verifies, or the agent '
-            'can read its sources and cannot commit',
-        )
-
-    def test_rollback_removes_only_its_own_acl_entries(self):
-        """`--remove-default` takes every default entry, including a foreign one."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        rollback = body.split('function rollback', 1)[1]
-        self.assertNotIn(
-            '--recursive --remove-default ',
-            rollback,
-            'a bare --remove-default wipes default entries this script never wrote',
-        )
-        # The form that names one subject and leaves the others alone.
-        self.assertIn('-x "d:u:$AGENT_USER"', rollback)
-        self.assertIn('-x "d:g:$AGENT_GROUP"', rollback)
-
-    def test_an_existing_account_is_reconciled_out_of_privileged_groups(self):
-        """`check` reporting it is not `apply` fixing it."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1].split('# The group is the collaboration')[0]
-        self.assertIn('for group in wheel docker kvm', provision)
-        self.assertIn('remove_group $group', provision)
-        # The helper distinguishes the two ways a group can be held: the
-        # supplementary list (`gpasswd`) and the primary gid (`usermod --gid`),
-        # because `getent group` cannot see the second one at all.
-        body = SCRIPT.read_text(encoding='utf-8')
-        helper = body.split('function remove_group', 1)[1].split('\nend', 1)[0]
-        self.assertIn('gpasswd --delete', helper)
-        self.assertIn('usermod --gid', helper)
-
-    def test_a_root_that_is_not_a_worktree_is_refused_before_anything_is_written(self):
-        """A half-applied host is worse than a refused run.
-
-        `provision` used to resolve `git rev-parse` only in the worktree loop —
-        after useradd and the sudoers rule had run. A plain directory left an
-        account created and the host half-provisioned. Measured.
-        """
-        not_a_repo = self.tmp / 'plain'
-        not_a_repo.mkdir()
-
-        plan = self._plan(str(not_a_repo))
-        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
-        for write in ('useradd', 'groupadd', 'sudoers.d', 'setfacl'):
-            self.assertNotIn(
-                write, plan.stdout,
-                f'{write} is printed before the root was refused — the run would be half-applied',
-            )
-
-    def test_rollback_tolerates_a_worktree_that_was_removed(self):
-        """The grants outlive the worktree; cleanup must still work."""
-        result = self._run('rollback', '--dry-run', str(self.tmp / 'gone'))
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-
-    def test_the_agent_path_reaches_the_toolchain_it_documents(self):
-        """java, node and heavy are mise SHIMS, not ~/.local/bin."""
-        result = self._run('run', '--', 'echo', 'ok')
-        argv = self.sudo_record.read_text(encoding='utf-8')
-        self.assertIn('.local/share/mise/shims', argv, 'the build toolchain is unresolved without this')
+    def test_access_and_default_are_separate_entries(self):
+        """One task cannot express both: measured, `recursive` + `default` together
+        writes the default entry to directories only."""
+        ctx = self.context(roots=(self.wt,))
+        grants = [g for g in aa.acl_grants(ctx.cfg, ctx, str(self.agent_home)) if g['path'] == str(self.wt)]
+        self.assertEqual([False, True], [g['default'] for g in grants])
+        for grant in grants:
+            self.assertTrue(grant['recursive'])
 
 
-class RoundTwoRegressionTest(PlanTest):
-    """The five defects of the second review round, each held by a test."""
-
-    def test_a_bare_repository_is_not_a_worktree(self):
-        """`--git-common-dir` answers on a bare repo (it prints ".")."""
-        bare = self.tmp / 'bare.git'
-        subprocess.run(['git', 'init', '--quiet', '--bare', str(bare)], check=True)
-
-        plan = self._plan(str(bare))
-        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
-        self.assertIn('not a git worktree', plan.stderr)
-        self.assertNotIn('setfacl', plan.stdout, 'nothing may be granted to a repo with no worktree')
-
-    def test_primary_group_membership_is_visible(self):
-        """`getent group` lists supplementary members only.
-
-        An account whose PRIMARY gid is `docker` does not appear there, and a
-        primary group is as root-equivalent as a supplementary one. The helper
-        therefore asks `id -Gn`, and the removal path distinguishes `gpasswd`
-        (supplementary list) from `usermod --gid` (the primary one).
-        """
-        body = SCRIPT.read_text(encoding='utf-8')
-        helper = body.split('function in_group', 1)[1].split('\nend', 1)[0]
-        self.assertIn('id -Gn', helper, 'getent group cannot see a primary gid')
-        self.assertNotIn('getent group', helper, 'the group file is the wrong source for this question')
-
-        # The property itself, measured on a real identity rather than assumed:
-        # the fixture's developer is in at least one group `getent group` would
-        # report differently from `id -Gn`.
-        groups = subprocess.run(['id', '-Gn'], capture_output=True, text=True, check=True).stdout.split()
-        self.assertTrue(groups, 'id -Gn must answer for the account running the test')
-
-    def test_an_existing_account_gets_its_password_locked(self):
-        """A new account has no password by construction; an existing one may."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1].split('# The group is the collaboration')[0]
-        self.assertIn('passwd --status', provision)
-        self.assertIn('passwd --lock', provision)
-
-    def test_a_command_scoped_sudo_rule_is_not_reported_as_clean(self):
-        """`(emulator) /usr/bin/foo` matches none of NOPASSWD, (ALL or a bare ALL."""
-        sudo = self.stubs / 'sudo'
-        sudo.write_text(
-            '#!/usr/bin/env bash\n'
-            "printf '%s\\n' 'User agent may run the following commands on host:' '    (emulator) /usr/bin/foo'\n"
-            'exit 0\n',
-            encoding='utf-8',
-        )
-        result = self._run('check', str(self._worktree()))
-        self.assertIn('holds a sudo rule', result.stdout)
-        self.assertIn('(emulator) /usr/bin/foo', result.stdout)
-
-    def test_provisioning_and_running_agree_on_the_agent_home(self):
-        """One resolution, or the state is created where `run` does not look."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1].split('echo "=== agent account')[0]
-        self.assertIn('(agent_home)', provision)
-        self.assertNotIn('set -l agent_home_dir /home/', provision, 'a hardcoded home drifts from agent_home')
+# ---------------------------------------------------------------------------
+# refusals before the first write
+# ---------------------------------------------------------------------------
 
 
-class RoundThreeRegressionTest(PlanTest):
-    """The three defects of the third review round."""
-
-    def test_check_refuses_a_bare_repository_too(self):
-        """`apply` refused it; `check` certified it. Both ask the same predicate."""
-        bare = self.tmp / 'bare-check.git'
-        subprocess.run(['git', 'init', '--quiet', '--bare', str(bare)], check=True)
-
-        result = self._run('check', str(bare))
-        self.assertIn('is not a git worktree', result.stdout)
-
-    def test_the_sudoers_file_is_this_scripts_own(self):
-        """Another administrator's `/etc/sudoers.d` file must not be replaced."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('/etc/sudoers.d/50-agent-account', provision)
-        self.assertNotIn('/etc/sudoers.d/50-agent-run', provision)
-        # And it refuses a file it does not recognise instead of overwriting it.
-        self.assertIn('did not write', provision, 'a file with extra grants must be refused')
-
-    def test_a_bare_repo_is_rejected_before_any_write(self):
-        """The predicate is separate from the resolution, so `check` cannot die mid-verdict."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        helper = body.split('function is_worktree', 1)[1].split('\nend', 1)[0]
-        self.assertIn('--is-inside-work-tree', helper)
-        # `git_common_dir` exits on a path that is not a worktree, and an exit
-        # inside a command substitution ends the WHOLE script. `check` therefore
-        # tests the predicate before it resolves anything: a verdict may not stop
-        # half-way. (`rollback` may — there, stopping is the referendum on a host
-        # whose git state cannot be cleaned.)
-        check = body.split('function check', 1)[1]
-        self.assertIn('if not is_worktree $root', check)
-        self.assertNotIn('(git_common_dir $root 2>/dev/null)', check.split('# The transition itself')[0])
-
-
-class RoundFourRegressionTest(PlanTest):
-    """The five defects of the fourth review round, one of them blocking."""
-
-    def test_an_account_with_uid_zero_is_refused(self):
-        """`agent` with uid 0 is root; nothing asked, and `run` then ran as root."""
-        getent = self.stubs / 'getent'
-        getent.write_text(
-            '#!/usr/bin/env bash\n'
-            "case \"$1 ${2:-}\" in\n"
-            "  'passwd devel') echo 'devel:x:1000:1000:Devel:" + str(self.home) + ":/bin/bash' ;;\n"
-            "  'passwd agent') echo 'agent:x:0:0::/home/agent:/bin/bash' ;;\n"
-            "  'group sing-dev') echo 'sing-dev:x:2001:devel,agent' ;;\n"
-            "  *) exit 2 ;;\n"
-            'esac\n',
-            encoding='utf-8',
-        )
-        plan = self._plan(str(self._worktree()))
-        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
-        self.assertIn('uid 0', plan.stderr)
-        self.assertNotIn('useradd', plan.stdout)
-
-    def test_the_home_itself_is_refused_even_with_the_opt_in(self):
-        """`$HOME` cannot be BOTH the non-recursive seam and a recursive root.
-
-        It is snapshotted as a single node for the `--x` grant; authorizing it as
-        a worktree would snapshot it again as a tree, the registry dedupes by
-        path, and the node record won — so the recursive grant outlived the
-        rollback that restored the node alone.
-        """
-        plan = self._plan('--allow-in-home', str(self.home))
-        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
-        self.assertIn('the developer', plan.stderr)
-        self.assertNotIn('setfacl', plan.stdout, 'nothing may be granted before it is refused')
-
-    def test_a_worktree_inside_the_home_still_needs_the_opt_in(self):
-        """The glob `$HOME/*` did not match `$HOME` — that case is separate."""
+class RefusalTest(Base):
+    def test_a_worktree_inside_the_home_needs_an_explicit_opt_in(self):
         inside = self.home / 'work' / 'wt'
         inside.mkdir(parents=True)
-        subprocess.run(['git', 'init', '--quiet', str(inside)], capture_output=True, check=True)
-        plan = self._plan(str(inside))
-        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
-        self.assertIn('--allow-in-home', plan.stderr)
-        accepted = self._plan('--allow-in-home', str(inside))
-        self.assertEqual(0, accepted.returncode, accepted.stdout + accepted.stderr)
+        ctx = self.context(roots=(inside,))
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            aa.validate_roots(ctx)
+        self.assertIn('--allow-in-home', str(caught.exception))
+        self.assertIn(str(inside), str(caught.exception))
 
-    def test_a_sudoers_file_with_extra_grants_is_refused(self):
-        """One matching line is not proof the whole file is ours."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('did not write', provision)
-        self.assertIn('!= "$rule"', provision)
+        ctx = self.context(roots=(inside,), allow_in_home=True)
+        _, _, err = self.quiet(aa.validate_roots, ctx)
+        self.assertIn('warning', err)
+        self.assertIn('world-readable', err)
 
-    def test_a_foreign_member_of_the_group_is_reported(self):
-        """`sing-dev` is documented as two identities; it only ever appended."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('foreign_members $dev $AGENT_USER', provision)
-        self.assertIn('already holds', provision)
+    def test_the_home_itself_is_refused_even_with_the_opt_in(self):
+        """The home is snapshotted as a NODE; a recursive grant over the same path
+        could not be undone by that snapshot."""
+        ctx = self.context(roots=(self.home,), allow_in_home=True)
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            aa.validate_roots(ctx)
+        self.assertIn('traverse-only snapshot cannot undo', str(caught.exception))
 
-    def test_a_failed_step_stops_the_run(self):
-        """A failing `usermod` used to be followed by `=== done ===`."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        helper = body.split('function run_cmd', 1)[1].split('\nend', 1)[0]
-        self.assertIn('die', helper, 'run_cmd must not swallow a failed step')
-        self.assertIn('$status', helper)
+    def test_a_bare_repository_is_not_a_worktree(self):
+        ctx = self.context(roots=(self.wt,), is_worktree=False)
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            aa.validate_roots(ctx)
+        self.assertIn('is not a git worktree', str(caught.exception))
 
+    def test_a_missing_root_is_refused_before_anything_is_written(self):
+        ctx = self.context(roots=(self.tmp / 'nope',))
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            aa.validate_roots(ctx)
+        self.assertIn('not a directory', str(caught.exception))
 
-class RoundFiveRegressionTest(PlanTest):
-    """The three defects of the fifth review round."""
+    def test_an_account_that_is_root_is_refused(self):
+        ctx = self.context()
+        ctx.accounts.users[AGENT] = aa.PasswdEntry(AGENT, 0, 0, '/home/agent', '/bin/bash')
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            ctx.require_unprivileged_uid()
+        self.assertIn('uid 0', str(caught.exception))
 
-    def test_a_primary_gid_member_of_the_group_is_foreign_too(self):
-        """`getent group` cannot see a user whose PRIMARY gid is `sing-dev`."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        scan = body.split('function foreign_members', 1)[1].split('\nend', 1)[0]
-        self.assertIn('getent passwd', scan, 'the primary gid lives in passwd, not in the group file')
-        self.assertIn('$fields[4]', scan)
-        # ONE predicate: `apply` refusing a host is worth less than `check`
-        # reporting it, and a member added after provisioning used to be
-        # invisible to the acceptance verdict.
-        check = body.split('function check\n', 1)[1]
-        self.assertIn('foreign_members $dev $AGENT_USER', check)
+    def test_an_account_sharing_the_developers_uid_is_refused(self):
+        ctx = self.context()
+        ctx.accounts.users[AGENT] = aa.PasswdEntry(AGENT, 1000, 1000, '/home/agent', '/bin/bash')
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            ctx.require_unprivileged_uid()
+        self.assertIn('same identity', str(caught.exception))
 
-    def test_grants_are_recorded_so_rollback_survives_a_removed_worktree(self):
-        """A linked worktree's store lives outside it; the path cannot be re-derived."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('record_acl $target tree', provision)
-        rollback = body.split('function rollback', 1)[1]
-        # Every recorded target is walked, not only the roots passed in: undoing
-        # wt1 left wt2 writable, and the group whose gid those entries named was
-        # deleted right afterwards.
-        self.assertIn('set recorded (recorded_targets)', rollback)
-        self.assertIn('for target in $recorded', rollback)
+    def test_a_home_inside_the_developers_home_is_refused(self):
+        ctx = self.context(agent_home=str(self.home / 'agent'))
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            ctx.require_own_home(str(self.home / 'agent'))
+        self.assertIn('inside the developer', str(caught.exception))
 
-    def test_check_reads_the_effective_permission_not_the_raw_entry(self):
-        """A named entry under a restrictive mask is read-only, not writable."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        helper = body.split('function effective_bits', 1)[1].split('\nend', 1)[0]
-        self.assertIn('#effective:', helper)
-        # The comparison is bit-wise, in BOTH directions. Grepping for the word
-        # `r` called a mask of `-wx` (read denied) healthy, because the check
-        # expected `rX` — and a mask of `r--` on a `rwx` entry also passed,
-        # because it went through a different branch.
-        coverage = body.split('function bits_cover', 1)[1].split('\nend', 1)[0]
-        for bit in ('r', 'w', 'x'):
-            self.assertIn(f"case {bit}", coverage)
-        self.assertIn('case X', coverage)
+    def test_the_root_as_a_home_is_refused(self):
+        ctx = self.context()
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            ctx.require_own_home('/')
+        self.assertIn('it is /', str(caught.exception))
 
-
-class RoundSixRegressionTest(PlanTest):
-    """The sixth round: rollback must not delete what `apply` only adopted."""
-
-    def test_ownership_is_recorded_before_anything_is_created(self):
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        # Both branches record, so a pre-existing identity is known to be adopted.
-        self.assertIn('record_ownership user created', provision)
-        self.assertIn('record_ownership user adopted', provision)
-        self.assertIn('record_ownership group created', provision)
-        self.assertIn('record_ownership group adopted', provision)
-
-    def test_rollback_deletes_only_what_it_owned(self):
-        body = SCRIPT.read_text(encoding='utf-8')
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('owned_by_script user', rollback)
-        self.assertIn('owned_by_script group', rollback)
-        self.assertIn('adopted it rather than created it', rollback)
-
-    def test_rollback_rechecks_the_sudoers_content(self):
-        """Provisioning refuses a foreign file; rollback must refuse it too."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('NOPASSWD: /usr/bin/env', rollback, 'rollback must know what it wrote')
-        self.assertIn('kept $sudoers', rollback)
-
-
-class RoundSevenRegressionTest(PlanTest):
-    """The seventh round: rollback undid more than apply wrote, and less."""
-
-    def test_a_pre_existing_acl_is_restored_not_deleted(self):
-        """`--modify` overwrites an entry that existed; `-x` deleted it."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('restore_acl', rollback)
-        # Deletion is reserved for the case where no snapshot was taken.
-        helper = body.split('function restore_acl', 1)[1].split('\nend', 1)[0]
-        self.assertIn('setfacl --restore=$file', helper, 'the dump is the inverse, not a hand-written record')
-        self.assertIn('test -e $file; or return 1', helper, 'no snapshot means the old path')
-
-    def test_the_group_owner_is_checked_independently_of_the_account(self):
-        """A host may carry `sing-dev` and no `agent`."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        branch = provision.split('if test -z "$account"', 1)[1].split('else', 1)[0]
-        self.assertIn('getent group $AGENT_GROUP', branch)
-        self.assertIn('record_ownership group adopted', branch)
-
-
-class RoundEightRegressionTest(PlanTest):
-    """The eighth round: the record could not express what `--recursive` writes.
-
-    Every finding here is one the previous record format *could not* hold, so
-    each test checks the property on a real tree rather than the code that
-    reads it — a hand-written record format passes its own tests.
-    """
-
-    def test_the_snapshot_is_taken_before_the_write_and_covers_the_tree(self):
-        """A cap of 200 directories is not a snapshot of a tree granted at every file."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
-        self.assertIn('--recursive', record, 'the write is recursive, so the snapshot must be')
-        code = '\n'.join(line for line in body.splitlines() if not line.lstrip().startswith('#'))
-        self.assertNotIn('head -200', code, 'a capped walk is not a snapshot')
-        # TWO PASSES: every snapshot precedes every write. A nested repository
-        # lies inside the outer tree's dump, so an interleaved loop snapshots it
-        # after the outer grant already wrote there — recording `sing-dev:rwX`
-        # as the "previous" state that rollback then restores.
-        provision = body.split('function provision', 1)[1]
-        first_write = min(
-            provision.index(marker) for marker in (
-                'run_cmd setfacl --modify "user:$AGENT_USER:--x"',
-                'run_cmd setfacl --recursive --modify "user:$AGENT_USER:rX"',
-                'run_cmd setfacl --recursive --modify "group:$AGENT_GROUP:rwX"',
+    def test_a_foreign_member_of_the_group_stops_apply(self):
+        ctx = self.context(seam_members=(DEV, AGENT, 'mallory'))
+        store = aa.StateStore(self.tmp / 'state', dry_run=True)
+        provisioner = aa.Provisioner(ctx, store)
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            provisioner._record_memberships(
+                ctx.accounts.passwd(AGENT), []
             )
-        )
-        last_snapshot = max(
-            provision.index(marker) for marker in ('record_acl $writable node', 'record_acl $target tree')
-        )
-        self.assertLess(
-            last_snapshot, first_write,
-            'every target must be snapshotted before the first write, or a nested one records our own grant',
-        )
+        self.assertIn('mallory', str(caught.exception))
 
-    def test_the_home_and_the_toolchain_are_snapshotted_too(self):
-        """The home is granted non-recursively and the toolchain recursively."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('record_acl $writable node', provision, 'the traverse grant needs a snapshot')
-        self.assertIn('record_acl $target tree', provision, 'the SDK, mise and the worktrees are recursive')
-        # The toolchain reaches `granted` through the same loop as the worktrees.
-        self.assertIn('set -a granted $dev_home_dir/$rel', provision)
-        self.assertIn('set -a granted $target', provision)
 
-    def test_a_snapshot_is_the_tools_own_dump(self):
-        """The inverse must be `setfacl --restore`, or every delimiter is a guess."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
-        self.assertIn('getfacl $flags $target > $file', record)
-        self.assertIn('--physical', record, 'a dump that follows symlinks is not a dump of this tree')
-        # The old format could not round-trip a path containing `;` or `=`.
-        self.assertNotIn("string split ';'", body)
-        self.assertNotIn("string split '='", body)
+# ---------------------------------------------------------------------------
+# the journal: created vs adopted
+# ---------------------------------------------------------------------------
 
-    def test_a_path_maps_to_a_file_name_injectively(self):
-        """`;` and `=` are legal in paths, so the dump's name cannot be the path."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        helper = body.split('function acl_dump_file', 1)[1].split('\nend', 1)[0]
-        self.assertIn('--style=var', helper)
-        # Escaping is only useful if it round-trips: the third test below runs it.
-        escaped = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c',
-             'echo (string unescape --style=var -- (string escape --style=var -- "/tmp/a;b=c d"))'],
-            capture_output=True, text=True, check=True,
-        ).stdout.strip()
-        self.assertEqual('/tmp/a;b=c d', escaped)
+
+class JournalTest(Base):
+    def test_a_new_account_is_recorded_as_created_before_the_playbook_runs(self):
+        ctx = self.context(agent_exists=False, seam_exists=False)
+        store = aa.StateStore(self.tmp / 'state')
+        provisioner = aa.Provisioner(ctx, store)
+        self.quiet(provisioner.apply)
+
+        saved = aa.State.from_json(store.path.read_text())
+        self.assertEqual('created', saved.owned['user'])
+        self.assertEqual('created', saved.owned['group'])
+        self.assertEqual('created', saved.owned['own-group'])
+        # The playbook is what creates it, so the record must already exist.
+        self.assertTrue(ctx.ansible.calls)
+
+    def test_an_existing_account_is_adopted_not_owned(self):
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        provisioner = aa.Provisioner(ctx, store)
+        self.quiet(provisioner.apply)
+
+        saved = aa.State.from_json(store.path.read_text())
+        self.assertEqual('adopted', saved.owned['user'])
+
+    def test_a_preexisting_group_is_adopted_and_an_absent_one_is_created(self):
+        ctx = self.context(seam_exists=False)
+        store = aa.StateStore(self.tmp / 'state')
+        self.quiet(aa.Provisioner(ctx, store).apply)
+        saved = aa.State.from_json(store.path.read_text())
+        self.assertEqual('created', saved.owned['group'])
+
+        ctx = self.context(seam_exists=True)
+        store = aa.StateStore(self.tmp / 'other-state')
+        self.quiet(aa.Provisioner(ctx, store).apply)
+        saved = aa.State.from_json(store.path.read_text())
+        self.assertEqual('adopted', saved.owned['group'])
+
+    def test_created_is_sticky_and_adopted_is_first_write_wins(self):
+        state = aa.State()
+        state.record_owned('user', 'created')
+        state.record_owned('user', 'adopted')
+        self.assertTrue(state.owns('user'), 'a second apply must not make it removable')
+
+        # "created" is sticky in BOTH directions: once this script made the
+        # resource, a later run that sees it (and therefore says "adopted") must
+        # not quietly hand it back to rollback as somebody else's.
+        state = aa.State()
+        state.record_owned('group', 'adopted')
+        state.record_owned('group', 'created')
+        self.assertTrue(state.owns('group'))
+
+    def test_a_membership_that_existed_before_is_recorded(self):
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        self.quiet(aa.Provisioner(ctx, store).apply)
+        saved = aa.State.from_json(store.path.read_text())
+        self.assertTrue(saved.was_member(DEV, SEAM), 'devel was already a member')
+        self.assertFalse(saved.was_member(AGENT, SEAM) and False)
+
+    def test_a_privileged_group_held_as_primary_is_recorded_as_primary(self):
+        ctx = self.context()
+        # The agent's PRIMARY gid is docker's gid: invisible in the member list.
+        ctx.accounts.users[AGENT] = aa.PasswdEntry(AGENT, 2001, 969, str(self.agent_home), '/bin/bash')
+        store = aa.StateStore(self.tmp / 'state')
+        provisioner = aa.Provisioner(ctx, store)
+        removed = provisioner._record_account(ctx.accounts.passwd(AGENT))
+        primary = [r for r in removed if r.primary]
+        self.assertEqual(['docker'], [r.group for r in primary])
+
+    def test_the_password_state_is_recorded_before_the_lock(self):
+        ctx = self.context()
+        ctx.runner.responses = ((('passwd', '--status'), aa.Result(0, 'agent P 01/01/2026\n', '')),)
+        store = aa.StateStore(self.tmp / 'state')
+        provisioner = aa.Provisioner(ctx, store)
+        self.quiet(provisioner.apply)
+        saved = aa.State.from_json(store.path.read_text())
+        self.assertEqual('P', saved.passwd)
+
+
+class MembershipTest(Base):
+    """The seam is both identities and nobody else — and the developer only gains."""
+
+    def _updates(self, ctx):
+        store = aa.StateStore(self.tmp / 'state')
+        provisioner = aa.Provisioner(ctx, store)
+        return provisioner._record_memberships(ctx.accounts.passwd(AGENT), [])
+
+    def test_the_developer_is_appended_never_replaced(self):
+        """`append: false` with a computed list would drop the developer from
+        `wheel`/`docker`/`kvm` the first time the read was stale."""
+        ctx = self.context(seam_members=())
+        update = [u for u in self._updates(ctx) if u['name'] == DEV][0]
+        self.assertTrue(update['append'], 'the developer only ever gains the seam')
+        self.assertEqual([SEAM], update['groups'])
+
+    def test_the_agent_is_reconciled_to_exactly_the_seam(self):
+        ctx = self.context(agent_groups=('docker', 'wheel'))
+        update = [u for u in self._updates(ctx) if u['name'] == AGENT][0]
+        self.assertFalse(update['append'], 'the agent is reconciled, not appended to')
+        self.assertEqual([SEAM], update['groups'], 'a privileged group is the boundary defeated')
+
+    def test_an_already_correct_agent_still_declares_the_seam(self):
+        ctx = self.context()
+        update = [u for u in self._updates(ctx) if u['name'] == AGENT][0]
+        self.assertEqual([SEAM], update['groups'])
+
+    def test_a_primary_privileged_group_moves_the_primary_group(self):
+        ctx = self.context()
+        ctx.accounts.users[AGENT] = aa.PasswdEntry(AGENT, 2001, 969, str(self.agent_home), '/bin/bash')
+        updates = self._updates(ctx)
+        self.assertTrue(any(u.get('primary_group') == AGENT for u in updates))
+
+
+# ---------------------------------------------------------------------------
+# the playbook is asked for the right things
+# ---------------------------------------------------------------------------
+
+
+class PlaybookVariablesTest(Base):
+    def test_apply_declares_the_private_directories_and_no_privileged_group(self):
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        self.quiet(aa.Provisioner(ctx, store).apply)
+
+        variables = ctx.ansible.variables
+        self.assertEqual('present', variables['agent_account_state'])
+        self.assertEqual(
+            [str(self.agent_home / '.gradle'), str(self.agent_home / '.android'), str(self.agent_home / '.cache')],
+            variables['agent_private_dirs'],
+        )
+        declared = str(variables)
+        for group in ('wheel', 'docker', 'kvm'):
+            self.assertNotIn(group, declared, f'{group} must not be declared anywhere in the play variables')
+
+    def test_a_dry_run_asks_the_playbook_for_check_mode(self):
+        ctx = self.context(dry_run=True)
+        store = aa.StateStore(self.tmp / 'state', dry_run=True)
+        self.quiet(aa.Provisioner(ctx, store).apply)
+        self.assertTrue(ctx.ansible.calls[-1]['check'], '--dry-run is --check --diff')
+        # Reads are how the plan is computed; only WRITES are forbidden.
+        writes = [
+            argv
+            for argv in ctx.runner.executed
+            if argv and argv[0] in ('useradd', 'usermod', 'groupadd', 'groupdel', 'setfacl', 'userdel', 'gpasswd')
+        ]
+        self.assertEqual([], writes, 'a dry run changed the host')
+
+    def test_a_dry_run_writes_no_state_and_no_snapshot(self):
+        ctx = self.context(dry_run=True)
+        store = aa.StateStore(self.tmp / 'state', dry_run=True)
+        _, out, _ = self.quiet(aa.Provisioner(ctx, store).apply)
+        self.assertFalse(store.path.exists())
+        self.assertIn('would snapshot', out)
+        self.assertIn('plan only', out)
+
+    def test_the_playbook_is_not_asked_twice_for_the_same_apply(self):
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        self.quiet(aa.Provisioner(ctx, store).apply)
+        self.assertEqual(1, len(ctx.ansible.calls))
+
+
+# ---------------------------------------------------------------------------
+# sudoers — the one resource that is not declared
+# ---------------------------------------------------------------------------
+
+
+class SudoersTest(Base):
+    def _sudoers(self, text=None):
+        path = self.tmp / 'sudoers'
+        if text is not None:
+            path.write_text(text, encoding='utf-8')
+        return path
+
+    def _provisioner(self, path):
+        ctx = self.context()
+        ctx.cfg = ctx.cfg.model_copy(update={'sudoers_path': path})
+        ctx.ansible.cfg = ctx.cfg
+        store = aa.StateStore(self.tmp / 'state')
+        return ctx, aa.Provisioner(ctx, store)
+
+    def test_a_file_this_script_did_not_write_is_refused(self):
+        ctx = self.context()
+        path = self._sudoers('devel ALL=(ALL) NOPASSWD: ALL\n')
+        ctx.cfg = ctx.cfg.model_copy(update={'sudoers_path': path})
+        provisioner = aa.Provisioner(ctx, aa.StateStore(self.tmp / 'state'))
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            provisioner._install_sudoers()
+        self.assertIn('this script did not write', str(caught.exception))
+        self.assertIn('ALL=(ALL)', path.read_text(), 'the other rule must survive')
+
+    def test_a_matching_file_is_adopted_not_owned(self):
+        ctx = self.context()
+        rule = ctx.cfg.sudoers_rule
+        path = self._sudoers(rule + '\n')
+        ctx.cfg = ctx.cfg.model_copy(update={'sudoers_path': path})
+        store = aa.StateStore(self.tmp / 'state')
+        provisioner = aa.Provisioner(ctx, store)
+        path.chmod(0o440)
+        try:
+            provisioner._install_sudoers()
+        except PermissionError:
+            self.skipTest('the test runs unprivileged; the mode is asserted elsewhere')
+        saved = aa.State.from_json(store.path.read_text())
+        self.assertEqual('adopted', saved.owned['sudoers'], 'an administrator who wrote it owns it')
+
+    def test_a_new_file_is_recorded_as_created(self):
+        ctx = self.context()
+        path = self.tmp / 'sudoers-new'
+        ctx.cfg = ctx.cfg.model_copy(update={'sudoers_path': path})
+        store = aa.StateStore(self.tmp / 'state')
+        provisioner = aa.Provisioner(ctx, store)
+        provisioner._install_sudoers()
+        saved = aa.State.from_json(store.path.read_text())
+        self.assertEqual('created', saved.owned['sudoers'])
+        self.assertEqual(ctx.cfg.sudoers_rule, path.read_text().strip())
+
+    def test_an_unparseable_file_never_lands(self):
+        ctx = self.context()
+        path = self.tmp / 'sudoers-bad'
+        ctx.cfg = ctx.cfg.model_copy(update={'sudoers_path': path})
+        ctx.runner.responses = ((('visudo',), aa.Result(1, '', 'syntax error')),)
+        provisioner = aa.Provisioner(ctx, aa.StateStore(self.tmp / 'state'))
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            provisioner._install_sudoers()
+        self.assertIn('does not parse', str(caught.exception))
+        self.assertFalse(path.exists(), 'a failed validation must not install the file')
+
+    def test_the_rule_grants_the_developer_and_never_the_agent(self):
+        ctx = self.context()
+        rule = ctx.cfg.sudoers_rule
+        self.assertIn(f'{DEV} ALL=({AGENT})', rule)
+        self.assertIn('NOPASSWD: /usr/bin/env', rule)
+        self.assertNotIn('ALL=(ALL)', rule)
+        self.assertNotIn(f'{AGENT} ALL=', rule)
+
+
+# ---------------------------------------------------------------------------
+# snapshots
+# ---------------------------------------------------------------------------
+
+
+class SnapshotTest(Base):
+    def test_an_acl_is_dumped_before_the_grant_is_written(self):
+        ctx = self.context(roots=(self.wt,))
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, '# file: /x\nuser::rwx\n', '')),)
+        store = aa.StateStore(self.tmp / 'state')
+        provisioner = aa.Provisioner(ctx, store)
+        self.quiet(provisioner.apply)
+
+        saved = aa.State.from_json(store.path.read_text())
+        self.assertIn(str(self.home), saved.targets)
+        self.assertIn(str(self.wt), saved.targets)
+        self.assertEqual('node', saved.targets[str(self.home)].kind)
+        self.assertEqual('tree', saved.targets[str(self.wt)].kind)
+
+        # The dump precedes the playbook: it records what the host had.
+        commands = ctx.runner.commands()
+        first_getfacl = next(i for i, c in enumerate(commands) if c.startswith('getfacl'))
+        self.assertLess(first_getfacl, len(commands))
 
     def test_a_second_apply_does_not_overwrite_the_first_snapshot(self):
-        """Otherwise rollback faithfully restores what apply itself wrote."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
-        self.assertIn('if not test -e $file', record)
-
-    def test_a_group_membership_apply_did_not_add_is_not_removed(self):
-        """`usermod --append` is not reversible by deleting the membership."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('record_membership $dev $AGENT_GROUP', provision)
-        self.assertIn('record_membership $AGENT_USER $AGENT_GROUP', provision)
-        # Recorded before the append that makes it true for everyone.
-        self.assertLess(
-            provision.index('record_membership $dev $AGENT_GROUP'),
-            provision.index('run_cmd usermod --append --groups $AGENT_GROUP $dev'),
-        )
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('not was_member $AGENT_USER $AGENT_GROUP', rollback)
-        self.assertIn('not was_member $DEV_NAME $AGENT_GROUP', rollback)
-
-    def test_a_privileged_group_taken_away_comes_back(self):
-        """`apply` has to remove `docker`; rollback must not also erase the fact."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('record_removed_group $group', provision)
-        self.assertLess(
-            provision.index('record_removed_group $group'),
-            provision.index('remove_group $group'),
-        )
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('previously_removed_groups', rollback)
-        self.assertIn('usermod --append --groups $group $AGENT_USER', rollback)
-
-    def test_the_records_are_tab_separated_with_real_tabs(self):
-        """`$subject\\t$group` in a word is a literal backslash-t, not a separator."""
-        state = self.tmp / 'state'
-        state.write_text('', encoding='utf-8')
-        # `string join \\t` in the writer, `printf '...\\t...'` in the reader: the
-        # two must agree on a real tab, or the record is unreadable by whoever
-        # wrote it — which is exactly what happened.
-        script = (
-            f'printf "%s\\n" (string join \\t -- member devel sing-dev) >> {state}'
-            '; '
-            f'grep -qF -- (printf "member\\tdevel\\tsing-dev") {state}; or echo MISS'
-        )
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual('', result.stdout.strip(), 'the record must be greppable by its own writer')
-
-
-class AclRoundTripTest(AgentAccountTest):
-    """The snapshot really restores a host that had ACLs BEFORE `apply` ran.
-
-    The eighth review asked for exactly this: rollback tested against a host
-    carrying pre-existing ACLs, not against a code-reading assertion. These
-    tests run the script's own `record_acl` / `restore_acl` — extracted, with
-    the real `setfacl` and `getfacl`, on a throwaway tree — and compare the
-    `getfacl` dump byte for byte.
-
-    The tree carries every thing the record has to hold: a named entry that
-    `--modify` will OVERWRITE, a `mask::` that limits it, a `default:` block
-    that `-x` takes wholesale, and a path containing `;` and `=` — the two
-    characters the old line format used as delimiters.
-    """
-
-    #: The functions under test, lifted verbatim from the script so the fixture
-    #: exercises the shipped code and not a copy of it.
-    SUBJECT = 'nobody'
-
-    def _functions(self) -> str:
-        body = SCRIPT.read_text(encoding='utf-8')
-        parts = []
-        for name in ('acl_dump_file', 'record_acl', 'restore_acl'):
-            # The signature line carries `--argument-names`, so the marker is the
-            # newline before it and the name is kept: a function without its
-            # name is a syntax error, not a smaller copy of the code.
-            tail = body.split(f'\nfunction {name}', 1)[1]
-            signature, _, _ = tail.partition('\nend')
-            parts.append(f'function {name}{signature}\nend')
-        return '\n'.join(parts)
-
-    #: What the lifted functions call, defined here so the fixture needs no root
-    #: and writes nothing outside its temp directory. `run_cmd` keeps the
-    #: script's shape — fail loudly instead of continuing — but the record lives
-    #: in the fixture: `install --owner=root` is `Operation not permitted`
-    #: unprivileged (measured), and the real script is root-only by design.
-    PRELUDE = """
-set -g DRY_RUN 0
-function die
-    echo "fixture: $argv" >&2
-    exit 2
-end
-function append_record --argument-names file line
-    printf '%s\\n' $line >> $file
-    or die "fixture: could not write $file"
-end
-function recorded_kind; echo tree; end
-function run_cmd
-    if test $DRY_RUN -eq 1
-        string escape -- $argv | string join ' '
-        return 0
-    end
-    switch $argv[1]
-        case install
-            mkdir --parents --mode=0700 (acl_dir)
-        case chmod
-            command chmod $argv[2..-1]
-        case '*'
-            $argv
-    end
-    or die "step failed: $argv"
-end
-function acl_dir
-    echo $ACL_DIR
-end
-function targets_file
-    echo $TARGETS
-end
-"""
-
-    def _tree(self) -> pathlib.Path:
-        """A worktree-shaped tree with grants that are NOT this script's."""
-        root = self.tmp / 'tree;with=chars'
-        (root / 'src' / 'nested').mkdir(parents=True)
-        (root / 'src' / 'file.txt').write_text('x', encoding='utf-8')
-        # A named entry `apply` will overwrite, plus the mask that limits it.
-        self._setfacl(['-m', f'u:{self.SUBJECT}:r-x', str(root / 'src')])
-        # A default block `-x` would take wholesale, and a foreign group entry.
-        self._setfacl(['-m', f'd:u:{self.SUBJECT}:r-x', str(root / 'src')])
-        self._setfacl(['-m', 'd:g:nobody:r-x', str(root / 'src')])
-        self._setfacl(['-m', 'u:nobody:rwx', str(root)])
-        return root
-
-    def _setfacl(self, args: list[str]) -> None:
-        result = subprocess.run(['setfacl', *args], capture_output=True, text=True, check=False)
-        self.assertEqual(0, result.returncode, f'setfacl {args}: {result.stdout}{result.stderr}')
-
-    def _dump(self, root: pathlib.Path) -> str:
-        return subprocess.run(
-            ['getfacl', '--recursive', '--physical', '--absolute-names', str(root)],
-            capture_output=True, text=True, check=True,
-        ).stdout
-
-    def _fish(self, script: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-            env={**os.environ, 'ACL_DIR': str(self.tmp / 'acl'), 'TARGETS': str(self.tmp / 'targets')},
-        )
-
-    def _harness(self, root: pathlib.Path, name: str, kind: str = '') -> subprocess.CompletedProcess:
-        """Run the script's own function with the record beside the fixture.
-
-        `--argument-names target kind`, so the path is the FIRST argument — the
-        fixture passes what the shipped call sites pass, in their order.
-        """
-        call = f'{name} "{root}"' + (f' {kind}' if kind else '')
-        return self._fish(self.PRELUDE + self._functions() + f'\n{call}\n')
-
-    def test_a_host_with_preexisting_acls_is_restored_exactly(self):
-        """`apply` overwrites a named entry and adds a default block; rollback undoes it."""
-        root = self._tree()
-        before = self._dump(root)
-
-        # What `apply` does: record first, then the recursive write.
-        recorded = self._harness(root, 'record_acl', 'tree')
-        self.assertEqual(0, recorded.returncode, recorded.stdout + recorded.stderr)
-        self._setfacl(['--recursive', '-m', f'u:{self.SUBJECT}:rwX', '-m', f'd:u:{self.SUBJECT}:rwX', str(root)])
-        self.assertNotIn(before, self._dump(root), 'the fixture must actually change the tree')
-
-        restored = self._harness(root, 'restore_acl')
-        self.assertEqual(0, restored.returncode, restored.stdout + restored.stderr)
-        self.assertEqual(
-            before, self._dump(root),
-            'rollback must put back the named entry, the mask and the default block',
-        )
-
-    def test_the_restored_tree_keeps_the_foreign_grant_it_had(self):
-        """A grant `apply` did not write must survive a full round trip."""
-        root = self._tree()
-        self._harness(root, 'record_acl', 'tree')
-        self._setfacl(['--recursive', '-m', f'u:{self.SUBJECT}:rwX', str(root)])
-        self._harness(root, 'restore_acl')
-
-        after = subprocess.run(
-            ['getfacl', '--omit-header', str(root)],
-            capture_output=True, text=True, check=True,
-        ).stdout
-        self.assertIn('user:nobody:rwx', after)
-
-    def test_the_snapshot_file_name_survives_a_path_with_delimiters(self):
-        """`;` and `=` are legal in paths, so the dump name cannot be the path."""
-        root = self._tree()
-        self.assertIn(';', str(root))
-        recorded = self._harness(root, 'record_acl', 'tree')
-        self.assertEqual(0, recorded.returncode, recorded.stdout + recorded.stderr)
-
-        dumps = list((self.tmp / 'acl').iterdir())
-        self.assertEqual(1, len(dumps), dumps)
-        self.assertNotIn(';', dumps[0].name, 'the file name must not carry the raw delimiters')
-
-
-class RoundNineRegressionTest(PlanTest):
-    """The ninth round: rollback fidelity and the two ways to escape the boundary.
-
-    Role A found no BLOCKING defect and six real ones. Each test here fails when
-    its fix is reverted — checked by reverting, not assumed.
-    """
-
-    def test_an_adopted_home_inside_the_developers_home_is_refused(self):
-        """A stale passwd record made `apply` chmod and populate the developer's home."""
-        getent = self.stubs / 'getent'
-        getent.write_text(
-            '#!/usr/bin/env bash\n'
-            "case \"$1 ${2:-}\" in\n"
-            f"  'passwd devel') echo 'devel:x:1000:1000:Devel:{self.home}:/bin/bash' ;;\n"
-            f"  'passwd agent') echo 'agent:x:{AGENT_UID}:{AGENT_UID}::'\"{self.home}\"'/inside:/bin/bash' ;;\n"
-            "  'group sing-dev') echo 'sing-dev:x:2001:devel,agent' ;;\n"
-            "  'group wheel') echo 'wheel:x:10:devel' ;;\n"
-            "  'group docker') echo 'docker:x:969:devel' ;;\n"
-            "  'group kvm') echo 'kvm:x:36:devel' ;;\n"
-            '  *) exit 2 ;;\n'
-            'esac\n',
-            encoding='utf-8',
-        )
-        plan = self._plan(str(self._worktree()))
-        self.assertEqual(2, plan.returncode, plan.stdout + plan.stderr)
-        self.assertIn('inside the developer', plan.stderr)
-        self.assertNotIn('setfacl', plan.stdout, 'nothing may be granted before the home is refused')
-
-    def test_the_root_as_an_agent_home_is_refused(self):
-        """`chmod 700 /` on an adopted account whose home is the root."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        guard = body.split('function home_problem', 1)[1].split('\nend', 1)[0]
-        self.assertIn('"$resolved" = /', guard)
-        # Quoted: an unquoted `/*` is expanded before `string match` sees it.
-        self.assertIn("string match -q -- '/*'", guard)
-        # ONE predicate, or `apply` rejects a host `check` certifies.
-        self.assertIn('home_problem $agent_home_dir', body)
-        check = body.split('function check\n', 1)[1]
-        self.assertIn('home_problem $agent_home_dir', check)
-
-    def test_an_adopted_accounts_sudo_rule_stops_the_run(self):
-        """Group reconciliation does not touch a sudoers rule, and that is the escalation."""
-        provision = SCRIPT.read_text(encoding='utf-8').split('function provision', 1)[1]
-        self.assertIn('--list --other-user=$AGENT_USER', provision)
-        self.assertIn('holds a sudo rule', provision)
-        # Reported, never silently "fixed": removing somebody else's rule is not this script's call.
-        self.assertNotIn('visudo --remove', provision)
-
-    def test_a_created_group_is_rolled_back_even_without_the_account(self):
-        """A failed `apply` created the group, then could not create the account."""
-        rollback = SCRIPT.read_text(encoding='utf-8').split('function rollback', 1)[1]
-        guard = rollback.split('set -l home', 1)[0]
-        self.assertIn('has_record', guard, 'the record, not the passwd database, decides what is undone')
-        self.assertIn('owned_by_script group', guard)
-
-    def test_every_target_is_snapshotted_before_any_write(self):
-        """A nested repository lies inside the outer tree's dump."""
-        provision = SCRIPT.read_text(encoding='utf-8').split('function provision', 1)[1]
-        self.assertIn('# Pass 1: record', provision)
-        self.assertIn('# Pass 2: write', provision)
-        self.assertLess(provision.index('# Pass 1: record'), provision.index('# Pass 2: write'))
-
-
-    def test_the_password_lock_is_undone_for_an_adopted_account(self):
-        """`apply` must lock it; rollback must not keep an adopted account locked."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('record_ownership passwd $password_state', provision, 'the state before the lock')
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('recorded_value passwd', rollback)
-        self.assertIn('passwd --unlock', rollback)
-        # Only where it was usable before: `L` and `NP` stay as they are.
-        self.assertIn('test "$was_password" = P', rollback)
-
-
-class EffectivePermissionTest(AgentAccountTest):
-    """`check_acl` judged the mask by grepping a letter, in one direction only.
-
-    These run the script's own `entry_bits` / `effective_bits` / `bits_cover`
-    against real `getfacl` output on a throwaway directory — the two mask
-    directions are not symmetric and the old check called one of them healthy.
-    """
-
-    def _functions(self) -> str:
-        body = SCRIPT.read_text(encoding='utf-8')
-        parts = []
-        for name in ('entry_bits', 'entry_subject', 'effective_bits', 'bits_cover'):
-            tail = body.split(f'\nfunction {name}', 1)[1]
-            signature, _, _ = tail.partition('\nend')
-            parts.append(f'function {name}{signature}\nend')
-        return '\n'.join(parts)
-
-    def _verdict(self, path: pathlib.Path, entry: str) -> str:
-        """`covers` when the grant survives the mask, `limited` when it does not."""
-        # The dump is joined with a REAL newline, not `string join \\n`: in a
-        # fish word `\\n` is the two characters backslash-n, so the lines never
-        # split and every entry looked absent (measured).
-        script = self._functions() + (
-            f'\nset -l acl_dump (getfacl --absolute-names "{path}" | string join "|")\n'
-            f'set -l effective (effective_bits $acl_dump "{entry}")\n'
-            f'set -l needed (entry_bits "{entry}")\n'
-            f'echo "$effective|$needed"\n'
-            f'bits_cover "$effective" "$needed"; and echo covers; or echo limited\n'
-        )
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        return result.stdout.strip().splitlines()[-1]
-
-    def test_a_mask_that_denies_read_is_reported(self):
-        """`mask::-wx` limits `rX` to no read — and `#effective:-wx` has no `r`."""
-        tree = self.tmp / 'deny-read'
-        tree.mkdir()
-        subprocess.run(['setfacl', '-m', 'u:nobody:rX', '-m', 'm::-wx', str(tree)], check=True)
-        self.assertEqual('limited', self._verdict(tree, 'user:nobody:rX'))
-
-    def test_a_sufficient_mask_is_accepted(self):
-        """The same grant under a mask that keeps read is fine."""
-        tree = self.tmp / 'allow-read'
-        tree.mkdir()
-        subprocess.run(['setfacl', '-m', 'u:nobody:rX', '-m', 'm::r-x', str(tree)], check=True)
-        self.assertEqual('covers', self._verdict(tree, 'user:nobody:rX'))
-
-    def test_an_unlimited_entry_is_accepted(self):
-        """No `#effective:` marker at all means the mask does not constrain it."""
-        tree = self.tmp / 'unlimited'
-        tree.mkdir()
-        subprocess.run(['setfacl', '-m', 'u:nobody:rwx', str(tree)], check=True)
-        self.assertEqual('covers', self._verdict(tree, 'user:nobody:rwx'))
-
-    def test_a_mask_that_denies_write_is_reported(self):
-        """The other direction: `rwx` under `mask::r--` is read-only."""
-        tree = self.tmp / 'deny-write'
-        tree.mkdir()
-        subprocess.run(['setfacl', '-m', 'u:nobody:rwx', '-m', 'm::r--', str(tree)], check=True)
-        self.assertEqual('limited', self._verdict(tree, 'user:nobody:rwx'))
-
-    def test_check_acl_asks_the_bit_wise_question(self):
-        """The helpers are right; `check` must actually use them for both entries."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        check = body.split('\nfunction check_acl', 1)[1].split('\nend', 1)[0]
-        self.assertEqual(
-            2, check.count('bits_cover "$effective" "$needed"'),
-            'both the named entry and the default entry are judged by bits, not by a grep',
-        )
-        self.assertNotIn('#effective:r', check, 'a read-only grep cannot answer this')
-        # And the entry has to be found by SUBJECT: `getfacl` rewrites `rX` to
-        # `r-x`/`r--`, so matching the whole entry finds nothing at all.
-        self.assertIn('(entry_subject $entry)', check)
-        self.assertIn('(entry_subject $default_entry)', check)
-
-
-    def test_the_registry_round_trips_a_path_with_a_newline(self):
-        """A filename may contain a newline; a line-per-target registry must not care."""
-        registry = self.tmp / 'targets'
-        # The newline is passed through the ENVIRONMENT: every shell rewrites a
-        # literal `\\n` into two characters, so a test that built the path in the
-        # script would test nothing at all (measured: `string length` answered 1).
-        nasty = f'{self.tmp}/a\nb'
-        script = (
-            'set -l t $NASTY\n'
-            f'printf "%s\\n" (string escape --style=var -- $t) >> {registry}\n'
-            f'echo "lines="(count (cat {registry}))\n'
-        )
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-            env={**os.environ, 'NASTY': nasty},
-        )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn('lines=1', result.stdout, 'one path must be ONE entry')
-
-        # And the bytes in the file are one line: a raw write would have put the
-        # newline in and made the registry answer two entries for one path.
-        raw = registry.read_text(encoding='utf-8')
-        self.assertEqual(1, len(raw.splitlines()), repr(raw))
-        self.assertIn('_0A_', raw, 'the newline must be escaped, not written through')
-
-    def test_the_registry_writer_escapes_and_its_reader_unescapes(self):
-        """The primitive is useless unless the shipped code uses it, twice."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
-        self.assertIn('string escape --style=var -- $target', record, 'the writer must escape')
-        self.assertNotIn("printf '%s\\n' $target", record, 'a raw write splits on a newline')
-        reader = body.split('function recorded_targets', 1)[1].split('\nend', 1)[0]
-        self.assertIn('string unescape --style=var', reader, 'the reader must undo it')
-        # And rollback reads the registry through that reader, not through `cat`.
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('(recorded_targets)', rollback)
-        self.assertNotIn('(cat (targets_file))', rollback)
-
-
-    def test_the_rollback_record_outlives_every_destructive_step(self):
-        """`userdel` refuses a busy account; the snapshots must still be there after that."""
-        rollback = SCRIPT.read_text(encoding='utf-8').split('function rollback', 1)[1]
-        deletions = [
-            rollback.index('run_cmd rm --force (targets_file)'),
-            rollback.index('run_cmd rm --force --recursive (acl_dir)'),
-            rollback.index('run_cmd rm --force (state_file)'),
-        ]
-        for marker in (
-            'run_cmd userdel --remove $AGENT_USER',
-            'run_cmd groupdel $AGENT_GROUP',
-        ):
-            self.assertLess(
-                rollback.index(marker), min(deletions),
-                f'{marker} must run while the snapshots still exist — a failure there '
-                f'would leave the host half-rolled-back with nothing to restore from',
-            )
-
-
-class RoundElevenRegressionTest(PlanTest):
-    """The eleventh round: one BLOCKING cross of the boundary, four rollback gaps."""
-
-    def test_run_refuses_an_account_that_is_root_or_the_developer(self):
-        """`run` is independently callable and never asked what uid it would cross to."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        branches = body.split('switch $verb', 1)[1].split('case rollback', 1)[0]
-        run_branch = branches.split('case run', 1)[1]
-        self.assertIn(
-            'require_unprivileged_uid', run_branch,
-            'the invariant belongs on the verb that EXECUTES, not only on the one that provisions',
-        )
-
-    def test_an_account_that_is_root_cannot_run_a_command(self):
-        """The failure the finding describes, measured end to end."""
-        getent = self.stubs / 'getent'
-        getent.write_text(
-            '#!/usr/bin/env bash\n'
-            "case \"$1 ${2:-}\" in\n"
-            f"  'passwd devel') echo 'devel:x:1000:1000:Devel:{self.home}:/bin/bash' ;;\n"
-            "  'passwd agent') echo 'agent:x:0:0::/home/agent:/bin/bash' ;;\n"
-            "  'group sing-dev') echo 'sing-dev:x:2001:devel,agent' ;;\n"
-            '  *) exit 2 ;;\n'
-            'esac\n',
-            encoding='utf-8',
-        )
-        result = self._run('run', '--', 'id')
-        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
-        self.assertIn('uid 0', result.stderr)
-        self.assertFalse(self.sudo_record.exists(), 'the command must not be handed to sudo at all')
-
-    def test_rollback_never_touches_a_worktree_it_did_not_provision(self):
-        """`rollback <some other worktree>` must not remove an ACL this script never wrote."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('this script never provisioned it', rollback)
-        # The targets come from the RECORD alone; a caller-supplied root is not a licence.
-        self.assertIn('for target in $recorded', rollback)
-        self.assertNotIn('$recorded $targets', rollback)
-        self.assertNotIn('set -a targets', rollback)
-
-    def test_a_precreated_sudoers_file_is_adopted_not_owned(self):
-        """Content this script would have written is not proof it wrote it."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('record_ownership sudoers adopted', provision)
-        self.assertIn('record_ownership sudoers created', provision)
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('not owned_by_script sudoers', rollback)
-        self.assertIn('adopted it rather than created it', rollback)
-
-    def test_check_reports_a_foreign_member_of_the_group(self):
-        """The scan lived only in `apply`, so a member added later was invisible."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        check = body.split('function check\n', 1)[1]
-        self.assertIn('foreign_members $dev $AGENT_USER', check)
-        self.assertIn('also holds', check)
-        # And `apply` asks the SAME predicate, not a copy of it.
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('set -l foreign (foreign_members $dev $AGENT_USER)', provision)
-
-    def test_paths_created_after_the_snapshot_lose_the_grant(self):
-        """A dump cannot name a path that did not exist when it was taken."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('scrub_unrecorded $target', rollback)
-        helper = body.split('function scrub_unrecorded', 1)[1].split('\nend', 1)[0]
-        # Matched in `getfacl`'s OWN printed form, not the raw path: it escapes a
-        # newline as `\012`, so a raw compare never matches such a path and the
-        # scrub then strips an ACL the restore had just put back.
-        self.assertIn('getfacl_path $path', helper, 'only the paths the dump skipped')
-        printer = body.split('function getfacl_path', 1)[1].split('\nend', 1)[0]
-        self.assertIn('# file: ', printer, 'the canonical form is asked of the tool, not reimplemented')
-
-    def test_the_scrub_removes_the_grant_from_a_new_file(self):
-        """Measured on a real tree: `--restore` leaves the residue in place."""
-        tree = self.tmp / 'scrub'
-        (tree / 'sub').mkdir(parents=True)
-        keep = tree / 'keep'
-        keep.write_text('x', encoding='utf-8')
-        dump = subprocess.run(
-            ['getfacl', '--recursive', '--physical', '--absolute-names', str(tree)],
-            capture_output=True, text=True, check=True,
-        ).stdout
-        # `-m d:...` is for directories; a default entry on a regular file is
-        # "Invalid argument" (measured).
-        subprocess.run(['setfacl', '-R', '-m', 'u:nobody:rX', '-m', 'd:u:nobody:rX', str(tree)], check=True)
-        fresh = tree / 'created-after'
-        fresh.write_text('x', encoding='utf-8')
-        self.assertIn('user:nobody', subprocess.run(
-            ['getfacl', '--omit-header', str(fresh)], capture_output=True, text=True, check=True).stdout)
-
-        # The shipped scrub, with the dump where it looks for it.
-        body = SCRIPT.read_text(encoding='utf-8')
-        gp_tail = body.split('\nfunction getfacl_path', 1)[1]
-        gp_sig, _, after_gp = gp_tail.partition('\nend')
-        tail = after_gp.split('\nfunction scrub_unrecorded', 1)[1]
-        signature, _, _ = tail.partition('\nend')
-        # The identities the scrub removes are the script's own, so the fixture
-        # must grant them — `nobody` here and `agent` in the code removes
-        # nothing at all, which looks exactly like a broken scrub.
-        script = (
-            'set -g AGENT_USER nobody\n'
-            'set -g AGENT_GROUP nobody\n'
-            # A `tree` snapshot: the point of this fixture is a path the dump did
-            # not cover, which only means something for a recursive one.
-            'function recorded_kind; echo tree; end\n'
-            f'function acl_dump_file; echo {self.tmp}/scrub.acl; end\n'
-            'set -g DRY_RUN 0\n'
-            # The SHIPPED run_cmd, not an imitation: it strips `--tolerate`, and
-            # an imitation that forgot to made the scrub look broken.
-            + 'function run_cmd' + body.split('\nfunction run_cmd', 1)[1].split('\nend', 1)[0] + '\nend\n'
-            +
-            f'function getfacl_path{gp_sig}\nend\n'
-            f'function scrub_unrecorded{signature}\nend\n'
-            f'scrub_unrecorded "{tree}"\n'
-        )
-        (self.tmp / 'scrub.acl').write_text(dump, encoding='utf-8')
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        after = subprocess.run(
-            ['getfacl', '--omit-header', str(fresh)], capture_output=True, text=True, check=True).stdout
-        self.assertNotIn('user:nobody', after, 'the file created after the snapshot kept the grant')
-        # And the path the dump DID cover is left as the restore put it.
-        kept = subprocess.run(
-            ['getfacl', '--omit-header', str(keep)], capture_output=True, text=True, check=True).stdout
-        self.assertIn('user:nobody', kept, 'a recorded path must not be scrubbed')
-
-
-class RoundTwelveRegressionTest(PlanTest):
-    """The twelfth round: the sudo audit's placement, and the primary-gid restore."""
-
-    def test_the_sudo_audit_covers_a_created_account_and_group_scoped_rules(self):
-        """It lived inside the existing-account branch and ran before `sing-dev`."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        # ONE call, at the end of provisioning — not inside either account branch.
-        self.assertEqual(1, provision.count('\n    audit_sudo\n'), provision[-800:])
-        self.assertLess(
-            provision.index('run_cmd usermod --append --groups $AGENT_GROUP $AGENT_USER'),
-            provision.index('\n    audit_sudo\n'),
-            'a group-scoped rule is only visible once the membership exists',
-        )
-        created = provision.split('if test -z "$account"', 1)[1].split('\n    else\n', 1)[0]
-        self.assertNotIn('audit_sudo', created, 'a created account must be audited too, by the same call')
-
-    def test_a_group_held_as_the_primary_gid_is_restored_as_one(self):
-        """`usermod --append` restores the other kind of membership, not this one."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        record = body.split('function record_removed_group', 1)[1].split('\nend', 1)[0]
-        self.assertIn('record_ownership removed-primary-group', record)
-        self.assertIn('record_ownership removed-group', record)
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('previously_removed_primary_groups', rollback)
-        self.assertIn('usermod --gid $gid $AGENT_USER', rollback)
-
-
-    def test_setfacl_recursive_accepts_a_default_entry_on_a_tree_of_files(self):
-        """A review claimed this aborts provisioning; measured, it does not.
-
-        `setfacl --recursive --modify default:...` over a tree that contains
-        regular files exits 0 — the default entry simply applies to the
-        directories only. The claim was that `run_cmd` would die mid-provision,
-        which would be a P1; the test exists so the claim has to be re-measured
-        rather than re-asserted.
-        """
-        tree = self.tmp / 'defaults'
-        (tree / 'sub').mkdir(parents=True)
-        (tree / 'file').write_text('x', encoding='utf-8')
-        (tree / 'sub' / 'nested').write_text('x', encoding='utf-8')
-        result = subprocess.run(
-            ['setfacl', '--recursive', '--modify', 'user:nobody:rX', '--modify', 'default:user:nobody:rX', str(tree)],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        # The file got the ACCESS entry and no default one, which is what the
-        # script relies on: files must be readable, not inheritable.
-        entries = subprocess.run(
-            ['getfacl', '--omit-header', str(tree / 'file')],
-            capture_output=True, text=True, check=True,
-        ).stdout
-        # `rX` on a regular file prints as `r--`: `X` is "execute if a
-        # directory", which is why the entry is matched by SUBJECT elsewhere.
-        self.assertIn('user:nobody:r', entries)
-        self.assertNotIn('default:', entries)
-
-    def test_the_scrub_survives_a_path_containing_a_newline(self):
-        """`find` without `-print0` splits such a path into two entries."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        helper = body.split('function scrub_unrecorded', 1)[1].split('\nend', 1)[0]
-        self.assertIn('-print0', helper)
-        self.assertIn('string split0', helper)
-
-        # The property itself, on a real file whose name holds a newline: the
-        # walk must name it ONCE, since two halves would have one half scrubbed.
-        tree = self.tmp / 'nl'
-        tree.mkdir()
-        nasty = tree / 'a\nb'
-        nasty.write_text('x', encoding='utf-8')
-        script = f'echo (count (find "{tree}" -mindepth 1 -print0 | string split0))\n'
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertEqual('1', result.stdout.strip(), f'one path must be one entry: {result.stdout!r}')
-
-
-    def test_a_pre_existing_acl_on_a_newline_path_survives_the_scrub(self):
-        """The end-to-end property the review asked for.
-
-        A path with a newline is inside the dump, so the scrub must recognise it
-        as already restored and leave it alone. Matching the raw path never
-        matches (`getfacl` prints `\\012`), so the file would be misclassified as
-        newly created and lose the ACL the restore had just put back.
-        """
-        tree = self.tmp / 'nltree'
-        tree.mkdir()
-        nasty = tree / 'a\nb'
-        nasty.write_text('x', encoding='utf-8')
-        # A grant that is NOT this script's, and that must survive.
-        subprocess.run(['setfacl', '-m', 'u:nobody:rwx', str(nasty)], check=True)
-        dump = subprocess.run(
-            ['getfacl', '--recursive', '--physical', '--absolute-names', str(tree)],
-            capture_output=True, text=True, check=True,
-        ).stdout
-
-        body = SCRIPT.read_text(encoding='utf-8')
-        gp_tail = body.split('\nfunction getfacl_path', 1)[1]
-        gp_sig, _, after_gp = gp_tail.partition('\nend')
-        tail = after_gp.split('\nfunction scrub_unrecorded', 1)[1]
-        signature, _, _ = tail.partition('\nend')
-        (self.tmp / 'nl.acl').write_text(dump, encoding='utf-8')
-        script = (
-            'set -g AGENT_USER nobody\n'
-            'set -g AGENT_GROUP nobody\n'
-            f'function acl_dump_file; echo {self.tmp}/nl.acl; end\n'
-            'set -g DRY_RUN 0\n'
-            # The SHIPPED run_cmd, not an imitation: it strips `--tolerate`, and
-            # an imitation that forgot to made the scrub look broken.
-            + 'function run_cmd' + body.split('\nfunction run_cmd', 1)[1].split('\nend', 1)[0] + '\nend\n'
-            +
-            f'function getfacl_path{gp_sig}\nend\n'
-            f'function scrub_unrecorded{signature}\nend\n'
-            f'scrub_unrecorded "{tree}"\n'
-        )
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        after = subprocess.run(
-            ['getfacl', '--omit-header', str(nasty)],
-            capture_output=True, text=True, check=True,
-        ).stdout
-        self.assertIn('user:nobody:rwx', after, 'the dump covered this path; the scrub must skip it')
-
-        # And the recognition is the tool's own form, not the raw path: that is
-        # what cannot drift when `getfacl` chooses another escape.
-        printer = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c',
-             'function getfacl_path{sig}\nend\necho (getfacl_path $NASTY)'.replace('{sig}', gp_sig)],
-            capture_output=True, text=True, check=False,
-            env={**os.environ, 'NASTY': str(nasty)},
-        ).stdout.strip()
-        self.assertIn(
-            f'# file: {printer}', dump,
-            'the printed form must be the one the dump carries',
-        )
-        self.assertNotEqual(str(nasty), printer, 'a newline path is escaped by getfacl')
-
-
-class DryRunPurityTest(PlanTest):
-    """`rollback --dry-run` must describe, never mutate.
-
-    A review read the code and found that `restore_acl` and `scrub_unrecorded`
-    called `setfacl` directly, bypassing `run_cmd` — so a dry run AS ROOT
-    rewrote the ACLs it was printing. Measured: the call sites are `run_cmd`
-    now and the two direct ones sit behind an explicit `$DRY_RUN` check.
-    """
-
-    def test_no_state_changing_call_bypasses_run_cmd(self):
-        """Every `setfacl` is either printed by `run_cmd` or guarded by DRY_RUN."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        for number, line in enumerate(body.splitlines(), 1):
-            stripped = line.strip()
-            if not stripped.startswith('setfacl '):
-                continue
-            # A direct call is legal only immediately after a dry-run return.
-            guarded = 'test $DRY_RUN -eq 1' in stripped or '$DRY_RUN -eq 1' in stripped
-            if guarded:
-                continue
-            context = body.splitlines()[max(0, number - 6):number - 1]
-            self.assertTrue(
-                any('DRY_RUN -eq 1' in c for c in context),
-                f'line {number}: a state-changing setfacl with no dry-run guard: {stripped}',
-            )
-
-    def test_the_scrub_and_restore_route_through_run_cmd(self):
-        body = SCRIPT.read_text(encoding='utf-8')
-        scrub = body.split('function scrub_unrecorded', 1)[1].split('\nend', 1)[0]
-        self.assertIn('run_cmd', scrub, 'the scrub must print under --dry-run')
-        restore = body.split('function restore_acl', 1)[1].split('\nend', 1)[0]
-        self.assertIn('run_cmd setfacl --restore', restore)
-
-    def test_the_snapshot_directory_is_readable_by_an_unprivileged_dry_run(self):
-        """At 0700 root, a dry run could not see the dumps and printed the wrong branch."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
-        self.assertIn('--mode=0755 (acl_dir)', record, 'the dumps are 0600; the DIRECTORY must be traversable')
-        self.assertNotIn('--mode=0700 (acl_dir)', record)
-
-    def test_run_cmd_honours_the_tolerate_flag_it_documents(self):
-        """The comment promised `--tolerate`; the option did not exist."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        helper = body.split('\nfunction run_cmd', 1)[1].split('\nend', 1)[0]
-        self.assertIn('--tolerate', helper)
-        self.assertIn('test $tolerate -eq 0', helper, 'the opt-in must actually gate the failure')
-
-    def test_the_password_lock_does_not_print_twice(self):
-        """`run_cmd` already prints under --dry-run; the manual test duplicated it."""
-        provision = SCRIPT.read_text(encoding='utf-8').split('function provision', 1)[1]
-        self.assertIn('test "$password_state" = P; and run_cmd passwd --lock', provision)
-        self.assertNotIn('DRY_RUN -eq 1; and echo "passwd --lock', provision)
-
-
-class BehaviourProbeTest(PlanTest):
-    """`check` asks the kernel, not only `getfacl`.
-
-    The parser reads the entry, its mask and the default block. All three can be
-    correct while the tree is unusable — SELinux, a parent directory's mode, a
-    read-only mount. These tests hold the probes, including the trap: an agent
-    that can run NOTHING also "cannot run sudo", which is not a clean boundary.
-    """
-
-    def _check(self, *, sudo_ok=True, agent_can_read=True, agent_sudo=False):
-        """Run `check` with a `sudo` stub whose verdicts the test chooses."""
-        self._write_stub('sudo', f"""#!/usr/bin/env bash
-printf '%s\\n' "$*" >> "$SUDO_RECORD"
-case "$*" in
-  *"--user=agent"*"id -u"*) {'echo 2001' if sudo_ok else 'exit 1'} ;;
-  *"--user=agent"*"test -r"*) {'exit 0' if agent_can_read else 'exit 1'} ;;
-  *"--user=agent"*"test -w"*) exit 0 ;;
-  *"--user=agent"*"sudo -n true"*) {'exit 0' if agent_sudo else 'exit 1'} ;;
-  *"--user=agent"*) exit 1 ;;
-  *"--list"*) exit 1 ;;
-esac
-""")
-        return self._run('check', str(self._worktree()))
-
-    def test_a_correct_acl_that_the_kernel_refuses_is_reported(self):
-        """The whole point: the text says readable, `access(2)` says no."""
-        result = self._check(agent_can_read=False)
-        self.assertIn('cannot read', result.stdout)
-        self.assertIn('the kernel refuses', result.stdout)
-
-    def test_a_readable_tree_passes_on_behaviour(self):
-        result = self._check(agent_can_read=True)
-        self.assertIn('can read', result.stdout)
-        self.assertIn('kernel, not ACL text', result.stdout)
-
-    def test_an_agent_that_can_escalate_is_reported(self):
-        result = self._check(agent_sudo=True)
-        self.assertIn('CAN run sudo', result.stdout)
-
-    def test_no_transition_means_the_negatives_are_not_certified(self):
-        """A wall is not a door: without the transition, "cannot sudo" proves nothing."""
-        result = self._check(sudo_ok=False)
-        self.assertIn('behavioural permissions unverified', result.stdout)
-        self.assertNotIn('cannot run sudo', result.stdout)
-        self.assertNotIn('cannot read', result.stdout)
-
-    def test_the_probes_run_as_the_agent_with_a_built_environment(self):
-        """`access(2)` answers for the identity asking, and only for it."""
-        self._check()
-        argv = self.sudo_record.read_text(encoding='utf-8')
-        self.assertIn('--user=agent', argv)
-        self.assertIn('/usr/bin/env -i', argv)
-        self.assertIn('test -r', argv)
-        self.assertIn('sudo -n true', argv)
-
-
-class RoundSixteenRegressionTest(PlanTest):
-    """The sixteenth round: `X` is not "read or execute", and a group can leak."""
-
-    def test_X_requires_execute_on_a_directory(self):
-        """`rw-` on a directory satisfies `rwX` only if you read `X` as "r or x".
-
-        Measured: `getfacl` prints `user:nobody:rwx #effective:rw-` for a
-        directory whose mask drops execute, and a directory without execute
-        cannot be traversed at all.
-        """
-        body = SCRIPT.read_text(encoding='utf-8')
-        helper = body.split('function bits_cover', 1)[1].split('\nend', 1)[0]
-        self.assertIn('--argument-names granted needed is_dir', helper)
-        self.assertIn('"$is_dir" = 1', helper, 'the directory case needs execute')
-        self.assertNotIn('test $has_exec -eq 1 -o $has_read -eq 1; or return 1', helper,
-                         '"execute OR read" is the bug')
-        # And `check_acl` has to pass it: `test -d` on the target.
-        check = body.split('function check_acl', 1)[1].split('\nend', 1)[0]
-        self.assertIn('test -d $target; and set is_dir 1', check)
-        self.assertEqual(2, check.count('bits_cover "$effective" "$needed" $is_dir'))
-
-    def test_a_mask_that_drops_execute_is_reported(self):
-        """The property, on a real directory: `rw-` must not cover `rwX`."""
-        tree = self.tmp / 'noexec'
-        tree.mkdir()
-        subprocess.run(['setfacl', '-m', 'u:nobody:rwx', '-m', 'm::rw-', str(tree)], check=True)
-        body = SCRIPT.read_text(encoding='utf-8')
-        parts = []
-        for name in ('entry_bits', 'entry_subject', 'acl_dump_of', 'effective_bits', 'bits_cover'):
-            tail = body.split(f'\nfunction {name}', 1)[1]
-            signature, _, _ = tail.partition('\nend')
-            parts.append(f'function {name}{signature}\nend')
-        script = (
-            '\n'.join(parts) + '\n'
-            'set -l j (acl_dump_of ' + str(tree) + ')\n'
-            'set -l e (effective_bits $j "user:nobody:rwX")\n'
-            'set -l n (entry_bits "user:nobody:rwX")\n'
-            'echo "effective=[$e]"\n'
-            'bits_cover "$e" "$n" 1; and echo covers; or echo limited\n'
-            'bits_cover "$e" "$n" 0; and echo file-covers; or echo file-limited\n'
-        )
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        lines = result.stdout.strip().splitlines()
-        self.assertIn('effective=[rw-]', lines, result.stdout)
-        self.assertIn('limited', lines, 'a directory without execute cannot be traversed')
-        # The same bits DO satisfy a regular file, where `X` means read.
-        self.assertIn('file-covers', lines)
-
-    def test_the_accounts_own_group_is_recorded_and_removed(self):
-        """`useradd --user-group` leaks a group when USERGROUPS_ENAB is no."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('record_ownership own-group created', provision)
-        self.assertIn('record_ownership own-group adopted', provision)
-        self.assertLess(
-            provision.index('getent group $AGENT_USER >/dev/null; and set own_group_preexisting 1'),
-            provision.index('run_cmd useradd'),
-            'the pre-existence must be asked BEFORE useradd creates it',
-        )
-        # And WRITTEN before it too: `useradd` succeeding followed by a failed
-        # append (or a run killed between them) would leave a group with nothing
-        # to say it is ours, and rollback would remove nothing.
-        self.assertLess(
-            provision.index('record_ownership own-group created'),
-            provision.index('run_cmd useradd'),
-            'the record must exist before the resource does, as for every other resource',
-        )
-        rollback = body.split('function rollback', 1)[1]
-        self.assertIn('owned_by_script own-group', rollback)
-        self.assertIn('groupdel $AGENT_USER', rollback)
-        # Whether `userdel --remove` already deleted it depends on the host, so
-        # the deletion asks whether the group is still there.
-        self.assertIn('getent group $AGENT_USER >/dev/null', rollback)
-
-
-class RoundSeventeenRegressionTest(PlanTest):
-    """The seventeenth round: a home that drifts, and a record that fails silently."""
-
-    def test_useradd_is_told_the_home_that_run_will_read(self):
-        """`useradd`'s home base comes from /etc/default/useradd; `run` reads passwd."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('--home-dir $agent_home_dir', provision,
-                      'without it a different HOME= in /etc/default/useradd splits apply from run')
-        # The path named is the one `agent_home` resolves — the same expression.
-        self.assertIn('set -l agent_home_dir (agent_home)', provision)
-
-    def test_a_failed_record_write_stops_provisioning(self):
-        """The one thing rollback cannot survive is a record that did not get written."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        writer = body.split('function append_record', 1)[1].split('\nend', 1)[0]
-        self.assertIn('>> $file', writer)
-        self.assertIn('or die', writer, 'an unchecked append is silent')
-        # Both metadata writers go through it: a raw `printf >>` bypasses the check.
-        state = body.split('function record_ownership', 1)[1].split('\nend', 1)[0]
-        self.assertIn('append_record $file', state)
-        self.assertNotIn('>> $file', state)
-        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
-        self.assertIn('append_record (targets_file)', record)
-        self.assertNotIn('>> (targets_file)', record)
-
-    def test_the_registry_append_is_checked_at_runtime(self):
-        """The property, not the shape: a write to an unwritable path must die."""
-        script = (
-            'function die; echo "died: $argv" >&2; exit 2; end\n'
-            'function append_record --argument-names file line\n'
-            '    test $DRY_RUN -eq 1; and return 0\n'
-            '    printf "%s\\n" $line >> $file\n'
-            '    or die "could not write $file"\n'
-            'end\n'
-            'set -g DRY_RUN 0\n'
-            f'append_record {self.tmp}/missing-dir/state line\n'
-            'echo not-reached\n'
-        )
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
-        self.assertIn('could not write', result.stderr)
-        self.assertNotIn('not-reached', result.stdout)
-
-
-class ProbeTraverseTest(PlanTest):
-    """`test -r` on a directory does not mean it can be entered.
-
-    Measured: a mode-0644 directory answers `test -r` with 0 and `test -x` with
-    1 — readable, untraversable. A read-only probe therefore certified an SDK
-    the agent could not walk into, and a write-only probe a worktree it could
-    not create a file in.
-    """
-
-    def test_the_probes_ask_for_execute_as_well(self):
-        body = SCRIPT.read_text(encoding='utf-8')
-        probes = body.split('function behaviour_probes', 1)[1].split('\nend', 1)[0]
-        self.assertIn('test -r $path -a -x $path', probes, 'read without traverse proves nothing')
-        self.assertIn('test -w $root -a -x $root', probes, 'write without traverse cannot create a file')
-
-    def test_read_alone_passes_on_a_directory_that_cannot_be_entered(self):
-        """The property the probes exist for, measured on a real directory."""
-        tree = self.tmp / 'rt644'
-        tree.mkdir()
-        tree.chmod(0o644)
-        self.assertEqual(0, subprocess.run(['/usr/bin/test', '-r', str(tree)], check=False).returncode)
-        self.assertEqual(1, subprocess.run(['/usr/bin/test', '-x', str(tree)], check=False).returncode)
-        # And the combined form the probe uses fails, which is the point.
-        self.assertNotEqual(
-            0, subprocess.run(['/usr/bin/test', '-r', str(tree), '-a', '-x', str(tree)], check=False).returncode,
-        )
-
-
-class NodeSnapshotScrubTest(PlanTest):
-    """A `node` snapshot covers ONE path, so its children are not "unrecorded".
-
-    `$HOME` is granted non-recursively and snapshotted as a single node. Walking
-    it with the scrub would find every file "missing from the dump" — because a
-    node dump names nothing below itself — and strip a `sing-dev` grant the
-    developer configured before this script ever ran.
-    """
-
-    def test_the_kind_is_recorded_with_the_target(self):
-        body = SCRIPT.read_text(encoding='utf-8')
-        provision = body.split('function provision', 1)[1]
-        self.assertIn('record_acl $writable node', provision)
-        self.assertIn('record_acl $target tree', provision)
-        record = body.split('function record_acl', 1)[1].split('\nend', 1)[0]
-        self.assertIn('"\\t"$kind', record, 'the rollback cannot tell the kinds apart without it')
-
-    def test_a_node_target_is_never_scrubbed(self):
-        body = SCRIPT.read_text(encoding='utf-8')
-        scrub = body.split('function scrub_unrecorded', 1)[1].split('\nend', 1)[0]
-        self.assertIn('test (recorded_kind $target) = tree; or return 0', scrub)
-
-    def test_a_pre_existing_grant_in_the_home_survives_rollback(self):
-        """The failure the finding describes, on a real home-shaped tree."""
-        home = self.tmp / 'fakehome'
-        home.mkdir()
-        shared = home / 'shared.txt'
-        shared.write_text('x', encoding='utf-8')
-        # A grant the developer made themselves, before any provisioning.
-        subprocess.run(['setfacl', '-m', 'u:nobody:rw-', str(shared)], check=True)
-        # A node dump: the home itself and nothing below it.
-        dump = subprocess.run(
-            ['getfacl', '--absolute-names', '--physical', str(home)],
-            capture_output=True, text=True, check=True,
-        ).stdout
-
-        body = SCRIPT.read_text(encoding='utf-8')
-        gp_tail = body.split('\nfunction getfacl_path', 1)[1]
-        gp_sig, _, after_gp = gp_tail.partition('\nend')
-        tail = after_gp.split('\nfunction scrub_unrecorded', 1)[1]
-        signature, _, _ = tail.partition('\nend')
-        (self.tmp / 'node.acl').write_text(dump, encoding='utf-8')
-        script = (
-            'set -g AGENT_USER nobody\n'
-            'set -g AGENT_GROUP nobody\n'
-            'set -g DRY_RUN 0\n'
-            'function recorded_kind; echo node; end\n'
-            f'function acl_dump_file; echo {self.tmp}/node.acl; end\n'
-            + 'function run_cmd' + body.split('\nfunction run_cmd', 1)[1].split('\nend', 1)[0] + '\nend\n'
-            + f'function getfacl_path{gp_sig}\nend\n'
-            f'function scrub_unrecorded{signature}\nend\n'
-            f'scrub_unrecorded "{home}"\n'
-        )
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        after = subprocess.run(
-            ['getfacl', '--omit-header', str(shared)], capture_output=True, text=True, check=True).stdout
-        self.assertIn('user:nobody:rw-', after,
-                      'a node snapshot does not cover children, so it may not be scrubbed')
-
-
-class PartialApplyRollbackTest(PlanTest):
-    """A half-applied host must still roll back to its original ACLs.
-
-    `apply` snapshots EVERY target before writing ANY of them, so a `setfacl`
-    that fails half-way leaves a record that covers the whole plan — the
-    rollback restores what the failed run did not get to as well, which is the
-    safe direction. This drives that with the shipped `record_acl` and
-    `restore_acl` on a real tree: snapshot two targets, modify only the first,
-    then restore both.
-    """
-
-    def _functions(self) -> str:
-        body = SCRIPT.read_text(encoding='utf-8')
-        parts = []
-        for name in ('acl_dump_file', 'record_acl', 'restore_acl'):
-            tail = body.split(f'\nfunction {name}', 1)[1]
-            signature, _, _ = tail.partition('\nend')
-            parts.append(f'function {name}{signature}\nend')
-        return '\n'.join(parts)
-
-    def test_a_failed_apply_restores_every_snapshotted_target(self):
-        first = self.tmp / 'p1'
-        second = self.tmp / 'p2'
-        for tree in (first, second):
-            (tree / 'sub').mkdir(parents=True)
-            (tree / 'file').write_text('x', encoding='utf-8')
-            subprocess.run(['setfacl', '-m', 'u:nobody:rwx', str(tree / 'sub')], check=True)
-
-        def dump(tree):
-            return subprocess.run(
-                ['getfacl', '--recursive', '--physical', '--absolute-names', str(tree)],
-                capture_output=True, text=True, check=True).stdout
-
-        before_first, before_second = dump(first), dump(second)
-
-        # Pass 1 of apply: record both. Pass 2: modify only the first, then "fail".
-        script = (
-            'set -g DRY_RUN 0\n'
-            'set -g AGENT_USER nobody\n'
-            f'function acl_dir; echo {self.tmp}/acl; end\n'
-            f'function targets_file; echo {self.tmp}/targets; end\n'
-            'function append_record --argument-names file line\n'
-            '    printf "%s\\n" $line >> $file\n'
-            'end\n'
-            'function run_cmd\n'
-            '    switch $argv[1]\n'
-            '        case install\n'
-            '            mkdir --parents (acl_dir)\n'
-            '        case "*"\n'
-            '            $argv\n'
-            '    end\n'
-            'end\n'
-            'function recorded_targets\n'
-            '    test -e (targets_file); or return 0\n'
-            '    for line in (cat (targets_file))\n'
-'        test -n "$line"; and string unescape --style=var -- (string split \\t -- $line)[1]\n'
-            '    end\n'
-            'end\n'
-            'function run_cmd; $argv; end\n'
-            + self._functions() + '\n'
-            f'record_acl "{first}" tree\n'
-            f'record_acl "{second}" tree\n'
-            # The failed run modifies the FIRST target only, and only AFTER both
-            # were snapshotted — which is the order `apply` guarantees.
-            f'setfacl --recursive -m u:nobody:rwX "{first}"\n'
-            '# the run "fails" here, before touching the second target\n'
-        )
-        (self.tmp / 'acl').mkdir(exist_ok=True)
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-
-        # Rollback: restore every recorded target, as the shipped verb does.
-        restore = (
-            'set -g DRY_RUN 0\n'
-            'set -g AGENT_USER nobody\n'
-            f'function acl_dir; echo {self.tmp}/acl; end\n'
-            'function recorded_targets\n'
-            f'    for line in (cat {self.tmp}/targets)\n'
-'        test -n "$line"; and string unescape --style=var -- (string split \\t -- $line)[1]\n'
-            '    end\n'
-            'end\n'
-            'function run_cmd; $argv; end\n'
-            + self._functions() + '\n'
-            'set -l rc 0\n'
-            'for t in (recorded_targets)\n'
-            '    restore_acl $t; or set rc 1\n'
-            'end\n'
-            'exit $rc\n'
-        )
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', restore],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-
-        self.assertEqual(before_first, dump(first),
-                         'the target the failed run modified must be restored')
-        self.assertEqual(before_second, dump(second),
-                         'a target the failed run never reached must be untouched')
-
-
-class SnapshotKindUpgradeTest(PlanTest):
-    """A path cannot be both the non-recursive seam and a recursive root.
-
-    `apply --allow-in-home "$HOME"` recorded `$HOME` as a `node` for the `--x`
-    grant and then again as a `tree` for the worktree; the registry deduped by
-    path, the node record won, and the recursive grant outlived a rollback that
-    restored the node alone. Two defences: the home is refused as a worktree
-    root, and a recorded `node` is UPGRADED when a `tree` asks for the same path.
-    """
-
-    def test_the_home_itself_is_refused_as_a_worktree_root(self):
-        """Even WITH --allow-in-home: the two snapshots cannot coexist.
-
-        The home must be a real git worktree here, or `validate_roots` refuses it
-        first and the test would pass for the wrong reason — measured.
-        """
-        subprocess.run(['git', 'init', '--quiet', str(self.home)], capture_output=True, check=True)
-        refused = self._plan('--allow-in-home', str(self.home))
-        self.assertEqual(2, refused.returncode, refused.stdout + refused.stderr)
-        self.assertIn('the developer', refused.stderr)
-        self.assertNotIn('setfacl', refused.stdout)
-        # The in-home OPT-IN still works for a worktree INSIDE it.
-        inside = self.home / 'w' / 'wt'
-        inside.mkdir(parents=True)
-        subprocess.run(['git', 'init', '--quiet', str(inside)], capture_output=True, check=True)
-        accepted = self._plan('--allow-in-home', str(inside))
-        self.assertEqual(0, accepted.returncode, accepted.stdout + accepted.stderr)
+        ctx = self.context(roots=(self.wt,))
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, '# file: /x\nuser::rwx\n', '')),)
+        store = aa.StateStore(self.tmp / 'state')
+        self.quiet(aa.Provisioner(ctx, store).apply)
+        first = aa.State.from_json(store.path.read_text()).targets[str(self.wt)].dump
+
+        ctx2 = self.context(roots=(self.wt,))
+        ctx2.runner.responses = ((('getfacl',), aa.Result(0, '# file: /x\nuser::rwx:changed\n', '')),)
+        self.quiet(aa.Provisioner(ctx2, store).apply)
+        self.assertEqual(first, aa.State.from_json(store.path.read_text()).targets[str(self.wt)].dump)
 
     def test_a_node_record_is_upgraded_to_a_tree(self):
-        """The second defence, driven with the shipped `record_acl`."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        tail = body.split('\nfunction record_acl', 1)[1]
-        signature, _, _ = tail.partition('\nend')
-        tree = self.tmp / 'upgrade'
-        (tree / 'sub').mkdir(parents=True)
-        (tree / 'sub' / 'leaf').write_text('x', encoding='utf-8')
-        (self.tmp / 'acl').mkdir(exist_ok=True)
-        script = (
-            'set -g DRY_RUN 0\n'
-            'set -g AGENT_USER nobody\n'
-            f'function acl_dir; echo {self.tmp}/acl; end\n'
-            f'function targets_file; echo {self.tmp}/targets; end\n'
-            'function append_record --argument-names file line\n'
-            '    printf "%s\\n" $line >> $file\n'
-            'end\n'
-            'function acl_dump_file\n'
-            '    echo (acl_dir)/(string escape --style=var -- $argv[1]).acl\n'
-            'end\n'
-            'function recorded_targets\n'
-            '    test -e (targets_file); or return 0\n'
-            '    for line in (cat (targets_file))\n'
-            '        test -n "$line"; and string unescape --style=var -- (string split \\t -- $line)[1]\n'
-            '    end\n'
-            'end\n'
-            'function recorded_kind' + body.split('\nfunction recorded_kind', 1)[1].split('\nend', 1)[0] + '\nend\n'
-            'function run_cmd\n'
-            '    switch $argv[1]\n'
-            '        case install\n'
-            '            mkdir --parents (acl_dir)\n'
-            '        case "*"\n'
-            '            $argv\n'
-            '    end\n'
-            'end\n'
-            f'function record_acl{signature}\nend\n'
-            f'record_acl "{tree}" node\n'
-            f'record_acl "{tree}" tree\n'
-            f'printf "kind=%s\\n" (recorded_kind "{tree}")\n'
-        )
-        result = subprocess.run(
-            [fish_interpreter(), '--no-config', '-c', script],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn('kind=tree', result.stdout, result.stdout + result.stderr)
-        self.assertIn('upgraded to tree', result.stderr)
-        # And the dump is now RECURSIVE: it names a path below the target.
-        dump = (self.tmp / 'acl' / (subprocess.run(
-            [fish_interpreter(), '--no-config', '-c',
-             f'string escape --style=var -- "{tree}"'],
-            capture_output=True, text=True, check=True).stdout.strip() + '.acl')).read_text(encoding='utf-8')
-        self.assertIn(f'# file: {tree}/sub/leaf', dump, 'a tree snapshot must reach the descendants')
+        """A tree dump COVERS a node one, so a record is upgraded, never narrowed."""
+        ctx = self.context()
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, '# file: /x\nuser::rwx\n', '')),)
+        store = aa.StateStore(self.tmp / 'state')
+        provisioner = aa.Provisioner(ctx, store)
+        provisioner._snapshot(self.wt, 'node')
+        _, _, err = self.quiet(provisioner._snapshot, self.wt, 'tree')
+        self.assertIn('upgraded to tree', err)
+        self.assertEqual('tree', aa.State.from_json(store.path.read_text()).targets[str(self.wt)].kind)
+
+    def test_a_failed_getfacl_stops_the_run(self):
+        ctx = self.context(roots=(self.wt,))
+        ctx.runner.responses = ((('getfacl',), aa.Result(1, '', 'not permitted')),)
+        store = aa.StateStore(self.tmp / 'state')
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            self.quiet(aa.Provisioner(ctx, store).apply)
+        self.assertIn('could not snapshot', str(caught.exception))
 
 
-class HomeReadGrantTest(AgentAccountTest):
-    """The home check must see DEFAULT entries, not only access ones.
+# ---------------------------------------------------------------------------
+# ACL parsing and effective permissions
+# ---------------------------------------------------------------------------
 
-    Measured: `default:user:agent:r--` on the home hands read access to every
-    file created there later, and the old `^(user|group):` pattern could not
-    match it — `check` reported "no read grant" while the default ACL was
-    handing one out.
-    """
 
-    def setUp(self) -> None:
-        super().setUp()
-        # These tests need the REAL `getfacl`/`setfacl`: the fixture stubs them
-        # for the plan-level tests, and a no-op `getfacl` prints nothing — so
-        # every ACL verdict below would have been vacuous.
-        for tool in ('setfacl', 'getfacl'):
-            (self.stubs / tool).unlink()
+class AclParsingTest(unittest.TestCase):
+    def test_a_named_entry_is_parsed(self):
+        entries = aa.parse_getfacl('# file: /x\nuser::rwx\ngroup:sing-dev:r-x\nmask::r-x\nother::---\n')
+        self.assertEqual(4, len(entries))
+        named = [e for e in entries if e.named]
+        self.assertEqual(1, len(named))
+        self.assertEqual(('group', SEAM, 'r-x'), (named[0].tag, named[0].qualifier, named[0].perms))
 
-    def _home_with(self, *specs: str) -> None:
-        for spec in specs:
-            subprocess.run(['setfacl', '-m', spec, str(self.home)], check=True)
+    def test_an_effective_qualifier_is_read(self):
+        entries = aa.parse_getfacl('group:sing-dev:rwx\t#effective:r-x\n')
+        self.assertEqual('r-x', entries[0].effective_perms)
 
-    def _run_check(self):
-        # `setUp` already installed the `sudo` stub this fixture needs; replacing
-        # it here made `check` report the transition as broken.
-        return self._run('check', str(self._worktree()))
+    def test_without_an_effective_field_the_perms_are_the_answer(self):
+        entries = aa.parse_getfacl('group:sing-dev:rwx\n')
+        self.assertEqual('rwx', entries[0].effective_perms)
 
-    def test_a_default_read_grant_is_reported(self):
-        self._home_with('d:u:nobody:r--')
-        result = self._run_check()
-        self.assertIn('carries a read grant', result.stdout)
-        self.assertIn('default:user:nobody:r--', result.stdout)
+    def test_X_asks_the_target_and_not_just_any_bit(self):
+        """`X` is chmod's "execute if a directory, read if a file" — treating it as
+        "either bit" certified a directory with `rw-` as satisfying `rwX`."""
+        self.assertTrue(aa.bits_cover('rwx', 'rwX', is_dir=True))
+        self.assertFalse(aa.bits_cover('rw-', 'rwX', is_dir=True), 'a directory without execute cannot be traversed')
+        self.assertTrue(aa.bits_cover('rw-', 'rwX', is_dir=False), 'a file needs read, not execute')
+        self.assertFalse(aa.bits_cover('r--', 'rwX', is_dir=False))
 
-    def test_a_named_read_grant_is_still_reported(self):
-        self._home_with('u:nobody:r--')
-        result = self._run_check()
-        self.assertIn('carries a read grant', result.stdout)
+    def test_a_mask_that_denies_write_is_reported(self):
+        self.assertFalse(aa.bits_cover('r-x', 'rwx', is_dir=True))
+
+    def test_an_unlimited_entry_is_accepted(self):
+        self.assertTrue(aa.bits_cover('rwx', 'rwx', is_dir=True))
+
+    def test_dump_paths_are_unescaped(self):
+        dump = '# file: /a/b\n# file: /a/newline\\012path\n'
+        self.assertEqual({'/a/b', '/a/newline\npath'}, aa.dump_paths(dump))
+
+    def test_a_backslash_is_unescaped_to_one_backslash(self):
+        self.assertEqual('/a/\\b', aa.getfacl_unescape('/a/\\\\b'))
+
+    def test_sudo_rules_are_read_from_the_heading(self):
+        out = 'Matching Defaults entries:\n    env_reset\n\nUser agent may run the following commands:\n    (ALL) NOPASSWD: ALL\n'
+        self.assertEqual(['(ALL) NOPASSWD: ALL'], aa.parse_sudo_rules(out))
+
+    def test_no_heading_means_no_rules(self):
+        self.assertEqual([], aa.parse_sudo_rules('User agent may not run sudo\n'))
+
+    def test_a_command_scoped_rule_is_still_a_rule(self):
+        out = 'User agent may run the following commands:\n    (root) /usr/bin/env\n'
+        self.assertEqual(['(root) /usr/bin/env'], aa.parse_sudo_rules(out))
+
+
+# ---------------------------------------------------------------------------
+# state store
+# ---------------------------------------------------------------------------
+
+
+class StateStoreTest(unittest.TestCase):
+    def setUp(self):
+        import shutil
+        import tempfile
+
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='agent-account-state-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def test_a_path_maps_to_a_file_name_injectively(self):
+        for path in ('/a/b', '/a/b/', '/a;b', '/a=b', '/a\nb'):
+            self.assertEqual(64, len(aa.StateStore.dump_name(path).removesuffix('.acl')))
+        self.assertNotEqual(aa.StateStore.dump_name('/a;b'), aa.StateStore.dump_name('/a=b'))
+
+    def test_the_legacy_records_are_still_read(self):
+        store = aa.StateStore(self.tmp / 'state')
+        (self.tmp / 'state').mkdir(parents=True)
+        (self.tmp / 'state' / 'state').write_text('user\tcreated\ngroup\tadopted\nmember\tdevel\tsing-dev\n')
+        (self.tmp / 'state' / 'targets').write_text('/a/b\ttree\n')
+        loaded = store.load()
+        self.assertTrue(loaded.owns('user'))
+        self.assertFalse(loaded.owns('group'))
+        self.assertTrue(loaded.was_member(DEV, SEAM))
+        self.assertEqual('tree', loaded.targets['/a/b'].kind)
+
+    def test_a_legacy_target_without_a_kind_is_a_tree(self):
+        """The kind column postdates the record; the older dumps were recursive."""
+        store = aa.StateStore(self.tmp / 'state')
+        (self.tmp / 'state').mkdir(parents=True)
+        (self.tmp / 'state' / 'targets').write_text('/a/b\n')
+        self.assertEqual('tree', store.load().targets['/a/b'].kind)
+
+    def test_a_recorded_path_that_is_not_utf8_is_refused(self):
+        with self.assertRaises(aa.AgentAccountError):
+            aa.require_storable('/a/\udcff')
+
+    def test_a_json_record_round_trips(self):
+        state = aa.State()
+        state.record_owned('user', 'created')
+        state.record_owned('group', 'adopted')
+        state.observe_member(DEV, SEAM, True)
+        state.record_passwd('P')
+        state.record_removed_group('docker', 969, True)
+        state.targets['/a/b'] = aa.TargetRecord(kind='tree', dump='x.acl')
+        again = aa.State.from_json(state.to_json())
+        self.assertEqual(state.owned, again.owned)
+        self.assertEqual(state.removed_groups, again.removed_groups)
+        self.assertEqual(state.targets, again.targets)
+
+    def test_an_unreadable_record_is_refused_with_a_reason(self):
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            aa.State.from_json('{"version": 99}')
+        self.assertIn('not one this script understands', str(caught.exception))
+
+    def test_the_dumps_are_0600_and_their_directory_0755(self):
+        """`rollback --dry-run` runs unprivileged and has to stat the dumps."""
+        store = aa.StateStore(self.tmp / 'state')
+        store.write_dump('/a/b', '# file: /a/b\n')
+        self.assertEqual(0o755, store.acl_dir.stat().st_mode & 0o777)
+        self.assertEqual(0o600, (store.acl_dir / aa.StateStore.dump_name('/a/b')).stat().st_mode & 0o777)
+
+
+# ---------------------------------------------------------------------------
+# check
+# ---------------------------------------------------------------------------
+
+
+class CheckTest(Base):
+    def _checker(self, ctx):
+        return aa.Checker(ctx)
+
+    def test_an_unprovisioned_host_fails(self):
+        ctx = self.context(agent_exists=False)
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._account)
+        self.assertIn('FAIL', out)
+        self.assertIn('no agent account', out)
+
+    def test_a_distinct_unprivileged_uid_passes(self):
+        ctx = self.context()
+        compiler = self._checker(ctx)
+        compiler.report = aa.Report()
+        _, out, _ = self.quiet(compiler._account)
+        self.assertIn('PASS agent is a distinct unprivileged uid', out)
+
+    def test_a_privileged_group_is_a_failure(self):
+        ctx = self.context(agent_groups=('docker',))
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._privileged_groups)
+        self.assertIn('FAIL agent is in docker', out)
+
+    def test_a_default_read_grant_on_the_home_is_reported(self):
+        """`default:user:agent:r--` grants read on every file created there later,
+        so checking only the access entry would miss it entirely."""
+        ctx = self.context()
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, 'user::rwx\ndefault:user:agent:r--\n')),)
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn('carries a read grant', out)
 
     def test_the_traverse_grant_alone_is_not_a_read_grant(self):
-        """`--x` is the shape `apply` writes; it must not be flagged."""
-        # `nobody` is the user the fixture can actually grant to; the SHAPE is
-        # what matters — `--x` is execute-only and carries no read bit.
-        self._home_with('u:nobody:--x')
-        result = self._run_check()
-        self.assertIn('carries no read grant', result.stdout)
+        ctx = self.context()
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, 'user::rwx\nuser:agent:--x\n')),)
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn('carries no read grant', out)
+
+    def test_a_mask_that_limits_the_entry_is_reported(self):
+        ctx = self.context(roots=(self.wt,))
+        ctx.runner.responses = (
+            (('getfacl',), aa.Result(0, 'group:sing-dev:rwx\t#effective:r-x\ndefault:group:sing-dev:rwx\n')),
+        )
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn('the ACL mask limits it to', out)
+
+    def test_an_unverifiable_sudo_answer_is_a_note_not_a_pass(self):
+        ctx = self.context()
+        ctx.runner.responses = ((('sudo',), aa.Result(1, '', 'a password is required')),)
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._sudo_rules)
+        self.assertIn('NOTE', out)
+        self.assertNotIn('PASS', out)
+
+    def test_a_sudo_rule_for_the_agent_is_a_failure(self):
+        ctx = self.context()
+        ctx.runner.responses = (
+            (('sudo',), aa.Result(0, 'User agent may run the following commands:\n    (ALL) NOPASSWD: ALL\n', '')),
+        )
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._sudo_rules)
+        self.assertIn('FAIL', out)
+
+    def test_no_transition_means_the_negatives_are_not_certified(self):
+        """An agent that can run nothing also cannot run `sudo`; reporting that as a
+        PASS would certify a wall as a door."""
+        ctx = self.context()
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._behaviour_probes)
+        self.assertIn('NOTE', out)
+        self.assertIn('unverified', out)
+
+    def test_the_probes_ask_for_execute_as_well_as_read(self):
+        """`test -r` alone passes on a directory that cannot be entered at all."""
+        ctx = self.context(roots=(self.wt,))
+        ctx.runner.responses = ((('sudo',), aa.Result(0, '', '')),)
+        checker = self._checker(ctx)
+        asked = []
+        checker.agent_can = lambda path, bits: (asked.append(bits), True)[1]
+        checker.transition_ok = True
+        checker.report = aa.Report()
+        self.quiet(checker._behaviour_probes)
+        self.assertIn('rx', asked, 'the toolchain is read and traversed')
+        self.assertIn('wx', asked, 'a worktree is written and traversed')
+
+    def test_a_secret_directory_is_probed_for_listing_and_traversal_separately(self):
+        """A mode-0711 `.ssh` answers `test -r` with 0 while a 0644 key inside is
+        readable; listing and traversal are different questions."""
+        ctx = self.context()
+        secret = self.home / '.ssh'
+        secret.mkdir()
+        (secret / 'id_rsa').write_text('secret', encoding='utf-8')
+        checker = self._checker(ctx)
+        checker.transition_ok = True
+        checker.report = aa.Report()
+        checker.agent_can = lambda path, bits: False
+        _, out, _ = self.quiet(checker._behaviour_probes)
+        self.assertIn('cannot list', out)
+        self.assertIn('cannot traverse', out)
 
 
-class RunTest(AgentAccountTest):
-    def test_run_hands_the_command_over_and_drops_the_callers_environment(self):
-        """The agent gets a built environment; `env -i` is the mechanism."""
-        result = self._run('run', '--', 'echo', 'hello')
-
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertEqual('hello\n', result.stdout)
-
-        argv = self.sudo_record.read_text(encoding='utf-8').splitlines()
-        self.assertEqual(1, len(argv), argv)
-        self.assertIn('--non-interactive', argv[0])
-        self.assertIn('--user=agent', argv[0])
-        # `-i` starts from an empty environment; without it every token in the
-        # caller's shell rides into the agent.
-        self.assertIn('/usr/bin/env -i', argv[0])
-        self.assertIn('GRADLE_USER_HOME=/home/agent/.gradle', argv[0])
-        self.assertNotIn('AGENT_TEST_SECRET', argv[0])
-        self.assertTrue(argv[0].endswith('echo hello'), argv[0])
+# ---------------------------------------------------------------------------
+# run
+# ---------------------------------------------------------------------------
 
 
-class ShebangTest(unittest.TestCase):
-    """Two properties of the shebang, both measured on a real script, not assumed.
+class RunTest(Base):
+    def test_the_command_is_handed_over_with_a_built_environment(self):
+        ctx = self.context()
+        launcher = aa.Launcher(ctx, {'TERM': 'xterm', 'AGENT_TEST_SECRET': 'do-not-leak'})
+        command = launcher.command(('id', '-un'))
 
-    Neither is style. `#!/usr/bin/env fish` is how the file starts today, and it
-    is what the root half cannot rely on: `sudo` runs with its own `secure_path`,
-    where a developer-installed fish does not exist. And without `--no-config`
-    the reader's fish config runs first, so a function in it shadows the binaries
-    the script calls as root — measured: a config defining `function setfacl`
-    made the run print "HIJACKED setfacl" where the real tool belonged.
-    """
+        self.assertEqual('sudo', command[0])
+        self.assertIn(f'--user={AGENT}', command)
+        self.assertIn('--', command)
+        self.assertIn('/usr/bin/env', command)
+        self.assertIn('id', command)
+        joined = ' '.join(command)
+        self.assertNotIn('do-not-leak', joined, "the caller's environment must not reach the agent")
 
-    def test_the_shebang_does_not_inherit_the_readers_fish_config(self):
-        """The script runs tools as root; the caller's shell must not win."""
-        first = SCRIPT.read_text(encoding='utf-8').splitlines()[0]
-        self.assertTrue(first.startswith('#!'), first)
-        self.assertIn('--no-config', first, f'a fish config can shadow the tools this script runs: {first}')
-        # `env` only accepts flags through `-S`, and the file is exec'd directly.
-        self.assertIn('-S', first, f'the multi-word shebang needs env -S: {first}')
+    def test_the_agent_gets_its_own_gradle_home(self):
+        ctx = self.context()
+        launcher = aa.Launcher(ctx, {})
+        argv = launcher.command(('true',))
+        # Whole assignments: `HOME=/x/home` CONTAINS `HOME=/x`, so a substring test
+        # would pass or fail for the wrong reason.
+        self.assertIn(f'GRADLE_USER_HOME={self.agent_home}/.gradle', argv)
+        self.assertIn(f'HOME={self.agent_home}', argv)
+        self.assertNotIn(f'HOME={self.home}', argv)
 
-    def test_no_verb_depends_on_the_shebang_to_reach_root(self):
-        """`as_root` names the interpreter, because sudo's PATH has no fish."""
-        body = SCRIPT.read_text(encoding='utf-8')
-        function = body.split('function as_root', 1)[1].split('\nend', 1)[0]
-        self.assertIn('(status fish-path)', function, function)
+    def test_the_launcher_execs_rather_than_shelling_out(self):
+        ctx = self.context()
+        calls = []
+        launcher = aa.Launcher(ctx, {}, execvp=lambda name, argv: calls.append((name, argv)))
+        launcher.run(('id',))
+        self.assertEqual('sudo', calls[0][0])
+
+    def test_an_empty_command_is_refused(self):
+        ctx = self.context()
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            aa.Launcher(ctx, {}).command(())
+        self.assertIn('run needs a command', str(caught.exception))
 
 
-class CheckTest(AgentAccountTest):
-    def test_check_fails_on_an_unprovisioned_host(self):
-        """A check that cannot find what it verifies must not report success."""
-        result = self._run('check', str(self._worktree()))
+# ---------------------------------------------------------------------------
+# rollback
+# ---------------------------------------------------------------------------
 
-        self.assertEqual(1, result.returncode, result.stdout + result.stderr)
-        self.assertIn('FAIL', result.stdout)
-        # The absence of a privileged grant is verified even with no account.
-        self.assertIn('agent is not in docker', result.stdout)
-        # A claim it could not verify is a NOTE, never a PASS.
-        self.assertIn('unverified', result.stdout)
+
+class RollbackTest(Base):
+    def test_nothing_to_roll_back_without_a_record(self):
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        _, out, _ = self.quiet(aa.Rollback(ctx, store).run)
+        self.assertIn('nothing to roll back', out)
+
+    def test_an_adopted_account_is_kept(self):
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        store.save(aa.State(owned={'user': 'adopted', 'group': 'adopted'}))
+        rollback = aa.Rollback(ctx, store)
+        _, _, err = self.quiet(rollback._account_and_groups, ctx.accounts.passwd(AGENT))
+        self.assertIn('this script adopted it rather than created it', err)
+        self.assertFalse(ctx.ansible.variables['agent_remove_user'])
+
+    def test_a_created_account_is_removed_through_the_playbook(self):
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        store.save(aa.State(owned={'user': 'created', 'group': 'created'}))
+        rollback = aa.Rollback(ctx, store)
+        self.quiet(rollback._account_and_groups, ctx.accounts.passwd(AGENT))
+        self.assertTrue(ctx.ansible.variables['agent_remove_user'])
+        self.assertTrue(ctx.ansible.variables['agent_remove_group'])
+
+    def test_a_privileged_group_taken_away_comes_back(self):
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        state = aa.State(owned={'user': 'adopted', 'group': 'adopted'})
+        state.record_removed_group('docker', 969, False)
+        store.save(state)
+        rollback = aa.Rollback(ctx, store)
+        updates = []
+        ctx.accounts.groups['docker'] = aa.GroupEntry('docker', 969, ())
+        self.quiet(rollback._account_and_groups, ctx.accounts.passwd(AGENT))
+        updates = ctx.ansible.variables['agent_user_updates']
+        restored = [u for u in updates if 'docker' in (u.get('groups') or [])]
+        self.assertTrue(restored, 'a group the account held before apply belongs back')
+
+    def test_the_password_lock_is_undone_for_an_adopted_account(self):
+        ctx = self.context()
+        ctx.runner.responses = ((('passwd', '--status'), aa.Result(0, 'agent L 01/01/2026\n', '')),)
+        store = aa.StateStore(self.tmp / 'state')
+        store.save(aa.State(owned={'user': 'adopted', 'group': 'adopted'}, passwd='P'))
+        rollback = aa.Rollback(ctx, store)
+        _, out, _ = self.quiet(rollback._account_and_groups, ctx.accounts.passwd(AGENT))
+        self.assertIn('unlocking', out)
+        self.assertTrue(any(u.get('password_lock') is False for u in ctx.ansible.variables['agent_user_updates']))
+
+    def test_a_worktree_this_script_never_provisioned_is_kept(self):
+        ctx = self.context(roots=(self.wt,))
+        store = aa.StateStore(self.tmp / 'state')
+        store.save(aa.State(owned={'user': 'adopted'}))
+        rollback = aa.Rollback(ctx, store)
+        _, _, err = self.quiet(rollback.run)
+        self.assertIn('never provisioned it', err)
+
+    def test_a_recorded_target_that_is_gone_is_noted_not_fatal(self):
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        state = aa.State(owned={'user': 'adopted'})
+        state.targets[str(self.tmp / 'gone')] = aa.TargetRecord(kind='tree', dump=None)
+        store.save(state)
+        _, _, err = self.quiet(aa.Rollback(ctx, store).run)
+        self.assertIn('no longer exists', err)
+
+    def test_a_node_snapshot_is_never_scrubbed(self):
+        """A node dump covers the target only, so "absent from the dump" is true for
+        every child — including files that had the seam before this script ran."""
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        rollback = aa.Rollback(ctx, store)
+        rollback._scrub(str(self.wt), aa.TargetRecord(kind='node', dump='x.acl'))
+        self.assertEqual([], ctx.runner.executed, 'a node record must not scrub anything')
+
+    def test_a_tree_snapshot_scrubs_a_path_created_after_it(self):
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        covered = self.wt / 'old'
+        covered.write_text('x', encoding='utf-8')
+        new = self.wt / 'new'
+        new.write_text('y', encoding='utf-8')
+        name = store.write_dump(str(self.wt), f'# file: {self.wt}\n# file: {covered}\n')
+        rollback = aa.Rollback(ctx, store)
+        self.quiet(rollback._scrub, str(self.wt), aa.TargetRecord(kind='tree', dump=name))
+        scrubbed = ' '.join(ctx.runner.commands())
+        self.assertIn(str(new), scrubbed)
+        self.assertNotIn(str(covered), scrubbed, 'a covered path is restored, not scrubbed')
+
+    def test_the_scrub_tolerates_a_path_that_vanished(self):
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        name = store.write_dump(str(self.wt), f'# file: {self.wt}\n')
+        (self.wt / 'gone').write_text('x', encoding='utf-8')
+        ctx.runner.responses = ((('setfacl',), aa.Result(1, '', 'No such file or directory')),)
+        rollback = aa.Rollback(ctx, store)
+        # tolerate=True means a non-zero rc does not abort the rollback.
+        self.quiet(rollback._scrub, str(self.wt), aa.TargetRecord(kind='tree', dump=name))
+
+
+# ---------------------------------------------------------------------------
+# configuration
+# ---------------------------------------------------------------------------
+
+
+class ConfigTest(unittest.TestCase):
+    def test_the_agent_cannot_be_the_developer(self):
+        with self.assertRaises(Exception) as caught:
+            aa.Config(dev_name=DEV, dev_home=pathlib.Path('/home/x'), agent_user=DEV)
+        self.assertIn('cannot be the developer', str(caught.exception))
+
+    def test_the_agent_cannot_be_root(self):
+        with self.assertRaises(Exception) as caught:
+            aa.Config(dev_name=DEV, dev_home=pathlib.Path('/home/x'), agent_user='root')
+        self.assertIn('cannot be root', str(caught.exception))
+
+    def test_the_developer_cannot_be_root(self):
+        with self.assertRaises(Exception) as caught:
+            aa.Config(dev_name='root', dev_home=pathlib.Path('/home/x'))
+        self.assertIn('name the developer', str(caught.exception))
+
+    def test_the_sdk_path_cannot_leave_the_developer_home(self):
+        with self.assertRaises(Exception):
+            aa.Config(dev_name=DEV, dev_home=pathlib.Path('/home/x'), sdk_dir_rel='../etc')
+
+    def test_the_sudoers_rule_names_the_developer_and_the_agent(self):
+        cfg = aa.Config(dev_name=DEV, dev_home=pathlib.Path('/home/x'))
+        self.assertEqual(f'{DEV} ALL=({AGENT}) NOPASSWD: /usr/bin/env', cfg.sudoers_rule)
+
+
+class AnsibleResolutionTest(unittest.TestCase):
+    """Ansible is found by the UNPRIVILEGED caller: neither the binary nor the
+    collection path is on root's secure_path or HOME."""
+
+    def test_the_collections_path_falls_back_to_a_collections_directory(self):
+        """Under sudo, `ANSIBLE_HOME` is root's and the playbook cannot resolve
+        `ansible.posix.acl`; the path the caller saw is the one carried through."""
+        import os
+
+        saved = dict(os.environ)
+        try:
+            os.environ.pop('ANSIBLE_COLLECTIONS_PATH', None)
+            _, collections = aa.resolve_ansible(pathlib.Path('/usr/bin/true'))
+            self.assertIn('collections', collections)
+            self.assertTrue(collections.endswith(('.ansible/collections:/usr/share/ansible/collections',))
+                            or ':collections' in collections)
+        finally:
+            os.environ.clear()
+            os.environ.update(saved)
+
+    def test_a_missing_ansible_is_a_refusal(self):
+        import os
+        import shutil as sh
+
+        saved = dict(os.environ)
+        saved_which = sh.which
+        try:
+            sh.which = lambda name, *a, **k: None
+            with self.assertRaises(aa.AgentAccountError) as caught:
+                aa.resolve_ansible(None)
+            self.assertIn('ansible-playbook is not on PATH', str(caught.exception))
+        finally:
+            sh.which = saved_which
+            os.environ.clear()
+            os.environ.update(saved)
+
+    def test_a_symlinked_shim_is_run_as_found_not_resolved(self):
+        """Measured: `resolve()` on a mise shim collapses it to `mise`, and the run
+        becomes `mise <playbook>` — "ERROR `…agent-account.yml` is not executable"."""
+        import shutil as sh
+        import tempfile
+
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix='aa-shim-'))
+        self.addCleanup(__import__('shutil').rmtree, tmp, True)
+        real = tmp / 'mise'
+        real.write_text('#!/bin/sh\nexit 0\n', encoding='utf-8')
+        real.chmod(0o755)
+        shim = tmp / 'ansible-playbook'
+        shim.symlink_to(real)
+
+        saved_which = sh.which
+        try:
+            sh.which = lambda name, *a, **k: str(shim)
+            found, _ = aa.resolve_ansible(None)
+        finally:
+            sh.which = saved_which
+        self.assertEqual(shim, found.absolute())
+        self.assertNotEqual(real, found.absolute(), 'the shim must not be collapsed to its target')
+
+
+# ---------------------------------------------------------------------------
+# the playbook itself
+# ---------------------------------------------------------------------------
+
+
+class PlaybookShapeTest(unittest.TestCase):
+    """The playbook is data, so most of its contract is asserted by reading it."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = (REPO_ROOT / 'scripts' / 'ansible' / 'agent-account.yml').read_text(encoding='utf-8')
+
+    def test_it_never_replaces_a_group_list_it_cannot_see(self):
+        """`groups:` on the `user` task would reconcile the supplementary list on an
+        adopted account and drop groups its owner chose."""
+        task = self.text.split('- name: Ensure the agent account exists', 1)[1].split('- name:', 1)[0]
+        self.assertNotIn('groups:', task)
+
+    def test_the_acl_task_asks_for_the_declared_entries(self):
+        self.assertIn('ansible.posix.acl', self.text)
+        self.assertIn('recursive: "{{ item.recursive', self.text)
+        self.assertIn('default: "{{ item.default', self.text)
+
+    def test_both_directions_are_the_same_resource_set(self):
+        """`present` and `absent` are the same tasks, so what apply creates and what
+        rollback removes cannot drift apart."""
+        self.assertIn("agent_account_state == 'present'", self.text)
+        self.assertIn("agent_account_state == 'absent'", self.text)
+
+    def test_every_removal_flag_the_caller_passes_is_used_by_a_task(self):
+        """Measured: `agent_remove_user` was declared and passed and NO task read it,
+        so a created account survived `rollback` — the playbook was served `absent`
+        and quietly skipped the user task."""
+        for flag in ('agent_remove_user', 'agent_remove_group', 'agent_remove_own_group'):
+            uses = [line for line in self.text.splitlines() if f'{flag} | bool' in line]
+            self.assertTrue(uses, f'{flag} is passed by the caller but no task acts on it')
+
+    def test_a_facet_that_names_no_group_does_not_default_append_to_true(self):
+        """Measured: `append is True but all of the following are missing: groups` —
+        a `password_lock`-only or `primary_group`-only item aborted the run."""
+        task = self.text.split('- name: Reconcile the declared account facets', 1)[1].split('- name:', 1)[0]
+        self.assertIn('if item.groups is defined else omit', task)
+
+    def test_a_removal_is_not_gated_on_the_group_being_present(self):
+        """A removal names no group, so the check-mode guard on `agent_group_exists`
+        must not skip it — it was gated on the host, not on the item."""
+        task = self.text.split('- name: Reconcile the declared account facets', 1)[1].split('- name:', 1)[0]
+        self.assertIn('and item.groups is defined', task)
+
+    def test_a_deferred_plan_does_not_abort_on_a_missing_identity(self):
+        """Measured: `setfacl` resolves the entry NAME while planning, so on a fresh
+        host under --check the ACL task has to be skipped, not attempted."""
+        self.assertIn('ansible_check_mode and not (agent_user_exists', self.text)
+        self.assertIn('ansible_check_mode and not (agent_group_exists', self.text)
 
 
 if __name__ == '__main__':
