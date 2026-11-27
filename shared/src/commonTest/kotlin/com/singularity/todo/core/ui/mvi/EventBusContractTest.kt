@@ -2,8 +2,13 @@
 
 package com.singularity.todo.core.ui.mvi
 
+import co.touchlab.kermit.LogWriter
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.Severity
+import co.touchlab.kermit.loggerConfigInit
 import com.singularity.todo.core.ui.EventBus
 import com.singularity.todo.test.fakes.RecordingCrashReportingPort
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -110,6 +115,89 @@ class EventBusContractTest {
 
             assertFalse(bus.tryEmit(TestEvent.Signal), "A closed bus accepts nothing")
             assertEquals(0, bus.droppedAfterClose, "Only a suspending emit counts as a discard")
+        }
+
+    @Test
+    fun `a full-buffer refusal is logged once, at warn, so it survives the release filter`() =
+        runTest {
+            // The point of the line is the *build it is read in*: release filters below
+            // Warn, so a debug line — what the closed-bus discard uses — would not exist
+            // where a silently missing snackbar gets reported. Once per bus, because a
+            // buffer that stays full must not turn every refusal into a flood.
+            val writer = CapturingLogWriter()
+            val bus = busWithLoggingInto(writer, capacity = 1)
+
+            bus.tryEmit(TestEvent.Signal) // fills the buffer
+            repeat(3) { bus.tryEmit(TestEvent.Signal) }
+
+            val lines = writer.entries.filter { it.tag == TAG }
+            assertEquals(1, lines.size, "one line per bus, not one per refusal")
+            assertEquals(Severity.Warn, lines.single().severity, "warn is what release keeps")
+            assertTrue(
+                "buffer full" in lines.single().message,
+                "the message must name what happened: ${lines.single().message}",
+            )
+        }
+
+    @Test
+    fun `a rendezvous bus refuses because nobody is waiting, and says so rather than claiming fullness`() =
+        runTest {
+            // Channel.RENDEZVOUS is capacity 0: there is no buffer, so trySend fails
+            // because no receiver is parked. Calling that "buffer full" would send a
+            // reader looking for a slow collector that does not exist.
+            val writer = CapturingLogWriter()
+            val bus = busWithLoggingInto(writer, capacity = Channel.RENDEZVOUS)
+
+            assertFalse(bus.tryEmit(TestEvent.Signal), "nobody is waiting to receive it")
+
+            val line = writer.entries.single { it.tag == TAG }
+            assertEquals(Severity.Warn, line.severity)
+            assertTrue(
+                "receiver" in line.message,
+                "a rendezvous refusal must name the real cause: ${line.message}",
+            )
+            assertFalse(
+                "buffer full" in line.message,
+                "there is no buffer on this bus: ${line.message}",
+            )
+        }
+
+    @Test
+    fun `a buffered bus names the buffer, not the receiver`() =
+        runTest {
+            // The other half of the distinction: on a real buffer the refusal *is*
+            // about capacity, and the message must not blame a missing receiver.
+            val writer = CapturingLogWriter()
+            val bus = busWithLoggingInto(writer, capacity = 1)
+
+            bus.tryEmit(TestEvent.Signal) // fills the buffer
+            bus.tryEmit(TestEvent.Signal)
+
+            val line = writer.entries.single { it.tag == TAG }
+            assertEquals(Severity.Warn, line.severity)
+            assertTrue(
+                "buffer full" in line.message,
+                "a buffered refusal must name the buffer: ${line.message}",
+            )
+        }
+
+    @Test
+    fun `a refusal after close is not logged, because teardown is not a warning`() =
+        runTest {
+            // The distinction the whole change rests on: a closed bus is an expected
+            // lifecycle race, a full buffer is real loss. Turning normal teardown into
+            // warn lines would make the signal indistinguishable from noise — exactly
+            // what happened to the crash-reporting channel (#141).
+            val writer = CapturingLogWriter()
+            val bus = busWithLoggingInto(writer)
+            bus.close()
+
+            assertFalse(bus.tryEmit(TestEvent.Signal), "A closed bus accepts nothing")
+            assertEquals(0, bus.droppedAfterClose, "Only a suspending emit counts as a discard")
+            assertTrue(
+                writer.entries.none { it.tag == TAG },
+                "a closed bus must not warn: ${writer.entries}",
+            )
         }
 
     @Test
@@ -287,4 +375,35 @@ class EventBusContractTest {
                     "reporting layer: ${reporter.reports}",
             )
         }
+
+    /**
+     * The log the bus writes to, and the test reads.
+     *
+     * The bus takes its logger as a constructor argument, so the severity of the
+     * full-buffer line can be asserted without touching any global writer.
+     */
+    private class CapturingLogWriter : LogWriter() {
+        data class Entry(val severity: Severity, val message: String, val tag: String)
+
+        val entries: MutableList<Entry> = mutableListOf()
+
+        override fun log(
+            severity: Severity,
+            message: String,
+            tag: String,
+            throwable: Throwable?,
+        ) {
+            entries += Entry(severity, message, tag)
+        }
+    }
+
+    private fun busWithLoggingInto(
+        writer: CapturingLogWriter,
+        capacity: Int = Channel.BUFFERED,
+    ): EventBus<TestEvent> = EventBus(capacity = capacity, log = Logger(loggerConfigInit(writer), TAG))
+
+    private companion object {
+        /** The tag the injected logger writes under, so entries can be filtered by bus. */
+        const val TAG = "event-bus-test"
+    }
 }
