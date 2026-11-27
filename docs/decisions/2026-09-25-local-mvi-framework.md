@@ -1,11 +1,18 @@
 ---
 title: Local MVI Framework — StatefulViewModel + MviViewModel + EventBus
 date: 2026-09-25
-status: accepted
+status: superseded
+superseded-by: 2026-11-27-mvi-architecture-direction
 ---
 
 # Local MVI Framework — StatefulViewModel + MviViewModel + EventBus
 
+> **Superseded in part (2026-11-27):** the long-term framework direction — retain the local
+> MVI, borrow ideas only when they solve a demonstrated local problem, adopt nothing speculative
+> — is now recorded in [2026-11-27-mvi-architecture-direction.md](2026-11-27-mvi-architecture-direction.md).
+> The framework decision itself is retained; what this ADR proposed for the framework's future
+> is answered there.
+>
 > **Superseded in part (2026-09-27):** `StatefulViewModel`, `updateStateAs<T>`,
 > `onStateChanged` and `CoroutineScope.fireAndForget` were removed. See
 > [2026-09-27-mvi-single-state-entry-and-vm-sweep.md](2026-09-27-mvi-single-state-entry-and-vm-sweep.md).

@@ -13,7 +13,7 @@ This skill captures the pattern, the common pitfalls, and the key design split �
 
 - **Full** (has routing intents for sheets): `TaskDetailViewModel`, `TaskEditorViewModel`
 - **Minimal** (no sheets — only domain mutations + navigation): `ProjectDetailViewModel`
-- **Evaluate + mutate (definition injected, evaluated in-process)**: `AgendaViewModel`. The `definition` is injected at construction and the VM watches all tasks via `TaskFilter.All`, evaluating them in memory with `AgendaEvaluator.evaluate()` — but it is **not** a read-through VM. It extends `MviViewModel`, keeps a plain `MutableStateFlow` state, and carries five mutation intents: `TaskCheckClicked`, `TaskPinClicked`, `TaskDeleteClicked`, `DeleteSelected`, `CompleteSelected`, plus `UndoDeleteTapped`. Use it as the example of a VM whose sections are derived from a repository while its own commands are not.
+- **Evaluate + mutate (definition injected, evaluated in-process)**: `AgendaViewModel`. The `definition` is injected at construction and the VM watches all tasks via `TaskFilter.All`, evaluating them in memory with `AgendaEvaluator.evaluate()` — but it is **not** a read-through VM. It extends `MviViewModel`, keeps a read-only state flow, and carries five mutation intents: `TaskCheckClicked`, `TaskPinClicked`, `TaskDeleteClicked`, `DeleteSelected`, `CompleteSelected`, plus `UndoDeleteTapped`. Use it as the example of a VM whose sections are derived from a repository while its own commands are not.
 
 > This entry used to describe `AgendaViewModel` as "evaluate-only, no mutation intents" and
 > name it the canonical `combine + stateIn(WhileSubscribed)` case. Neither was true. A stale
@@ -266,7 +266,7 @@ Keep this value consistent across VMs unless you have a measured reason to devia
 - `TaskEditorViewModel` — draft-editor pattern with pure `reduce()` + `TaskEditorReducerTest`
 - `TaskDetailViewModel` — write-through pattern with single `onIntent()` + `mutate{}`; has sheet routing intents
 - `ProjectDetailViewModel` — **minimal variant**: no sheets, only domain intents + navigation callbacks; demonstrates the pattern at its simplest
-- `AgendaViewModel` — **evaluate-and-mutate variant**: `definition` injected at construction; watches all tasks via `TaskFilter.All` and evaluates in-process with `AgendaEvaluator.evaluate()`, but extends `MviViewModel` with a plain `MutableStateFlow` and carries real mutation intents. Selection is a single `updateState` per handler — no second flow mirroring `AgendaUiState`.
+- `AgendaViewModel` — **evaluate-and-mutate variant**: `definition` injected at construction; watches all tasks via `TaskFilter.All` and evaluates in-process with `AgendaEvaluator.evaluate()`, but extends `MviViewModel` with a read-only state flow and carries real mutation intents. Selection is a single `updateState` per handler — no second flow mirroring `AgendaUiState`.
 - `TaskDetailIntent.kt` — routing/domain separation in a real-world screen
 
 ## See Also
@@ -274,7 +274,7 @@ Keep this value consistent across VMs unless you have a measured reason to devia
 - **`singularity-todo-vm-pattern-overview`** — router: index to all VM skills
 - `singularity-todo-task-callback-groups` — pairing this pattern with `@JvmInline value class Actions` in Composables
 - `singularity-todo-ui-event-vs-state` — routing state (which sheet is open) is NOT a `SharedFlow` event
-- `singularity-todo-testable-vm` — **testability pattern**: plain `MutableStateFlow`, scope injection, no `combine`+`stateIn`
+- `singularity-todo-testable-vm` — **testability pattern**: read-only `StateFlow`, scope injection, no `combine`+`stateIn`
 - `AGENTS.md` DI table — how to register this VM in Koin. For a genuinely two-constructor testable VM, use an explicit `viewModel { ... }` block (see `feature/agenda/AgendaDiModule.kt`)
 - `singularity-todo-sheet-extraction` — routing intents for sheet navigation (e.g. `NavigateToChild`), `ActiveSheet` sealed interface, `*SheetsHost` composition, `CurrentContent` data class
 - `docs/decisions/2026-09-09-task-detail-intent-refactor.md` — the ADR that formalized this pattern
@@ -290,6 +290,6 @@ This pattern plays well with the testable VM pattern. The two are complementary:
 | Concern | Pattern |
 |---|---|
 | Sealed Intent + onIntent dispatcher | `vm-intent-pattern` (this skill) |
-| Plain `MutableStateFlow` + scope injection + `backgroundScope`/`Main.immediate` pitfalls | `singularity-todo-testable-vm` |
+| Read-only `StateFlow` + scope injection + `backgroundScope`/`Main.immediate` pitfalls | `singularity-todo-testable-vm` |
 
 **When you write a VM with intents**, default to the testable shape — constructor, `Main.immediate` caveat, and the `backgroundScope` vs `this` distinction are all documented in `singularity-todo-testable-vm` → "Testable VM Template" and "Scope Injection Reference". Don't duplicate them here; one canonical source of truth.
