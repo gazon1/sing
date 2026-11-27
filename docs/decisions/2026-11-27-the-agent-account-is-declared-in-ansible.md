@@ -103,6 +103,24 @@ Concretely:
 
 ## Consequences
 
+- **The shared `.git` grant stops at objects, refs and the index.** A review called the
+  recursive write grant on the common git dir a merge blocker, and it was right about the
+  mechanism: `config` chooses `core.hooksPath` and every setting for later invocations, and
+  `hooks/` holds programs git runs — **as the developer**. That is code execution across the
+  boundary this account exists to create. The grant now excludes both by removing the entry
+  (access and default), and `check` fails on a write grant there. Measured: with `config` at
+  `0444` and `hooks` at `0555`, commit, branch and checkout still work. The deeper
+  recommendation — a separate agent-owned clone with an explicit patch/commit transfer — is a
+  design change and is NOT taken here.
+- **The ACL mask is preserved where it covers the grant.** Also from that review, and also
+  measured: `setfacl --modify` recalculates the mask, and an unrelated named entry capped by
+  `mask::r--` became fully effective when our entry was added. `apply` now passes
+  `recalculate_mask: no_mask` per target when the existing mask already covers its entry, and
+  lets the mask grow where it does not — the alternative (`--no-mask` unconditionally) caps
+  the agent's own entry to the group bits.
+- **`run` re-checks the boundary at launch.** `apply`'s result is not permanent; `run` refuses
+  an account in a privileged group (primary included), a home that is not its own, or a sudo
+  rule, instead of starting an agent the boundary no longer holds for.
 - **The home read-grant verdict asks the kernel's question.** A review of the deleted fish
   script found the audit passing a home carrying `default:other::r--`. It was real, and it
   survived the port: the predicate listed NAMED entries with an `r`. Measured consequence — the
@@ -111,6 +129,12 @@ Concretely:
   readable through the traverse grant. `check` now weighs each entry the way the kernel does for
   a new file (named user, named group, the path's OWNING group, and `other`), and does not apply
   the mask, which caps named entries only.
+- **The journal baseline is first-write-wins, and stays that way.** A review reported that a
+  second `apply` could overwrite the recorded pre-provisioning state. That was a real hazard in
+  the fish version (`recorded_value` returned the LAST record); the state model here records
+  each resource once (`record_passwd`, `observe_member`, `record_owned` all `setdefault`, and
+  `created` is sticky). Pinned by `JournalBaselineTest` rather than left as a reading of the
+  code.
 - Two dependencies where there were none: `ansible-core` (pinned) and the `ansible.posix`
   collection. Both are installed by `mise install` and one `ansible-galaxy` command; both are
   pinned because the script that drives them runs as root.

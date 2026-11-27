@@ -570,6 +570,51 @@ class Context:
         if dev is not None and entry.uid == dev.uid:
             raise AgentAccountError(f"{agent} has the developer's uid {entry.uid} — it is the same identity")
 
+    def require_boundary(self) -> None:
+        """`run` re-checks the boundary it is about to rely on — at LAUNCH time.
+
+        `apply`'s result is not a fact that stays true. An administrator, or another
+        configuration tool, can add `agent` to `docker` a minute after provisioning;
+        `run` is the entry point every launcher is told to use, so it is where the
+        check has to happen. Without this, the prescribed way to start an agent
+        happily starts one with a root-equivalent group.
+
+        Everything here is a REFUSAL, not a fix: `run` has no root and must not try
+        to reconcile a boundary it did not provision.
+        """
+        agent = self.cfg.agent_user
+        entry = self.accounts.passwd(agent)
+        if entry is None:
+            raise AgentAccountError(f"no {agent} account — run '{SELF_NAME} apply' first")
+
+        # EVERY group, primary first: a primary `docker` is invisible in the group's
+        # member list and exactly as root-equivalent.
+        privileged = [g for g in self.accounts.groups_of(agent) if g in PRIVILEGED_GROUPS]
+        if privileged:
+            raise AgentAccountError(
+                f"{agent} is in {', '.join(privileged)} — root-equivalent or device-owning; "
+                f"run '{SELF_NAME} apply' to reconcile it"
+            )
+
+        # The home is where `run` points GRADLE_USER_HOME and ANDROID_USER_HOME: a
+        # home inside the developer's own would make the agent write the tree its
+        # next build reads.
+        problem = self.home_problem(entry.home)
+        if problem:
+            raise AgentAccountError(f"{agent}'s home is not its own: {problem}")
+
+        # And the account must hold no sudo rule of its own. `sudo -n -l -U` needs
+        # root to answer for ANOTHER user, so an unreadable answer is reported and
+        # not silently taken as clean — but it must not block a launch that the
+        # boundary otherwise permits, or `run` would need root to start an agent.
+        listing = self.runner.capture("sudo", "--non-interactive", "--list", f"--other-user={agent}")
+        if listing.rc == 0:
+            rules = parse_sudo_rules(listing.out)
+            if rules:
+                raise AgentAccountError(
+                    f"{agent} holds a sudo rule — it can leave its account: " + "; ".join(rules)
+                )
+
 
 # ---------------------------------------------------------------------------
 # ACL parsing — `getfacl` output as data, not as text to grep
@@ -654,6 +699,24 @@ def home_read_grant(
         if reaches and "r" in entry.perms:
             grants.append(str(entry))
     return grants
+
+
+def mask_covers(entries: Sequence[AclEntry], needed: str, is_dir: bool, default: bool = False) -> bool:
+    """Is our grant already inside the path's ACL mask?
+
+    When it is, `setfacl --no-mask` adds the entry and leaves the mask alone, so no
+    unrelated named entry changes effective permissions. When it is not (or there is
+    no mask at all), the mask has to grow and `--no-mask` would instead cap our own
+    entry to the group bits — measured: `user:agent:rw- #effective:r--`.
+
+    An entry with no mask is reported by `getfacl` with no `mask::` line; the owning
+    group's bits are then the effective ceiling for the group class.
+    """
+    found = find_entry(entries, AclSpec("mask", "", "rwx", default=default))
+    ceiling = found.perms if found is not None else None
+    if ceiling is None:
+        return False
+    return bits_cover(ceiling, needed, is_dir)
 
 
 def owner_group_of(path: Path) -> str | None:
@@ -1058,7 +1121,21 @@ def acl_grants(cfg: Config, ctx: Context, agent_home: str, *, state: str = "pres
     entry and the default entry — because `recursive` and `default` cannot be one
     declaration (see the playbook's note). Measured: the pair produces exactly what
     `setfacl --recursive --modify … --modify default:…` produces.
+
+    `preserve_mask` is asked per target, because `setfacl --modify` RECALCULATES the
+    mask and that escalates entries nobody asked about — measured on one file: an
+    unrelated `user:nobody:rwx` capped to `#effective:r--` by `mask::r--` became
+    fully effective the moment a group entry was added. Where a mask already covers
+    our grant, it is left alone.
     """
+    def covered(path: Path, needed: str, default: bool) -> bool:
+        entries = [
+            e
+            for e in parse_getfacl(ctx.runner.capture("getfacl", "--absolute-names", str(path)).out)
+            if e.default == default
+        ]
+        return mask_covers(entries, needed, path.is_dir(), default=default)
+
     grants: list[dict[str, object]] = [
         {
             "path": str(cfg.dev_home),
@@ -1082,6 +1159,7 @@ def acl_grants(cfg: Config, ctx: Context, agent_home: str, *, state: str = "pres
                     "permissions": "rX",
                     "recursive": True,
                     "default": default,
+                    "preserve_mask": covered(directory, "rX", default),
                     "state": state,
                 }
             )
@@ -1096,7 +1174,31 @@ def acl_grants(cfg: Config, ctx: Context, agent_home: str, *, state: str = "pres
                         "permissions": "rwX",
                         "recursive": True,
                         "default": default,
+                        "preserve_mask": covered(target, "rwX", default),
                         "state": state,
+                    }
+                )
+        # The shared git store is writable so the agent can commit — but NOT
+        # everywhere: `config` chooses `core.hooksPath` and other settings for every
+        # later git invocation, and `hooks/` holds programs git runs. A hook the agent
+        # writes executes as the DEVELOPER on their next git command, which is the
+        # escalation this whole boundary exists to prevent. Measured on this host:
+        # with `.git/config` at 0444 and `.git/hooks` at 0555, commit, branch and
+        # checkout all still work — the object store, refs, logs and the index are
+        # the only things git needs to write.
+        common = ctx.git.common_dir(root)
+        for denied in (common / "config", common / "hooks"):
+            if not denied.exists():
+                continue
+            for default in (False, True):
+                grants.append(
+                    {
+                        "path": str(denied),
+                        "entity": cfg.agent_group,
+                        "etype": "group",
+                        "default": default,
+                        "recursive": True,
+                        "state": "absent",
                     }
                 )
     return grants
@@ -1148,15 +1250,17 @@ class Provisioner:
             # the account cannot be asked what the grant would be. The plan says it
             # in the shell form the reader can check, like the memberships above.
             for grant in acl_grants(cfg, self.ctx, agent_home):
-                if not Path(str(grant["path"])).is_dir():
-                    continue
                 recurse = "--recursive " if grant["recursive"] else ""
                 # `default:` is a PREFIX of the entry, not a field after the entity.
                 default = "default:" if grant["default"] else ""
-                print(
-                    f"setfacl {recurse}--modify "
-                    f"{default}{grant['etype']}:{grant['entity']}:{grant['permissions']} {grant['path']}"
-                )
+                entity = f"{default}{grant['etype']}:{grant['entity']}"
+                if grant.get("state") == "absent":
+                    # The denial of the shared store's `config` and `hooks`: printed
+                    # too, because a plan that hides a removal is not the plan.
+                    print(f"setfacl {recurse}-x {entity} {grant['path']}")
+                    continue
+                mask = " --no-mask" if grant.get("preserve_mask") else ""
+                print(f"setfacl{mask} {recurse}--modify {entity}:{grant['permissions']} {grant['path']}")
         self.ctx.ansible.run(self._variables(agent_home, account, updates), check=cfg.dry_run)
         if cfg.dry_run:
             print("=== plan only; re-run without --dry-run as root to apply ===")
@@ -1595,6 +1699,30 @@ class Checker:
                 f"— a file {writer} writes lands unreachable"
             )
 
+    def check_denied(self, target: Path, grant: AclSpec) -> None:
+        """The entry must be ABSENT, access and default.
+
+        `config` picks `core.hooksPath` and every other setting for later git
+        invocations, and `hooks/` holds programs git runs as the DEVELOPER. A grant
+        on either is the privilege path back across the boundary this account exists
+        to create.
+        """
+        if not target.exists():
+            return
+        entries = self.read_acl(target)
+        live = [
+            str(entry)
+            for entry in entries
+            if (entry.tag, entry.qualifier) == (grant.tag, grant.qualifier) and "w" in entry.perms
+        ]
+        if live:
+            self.report.fail(
+                f"{target}: '{grant.tag}:{grant.qualifier}' can WRITE it ({', '.join(live)}) — "
+                "an agent that writes it can run code as the developer"
+            )
+        else:
+            self.report.ok(f"{target}: no write grant for '{grant.tag}:{grant.qualifier}'")
+
     def _acls(self) -> None:
         cfg, report = self.cfg, self.report
         agent, group = cfg.agent_user, cfg.agent_group
@@ -1636,7 +1764,12 @@ class Checker:
                 report.fail(f"{root} is not a git worktree")
                 continue
             self.check_grant(root, write, write.as_default(), "git")
-            self.check_grant(self.ctx.git.common_dir(root), write, write.as_default(), "git")
+            common = self.ctx.git.common_dir(root)
+            self.check_grant(common, write, write.as_default(), "git")
+            # And the two paths that must NOT be writable there. A plan that denies
+            # them and a check that never looks would certify the escalation.
+            self.check_denied(common / "config", AclSpec("group", group, "rwX"))
+            self.check_denied(common / "hooks", AclSpec("group", group, "rwX"))
 
     # -- behaviour ----------------------------------------------------------
 
@@ -2260,8 +2393,10 @@ def run(deps: Deps, command: tuple[str, ...],
     deps = _with_ansible(deps, ansible_playbook, ansible_collections)
     ctx = make_context(deps, roots=(), **identity)
     # The invariant belongs on the verb that EXECUTES, not only on the one that
-    # provisions: `run -- id` must not answer uid 0.
+    # provisions: `run -- id` must not answer uid 0 — and must not start an agent
+    # that acquired `docker` since `apply` ran.
     ctx.require_unprivileged_uid()
+    ctx.require_boundary()
     Launcher(ctx, os.environ, deps.execvp).run(command)
 
 

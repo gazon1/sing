@@ -20,6 +20,14 @@ live run is the human's step (§4). What *was* executed is the plan (`--dry-run`
 verdict (`check`) against an unprovisioned host, and the test suite in
 `scripts/tests/test_agent_account.py`.
 
+**The provisioning lifecycle is still unverified end to end**, and that is the largest known
+gap: no account has ever been created, rolled back and compared on a real host. Unit tests
+over the declaration and the journal do not establish that. The check that would close it is
+a disposable Fedora VM (or a container running systemd) running: `apply` → verify the real
+uid, groups, sudoers and ACLs → run `git` and Gradle as the agent and commit in a linked
+worktree → `rollback` → diff the account and ACL state against the captured original. Until
+that exists, treat a first `apply` as a change to be watched, not as a verified operation.
+
 ## The one-line answer
 
 `scripts/agent-account.py` creates a user `agent` (no password, real shell, in no
@@ -105,6 +113,16 @@ produced by the same code path that executes it.
 | each authorized worktree | `group:sing-dev:rwX` + default `rwX`, recursive | The sources, the build outputs, the worktree's `.git` file |
 | the worktree's common git dir | same grant, resolved per worktree | Objects and refs — **one** store shared by every worktree of the clone |
 | the clone's common `.git` | `group:sing-dev:rwX` + default `rwX`, recursive | Objects, refs, the index — a worktree an agent cannot commit in is not a worktree |
+| `.git/config` and `.git/hooks/` | **no grant at all** — the entry is removed, access and default | Written by git as the **developer**: `config` chooses `core.hooksPath` and every other setting for later invocations, and `hooks/` holds programs git runs. A grant there is code execution as the developer |
+
+**Why the shared `.git` grant stops at objects, refs and the index.** A recursive write grant
+on the whole store is not "the agent can commit", it is "the agent can change what git does
+next" — `core.hooksPath` in `config`, or a `pre-commit` in `hooks/`, both executed by the
+developer's own git commands. Measured on this host: with `.git/config` at `0444` and
+`.git/hooks` at `0555`, `commit`, `branch` and `checkout` all still work, so the denial costs
+the agent nothing it needs. `check` reports a write grant on either path as a FAIL; the
+underlying recommendation — a separate agent-owned clone with an explicit patch or commit
+transfer — is a design change, not a permission, and is not taken here.
 
 **Why a default ACL and not `setgid`.** `setgid` propagates the group to new files; it does
 not give the group a permission bit the umask would otherwise take away. `git` writes
@@ -112,6 +130,18 @@ not give the group a permission bit the umask would otherwise take away. `git` w
 the developer's umask decides. The default ACL is the entry that applies to whatever those
 tools create next, which is the requirement "agents can read/write their authorized
 worktrees, including multiple Git worktrees".
+
+**The mask is preserved where it already covers the grant.** `setfacl --modify` recalculates
+the ACL mask, and the mask constrains every named entry on the same inode — so adding the
+agent's entry can quietly RAISE permissions that have nothing to do with the agent. Measured
+on one file: an unrelated `user:nobody:rwx` capped to `#effective:r--` by `mask::r--` became
+fully effective the moment a group entry was added. `apply` therefore asks, per target,
+whether the existing mask already covers the entry it is about to write, and passes
+`recalculate_mask: no_mask` when it does. Where the mask cannot accommodate the grant it is
+allowed to grow — which is the opposite error, and worse: `--no-mask` there caps the agent's
+own entry (`user:agent:rw- #effective:r--`, measured) and the first build fails on a
+permission bug the reader has no way to diagnose. The snapshot is what makes either case
+reversible.
 
 **Why the common `.git` is granted, and what that means.** This clone has 74 worktrees and
 **one** object store, 2.8 GB. Granting the worktree alone would let an agent read its
@@ -128,6 +158,22 @@ and the alternative — a separate clone per agent — is exactly what #3239 put
 scripts/agent-account.py run -- ./gw :shared:compileKotlinJvm
 scripts/agent-account.py run -- bash -lc 'cd ~/work/wt && git status'
 ```
+
+**`run` re-checks the boundary at launch, and refuses instead of provisioning.** `apply`'s
+result is not a fact that stays true: an administrator or another configuration tool can add
+`agent` to `docker` a minute later, and `run` is the entry point every launcher is told to use.
+So before executing anything, `run` refuses when the account is:
+
+- in `wheel`, `docker` or `kvm` — **including as the primary group**, which is invisible in the
+  group's member list and exactly as root-equivalent;
+- pointed at a home that is the developer's (or `/`, or unreachable);
+- holding a sudo rule, when `sudo -n -l -U` can answer. Reading *another* user's rules needs
+  root, which `run` deliberately does not take, so an unreadable answer is reported rather than
+  treated as clean — and it does not block a launch the rest of the boundary permits;
+- absent entirely.
+
+Every one of these is a refusal, never a fix: `run` has no root and must not reconcile a
+boundary it did not provision. The message names `apply` as the verb that does.
 
 ### How it is started, and where the work is split
 

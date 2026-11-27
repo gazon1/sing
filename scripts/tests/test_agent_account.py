@@ -255,6 +255,12 @@ class Base(unittest.TestCase):
         self.wt.mkdir()
         self.common = self.tmp / 'wt' / '.git'
         self.common.mkdir()
+        # A real common git dir carries these; the denial below has to have
+        # something to deny, and `apply` skips what is not there.
+        (self.common / 'config').write_text('[core]\n', encoding='utf-8')
+        (self.common / 'hooks').mkdir()
+        (self.common / 'hooks' / 'pre-commit').write_text('#!/bin/sh\n', encoding='utf-8')
+        (self.common / 'objects').mkdir()
 
     def context(self, **kwargs):
         kwargs.setdefault('dev_home', self.home)
@@ -1107,6 +1113,230 @@ class ElevateTest(Base):
 # ---------------------------------------------------------------------------
 # run
 # ---------------------------------------------------------------------------
+
+
+class RunBoundaryTest(Base):
+    """`run` must not assume `apply`'s verdict still holds.
+
+    Every case here mutates the account AFTER provisioning, then asks the entry
+    point every launcher is told to use. Before this, `run` checked only "not root"
+    and "not the developer's uid", so a `docker` membership added a minute later
+    started an agent with a root-equivalent group.
+    """
+
+    def test_a_privileged_supplementary_group_refuses_to_start(self):
+        ctx = self.context()
+        ctx.accounts.groups['docker'] = aa.GroupEntry('docker', 969, (DEV, AGENT))
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            ctx.require_boundary()
+        self.assertIn('docker', str(caught.exception))
+        self.assertIn('root-equivalent', str(caught.exception))
+
+    def test_a_privileged_PRIMARY_group_refuses_to_start(self):
+        """Invisible in the group's member list, and exactly as root-equivalent."""
+        ctx = self.context()
+        ctx.accounts.users[AGENT] = aa.PasswdEntry(AGENT, 2001, 969, str(self.agent_home), '/bin/bash')
+        ctx.accounts.groups['docker'] = aa.GroupEntry('docker', 969, ())
+        self.assertEqual('docker', ctx.accounts.primary_group(AGENT))
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            ctx.require_boundary()
+        self.assertIn('docker', str(caught.exception))
+
+    def test_each_privileged_group_is_refused(self):
+        for group in ('wheel', 'docker', 'kvm'):
+            ctx = self.context()
+            ctx.accounts.groups[group] = aa.GroupEntry(group, 4000, (AGENT,))
+            with self.assertRaises(aa.AgentAccountError, msg=group):
+                ctx.require_boundary()
+
+    def test_a_sudo_rule_acquired_later_refuses_to_start(self):
+        ctx = self.context()
+        ctx.runner.responses = (
+            (('sudo',), aa.Result(0, 'User agent may run the following commands:\n    (ALL) NOPASSWD: ALL\n', '')),
+        )
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            ctx.require_boundary()
+        self.assertIn('sudo rule', str(caught.exception))
+
+    def test_an_unreadable_sudo_answer_does_not_block_a_clean_launch(self):
+        """Reading ANOTHER user's rules needs root; `run` needs none. A launch the
+        boundary otherwise permits must not start demanding a password."""
+        ctx = self.context()
+        ctx.runner.responses = ((('sudo',), aa.Result(1, '', 'a password is required')),)
+        ctx.require_boundary()  # must not raise
+
+    def test_a_home_inside_the_developers_home_refuses_to_start(self):
+        ctx = self.context(agent_home=str(self.home / 'agent'))
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            ctx.require_boundary()
+        self.assertIn('not its own', str(caught.exception))
+
+    def test_a_missing_account_refuses_to_start(self):
+        ctx = self.context(agent_exists=False)
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            ctx.require_boundary()
+        self.assertIn('apply', str(caught.exception))
+
+    def test_a_correct_account_starts(self):
+        ctx = self.context()
+        ctx.require_boundary()  # must not raise
+
+
+class SharedGitStoreTest(Base):
+    """Finding: a writable shared `.git` hands the agent a path to run code AS the
+    developer — `config` picks `core.hooksPath`, `hooks/` holds programs git runs.
+
+    Measured on this host: with `.git/config` at 0444 and `.git/hooks` at 0555,
+    commit, branch and checkout all still work, so the denial costs nothing.
+    """
+
+    def _grants(self, ctx):
+        return aa.acl_grants(ctx.cfg, ctx, str(self.agent_home))
+
+    def test_the_common_git_dir_is_granted_but_config_and_hooks_are_denied(self):
+        ctx = self.context(roots=(self.wt,))
+        grants = self._grants(ctx)
+        common = str(self.common)
+        self.assertIn((common, 'present'), [(g['path'], g.get('state')) for g in grants])
+        for denied in ('config', 'hooks'):
+            states = [g.get('state') for g in grants if g['path'] == f'{common}/{denied}']
+            self.assertTrue(states, f'{denied} must be declared at all')
+            self.assertEqual({'absent'}, set(states), f'{denied} must be DENIED, not granted')
+
+    def test_the_denial_covers_the_default_entry_too(self):
+        """Otherwise every hook created later inherits the grant again."""
+        ctx = self.context(roots=(self.wt,))
+        for default in (False, True):
+            found = [
+                g
+                for g in self._grants(ctx)
+                if g['path'] == f'{self.common}/hooks' and g['default'] is default
+            ]
+            self.assertEqual(1, len(found), f'default={default}')
+            self.assertEqual('absent', found[0]['state'])
+
+    def test_an_absent_config_or_hooks_is_skipped(self):
+        import shutil as sh
+
+        sh.rmtree(self.common / 'hooks', ignore_errors=True)
+        ctx = self.context(roots=(self.wt,))
+        self.assertNotIn(
+            f'{self.common}/hooks', [g['path'] for g in self._grants(ctx)]
+        )
+
+    def test_check_reports_a_writable_config(self):
+        ctx = self.context(roots=(self.wt,))
+        text = 'user::rw-\ngroup:sing-dev:rwx\nmask::rwx\nother::r--\n'
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, text)),)
+        checker = aa.Checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn('can WRITE it', out)
+        self.assertIn('run code as the developer', out)
+
+    def test_check_passes_when_config_carries_no_write_grant(self):
+        ctx = self.context(roots=(self.wt,))
+        text = 'user::rw-\ngroup::r--\nmask::r--\nother::r--\n'
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, text)),)
+        checker = aa.Checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn('no write grant', out)
+
+
+class MaskPreservationTest(Base):
+    """Finding: `setfacl --modify` recalculates the mask, which can ESCALATE entries
+    nobody asked about.
+
+    Measured on one file: an unrelated `user:nobody:rwx` capped to `#effective:r--`
+    by `mask::r--` became fully effective the moment a group entry was added.
+    """
+
+    def test_an_existing_mask_that_covers_the_grant_is_preserved(self):
+        """Access AND default: they are separate masks, and each is asked separately."""
+        ctx = self.context(roots=(self.wt,))
+        covering = (
+            'user::rwx\ngroup:sing-dev:rwx\nmask::rwx\nother::---\n'
+            'default:user::rwx\ndefault:group:sing-dev:rwx\ndefault:mask::rwx\ndefault:other::---\n'
+        )
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, covering)),)
+        grants = [g for g in aa.acl_grants(ctx.cfg, ctx, str(self.agent_home)) if g['path'] == str(self.wt)]
+        self.assertEqual(2, len(grants), 'access + default')
+        for grant in grants:
+            self.assertTrue(grant.get('preserve_mask'), f"mask already covers rwX: {grant}")
+
+    def test_a_default_entry_with_no_default_mask_lets_it_be_created(self):
+        """The access mask says nothing about the DEFAULT mask: they are separate."""
+        ctx = self.context(roots=(self.wt,))
+        access_only = 'user::rwx\ngroup:sing-dev:rwx\nmask::rwx\nother::---\n'
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, access_only)),)
+        grants = [g for g in aa.acl_grants(ctx.cfg, ctx, str(self.agent_home)) if g['path'] == str(self.wt)]
+        by_default = {g['default']: g for g in grants}
+        self.assertTrue(by_default[False].get('preserve_mask'), 'the access mask covers it')
+        self.assertFalse(by_default[True].get('preserve_mask'), 'there is no DEFAULT mask yet')
+
+    def test_a_mask_that_does_not_cover_the_grant_lets_it_grow(self):
+        """`--no-mask` there would CAP our own entry — measured:
+        `user:agent:rw- #effective:r--` under `mask::r--`."""
+        ctx = self.context(roots=(self.wt,))
+        narrow = 'user::rwx\ngroup:sing-dev:rwx\nmask::r--\nother::---\n'
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, narrow)),)
+        grants = [g for g in aa.acl_grants(ctx.cfg, ctx, str(self.agent_home)) if g['path'] == str(self.wt)]
+        for grant in grants:
+            self.assertFalse(grant.get('preserve_mask'), f"mask is too narrow, must grow: {grant}")
+
+    def test_no_mask_at_all_lets_it_be_created(self):
+        ctx = self.context(roots=(self.wt,))
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, 'user::rwx\ngroup::r-x\nother::r-x\n')),)
+        grants = [g for g in aa.acl_grants(ctx.cfg, ctx, str(self.agent_home)) if g['path'] == str(self.wt)]
+        for grant in grants:
+            self.assertFalse(grant.get('preserve_mask'))
+
+    def test_mask_covers_asks_the_bitwise_question(self):
+        entries = aa.parse_getfacl('mask::r-x\n')
+        self.assertTrue(aa.mask_covers(entries, 'rX', is_dir=True))
+        self.assertFalse(aa.mask_covers(entries, 'rwX', is_dir=True), 'no w in the mask')
+        self.assertFalse(aa.mask_covers(aa.parse_getfacl('user::rwx\n'), 'rX', is_dir=True), 'no mask line')
+
+
+class JournalBaselineTest(Base):
+    """Finding: repeated apply could overwrite the rollback baseline.
+
+    The report's examples assume "last recorded value wins". The state model is
+    first-write-wins in all three places, which is what makes the baseline the state
+    before the FIRST apply. These tests pin that, since the implementation is what
+    makes the finding not apply.
+    """
+
+    def test_the_password_state_is_recorded_once(self):
+        state = aa.State()
+        state.record_passwd('P')   # first apply: usable
+        state.record_passwd('L')   # second apply: the lock we just applied
+        self.assertEqual('P', state.passwd, 'rollback must restore the ORIGINAL state')
+
+    def test_a_membership_is_recorded_once(self):
+        state = aa.State()
+        state.observe_member(DEV, SEAM, False)  # before the first apply: not a member
+        state.observe_member(DEV, SEAM, True)   # after: the membership apply added
+        self.assertFalse(state.was_member(DEV, SEAM), 'rollback must remove what apply added')
+
+    def test_a_removed_group_is_recorded_once(self):
+        state = aa.State()
+        state.record_removed_group('docker', 969, False)
+        state.record_removed_group('docker', 969, False)
+        self.assertEqual(1, len(state.removed_groups))
+
+    def test_a_second_apply_writes_the_first_observation_and_not_the_second(self):
+        """End to end: the journal file keeps the baseline across two applies."""
+        ctx = self.context()
+        store = aa.StateStore(self.tmp / 'state')
+        self.quiet(aa.Provisioner(ctx, store).apply)
+        first = aa.State.from_json(store.path.read_text())
+        self.quiet(aa.Provisioner(ctx, store).apply)
+        second = aa.State.from_json(store.path.read_text())
+        self.assertEqual(first.passwd, second.passwd)
+        self.assertEqual(first.observed_members, second.observed_members)
+        self.assertEqual(first.owned, second.owned)
 
 
 class RunTest(Base):

@@ -210,6 +210,15 @@
         default: "{{ item.default | default(false) }}"
         recursive: "{{ item.recursive | default(false) }}"
         follow: false
+        # `--no-mask` when the caller says so, and the caller says so when a mask
+        # ALREADY covers our entry. Measured: `setfacl -m` recalculates the mask,
+        # and an unrelated named entry capped at `r--` by `mask::r--` silently
+        # became `rwx` the moment we added a group entry — a permission EXPANSION
+        # for someone who is not the agent, on files the agent is about to run
+        # against. With no mask present, `--no-mask` would instead cap OUR entry to
+        # the group bits (`user:agent:rw-` under `mask::r--`), so it must never be
+        # blanket.
+        recalculate_mask: "{{ 'no_mask' if item.preserve_mask | default(false) else 'default' }}"
         state: "{{ item.state | default('present') }}"
       loop: "{{ agent_acl_grants }}"
       when: not (ansible_check_mode and not (agent_user_exists | bool))
