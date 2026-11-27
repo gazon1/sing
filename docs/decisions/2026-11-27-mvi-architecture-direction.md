@@ -61,8 +61,13 @@ migration boundaries below are deliberately not executed.
 
 Adoption boundary:
 
-- No production FlowMVI dependency, no parallel production implementation, no new MVI Gradle
-  module, no published reusable framework. The spike remains disposable evidence.
+- No production FlowMVI dependency, no parallel production implementation, no published reusable
+  framework. The spike remains disposable evidence.
+- No new MVI Gradle module as part of adopting a framework or building a parallel runtime; the
+  existing in-repo MVI remains the architecture. The planned package extraction is a separate,
+  independently gated initiative — epic #3268, stages #3269–#3271, starting with an in-repository
+  KMP module and gated on independent consumer validation before any separate repository or
+  publication — and is not preempted or contradicted by this decision.
 
 ## Rationale
 
@@ -93,7 +98,9 @@ The decision is evidence-based, not preference-based.
 
 - Retain now; evolve by narrow, evidence-led changes over the existing seam (coordinators /
   slots / Reflex-style adapters already carry screen-specific coordination above the base class).
-- No production migration is executing, no ViewModel rewrite, no new MVI module.
+- No production migration is executing, no ViewModel rewrite, no new MVI module under this
+  direction; the separately gated package extraction (epic #3268, stages #3269–#3271) is a
+  distinct initiative.
 - Any future move toward a different framework requires a new ADR superseding this one, with the
   measured gates (Compose 1.12+ baseline, observable fatal-error handling, documented action
   delivery semantics) re-run first.
@@ -108,6 +115,7 @@ production feature shows maintenance/testability gains outweighing the wrapper a
 ## Links
 
 - Epic #3225; issues #3226–#3232, #3233, #3234, #3255–#3259; follow-ups #3265–#3267.
+- Package extraction (separate initiative): epic #3268, stages #3269–#3271.
 - ADRs: `2026-09-25-local-mvi-framework`, `2026-09-27-mvi-single-state-entry-and-vm-sweep`,
   `2026-11-18-reflex-adoption-strategy-mvi-adapter-evolution-migration`,
   `2026-11-26-mvi-state-is-observed-read-only`,
