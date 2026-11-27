@@ -601,6 +601,69 @@ class AclEntry:
         return f"{'default:' if self.default else ''}{self.tag}:{self.qualifier}:{self.perms}"
 
 
+def home_read_grant(
+    entries: Sequence[AclEntry],
+    agent: str,
+    agent_groups: Sequence[str] = (),
+    owner_group: str | None = None,
+) -> list[str]:
+    """Every entry by which `agent` would READ a file newly created in the home.
+
+    The home is deliberately traversable (`user:agent:--x`), so the question is not
+    "is there a named entry with an `r`" — that predicate was measured to pass a home
+    carrying `default:other::r--`, and that entry is a real read grant:
+
+        $ setfacl -d -m o::r .        # then, with umask 077, a new file
+        mode=644                       # instead of 600
+
+    In other words the default entry OVERRIDES the creator's umask, and everything
+    under the home is then reachable through the traverse grant. The same holds for
+    an unnamed entry reached by ownership or group (`user::r--`, `group::r--`,
+    `default:group::r--` when `agent` is in the owning group).
+
+    So the answer is computed the way the kernel computes it for a new file: which
+    entries apply to `agent`, and do they carry an `r`.
+
+    `owner_group` is the name of the group that OWNS the path. It is not optional in
+    spirit: `group::r--` applies to whichever group owns the directory, so passing
+    the agent's own group list here would report a grant the agent does not have.
+
+    The MASK is deliberately not applied. An ACL mask caps NAMED entries only;
+    `other` is never masked (measured: `o::r--` with `umask 077` yields a 0600 file
+    while `mask::r--` leaves a 0644 — the mask is not the mechanism), so a read
+    grant through `other` is real whatever the mask says.
+    """
+    grants: list[str] = []
+    for entry in entries:
+        if entry.tag == "other":
+            reaches = True
+        elif entry.tag == "group" and entry.qualifier == "":
+            # The OWNING group: it reaches the agent only if the agent is IN it.
+            reaches = owner_group is not None and owner_group in set(agent_groups)
+        elif entry.tag == "user" and entry.qualifier == "":
+            # The unnamed user entry is the file OWNER — the developer, never the
+            # agent, which owns nothing in this home.
+            reaches = False
+        elif entry.tag == "group":
+            # A NAMED group entry (`group:sing-dev:`) reaches the agent as a member.
+            reaches = entry.qualifier in set(agent_groups)
+        elif entry.tag == "user":
+            reaches = entry.qualifier == agent
+        else:
+            reaches = False
+        if reaches and "r" in entry.perms:
+            grants.append(str(entry))
+    return grants
+
+
+def owner_group_of(path: Path) -> str | None:
+    """The owning group's name, so `group::` entries can be weighed at all."""
+    try:
+        return grp.getgrgid(path.stat().st_gid).gr_name
+    except (OSError, KeyError):
+        return None
+
+
 @dataclass(frozen=True)
 class AclSpec:
     """A grant the check looks for, written the way `getfacl` prints it."""
@@ -1536,13 +1599,20 @@ class Checker:
         cfg, report = self.cfg, self.report
         agent, group = cfg.agent_user, cfg.agent_group
         self.check_grant(cfg.dev_home, AclSpec("user", agent, "--x"))
-        # BOTH kinds of entry: `default:user:agent:r--` on the home is a read grant
-        # on every file CREATED there later.
-        read_grants = [e for e in self.read_acl(cfg.dev_home) if e.named and e.perms.startswith("r")]
+        # What a NEW file in the home inherits, not a scan for named `r` entries:
+        # the named-only predicate was measured to pass a home carrying
+        # `default:other::r--`, which makes every file created there mode 644
+        # through the traverse grant. See `home_read_grant`.
+        read_grants = home_read_grant(
+            self.read_acl(cfg.dev_home),
+            agent,
+            self.accounts.groups_of(agent),
+            owner_group=owner_group_of(cfg.dev_home),
+        )
         if read_grants:
             report.fail(
-                f"{cfg.dev_home} carries a read grant; the home is meant to stay closed: "
-                + "; ".join(str(e) for e in read_grants)
+                f"{cfg.dev_home} lets {agent} read files created in it; the home is meant to stay "
+                "closed (the traverse grant only opens the path): " + "; ".join(read_grants)
             )
         else:
             report.ok(f"{cfg.dev_home} carries no read grant, access or default")

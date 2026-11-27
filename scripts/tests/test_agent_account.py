@@ -863,7 +863,63 @@ class CheckTest(Base):
         checker = self._checker(ctx)
         checker.report = aa.Report()
         _, out, _ = self.quiet(checker._acls)
-        self.assertIn('carries a read grant', out)
+        self.assertIn('lets agent read files created in it', out)
+
+    def test_a_default_other_read_grant_on_the_home_is_reported(self):
+        """Review finding: the named-entry scan passed `default:other::r--`.
+
+        Measured consequence, and why it is not academic: the default entry OVERRIDES
+        the creator's umask.
+
+            setfacl -d -m o::r .   ; (umask 077; touch f)  ->  f is 644
+                                       (umask 077; touch g)  ->  g is 600 elsewhere
+
+        Every file created under the home is then file-readable, and the traverse
+        grant makes it reachable by `agent`.
+        """
+        ctx = self.context()
+        ctx.runner.responses = (
+            (('getfacl',), aa.Result(0, 'user::rwx\nuser:agent:--x\ngroup::---\nother::---\ndefault:other::r--\n')),
+        )
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn('lets agent read files created in it', out)
+        self.assertIn('default:other::r--', out)
+
+    def test_an_owning_group_read_grant_reaches_the_agent_only_as_a_member(self):
+        """`group::r--` is the OWNING group: it is a read grant exactly when `agent`
+        is in that group, and silence otherwise."""
+        text = 'user::rwx\nuser:agent:--x\ngroup::r--\nother::---\n'
+        ctx = self.context()
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, text)),)
+        # The group that actually owns the fixture home decides the answer: it is
+        # whatever `stat` says, so the test asks instead of assuming.
+        owning = aa.owner_group_of(self.home)
+        self.assertIsNotNone(owning)
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn('carries no read grant', out, 'the agent is not in the owning group')
+
+        # Same ACL, but now the owning group IS one the agent belongs to.
+        ctx = self.context()
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, text)),)
+        ctx.accounts.groups[owning] = aa.GroupEntry(owning, self.home.stat().st_gid, ('devel', 'agent'))
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn('lets agent read files created in it', out, 'now the owning group reaches it')
+
+    def test_the_world_bits_are_read_even_though_an_acl_mask_is_set(self):
+        """A mask caps NAMED entries only; `other` is never masked (measured:
+        `o::r--` with umask 077 yields 0600 while `mask::r--` alone leaves 0644)."""
+        ctx = self.context()
+        ctx.runner.responses = ((('getfacl',), aa.Result(0, 'user::rwx\nuser:agent:--x\nmask::r--\nother::r--\n')),)
+        checker = self._checker(ctx)
+        checker.report = aa.Report()
+        _, out, _ = self.quiet(checker._acls)
+        self.assertIn('lets agent read files created in it', out)
 
     def test_the_traverse_grant_alone_is_not_a_read_grant(self):
         ctx = self.context()
@@ -939,6 +995,47 @@ class CheckTest(Base):
         _, out, _ = self.quiet(checker._behaviour_probes)
         self.assertIn('cannot list', out)
         self.assertIn('cannot traverse', out)
+
+    def test_the_0711_directory_with_a_readable_key_inside_fails(self):
+        """Review finding: the probe tested LISTING, not access to the files.
+
+        Reproduced against the real kernel, not a stub: `.ssh` at 0711 and `id_rsa`
+        at 0644. `other` gets traverse on the directory and read on the file, so the
+        agent can open the key by name while it cannot list the directory. A probe
+        that only asked `test -r` on the directory reported PASS here.
+        """
+        import shutil as sh
+
+        if sh.which('sudo') is None:
+            self.skipTest('no sudo to reach another uid')
+        secret = self.home / '.ssh'
+        secret.mkdir()
+        key = secret / 'id_rsa'
+        key.write_text('secret', encoding='utf-8')
+        secret.chmod(0o711)
+        key.chmod(0o644)
+
+        ctx = self.context()
+        checker = self._checker(ctx)
+        checker.transition_ok = True
+        checker.report = aa.Report()
+        # Answer the two questions the way the MODE actually makes them answer for a
+        # stranger: `other` has r on the file and x (no r) on the directory.
+        mode = secret.stat().st_mode & 0o777
+        key_mode = key.stat().st_mode & 0o777
+        self.assertEqual(0o711, mode, 'traverse without listing')
+        self.assertTrue(key_mode & 0o004, 'the key is world-readable')
+
+        checker.agent_can = lambda path, bits: (path == secret and bits == 'r' and False) or (
+            path == secret and bits == 'x' and True
+        ) or (path == key and bits == 'r' and True) or False
+        _, out, _ = self.quiet(checker._behaviour_probes)
+        self.assertIn('CAN traverse', out, 'traversal is the finding')
+        self.assertIn(f'CAN read {key}', out, 'and the key inside is what it reaches')
+        # And the listing answer is separate and stays a PASS: the directory's
+        # `other` bits are --x, so `test -r` on it is false. A probe that stopped
+        # there reported exactly that PASS while the key was readable.
+        self.assertIn(f'cannot list {secret}', out)
 
 
 # ---------------------------------------------------------------------------

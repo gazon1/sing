@@ -103,6 +103,14 @@ Concretely:
 
 ## Consequences
 
+- **The home read-grant verdict asks the kernel's question.** A review of the deleted fish
+  script found the audit passing a home carrying `default:other::r--`. It was real, and it
+  survived the port: the predicate listed NAMED entries with an `r`. Measured consequence — the
+  default block overrides the creator's umask, so `default:other::r--` plus `umask 077` yields a
+  0644 file where the same umask alone yields 0600, and everything under the home is then
+  readable through the traverse grant. `check` now weighs each entry the way the kernel does for
+  a new file (named user, named group, the path's OWNING group, and `other`), and does not apply
+  the mask, which caps named entries only.
 - Two dependencies where there were none: `ansible-core` (pinned) and the `ansible.posix`
   collection. Both are installed by `mise install` and one `ansible-galaxy` command; both are
   pinned because the script that drives them runs as root.

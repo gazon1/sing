@@ -396,8 +396,11 @@ read-only mount all defeat a perfectly correct ACL, and none of them appears in 
   agent could not walk into;
 - `test -w` **and** `test -x` on each authorized worktree, for the same reason — write without
   traverse cannot create a file inside it;
-- `test -r` on `~/.ssh` and `~/.gnupg` — **must** fail, and this is what makes the `--x` traverse
-  grant's cost concrete rather than theoretical;
+- on `~/.ssh` and `~/.gnupg`, **three** questions, because they have different answers: `test -r`
+  on the directory (can it LIST), `test -x` on the directory (can it TRAVERSE), and `test -r` on
+  every file inside (can it OPEN one). A mode-0711 `.ssh` answers the first with "no" and the
+  second with "yes", and a mode-0644 `id_rsa` inside is then readable by name — a probe that
+  stopped at the directory's `test -r` reported PASS while the key was exposed (measured);
 - `sudo -n true` and `docker ps` — **must** fail; and `test -w /dev/kvm`, which is #3240's
   boundary, so it is a NOTE today and a FAIL the moment it opens.
 
@@ -405,15 +408,26 @@ Every *negative* probe is gated on the transition itself having worked. An agent
 nothing at all also "cannot run sudo", and reporting that as a clean boundary would describe a
 wall as a door — so when the transition is broken the probes say `NOTE unverified` instead.
 
-The "no read grant on the home" verdict covers **default** entries too. A `default:user:agent:r--`
-on `$HOME` hands read access to every file created there later, and a pattern anchored on
-`^(user|group):` cannot match it — the check passed while the default ACL was handing one out
-(measured). Both kinds are inspected, for named users and groups.
+The "no read grant on the home" verdict answers the question the kernel asks for a **newly
+created file**, not "is there a named entry with an `r`". The weaker predicate was wrong twice
+over:
 
-`check` reads the **effective** permission, not the raw entry: an ACL mask constrains every
-named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only worktree and is reported
-as such. `X` is compared the way `chmod` defines it — execute on a **directory**, read on a
-regular file — because "read or execute" told a directory with effective `rw-` that it satisfied
+- it covered named default entries and missed `default:other::r--`. That entry is a real read
+  grant, and the default block **overrides the creator's umask** — measured: with
+  `default:other::r--`, `(umask 077; touch f)` produces a mode-0644 `f`, where the same umask
+  without the entry produces 0600. Every file created under the home is then readable, and the
+  traverse grant makes it reachable;
+- it ignored the unnamed entries reached by ownership and group (`group::r--` when the agent is
+  in the group that owns the home).
+
+So `check` weighs each entry the way the kernel would, and the mask is deliberately *not*
+applied: a mask caps named entries only, and `other` is never masked (measured: `o::r--` with
+`umask 077` yields 0600 while `mask::r--` alone leaves 0644 — the mask is not the mechanism).
+
+`check` reads the **effective** permission, not the raw entry, for the grants it *looks for*: an
+ACL mask constrains every named entry, so a `group:sing-dev:rwx` under `mask::r-x` is a read-only
+worktree and is reported as such. `X` is compared the way `chmod` defines it — execute on a
+**directory**, read on a regular file — because "read or execute" told a directory with effective `rw-` that it satisfied
 `rwX`, and a directory without execute cannot be traversed at all. It compares the effective bits
 against the bits the grant asks for, entry by entry —
 a check that grepped for the word "read" called a mask of `-wx` (read denied) healthy. The entry
