@@ -68,6 +68,10 @@ class TaskEntitySlot(
      * the slot's scope — the second reads the set the first is about to replace, and one
      * of the two edits is lost with a reported success.
      *
+     * The lock is this slot's, so it orders the tag writes of one slot on one screen.
+     * Another screen's slot holds its own, and nothing here synchronises the two: a shared
+     * owner across ViewModels is tracked in #3280.
+     *
      * [setTags][TaskDetailIntent.Domain.SetTags] deliberately stays outside: it carries the
      * user's complete tag selection, not a delta, so it has nothing to lose to a concurrent
      * read. Serialising it would only queue a write that already states its whole result.

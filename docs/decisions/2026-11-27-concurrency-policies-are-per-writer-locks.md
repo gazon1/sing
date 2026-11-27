@@ -71,9 +71,17 @@ stays outside. A confirm racing the bulk confirm is two additive plans against o
 
 ## Consequences
 
-- `UpdateTaskUseCase` is bound as a `factory`, so the lock is per-ViewModel-instance,
-  which is the sharing the defect needs. Two screens editing the same task still race;
-  that is the cross-device problem, not a local ordering one.
+**The boundary is one instance, and that is narrower than it looks.** `UpdateTaskUseCase`,
+`TaskEntitySlot` and `ProposalDispatch` are all bound as `factory`, so every injection point
+gets its own `Mutex`. The lock orders the writes of one ViewModel. It does **not** order two
+ViewModels against each other, and that is not only a cross-device concern: two ViewModels
+live in one process each holding their own `UpdateTaskUseCase`, so their `Mutex`es are
+different objects. Two screens editing one task can still lose an update locally.
+
+- Inter-ViewModel synchronisation is a **known limitation**, not a solved problem. A local
+  `Mutex` cannot fix it — it would need the same instance at every call site, which is a DI
+  lifetime decision rather than a local one. Tracked in #3280, which is to decide whether a
+  shared owner belongs in the MVI runtime or in core/domain infrastructure.
 - Series writes go through `UpdateTaskSeriesUseCase`, a separate instance with its own
   lock. A series edit can still race a single-occurrence edit of the same row. Recorded
   as a `shortcut:` in `UpdateTask.kt`; the upgrade is the optimistic version column that
@@ -81,11 +89,13 @@ stays outside. A confirm racing the bulk confirm is two additive plans against o
 - No synchronization was added for uniformity: `SetTags`, `SetTaskTags`, and the
   `flatMapLatest` readers stay lock-free.
 - Regression tests hold one write open with a `CompletableDeferred` and assert the second
-  waits, so they fail if the lock is removed. No sleeps.
+  waits, so they fail if the lock is removed. No sleeps. One per fixed site:
+  `UpdateTaskUseCaseTest`, `TaskEntitySlotTagRaceTest`, `ProposalDispatchTagRaceTest`.
 
 ## Links
 
 - #3225 — the epic this belongs to
 - #3235 — the MVI direction this follows
+- #3280 — the open question this ADR deliberately leaves: who owns a lock shared across ViewModels
 - `2026-11-26-the-draft-keeps-one-value-and-one-snapshot.md` — the Draft policies this mirrors
 - `2026-09-27-write-layer-soundness.md` — the deferred version-column answer

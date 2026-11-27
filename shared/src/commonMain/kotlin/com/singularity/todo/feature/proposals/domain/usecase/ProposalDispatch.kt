@@ -102,6 +102,10 @@ class ProposalDispatch(
      * set that existed before either wrote, and the second write drops the first one's tags
      * while reporting success to the person who confirmed it.
      *
+     * The lock is this dispatch instance's. DI binds the class as a `factory`, so a second
+     * ViewModel — or the task detail's own tag writes — holds a different lock and is not
+     * ordered against this one. A shared owner across ViewModels is tracked in #3280.
+     *
      * [ProposalPlan.SetTaskTags] stays outside: it names the complete set the task should
      * carry, so a concurrent read cannot lose anything it owns.
      */

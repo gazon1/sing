@@ -28,16 +28,29 @@ import kotlin.time.Clock
  * the read and the write is still overwritten whole, which is the version-column problem
  * `2026-09-27-write-layer-soundness.md` records as deferred.
  *
- * ## What the lock covers
+ * ## What the lock covers — and what it does not
  *
- * The instance. DI binds this class as a `factory`, so one ViewModel gets one instance and
- * every write that screen makes to a task takes turns — which is the sharing the defect
- * needs. Two screens editing the same task still race; that is a cross-device problem, not
- * a local ordering one.
+ * **The instance, and nothing else.** DI binds this class as a `factory`, so every injection
+ * point receives its own instance with its own `Mutex`. One ViewModel's writes to a task
+ * therefore take turns, which is the sharing the defect above needs. Two ViewModels do
+ * **not** synchronise with each other, even in the same process: the task detail and, say,
+ * a project screen each hold a different `UpdateTaskUseCase`, so their `Mutex`es are
+ * different objects and protect nothing against one another. Two live instances editing one
+ * task can still lose an update in a single process — this is not only a cross-device
+ * problem.
  *
- * shortcut: series writes go through `UpdateTaskSeriesUseCase`, which is a separate
- * instance and its own lock — a series edit can still race a single-occurrence edit of the
- * same row. Upgrade to a version column on the task when a series edit is observed losing.
+ * That gap is deliberate here rather than solved: widening the boundary means a lock owner
+ * with a longer lifetime than a ViewModel, which is a DI and architecture decision, not a
+ * local one. It is recorded as known limitation and tracked in #3280. Whatever solves it,
+ * a local `Mutex` cannot: it would need the same instance at every call site.
+ *
+ * The lock also does not make a write optimistic — a row edited on another device between
+ * the read and the write is still overwritten whole, which is the version-column problem
+ * `2026-09-27-write-layer-soundness.md` records as deferred.
+ *
+ * shortcut: the boundary is one use-case instance, so separate ViewModels are unsynchronised;
+ * upgrade when a shared owner is decided in #3280. Series writes are a second instance
+ * (`UpdateTaskSeriesUseCase`), so they can still race an occurrence edit of the same row.
  */
 class UpdateTaskUseCase(private val repo: TaskRepository, private val clock: Clock) {
     /** Serialises the read-then-write of [invoke]. */
