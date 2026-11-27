@@ -37,11 +37,14 @@ class MyViewModel(
     // was given. A second call gives one resource two owners; `VmCloseable` reports it.
 
     init {
+        // `scope` is a constructor parameter: readable here, not in member functions.
         scope.launch { /* populate state via updateState */ }
     }
 
     override fun onIntent(intent: MyIntent) {
-        when (intent) { ... }
+        when (intent) {
+            is MyIntent.Delete -> vmScope.launch { /* vmScope = the base's protected alias */ }
+        }
     }
 }
 ```
@@ -56,8 +59,12 @@ Key properties:
 6. **`scope` has no no-arg default** — `AutoCloseableCoroutineScope` takes a
    `CoroutineContext`. Production writes `reportingScope(crashReporter)`; a test passes
    `testScope(this)`. `singularity-todo-testable-vm` has the contract.
-7. **`sharingStarted: () -> SharingStarted` — remove entirely** (was only needed for `stateIn`).
-8. **DI binding uses explicit `viewModel { MyViewModel(...) }`** — never `viewModelOf` for VMs with complex ctors.
+7. **`scope` in `init`, `vmScope` in member functions** — `scope` is a constructor
+   parameter, so `scope.launch { }` inside `onIntent` does not compile ("Unresolved
+   reference 'scope'"). `MviViewModel` publishes the same object as the protected
+   `vmScope`; use that. Do not add `private val scope = scope` to work around it.
+8. **`sharingStarted: () -> SharingStarted` — remove entirely** (was only needed for `stateIn`).
+9. **DI binding uses explicit `viewModel { MyViewModel(...) }`** — never `viewModelOf` for VMs with complex ctors.
 
 ---
 
@@ -150,10 +157,10 @@ _state.value = MyUiState.Content(items)
 // Before
 fun processIntent(intent: MyIntent) = scope.launch { ... }
 
-// After
+// After — `vmScope`, not `scope`: the constructor parameter is not visible here
 override fun onIntent(intent: MyIntent) {
     when (intent) {
-        is MyIntent.Delete -> scope.launch { ... }
+        is MyIntent.Delete -> vmScope.launch { ... }
     }
 }
 ```

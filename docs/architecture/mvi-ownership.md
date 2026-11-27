@@ -39,6 +39,13 @@ Same contract on Android and JVM Desktop: `AutoCloseableCoroutineScope` is `comm
 targets. A scope built without a `Job` closes as a no-op rather than throwing inside
 `onCleared()`.
 
+**Where the scope is readable.** `scope` is a constructor parameter, not a property: it is
+visible in `init` blocks and property initializers, and nowhere else. `MviViewModel` exposes
+the same object as the protected `vmScope`, which is what a member function uses —
+`scope.launch { }` inside `onIntent` does not compile (`Unresolved reference 'scope'`).
+Declaring `private val scope = scope` to work around that adds the second property the
+`VmCloseable` rule is there to prevent.
+
 **Duplicate registration was the one real defect, and it is fixed.** Six subclasses
 (`AiUsageViewModel`, `ArchiveViewModel`, `BackupViewModel`, `StatisticsViewModel`,
 `TagGroupsViewModel`, `TaskDetailCoordinator`) called `addCloseable(scope)` in their own

@@ -44,7 +44,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-draft-restoration` | 428 | How to implement State Restoration for any form or editor screen in Singularity Todo. |
 | `singularity-todo-dsl-pattern` | 225 | Kotlin DSL patterns used in this project. |
 | `singularity-todo-emulator-launch` | 212 | Launch and recover the Android emulator on this dev host. |
-| `singularity-todo-feature-scaffold` | 460 | Feature scaffold pattern for the Singularity Todo KMP app. |
+| `singularity-todo-feature-scaffold` | 463 | Feature scaffold pattern for the Singularity Todo KMP app. |
 | `singularity-todo-genui-catalog` | 195 | How to add, change or remove a component in the GenUI catalog — the one declaration that generates the prompt, the validator and the JSON Schema, plus the renderer that must agree with it. |
 | `singularity-todo-headless-screen-inspection` | 373 | Drive a real app screen headlessly to inspect state, discover actions, invoke one, and verify the result — for implementation and for PR review. |
 | `singularity-todo-inline-edit-saved-feedback` | 243 | Debounced inline-edit pattern for document-style detail screens. |
@@ -62,7 +62,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-monthly-doc-audit` | 113 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |
 | `singularity-todo-multi-profile` | 423 | Namespace-based multi-profile pattern for Singularity Todo KMP. |
 | `singularity-todo-multi-select` | 327 | Long-press multi-selection pattern for Compose Multiplatform list screens. |
-| `singularity-todo-mvi-framework` | 325 | Local MVI framework for Singularity Todo KMP. |
+| `singularity-todo-mvi-framework` | 361 | Local MVI framework for Singularity Todo KMP. |
 | `singularity-todo-nav3-decorators` | 68 | Nav3 entry decorators — ViewModelStore vs SaveableStateHolder scoping. |
 | `singularity-todo-nav3-nested-graphs` | 493 | Full architecture of Nav3 two-level nested navigation in this KMP project: the common *NavGraph pattern with three platform seams (rememberAppNavBackStack, SystemBackHandler, rememberAppEntryDecorators), sealed Route hierarchies, Local*Navigator providers, per-feature entry contributors, and how the outer shell integrates nested graphs. |
 | `singularity-todo-nav3-savedstate` | 153 | Nav3 back stack persistence in this KMP project. |
@@ -90,14 +90,14 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-test-flaky-prevention` | 303 | Rules to prevent test flakiness in the Singularity Todo project. |
 | `singularity-todo-test-helpers` | 382 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 273 | Decide which JUnit tag a test class carries, and how the fast/slow split is applied in Gradle, CI and local runs. |
-| `singularity-todo-testable-vm` | 482 | Testable ViewModel pattern for Singularity Todo KMP app. |
+| `singularity-todo-testable-vm` | 490 | Testable ViewModel pattern for Singularity Todo KMP app. |
 | `singularity-todo-text-field-states` | 313 | How to add or change a text field in Singularity Todo. |
 | `singularity-todo-top-bar-entry` | 158 | Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). |
 | `singularity-todo-ui-event-vs-state` | 69 | How to model one-shot UI events, routing state and continuous state separately in Singularity Todo ViewModels. |
 | `singularity-todo-unwired-surface-audit` | 113 | Find code that is fully implemented but wired to nothing — a screen no graph composes, a callback whose empty default defeats its own fallback, a DAO no Koin module binds, a UI affordance with no control. |
 | `singularity-todo-vm-intent-pattern` | 294 | The house ViewModel pattern for this project: sealed Intent + single onIntent dispatcher, routing vs domain intent separation, _latestTask cache, and when to use (or skip) a pure reducer. |
 | `singularity-todo-vm-lifecycle-addcloseable` | 234 | Migrate a ViewModel from manual 'override fun onCleared() { scope.cancel() }' to AutoCloseableCoroutineScope + ViewModel.addCloseable() (lifecycle 2.8+). |
-| `singularity-todo-vm-migration-playbook` | 376 | Step-by-step playbook for migrating an existing ViewModel from stateIn/combine/scopeOverride to the canonical scope-as-default-param pattern. |
+| `singularity-todo-vm-migration-playbook` | 383 | Step-by-step playbook for migrating an existing ViewModel from stateIn/combine/scopeOverride to the canonical scope-as-default-param pattern. |
 | `singularity-todo-vm-pattern-overview` | 80 | Router skill — index to all ViewModel-related skills. |
 | `singularity-todo-workflow-evals` | 103 | Run workflow evals to measure agent quality — run tasks, compare against baseline, report results. |
 | `singularity-todo-worktree-isolation` | 148 | Run a refactor in an isolated git worktree so the main checkout stays clean and parallel work is unaffected. |

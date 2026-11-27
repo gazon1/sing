@@ -30,9 +30,11 @@ This skill documents the **canonical testable pattern** including the MviViewMod
 ```kotlin
 class TagsViewModel(
     private val tagRepo: TagsRepository,
-    private val scope: AutoCloseableCoroutineScope,  // no default — see below
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),  // no bare default — see below
 ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
     initialState = TagsUiState.Loading,
+    crashReporter = crashReporter,
     scope = scope,
 ) {
 
@@ -52,7 +54,9 @@ class TagsViewModel(
 
     override fun onIntent(intent: TagsIntent) {
         when (intent) {
-            is TagsIntent.Delete -> scope.launch { delete(intent.id) }
+            // `scope` is a constructor parameter, invisible here; `vmScope` is the base's
+            // protected alias for the same object.
+            is TagsIntent.Delete -> vmScope.launch { delete(intent.id) }
         }
     }
 
@@ -64,12 +68,16 @@ class TagsViewModel(
 
 **Key properties:**
 
-1. **`scope` is LAST** — `VmScopePosition` detekt rule; the base class takes it as a parameter
+1. **`scope` is LAST and is not a property** — `VmScopePosition` detekt rule; the base class
+   takes it as a parameter. Read it in `init` and property initializers; call
+   `vmScope.launch { }` from member functions, because a bare constructor parameter is not
+   visible there.
 2. **No `addCloseable(scope)`** — MviViewModel's initializer already registers that scope. A
    second call in the subclass gives one resource two owners, and `VmCloseable` reports it.
    Only a plain `androidx.lifecycle.ViewModel` needs its own `init { addCloseable(scope) }`.
 3. **No manual `_state` or `_events`** — MviViewModel provides them
-4. **`emit()` is protected suspend fun** — wrap in `scope.launch {}` when calling from non-suspend context
+4. **`emit()` is protected suspend fun** — wrap it in `vmScope.launch {}` inside a member
+   function (or `scope.launch {}` inside `init`) when calling from non-suspend context
 5. **`updateState(transform: (S) → S)`** is not suspend, but it belongs to the VM's own code
    path (`onIntent`, a collector, `catchTo`) — never a Composable
 

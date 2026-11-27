@@ -66,6 +66,8 @@ class TagsViewModel(
     // No addCloseable(scope) here: MviViewModel's initializer already registers the
     // scope it was given, so a second call states two owners for one resource.
     init {
+        // `scope` is a constructor parameter, so it is reachable here — in a property
+        // initializer or an init block — and nowhere else.
         scope.launch {
             tagRepo.observeAll()
                 .catch { updateState { TagsUiState.Error(it.message ?: "Error") } }
@@ -77,11 +79,13 @@ class TagsViewModel(
 
     override fun onIntent(intent: TagsIntent) {
         when (intent) {
-            is TagsIntent.Delete -> scope.launch { delete(intent.id) }
+            // In a member function the constructor parameter is out of scope; the base
+            // class publishes the same object as the protected `vmScope`.
+            is TagsIntent.Delete -> vmScope.launch { delete(intent.id) }
         }
     }
 
-    fun delete(id: TagId) = scope.launch {
+    fun delete(id: TagId) = vmScope.launch {
         tagRepo.delete(id).onFailure { emit(TagsUiEvent.ShowError(it.message ?: "Error")) }
     }
 }
@@ -124,6 +128,38 @@ Parameters:
 - `tryEmit(event: E): Boolean` — non-suspend emit (returns false if buffer full)
 - `updateState(transform: (S) → S)` — update state with transform function
 - `onIntent(intent: I)` — abstract; override to dispatch intents
+
+**Protected:**
+
+- `vmScope: AutoCloseableCoroutineScope` — the same scope the constructor was given
+
+### `scope` in an init block, `vmScope` in a member function
+
+`scope` is a **constructor parameter, not a property**. Kotlin lets an `init` block and
+property initializers read it; a member function cannot, and `scope.launch { … }` inside
+`onIntent` fails with `Unresolved reference 'scope'`.
+
+| Where | What to write |
+|---|---|
+| `init { … }`, property initializer | `scope.launch { … }` |
+| `onIntent`, any other member function | `vmScope.launch { … }` |
+
+`vmScope` is the base class's protected alias for the same object, so this adds no second
+scope and no extra property to the subclass. Do **not** "fix" the error by declaring
+`private val scope = scope` — that is the duplicate property the `VmScopePosition` and
+`VmCloseable` rules exist to keep out.
+
+```kotlin
+) : MviViewModel<UiState, Intent, Event>(initialState = UiState.Loading, scope = scope) {
+    init { scope.launch { … } }                 // constructor parameter is in scope
+
+    override fun onIntent(intent: Intent) {
+        when (intent) {
+            is Intent.Delete -> vmScope.launch { … }   // member function: use vmScope
+        }
+    }
+}
+```
 
 ### State is observed read-only
 
