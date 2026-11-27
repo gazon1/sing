@@ -118,9 +118,14 @@ Concretely:
   `recalculate_mask: no_mask` per target when the existing mask already covers its entry, and
   lets the mask grow where it does not — the alternative (`--no-mask` unconditionally) caps
   the agent's own entry to the group bits.
-- **`run` re-checks the boundary at launch.** `apply`'s result is not permanent; `run` refuses
-  an account in a privileged group (primary included), a home that is not its own, or a sudo
-  rule, instead of starting an agent the boundary no longer holds for.
+- **`run` re-checks the boundary at launch, and asks sudo as a BEHAVIOUR.** `apply`'s result is
+  not permanent; `run` refuses an account in a privileged group (primary included), a home that
+  is not its own, or one that can run sudo. The first version of this check read
+  `sudo -n -l -U agent` and continued when it failed — which is what happens for a non-root
+  caller, so an administrator who granted `agent ALL=(ALL) NOPASSWD: ALL` after provisioning
+  produced an agent `run` started happily. An unreadable listing is not evidence of safety:
+  `run` now execs `sudo -n true` as the agent, which is the property itself and needs no root,
+  and refuses when neither question can be answered.
 - **The home read-grant verdict asks the kernel's question.** A review of the deleted fish
   script found the audit passing a home carrying `default:other::r--`. It was real, and it
   survived the port: the predicate listed NAMED entries with an `r`. Measured consequence — the

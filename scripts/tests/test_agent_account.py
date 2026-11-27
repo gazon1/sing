@@ -1223,12 +1223,49 @@ class RunBoundaryTest(Base):
             ctx.require_boundary()
         self.assertIn('sudo rule', str(caught.exception))
 
-    def test_an_unreadable_sudo_answer_does_not_block_a_clean_launch(self):
-        """Reading ANOTHER user's rules needs root; `run` needs none. A launch the
-        boundary otherwise permits must not start demanding a password."""
+    def test_sudo_acquired_after_provisioning_refuses_to_start(self):
+        """P1: an unreadable `sudo -l -U` must not be read as "the account is clean".
+
+        Reproduces the reported sequence: apply provisions correctly, an
+        administrator then grants `agent ALL=(ALL) NOPASSWD: ALL`, and the caller of
+        `run` is not root — so the listing fails. The old code continued on that
+        failure and started an agent that can become root.
+        """
+        ctx = self.context()
+
+        def sudo(argv, input_text, capture, _argv=tuple()):
+            if '--list' in argv:
+                return aa.Result(1, '', 'sudo: a password is required')
+            # The behavioural question: `sudo -n true` AS the agent succeeds.
+            if argv[-3:] == ['/usr/bin/sudo', '-n', 'true']:
+                return aa.Result(0, '', '')
+            return aa.Result(0, '2001\n', '')
+
+        ctx.runner._exec = sudo
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            ctx.require_boundary()
+        self.assertIn('CAN run sudo', str(caught.exception))
+
+    def test_clean_agent_with_an_unreadable_listing_starts(self):
+        """"Cannot inspect" must not mean "refuse a host that is fine": the
+        behavioural probe answers instead, and it needs no root."""
+        ctx = self.context()
+        ctx.runner.responses = (
+            (('sudo', '--non-interactive', '--list'), aa.Result(1, '', 'a password is required')),
+            (('sudo', '--non-interactive', '--user=agent', '--', '/usr/bin/env', '-i'), aa.Result(1, '', '')),
+            (('sudo', '--non-interactive', '--user=agent', '--', '/usr/bin/env', 'id'), aa.Result(0, '2001\n', '')),
+        )
+        ctx.require_boundary()  # must not raise
+
+    def test_a_broken_transition_refuses_instead_of_assuming_clean(self):
+        """Neither question could be answered: the listing failed AND the account is
+        unreachable. Refusing is the only answer that is not a guess."""
         ctx = self.context()
         ctx.runner.responses = ((('sudo',), aa.Result(1, '', 'a password is required')),)
-        ctx.require_boundary()  # must not raise
+        with self.assertRaises(aa.AgentAccountError) as caught:
+            ctx.require_boundary()
+        self.assertIn('cannot verify', str(caught.exception))
+        self.assertIn('check', str(caught.exception))
 
     def test_a_home_inside_the_developers_home_refuses_to_start(self):
         ctx = self.context(agent_home=str(self.home / 'agent'))
@@ -1244,6 +1281,12 @@ class RunBoundaryTest(Base):
 
     def test_a_correct_account_starts(self):
         ctx = self.context()
+        # A clean host: the agent cannot sudo, and the transition works.
+        ctx.runner.responses = (
+            (('sudo', '--non-interactive', '--list'), aa.Result(1, '', 'a password is required')),
+            (('sudo', '--non-interactive', '--user=agent', '--', '/usr/bin/env', '-i'), aa.Result(1, '', '')),
+            (('sudo', '--non-interactive', '--user=agent', '--', '/usr/bin/env', 'id'), aa.Result(0, '2001\n', '')),
+        )
         ctx.require_boundary()  # must not raise
 
 

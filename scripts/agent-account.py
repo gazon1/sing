@@ -603,10 +603,21 @@ class Context:
         if problem:
             raise AgentAccountError(f"{agent}'s home is not its own: {problem}")
 
-        # And the account must hold no sudo rule of its own. `sudo -n -l -U` needs
-        # root to answer for ANOTHER user, so an unreadable answer is reported and
-        # not silently taken as clean — but it must not block a launch that the
-        # boundary otherwise permits, or `run` would need root to start an agent.
+        # And the account must not be able to use sudo. Two questions, because either
+        # alone has a hole:
+        #
+        # 1. What the RULES say: `sudo -n -l -U`. Reading another user's rules needs
+        #    root, and the caller of `run` is not root, so this usually cannot answer.
+        #    It stays as the cheap path when it can.
+        # 2. Whether it actually WORKS: exec a non-interactive `sudo` AS the agent.
+        #    That is the property itself, and it needs no root to ask. It is also the
+        #    only check that cannot be defeated by a rule the listing would not show.
+        #
+        # An unreadable listing is NOT evidence of safety — an earlier version of this
+        # function continued on it, so an administrator who added
+        # `agent ALL=(ALL) NOPASSWD: ALL` after provisioning produced an agent that
+        # `run` started happily, because the listing failed for lack of root.
+        rules_verified = False
         listing = self.runner.capture("sudo", "--non-interactive", "--list", f"--other-user={agent}")
         if listing.rc == 0:
             rules = parse_sudo_rules(listing.out)
@@ -614,6 +625,33 @@ class Context:
                 raise AgentAccountError(
                     f"{agent} holds a sudo rule — it can leave its account: " + "; ".join(rules)
                 )
+            rules_verified = True
+
+        # The sudo is named by ABSOLUTE PATH and the PATH is set explicitly: `env
+        # sudo` would resolve through the agent's PATH, where mise puts shims, and a
+        # rule scoped to `/usr/bin/sudo` would then be probed through a different
+        # binary. This asks the question the launcher's own argv asks.
+        probe = self.runner.capture(
+            "sudo", "--non-interactive", f"--user={agent}", "--",
+            SUDO_COMMAND, "-i", "PATH=/usr/local/bin:/usr/bin:/bin", "/usr/bin/sudo", "-n", "true",
+        )
+        if probe.rc == 0:
+            raise AgentAccountError(f"{agent} CAN run sudo — it can leave its account")
+
+        # A refusal from the probe means one of two things and they are not the same:
+        # the agent cannot sudo (good), or the transition itself is broken (unknown).
+        # The transition is the same invocation `run` is about to make, so re-ask it:
+        # if a plain command does run, the sudo refusal above was a real answer.
+        transition = self.runner.capture(
+            "sudo", "--non-interactive", f"--user={agent}", "--", SUDO_COMMAND, "id", "-u"
+        )
+        if transition.rc != 0:
+            if rules_verified:
+                return  # the listing answered for it; the probe could not be asked
+            raise AgentAccountError(
+                f"cannot verify {agent}'s sudo rights, and cannot reach the account to ask: "
+                f"run '{SELF_NAME} check' (needs root) to see why the transition is broken"
+            )
 
 
 # ---------------------------------------------------------------------------

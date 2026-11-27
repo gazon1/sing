@@ -167,9 +167,14 @@ So before executing anything, `run` refuses when the account is:
 - in `wheel`, `docker` or `kvm` — **including as the primary group**, which is invisible in the
   group's member list and exactly as root-equivalent;
 - pointed at a home that is the developer's (or `/`, or unreachable);
-- holding a sudo rule, when `sudo -n -l -U` can answer. Reading *another* user's rules needs
-  root, which `run` deliberately does not take, so an unreadable answer is reported rather than
-  treated as clean — and it does not block a launch the rest of the boundary permits;
+- **able to run sudo**, asked as a BEHAVIOUR and not as a rule listing: `run` execs
+  `sudo -n true` as the agent (with `/usr/bin/sudo` named absolutely and a fixed `PATH`, so a
+  rule scoped to that binary is the one probed). A `sudo -n -l -U` listing is still consulted
+  first, but reading *another* user's rules needs root, which `run` does not take — so an
+  unreadable listing is **not** evidence of safety. An earlier version treated it as such, and
+  an administrator who granted `agent ALL=(ALL) NOPASSWD: ALL` after provisioning produced an
+  agent that `run` started happily. If neither question can be answered (the listing is
+  unreadable AND the account is unreachable), `run` refuses instead of assuming a clean host;
 - absent entirely.
 
 Every one of these is a refusal, never a fix: `run` has no root and must not reconcile a
