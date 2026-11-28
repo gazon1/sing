@@ -1,0 +1,15 @@
++0.00s  awaitContentDescriptionDisplayed(Menu)    OK    0.00s
++0.23s  openDrawer    OK    0.23s
++0.34s  tapTab(Inbox)    OK    0.34s
++0.34s  awaitContentDescription(Add task)    OK    0.00s
++0.37s  awaitTag(task_editor_title_input)    OK    0.02s
++0.37s  awaitTag(task_editor_priority_row)    OK    0.01s
++0.57s  awaitTag(priority_option_high)    OK    0.19s
++0.60s  awaitTag(task_editor_due_row)    OK    0.00s
++0.78s  awaitTag(multi_date_picker_day_2026_09_16)    OK    0.18s
++1.00s  awaitTag(multi_date_picker_ok)    OK    0.18s
++1.11s  awaitTag(task_editor_save)    OK    0.08s
++1.16s  awaitContentDescriptionDisplayed(Menu)    OK    0.00s
++1.38s  openDrawer    OK    0.27s
++1.50s  tapTab(Today)    OK    0.39s
++6.50s  awaitTag(task_item_plan_release)    FAIL  5.00s  AssertionError: Tag 'task_item_plan_release' is not in the semantics tree.

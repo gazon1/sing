@@ -1,0 +1,45 @@
++0.00s  awaitContentDescriptionDisplayed(Menu)    OK    0.00s
++0.19s  openDrawer    OK    0.19s
++0.30s  tapTab(Statistics)    OK    0.30s
++0.30s  assertCurrentTab(Statistics)    OK    0.00s
++0.30s  awaitTag(shell_back_button)    OK    0.00s
++0.30s  awaitTag(shell_back_button)    OK    0.00s
++0.32s  awaitContentDescription(Add task)    OK    0.02s
++0.32s  assertCurrentTab(Today)    OK    0.00s
++0.32s  awaitContentDescriptionDisplayed(Menu)    OK    0.00s
++0.51s  openDrawer    OK    0.19s
++0.62s  tapTab(Notes)    OK    0.30s
++0.62s  assertCurrentTab(Notes)    OK    0.00s
++0.62s  awaitTag(shell_back_button)    OK    0.00s
++0.62s  awaitTag(shell_back_button)    OK    0.00s
++0.64s  awaitContentDescription(Add task)    OK    0.02s
++0.64s  assertCurrentTab(Today)    OK    0.00s
++0.64s  awaitContentDescriptionDisplayed(Menu)    OK    0.00s
++0.83s  openDrawer    OK    0.19s
++0.92s  tapTab(AI Chat)    OK    0.28s
++0.92s  assertCurrentTab(AI Chat)    OK    0.00s
++0.92s  awaitTag(shell_back_button)    OK    0.00s
++0.92s  awaitTag(shell_back_button)    OK    0.00s
++0.94s  awaitContentDescription(Add task)    OK    0.01s
++0.94s  assertCurrentTab(Today)    OK    0.00s
++0.94s  awaitContentDescriptionDisplayed(Menu)    OK    0.00s
++1.13s  openDrawer    OK    0.19s
++1.22s  tapTab(Proposals)    OK    0.28s
++1.22s  assertCurrentTab(Proposals)    OK    0.00s
++1.22s  awaitTag(shell_back_button)    OK    0.00s
++1.22s  awaitTag(shell_back_button)    OK    0.00s
++1.25s  awaitContentDescription(Add task)    OK    0.02s
++1.25s  assertCurrentTab(Today)    OK    0.00s
++1.25s  awaitContentDescriptionDisplayed(Menu)    OK    0.00s
++1.45s  openDrawer    OK    0.20s
++1.56s  tapTab(Search)    OK    0.32s
++1.56s  assertCurrentTab(Search)    OK    0.00s
++1.56s  awaitTag(shell_back_button)    OK    0.00s
++1.56s  awaitTag(shell_back_button)    OK    0.00s
++1.59s  awaitContentDescription(Add task)    OK    0.02s
++1.59s  assertCurrentTab(Today)    OK    0.00s
++1.59s  awaitContentDescriptionDisplayed(Menu)    OK    0.00s
++1.77s  openDrawer    OK    0.18s
++1.86s  tapTab(Archive)    OK    0.27s
++1.86s  assertCurrentTab(Archive)    OK    0.00s
++6.86s  awaitTag(shell_back_button)    FAIL  5.00s  AssertionError: Tag 'shell_back_button' is not in the semantics tree.

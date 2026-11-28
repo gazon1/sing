@@ -1,0 +1,2 @@
+[08:38:38.857] Debug SyncRunner: Scheduled sync stopped
+[08:38:40.010] Info TaskCreateViewModel: task created, clearing draft
