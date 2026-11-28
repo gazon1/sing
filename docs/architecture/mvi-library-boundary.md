@@ -11,11 +11,76 @@
 ## Decision in one paragraph
 
 One KMP module, `:mvi`, holding the MVI runtime: the intent/event markers, `MviViewModel`, its
-`EventBus`, the typed dispatch wrapper, and the closeable scope with its two generic helpers.
-It depends on kotlinx-coroutines and AndroidX `ViewModel` — and on nothing else. The app's error
-vocabulary, Kermit logging and crash reporter do not move: the runtime reaches them through one
-app-supplied object, `MviDiagnostics`, whose default is silent. `DraftMviViewModel` and the
-coordinator slot idiom stay in `:shared`, because both encode app policy rather than MVI mechanics.
+`EventBus`, the typed dispatch wrapper, and one library-owned diagnostics seam. It depends on
+kotlinx-coroutines and AndroidX `ViewModel` — the sole source of ViewModel lifecycle — and on
+nothing else.
+
+It does **not** own coroutine infrastructure. `:mvi` accepts a plain
+`kotlinx.coroutines.CoroutineScope` and cancels it at teardown; the closeable-scope class, the
+scope factory, the dispatcher policy and the crash-reporting adapters stay in `:shared`. The app's
+error vocabulary, Kermit logging and crash reporter cross the boundary through one app-supplied
+`MviDiagnostics`, whose default is silent. `DraftMviViewModel` and the coordinator slot idiom stay
+in `:shared`, because both encode app policy rather than MVI mechanics.
+
+## Coroutine infrastructure ownership
+
+This is the part of the boundary that is easiest to get wrong, because "generic-looking coroutine
+helper" and "MVI runtime" are not the same thing. Three owners, no overlap:
+
+### MVI-owned (`:mvi`)
+
+| Owned | Why it is MVI's |
+|---|---|
+| The `scope: CoroutineScope` **parameter** of `MviViewModel` | The base class states a lifecycle contract: the ViewModel owns no work of its own, it runs on a scope the caller supplies. That is the MVI loop's shape. |
+| **Cancelling that scope at teardown** — `addCloseable { scope.coroutineContext[Job]?.cancel() }` | It is the base class's terminal step. Expressed on `CoroutineScope` + `Job`, so it needs no closeable type of its own. A Job-less context is a no-op, matching today's `AutoCloseableCoroutineScope.close()`. |
+| Collecting flows and launching work on that scope (`catchTo`, `emitError`, `vmScope`) | The loop itself. `vmScope` is typed `CoroutineScope`. |
+
+`:mvi`'s public API therefore names **no** closeable-scope type and **no** scope factory. It takes a
+`CoroutineScope`, which every consumer already has.
+
+### Application-owned (`:shared`)
+
+| Stays | Why it is not the library's |
+|---|---|
+| `AutoCloseableCoroutineScope` | **15 non-ViewModel production files import it** — `SyncEngine`, `SyncRunner`, `AuthRepository`, `SyncAuthBridge`, `HlcFactory`, `PullPhase`, `PushPhase`, `SyncPrefs`, `CountdownStateMachine`, the three task collectors, `TaskDetailScreenSession`, `BackgroundCrashReporting`, and a test stub — and 4 of them call `.close()`. It is app coroutine infrastructure with 63 production importers, only 48 of which are ViewModels. Putting it in `:mvi` would make sync and auth depend on the MVI library to cancel a scope, which is exactly the inversion this issue exists to avoid. |
+| `createBackgroundScope(failureHandler)` | Dispatcher policy (`Dispatchers.Default`) plus a **required** failure handler. Its KDoc already argues that the required argument is the point: it turns "did you think about this?" into a compile error. That is an application decision about where background failures go, not a rendering of the MVI loop. 21 files use it. |
+| `backgroundFailureHandler(onFailure)` | The `CancellationException` guard shared by every scope policy — a general coroutine concern, used by callers that are not ViewModels. |
+| `loggingBackgroundFailureHandler()` | Names Kermit and a tag. A logging policy. |
+| `reportingScope(port)` and `crashReportingFailureHandler(port)` | Compose the app's `CrashReportingPort` into a scope's failure policy. 45 call sites. Application wiring. |
+| `AppMviDiagnostics(port)` | The adapter. Fulfils the library seam with app knowledge. |
+
+**Consequence, stated as a rule:** a non-MVI component must not depend on `:mvi` to obtain coroutine
+utilities. If a future component needs a closeable scope, a dispatcher policy or a failure handler,
+it imports `:shared`'s `core.coroutines` as it does today. `:mvi` publishes nothing in that space,
+so the dependency arrow can only ever point the right way. #3270 must not add a coroutine helper to
+`:mvi` just because it is convenient for the base class.
+
+**The base loses its default scope.** Today `scope` defaults to a scope composed from
+`crashReporter`, which is precisely the application policy above. All 35 subclasses already declare
+`scope: AutoCloseableCoroutineScope = reportingScope(crashReporter)` and pass it explicitly
+(verified: 0 rely on the base default), so making `scope` required in `:mvi` changes no call site
+and deletes the last reason for the base to know a failure handler exists.
+
+### Test-only helpers (`:shared`, not exported from `:mvi` production `commonMain`)
+
+`testScope(scope)` / `testScope(context)` wrap a `CoroutineScope` in a child `Job` so a test can
+cancel a ViewModel's subtree without cancelling `runTest`'s root. They stay **where they are** —
+`:shared`'s `commonMain`, as a test helper — and `:mvi` does **not** export them from production
+`commonMain`.
+
+Three reasons not to promise them as public library API:
+
+1. A library has no business shipping production `commonMain` API whose only callers are tests.
+2. `kotlinx-coroutines-test` already provides `runTest` and `TestScope`, and that is the documented
+   mechanism. What these helpers add is one child-`Job` wrapper; a consumer that needs it can write
+   the same three lines.
+3. 33 files use them, including **`desktopApp` tests**, which cannot see another module's test
+   sources — the reason Kotlin has no cross-module test-fixture source set here. Keeping them in
+   `:shared`'s `commonMain` is the pragmatic answer, recorded as such, not an endorsement.
+
+Whether `:mvi` should publish such a helper is settled by #3271: **only if the consumer fixture
+actually needs it.** The fixture is the evidence; a public API added on speculation is exactly what
+this issue's acceptance criteria forbid. Until then the child-`Job` wrapper is a shared test helper.
 
 ## Source classification
 
@@ -25,12 +90,11 @@ Every candidate, with the destination that follows from what it actually depends
 |---|---|---|
 | `core/ui/Markers.kt` — `MviIntent`, `MviEvent` | **`:mvi`** | Typing only, zero dependencies. Deliberately not `sealed`, so the same package split across two modules stays legal. |
 | `core/ui/EventBus.kt` | **`:mvi`**, decoupled | Channel semantics, backpressure, graceful close and the drop counter are the contract. Loses three dependencies: the Compose `@Stable` annotation, the Kermit `Logger`, and the never-called `CrashReportingPort`. |
-| `core/ui/MviViewModel.kt` | **`:mvi`**, decoupled | The loop itself: one state flow, two final writers, an `onIntent` entry point. Keeps `ViewModel` (see below). Loses `AppError`, the error helpers and the crash reporter; gains `MviDiagnostics`. |
+| `core/ui/MviViewModel.kt` | **`:mvi`**, decoupled | The loop itself: one state flow, two final writers, an `onIntent` entry point. Keeps `ViewModel` (see below) and a required `CoroutineScope`. Loses `AppError`, the error helpers, the crash reporter and the defaulted scope; gains `MviDiagnostics`. |
 | `core/ui/IntentActions.kt` | **`:mvi`** | Typed dispatch over `MviIntent`; its only import is the marker. |
-| `core/coroutines/AutoCloseableCoroutineScope.kt` | **`:mvi`** | Coroutines only. AndroidX appears in its KDoc, never in its code. |
-| `core/coroutines/BackgroundScope.kt` — `backgroundFailureHandler`, `createBackgroundScope` | **`:mvi`** | Generic coroutine policy, and the scope default is built from them. |
-| `core/coroutines/BackgroundScope.kt` — `loggingBackgroundFailureHandler` | **`:shared`** | Names Kermit and a tag. It is a *logging* policy, not a scope policy; the file splits along that line. |
-| `core/coroutines/testScope.kt` | **`:mvi`** | Wraps any `CoroutineScope` as a closeable one. The library's own contract tests need it, and a consumer writing a ViewModel test needs exactly this, so it stays public in `commonMain` — Kotlin has no shareable test-fixture source set across modules. Nothing app-specific in it. |
+| `core/coroutines/AutoCloseableCoroutineScope.kt` | **`:shared`** | App coroutine infrastructure: 63 production importers, 15 of them non-ViewModel, 4 calling `.close()`. `:mvi` accepts `CoroutineScope` and cancels its `Job`, so it never needs this type. |
+| `core/coroutines/BackgroundScope.kt` — `backgroundFailureHandler`, `createBackgroundScope`, `loggingBackgroundFailureHandler` | **`:shared`** | Dispatcher and logging policy, and a required failure handler. The base no longer defaults a scope, so `:mvi` has no use for them. |
+| `core/coroutines/testScope.kt` | **`:shared`** (unchanged) | Test helper in `commonMain`, used by 33 files including `desktopApp` tests. Not exported from `:mvi` production `commonMain`; #3271 decides whether a consumer needs one. |
 | `core/observability/CrashReportingPort.kt` (+ `NoOpCrashReportingPort`) | **`:shared`** | The app's port. `report`/`addBreadcrumb` is an app contract; the library must not name it. |
 | `core/observability/BackgroundCrashReporting.kt` | **`:shared`** | `BACKGROUND_COROUTINE_FAILURE_ISSUE_KEY` is a dashboard contract, and `reportingScope(port)` composes app policy. Application wiring, not MVI. |
 | `core/error/` — `AppError`, `Either`, `toMessage`, `runCatchingCancellable`, `TransportFailure` | **`:shared`** | Domain vocabulary. 538 references; seven error subtypes with dot-separated codes. Moving it would move the application into the library. |
@@ -99,9 +163,10 @@ ViewModel, and it is wrong-loud rather than wrong-quiet.
 
 ## Lifecycle stays AndroidX — explicitly
 
-`MviViewModel : androidx.lifecycle.ViewModel`, `addCloseable(scope)` in the initializer,
+`MviViewModel : androidx.lifecycle.ViewModel`, `addCloseable { … }` in the initializer,
 `onCleared()` closes the bus. `:mvi` depends directly on
-`org.jetbrains.androidx.lifecycle:lifecycle-viewmodel`. Three reasons:
+`org.jetbrains.androidx.lifecycle:lifecycle-viewmodel`, which is the **sole** source of ViewModel
+lifecycle in the library. Three reasons:
 
 1. **It is the same authority on both targets.** `androidx.lifecycle.ViewModel` is multiplatform
    in 2.11.0; Android and JVM Desktop share one type, one `ViewModelStore`, one teardown path.
@@ -115,6 +180,10 @@ ViewModel, and it is wrong-loud rather than wrong-quiet.
 3. **Essenty's model is a different answer to a question this app does not have.** A
    platform-neutral `Lifecycle` would be a *second* lifecycle authority beside the one Nav3 and
    `ViewModelStore` already drive. Two authorities is worse than one dependency.
+
+`addCloseable { }` rather than `addCloseable(scope)` is what makes removing the closeable scope type
+possible: the SAM overload is already used in this tree (`AcpExternalAgentViewModel` registers a
+subprocess that way), so the base class can cancel a `Job` without naming an app type.
 
 `InstanceKeeper` is recorded as **not needed**: retention is already scoped by Navigation 3's
 entry-scoped `ViewModelStore`. A parallel retention registry would be the second authority problem
@@ -141,13 +210,13 @@ enum class MviLogLevel { Debug, Warn }
 abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     initialState: S,
     diagnostics: MviDiagnostics = NoOpMviDiagnostics,
-    scope: AutoCloseableCoroutineScope = mviScope(diagnostics),
+    scope: CoroutineScope,                          // required, no default, no library factory
 ) : ViewModel() {
     val stateFlow: StateFlow<S>
     val state: StateFlow<S>
     val events: Flow<E>
     protected val currentState: S
-    protected val vmScope: AutoCloseableCoroutineScope
+    protected val vmScope: CoroutineScope
     protected fun updateState(transform: (S) -> S)
     protected fun setState(newState: S)
     protected suspend fun emit(event: E)
@@ -178,21 +247,16 @@ class EventBus<E : MviEvent>(
 value class IntentActions<I : MviIntent>(private val dispatch: (I) -> Unit) {
     operator fun invoke(intent: I)
 }
-
-package com.singularity.todo.core.coroutines
-
-class AutoCloseableCoroutineScope(override val coroutineContext: CoroutineContext) :
-    AutoCloseable, CoroutineScope {
-    val job: Job?
-    override fun close()
-}
-
-fun backgroundFailureHandler(onFailure: (Throwable) -> Unit): CoroutineExceptionHandler
-fun createBackgroundScope(failureHandler: CoroutineExceptionHandler): CoroutineScope
-fun testScope(scope: CoroutineScope): AutoCloseableCoroutineScope
-fun testScope(context: CoroutineContext): AutoCloseableCoroutineScope
-fun mviScope(diagnostics: MviDiagnostics): AutoCloseableCoroutineScope
 ```
+
+That is the whole surface: five types, one function signature each. No coroutine helper, no
+closeable scope, no factory, no test fixture.
+
+**`scope` is required, and it stays the last parameter.** Required because the base class has no
+business choosing a dispatcher or a failure destination — that is the rule the scope factory's own
+KDoc already states, and no call site relies on the current default. Last because `VmScopePosition`
+bans a `scope` parameter that is not last; `diagnostics` therefore precedes it, which is also the
+order the detekt rule's own message prescribes.
 
 **Visibility and API discipline.**
 
@@ -205,22 +269,26 @@ fun mviScope(diagnostics: MviDiagnostics): AutoCloseableCoroutineScope
   consumer constructing a bus directly is a real case the tests already cover.
 - The state names do not change: `stateFlow` is canonical, `state` is its read-only alias, and
   the backing flow stays private. ADR `2026-11-26-mvi-state-is-observed-read-only.md` pins both.
-- `DraftMviViewModel`, `DraftState`, `DraftUiState`, `FeatureSlot` and `combineStates` keep their
-  packages even though they stay in `:shared`. Splitting one package across two modules is legal
-  for non-`sealed` types, and it is what keeps the diff a module move instead of a 120-file import
-  rewrite — the same reasoning `:core-base` records for `com.singularity.todo.core.platform`.
+- `DraftMviViewModel`, `DraftState`, `DraftUiState`, `FeatureSlot`, `combineStates` and every
+  `core.coroutines` helper keep their packages, because they stay in `:shared`. Splitting one
+  package across two modules is legal for non-`sealed` types, and it is what keeps the diff a
+  module move instead of a 120-file import rewrite — the same reasoning `:core-base` records for
+  `com.singularity.todo.core.platform`.
+- `vmScope` narrows from `AutoCloseableCoroutineScope` to `CoroutineScope`. 24 test call sites use
+  `vmScope.close()` or `vmScope.job?.cancel()`; each already holds the scope it constructed and
+  passed in, so they keep a local reference and call it there. Production uses neither (verified).
 
 **Semantics that must not move.** Read-only `StateFlow` observation; the two `final` state
 writers; `Channel`-backed, buffered, single-consumer events with suspend-on-full and
 `tryEmit`-never-blocks; graceful close, drain-after-close, drop counting, and no crash report for
-a discard; `CancellationException` never absorbed; `addCloseable` as the only teardown
+a discard; `CancellationException` never absorbed; scope cancellation as the only teardown
 registration; a fatal `Error` escaping to the scope's handler.
 
 **Compatibility.** Source compatibility *inside* the repository is broken deliberately at three
-points: the super-call gains `diagnostics`, `extraEventCapacity` disappears, and the bus takes a
-`MviDiagnostics` instead of a `CrashReportingPort` + `Logger`. No publishable artifact exists, so
-binary compatibility, coordinates and versioning are #3271's problem, and only if a second
-consumer appears.
+points: the super-call gains `diagnostics` and requires `scope`, `extraEventCapacity` disappears,
+and the bus takes a `MviDiagnostics` instead of a `CrashReportingPort` + `Logger`. No publishable
+artifact exists, so binary compatibility, coordinates and versioning are #3271's problem, and only
+if a second consumer appears.
 
 ## Why no `@Stable` on the bus
 
@@ -230,7 +298,33 @@ field — and no Compose parameter anywhere in the tree receives it (verified: n
 `EventBus` outside the base class and the tests). Composition stability is therefore unaffected,
 and the compose stability configuration never listed it.
 
-## Gradle
+## Dependency boundary
+
+- `kotlinx-coroutines-core` — the primary async dependency. It is `api` because `StateFlow`,
+  `Flow`, `Job`, `CoroutineScope`, `Channel` and `CoroutineExceptionHandler` appear in public
+  signatures, including the caller-supplied `scope`.
+- AndroidX Lifecycle `lifecycle-viewmodel` — the **sole** source of ViewModel lifecycle. `:mvi`
+  extends `androidx.lifecycle.ViewModel` and uses `addCloseable`/`onCleared`; it adds no
+  `lifecycle-runtime`, `-compose`, `-navigation3`, or `savedstate`.
+- `kotlinx-coroutines-test` — test dependency only. `runTest`/`TestScope`/`advanceUntilIdle` live
+  in `commonTest`; never in production `commonMain`.
+- Nothing app-specific in core: no Compose, Koin, Room, Navigation, domain, or app-specific error
+  types (`AppError`, `Either`, `toMessage`, `CrashReportingPort`, `reportingScope`), no
+  `com.singularity.todo.feature.*`, no Kermit/Koog/serialization/collections-immutable. `:adr-core`
+  and `:core-base` are also not dependencies — the module needs no clock, no platform facts, no ADR
+  storage.
+
+| Dependency | Scope | Why exactly this |
+|---|---|---|
+| `kotlinx-coroutines-core` | **`api`** | Primary async dependency; scope and flow types are public. |
+| `androidx-lifecycle-viewmodel` (`org.jetbrains.androidx.lifecycle`, 2.11.0) | **`api`** | Sole ViewModel lifecycle authority; appears in the public supertype. |
+| `kotlinx-coroutines-test` | **test only** | Contract tests only; never in production `commonMain`. |
+| `kotlin-junit5` + `junit-jupiter` | **test only** | Repository test stack, matching `:core-domain`. |
+
+The catalog has **no** `androidx-lifecycle-viewmodel` alias today — only the `-compose` and
+`-navigation3` variants — so #3270 adds it as one line in `gradle/libs.versions.toml`, consistent
+with `scripts/build-version-catalog-gate.py`. The artifact resolves for both targets from the
+version already pinned (`2.11.0`).
 
 ```
 :mvi
@@ -242,19 +336,6 @@ and the compose stability configuration never listed it.
   commonTest  libs.kotlin.test.junit5, libs.junit.jupiter, libs.kotlinx.coroutines.test
   detektPlugins(project(":detekt-rules"))                  ← repository convention, every module
 ```
-
-`api` rather than `implementation` for both, because they appear in public signatures:
-`ViewModel` is the supertype, and `StateFlow`/`Flow`/`Job`/`CoroutineScope` are parameter and
-return types.
-
-The catalog has **no** `androidx-lifecycle-viewmodel` alias today — only the `-compose` and
-`-navigation3` variants — so #3270 adds it as one line in `gradle/libs.versions.toml`, consistent
-with `scripts/build-version-catalog-gate.py`. The artifact resolves for both targets from the
-version already pinned (`2.11.0`).
-
-Not in the module: Compose, Kermit, Koin, Room, Navigation, kotlinx.collections.immutable,
-serialization, Koog, any `feature.*` or `core.domain` type. `:adr-core` and `:core-base` are not
-dependencies either — the module needs no clock, no platform facts and no ADR storage.
 
 ## Dependency graph
 
@@ -268,7 +349,10 @@ shared ──► mvi ──► (kotlinx-coroutines, androidx-lifecycle-viewmodel
 ```
 
 Acyclic, and `:mvi` has no edge back into anything of the application's. `pro` is unaffected: it
-imports `CrashReportingPort`, which stays in `:shared`.
+imports `CrashReportingPort`, which stays in `:shared`. Nothing outside `:shared` imports an MVI
+type today (verified: no reference in `pro`, `mcp-server`, `androidApp` or `desktopApp`
+production sources), so `:mvi` is a private dependency of `:shared` until #3271's fixture, and the
+app modules need no change at all.
 
 `easement.yml` must gain one component and one layer entry (`mvi` at the bottom of the order,
 alone, since it depends on no project), plus `shared: may_depend_on: [mvi, adr-core, core-base]`.
@@ -282,30 +366,29 @@ Sources `:mvi` receives (package unchanged, `shared/` → `mvi/`):
 ```
 core/ui/Markers.kt
 core/ui/EventBus.kt                      (edited: -@Stable, -Kermit, -CrashReportingPort, +diagnostics)
-core/ui/MviViewModel.kt                  (edited: -AppError/-helpers/-reporter/-extraEventCapacity, +diagnostics)
+core/ui/MviViewModel.kt                  (edited: -AppError/-helpers/-reporter/-defaulted scope/
+                                                   -extraEventCapacity, required CoroutineScope, +diagnostics)
 core/ui/IntentActions.kt
 core/ui/MviDiagnostics.kt                (new)
-core/coroutines/AutoCloseableCoroutineScope.kt
-core/coroutines/BackgroundScope.kt       (split: two functions leave, loggingBackgroundFailureHandler stays)
-core/coroutines/MviScope.kt              (new: mviScope(diagnostics))
-core/coroutines/testScope.kt
 ```
 
-Left behind in `:shared`, unchanged except for the adapter:
+Left behind in `:shared`, unchanged except for the adapter and the base-class super-call:
 
 ```
-core/ui/DraftMviViewModel.kt   core/ui/DraftState.kt
-core/observability/*           core/error/*
-core/ui/featureSlot/*          core/coroutines/LoggingBackgroundFailureHandler.kt  (new home of the logging policy)
-core/ui/AppMviDiagnostics.kt   (new: the app's MviDiagnostics)
+core/ui/DraftMviViewModel.kt           core/ui/DraftState.kt
+core/observability/*                   core/error/*
+core/ui/featureSlot/*                  core/coroutines/*        (all of it: scope, scope factory, testScope)
+core/ui/AppMviDiagnostics.kt           (new: the app's MviDiagnostics)
 ```
 
-Tests: `EventBusTest`, `EventBusContractTest`, `MviViewModelTest`, `IntentActionsTest` and
-`AutoCloseableCoroutineScopeTest` move to `:mvi`'s `commonTest`. `MviViewModelTest`'s
-`AppError`-specific cases move out to `:shared`, where the adapter lives; the library's own
-recording double is a local `MviDiagnostics`, because the library must not depend on
-`shared/…/test/fakes`. `CrashReportingTest` stays in `:shared` — it tests the port and the app
-policy, not the runtime.
+Only five files move. Every coroutine file stays, which is the point of the ownership split above.
+
+Tests: `EventBusTest`, `EventBusContractTest`, `MviViewModelTest`, `IntentActionsTest` move to
+`:mvi`'s `commonTest`. `MviViewModelTest`'s `AppError`-specific cases move to `:shared`, where the
+adapter lives; the library's own recording double is a local `MviDiagnostics`, because the library
+must not depend on `shared/…/test/fakes`. `CrashReportingTest` and
+`AutoCloseableCoroutineScopeTest` stay in `:shared` — they test the port, the app policy and the
+scope helper, not the runtime.
 
 ## Migration order for #3270
 
@@ -314,16 +397,16 @@ compatibility facade, and none survives the change.
 
 1. **Module skeleton.** Catalog alias, `settings.gradle.kts` include, `mvi/build.gradle.kts`,
    easement approval + entry, `scripts/changed-modules.py` mapping. Nothing moved yet.
-2. **Pure moves.** `Markers.kt`, `IntentActions.kt`, `AutoCloseableCoroutineScope.kt`,
-   `testScope.kt`, and the `backgroundFailureHandler`/`createBackgroundScope` half of
-   `BackgroundScope.kt` (the Kermit half lands in `:shared` under its own name). Behaviour
-   identical; only `shared/` → `mvi/` in the path.
+2. **The pure move.** `Markers.kt` and `IntentActions.kt` — typing only, no dependency decisions.
+   Behaviour identical; only `shared/` → `mvi/` in the path.
 3. **The seam, atomically.** Add `MviDiagnostics` + `NoOpMviDiagnostics` to `:mvi` and
    `AppMviDiagnostics` to `:shared`; move `EventBus` (drop `@Stable`/Kermit/reporter) and
-   `MviViewModel` (error internals → `classify`, drop `extraEventCapacity`). Update the 33
-   production subclasses + `DraftMviViewModel` + the test harnesses to pass
-   `diagnostics = AppMviDiagnostics(crashReporter)`. One commit, because the seam and its only
-   consumer cannot land apart.
+   `MviViewModel` (error internals → `classify`, `scope: CoroutineScope` required,
+   `addCloseable { … }`, drop `extraEventCapacity`). Update the 33 production subclasses +
+   `DraftMviViewModel` + the test harnesses to pass `diagnostics = AppMviDiagnostics(crashReporter)`
+   and a plain `CoroutineScope`, and move the 24 `vmScope.close()`/`vmScope.job` test sites onto
+   their own scope reference. One commit, because the seam, the narrowed `vmScope` type and their
+   only consumers cannot land apart.
 4. **Contract tests move**, split as described above, and `:mvi`'s detekt/test tasks are wired
    into the gate suite (a module whose tests nobody runs is the "feature that works but is never
    called" defect, one layer down).
@@ -335,14 +418,32 @@ compatibility facade, and none survives the change.
    rule already exists to prevent.
 
 **Verification that the boundary holds**, added to the arch tests: `:mvi`'s `commonMain` imports
-nothing from `com.singularity.todo` outside its own packages, and does not name Kermit, Compose,
-Koin, Room, Navigation, `AppError` or `CrashReportingPort`. That assertion is the whole
-acceptance criterion, expressed as something a build can fail on. Note that Konsist's shared scope
-(`CommonMainKonsistScope`) is built from `commonMain.root`, `coreDomain.root` and
-`coreDatabase.root` — `:shared`, `:core-domain` and `:core-database`, not `:mvi` — so #3270 must
-add a fourth root (and its `jvmTest` build property, which the object reads through
-`System.getProperty`) or the boundary test is inert. That scope's own KDoc records why a
+nothing from `com.singularity.todo` outside its own packages, and names no Kermit, Compose, Koin,
+Room, Navigation, `AppError` or `CrashReportingPort` type — and no `core.coroutines` type either,
+which is the new half of the assertion and the one that keeps a future "helpful" helper out. That
+assertion is the whole acceptance criterion, expressed as something a build can fail on. Note that
+Konsist's shared scope (`CommonMainKonsistScope`) is built from `commonMain.root`,
+`coreDomain.root` and `coreDatabase.root` — `:shared`, `:core-domain` and `:core-database`, not
+`:mvi` — so #3270 must add a fourth root (and its `jvmTest` build property, which the object reads
+through `System.getProperty`) or the boundary test is inert. That scope's own KDoc records why a
 module missing from it is the failure mode to watch: it reports green while reading less code.
+
+## What would falsify this design
+
+#3271's consumer fixture is the test, and it only counts if it is built honestly:
+
+- It depends on `:mvi` **only** — not on `:shared`, not on `com.singularity.todo`, and not on
+  app-specific coroutine factories (`reportingScope`, `createBackgroundScope`,
+  `AutoCloseableCoroutineScope`, `testScope`) or app types (`AppError`, `CrashReportingPort`).
+- It defines its own state, intent and event types, its own `MviDiagnostics` (or accepts
+  `NoOpMviDiagnostics`), its own scope via `CoroutineScope(...)` from kotlinx-coroutines, and its
+  own test using `runTest` + `TestScope` from `kotlinx-coroutines-test`.
+- It compiles and runs for both targets.
+
+If the fixture needs a coroutine helper, a closeable scope or a test wrapper to be written at all,
+that is evidence the boundary is wrong — and the fix belongs in the design, not in a convenience
+export from `:mvi`. A fixture that reaches into `:shared` proves files moved; it does not prove the
+library is independent.
 
 ## Links
 
