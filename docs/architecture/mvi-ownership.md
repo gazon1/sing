@@ -36,8 +36,10 @@ for being small — the audit found no duplicate to remove.
 
 Same contract on Android and JVM Desktop: `AutoCloseableCoroutineScope` is `commonMain`,
 `close()` cancels the job, and `addCloseable` is the androidx lifecycle mechanism on both
-targets. A scope built without a `Job` closes as a no-op rather than throwing inside
-`onCleared()`.
+targets. A ViewModel-owned scope **must** contain a `Job`; `MviViewModel` checks this at
+construction and fails loudly when absent. Silent no-op teardown is not allowed, because launched
+coroutines would outlive `ViewModel` destruction. See
+`docs/architecture/mvi-library-boundary.md` for the current `:mvi` scope/ownership contract.
 
 **Where the scope is readable.** The recommended form takes `scope` as a plain constructor
 parameter: it is visible in `init` blocks and property initializers and nowhere else, and a
@@ -118,7 +120,12 @@ agent to use it.
 
 ## Coupling a package extraction has to carry (#3268)
 
-Recorded here; **no module is extracted in this issue**.
+Recorded here; **no module is extracted in this issue**. Stage 1 (#3269) has since decided which
+couplings cross the boundary and which stay: see
+`docs/architecture/mvi-library-boundary.md` for the destination of every file below, the public API
+and the migration order, and ADR `docs/decisions/2026-11-27-mvi-library-module-boundary.md` for the
+decision. The `@Stable` and Kermit rows disappear with the move; the `AppError` and
+`CrashReportingPort` rows become one app-supplied `MviDiagnostics`.
 
 | Coupling | Where it bites |
 |---|---|
@@ -150,6 +157,7 @@ All existing; no new lint framework.
 - `docs/decisions/2026-10-22-an-event-bus-has-one-consumer.md`,
   `2026-11-26-mvi-state-is-observed-read-only.md`,
   `2026-09-27-mvi-single-state-entry-and-vm-sweep.md`.
-- Package extraction (separate initiative): epic #3268, stages #3269–#3271.
+- Package extraction (separate initiative): epic #3268, stages #3269–#3271. Stage 1's output:
+  `docs/architecture/mvi-library-boundary.md`.
 - Skills: `singularity-todo-mvi-framework`, `singularity-todo-ui-event-vs-state`,
   `singularity-todo-testable-vm`.
