@@ -174,7 +174,7 @@ kotlinSdk = "0.16.0"
 kotlinxIo = "0.9.3"
 
 # The importer CLI's argument parser. A JVM library, used only by :import-cli.
-clikt = "5.1.0"
+clikt = "5.2.1"
 
 [libraries]
 # Kotlin / Build
