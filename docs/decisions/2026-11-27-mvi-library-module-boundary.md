@@ -62,18 +62,19 @@ infrastructure**.
 
 Coroutine work is split by ownership, not by convenience:
 
-- **MVI owns the scope contract**: a required `scope: CoroutineScope` parameter and its
-  cancellation at teardown, expressed as `addCloseable { scope.coroutineContext[Job]?.cancel() }`.
-  Both are `kotlinx.coroutines` types, so the base cancels a scope without naming a closeable type
-  of its own.
+- **MVI owns the scope contract**: a required ViewModel-owned `scope: CoroutineScope` containing a
+  `Job`. `MviViewModel` checks `scope.coroutineContext[Job]` at construction and fails loudly when
+  absent; it never silently skips teardown. Teardown cancels that owned `Job`
+  (`addCloseable { scope.coroutineContext[Job]!!.cancel() }`). Passing a shared/application scope is
+  a contract violation.
 - **The application owns the scope implementations**: `AutoCloseableCoroutineScope`,
   `createBackgroundScope`, `backgroundFailureHandler`, `loggingBackgroundFailureHandler` and
   `reportingScope` all stay in `:shared`. `AutoCloseableCoroutineScope` alone has 63 production
   importers, 15 of them not ViewModels (sync, auth, the task collectors) and 4 calling `.close()`.
-- **Test helpers stay test helpers**: `testScope` is not exported from `:mvi` production
-  `commonMain`. The `kotlinx-coroutines-test` `runTest`/`TestScope` pair is the documented
-  mechanism; the child-`Job` wrapper remains a `:shared` helper, and #3271's fixture decides
-  whether a public one is ever needed.
+- **Test-support helpers stay in `:shared`**: `testScope` is not exported from `:mvi` production
+  `commonMain`. It remains a `:shared` `commonMain` test-support helper (pragmatic compromise, not a
+  recommended new test-API pattern). `kotlinx-coroutines-test` `runTest`/`TestScope` is the
+  documented mechanism; #3271's fixture decides whether a public helper is ever needed.
 
 The consequence is a rule: **a non-MVI component must not depend on `:mvi` to obtain coroutine
 utilities.** `:mvi` publishes none, so the arrow can only point the right way.
@@ -135,10 +136,11 @@ implementation.
   names no Kermit, Compose, Koin, Room, Navigation, `AppError` or `CrashReportingPort` type — and no
   `core.coroutines` type either. That is the acceptance criterion, expressed as an assertion a build
   can fail on.
-- **`scope` becomes required, and the base loses its default.** The current default composes a
+- **`scope` becomes required, ViewModel-owned, and `Job`-checked.** The current default composes a
   scope from `crashReporter`, which is application policy. All 35 subclasses already declare
   `scope: AutoCloseableCoroutineScope = reportingScope(crashReporter)` and pass it explicitly
-  (verified: none relies on the base default), so requiring it changes no call site.
+  (verified: none relies on the base default), so requiring it changes no call site. Missing `Job`
+  fails loudly at construction; passing a shared/application scope is a contract violation.
 - **`vmScope` narrows to `CoroutineScope`.** 24 test sites use `vmScope.close()` or
   `vmScope.job?.cancel()`; each already holds the scope it constructed, so they call it there.
   Production uses neither (verified). This is the cost of the base not owning a closeable type, and

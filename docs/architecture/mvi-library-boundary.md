@@ -32,7 +32,9 @@ helper" and "MVI runtime" are not the same thing. Three owners, no overlap:
 | Owned | Why it is MVI's |
 |---|---|
 | The `scope: CoroutineScope` **parameter** of `MviViewModel` | The base class states a lifecycle contract: the ViewModel owns no work of its own, it runs on a scope the caller supplies. That is the MVI loop's shape. |
-| **Cancelling that scope at teardown** — `addCloseable { scope.coroutineContext[Job]?.cancel() }` | It is the base class's terminal step. Expressed on `CoroutineScope` + `Job`, so it needs no closeable type of its own. A Job-less context is a no-op, matching today's `AutoCloseableCoroutineScope.close()`. |
+| **A `Job` in that scope** | The supplied scope **must** contain a `kotlinx.coroutines.Job`. `MviViewModel` checks this at construction and fails loudly if the `Job` is missing; it never silently skips teardown cancellation. A child scope created with `CoroutineScope(parent + Job())` / `SupervisorJob()` satisfies the contract. |
+| **Cancelling that scope at teardown** — `addCloseable { scope.coroutineContext[Job]!!.cancel() }` | The base class's terminal step, after the `Job` presence is established at construction. `cancel()` on the owned `Job` cancels work launched in that scope; a separate child-`Job` scope keeps the parent's other work intact. |
+| **Scope ownership** | The passed scope is **ViewModel-owned**: it is created for this one ViewModel and the ViewModel is responsible for cancelling it at teardown. Do not pass a shared `applicationScope`, process/global scope, or any scope whose lifetime is broader than the ViewModel. For tests, create a dedicated child scope (e.g. `CoroutineScope(SupervisorJob() + dispatcher)` or `:shared`'s `testScope(...)` helper where that module is already in use). |
 | Collecting flows and launching work on that scope (`catchTo`, `emitError`, `vmScope`) | The loop itself. `vmScope` is typed `CoroutineScope`. |
 
 `:mvi`'s public API therefore names **no** closeable-scope type and **no** scope factory. It takes a
@@ -55,22 +57,44 @@ it imports `:shared`'s `core.coroutines` as it does today. `:mvi` publishes noth
 so the dependency arrow can only ever point the right way. #3270 must not add a coroutine helper to
 `:mvi` just because it is convenient for the base class.
 
+**Scope contract, stated explicitly.** The scope is a lifecycle boundary, not a shared execution
+pool:
+
+- **ViewModel-owned only.** The caller creates the scope for this ViewModel instance. The ViewModel
+  cancels it at teardown; no other owner may cancel it on the ViewModel's behalf, and the ViewModel
+  must not be given a scope it does not own.
+- **No shared scopes.** Passing `applicationScope`, a process/global scope, or a scope shared with
+  other ViewModels/services is a contract violation: destroying one ViewModel would cancel unrelated
+  work. Application/background work stays in `:shared`'s application-owned scopes (`createBackgroundScope`,
+  `reportingScope`, sync/auth scopes), not in a ViewModel scope.
+- **`Job` is required.** `MviViewModel` requires `scope.coroutineContext[Job]` at construction and
+  fails loudly when absent. Silent no-op teardown is not acceptable: a scope without a `Job` would
+  leak launched coroutines after `ViewModel` destruction.
+- **Tests use a dedicated child scope.** `runTest`/`TestScope` provide the scheduler; pass a scope
+  owned by the test/ViewModel under test, e.g. `CoroutineScope(SupervisorJob() + testDispatcher)` or
+  the existing `:shared` `testScope(...)` helper where that module is already present.
+
 **The base loses its default scope.** Today `scope` defaults to a scope composed from
 `crashReporter`, which is precisely the application policy above. All 35 subclasses already declare
 `scope: AutoCloseableCoroutineScope = reportingScope(crashReporter)` and pass it explicitly
 (verified: 0 rely on the base default), so making `scope` required in `:mvi` changes no call site
 and deletes the last reason for the base to know a failure handler exists.
 
-### Test-only helpers (`:shared`, not exported from `:mvi` production `commonMain`)
+### Test-support helpers (`:shared`, currently in `commonMain`)
 
 `testScope(scope)` / `testScope(context)` wrap a `CoroutineScope` in a child `Job` so a test can
-cancel a ViewModel's subtree without cancelling `runTest`'s root. They stay **where they are** —
-`:shared`'s `commonMain`, as a test helper — and `:mvi` does **not** export them from production
-`commonMain`.
+cancel a ViewModel's subtree without cancelling `runTest`'s root. They stay **where they are** in
+`:shared` `commonMain` as test-support helpers. This is an existing pragmatic compromise, not a
+recommended pattern for new test APIs: the functions are technically reachable from production
+source sets, but their intended use is tests.
 
-Three reasons not to promise them as public library API:
+`:mvi` does **not** export `testScope()` or equivalent wrappers from its production `commonMain`.
+This doc does not move or refactor the existing `:shared` helper; it records the boundary for the
+future library.
 
-1. A library has no business shipping production `commonMain` API whose only callers are tests.
+Three reasons not to promise them as `:mvi` public library API:
+
+1. A library should not ship production `commonMain` API whose only justified callers are tests.
 2. `kotlinx-coroutines-test` already provides `runTest` and `TestScope`, and that is the documented
    mechanism. What these helpers add is one child-`Job` wrapper; a consumer that needs it can write
    the same three lines.
@@ -80,7 +104,8 @@ Three reasons not to promise them as public library API:
 
 Whether `:mvi` should publish such a helper is settled by #3271: **only if the consumer fixture
 actually needs it.** The fixture is the evidence; a public API added on speculation is exactly what
-this issue's acceptance criteria forbid. Until then the child-`Job` wrapper is a shared test helper.
+this issue's acceptance criteria forbid. Until then the child-`Job` wrapper remains a `:shared`
+test-support helper.
 
 ## Source classification
 
@@ -249,8 +274,8 @@ value class IntentActions<I : MviIntent>(private val dispatch: (I) -> Unit) {
 }
 ```
 
-That is the whole surface: five types, one function signature each. No coroutine helper, no
-closeable scope, no factory, no test fixture.
+That is the complete public library surface listed above. No coroutine helper, no closeable scope,
+no factory, no test fixture.
 
 **`scope` is required, and it stays the last parameter.** Required because the base class has no
 business choosing a dispatcher or a failure destination — that is the rule the scope factory's own
@@ -277,12 +302,15 @@ order the detekt rule's own message prescribes.
 - `vmScope` narrows from `AutoCloseableCoroutineScope` to `CoroutineScope`. 24 test call sites use
   `vmScope.close()` or `vmScope.job?.cancel()`; each already holds the scope it constructed and
   passed in, so they keep a local reference and call it there. Production uses neither (verified).
+  The passed scope is still ViewModel-owned and must contain a `Job`; narrowing the exposed type
+  does not relax the lifecycle contract.
 
 **Semantics that must not move.** Read-only `StateFlow` observation; the two `final` state
 writers; `Channel`-backed, buffered, single-consumer events with suspend-on-full and
 `tryEmit`-never-blocks; graceful close, drain-after-close, drop counting, and no crash report for
-a discard; `CancellationException` never absorbed; scope cancellation as the only teardown
-registration; a fatal `Error` escaping to the scope's handler.
+a discard; `CancellationException` never absorbed; `scope.coroutineContext[Job]` required at
+construction (fail loudly when missing); scope cancellation as the only teardown registration; a
+fatal `Error` escaping to the scope's handler.
 
 **Compatibility.** Source compatibility *inside* the repository is broken deliberately at three
 points: the super-call gains `diagnostics` and requires `scope`, `extraEventCapacity` disappears,
@@ -401,15 +429,18 @@ compatibility facade, and none survives the change.
    Behaviour identical; only `shared/` → `mvi/` in the path.
 3. **The seam, atomically.** Add `MviDiagnostics` + `NoOpMviDiagnostics` to `:mvi` and
    `AppMviDiagnostics` to `:shared`; move `EventBus` (drop `@Stable`/Kermit/reporter) and
-   `MviViewModel` (error internals → `classify`, `scope: CoroutineScope` required,
-   `addCloseable { … }`, drop `extraEventCapacity`). Update the 33 production subclasses +
-   `DraftMviViewModel` + the test harnesses to pass `diagnostics = AppMviDiagnostics(crashReporter)`
-   and a plain `CoroutineScope`, and move the 24 `vmScope.close()`/`vmScope.job` test sites onto
-   their own scope reference. One commit, because the seam, the narrowed `vmScope` type and their
-   only consumers cannot land apart.
+   `MviViewModel` (error internals → `classify`, `scope: CoroutineScope` required with `Job`
+   presence checked at construction, fail-loud on missing `Job`, `addCloseable { job.cancel() }`,
+   drop `extraEventCapacity`). Update the 33 production subclasses + `DraftMviViewModel` + the test
+   harnesses to pass `diagnostics = AppMviDiagnostics(crashReporter)` and a plain
+   ViewModel-owned `CoroutineScope` containing a `Job`, and move the 24
+   `vmScope.close()`/`vmScope.job` test sites onto their own scope reference. One commit, because
+   the seam, the narrowed `vmScope` type and their only consumers cannot land apart.
 4. **Contract tests move**, split as described above, and `:mvi`'s detekt/test tasks are wired
    into the gate suite (a module whose tests nobody runs is the "feature that works but is never
-   called" defect, one layer down).
+   called" defect, one layer down). Add an explicit contract test that constructing
+   `MviViewModel` with a `CoroutineScope` lacking a `Job` fails loudly, and that teardown does not
+   silently skip cancellation.
 5. **Enforce the adapter.** Extend the existing `NoDivergentScopeAndReporter` rule — which
    already checks that a ViewModel's `scope` default derives from its `crashReporter` — to also
    require that a super-call passing `crashReporter` passes a `diagnostics` derived from it. This
@@ -436,14 +467,25 @@ module missing from it is the failure mode to watch: it reports green while read
   app-specific coroutine factories (`reportingScope`, `createBackgroundScope`,
   `AutoCloseableCoroutineScope`, `testScope`) or app types (`AppError`, `CrashReportingPort`).
 - It defines its own state, intent and event types, its own `MviDiagnostics` (or accepts
-  `NoOpMviDiagnostics`), its own scope via `CoroutineScope(...)` from kotlinx-coroutines, and its
-  own test using `runTest` + `TestScope` from `kotlinx-coroutines-test`.
+  `NoOpMviDiagnostics`), its own ViewModel-owned scope via `CoroutineScope(SupervisorJob() + ...)`
+  (containing a `Job`, not shared), and its own test using `runTest` + `TestScope` from
+  `kotlinx-coroutines-test`.
 - It compiles and runs for both targets.
 
 If the fixture needs a coroutine helper, a closeable scope or a test wrapper to be written at all,
 that is evidence the boundary is wrong — and the fix belongs in the design, not in a convenience
 export from `:mvi`. A fixture that reaches into `:shared` proves files moved; it does not prove the
 library is independent.
+
+## Pre-merge checks
+
+- [ ] Links and line references in this doc and the ADR resolve.
+- [ ] MVI lifecycle scope vs application background scope is unambiguous: ViewModel-owned, Job required, fail-loud on missing Job, no shared/application scope passed to `MviViewModel`.
+- [ ] `kotlinx-coroutines-test` remains test-only; no `testScope()`/test wrapper is promised from `:mvi` production `commonMain`.
+- [ ] Crash reporting, Kermit, `AppError`, and DraftStore are not declared `:mvi` dependencies.
+- [ ] AndroidX Lifecycle remains the sole lifecycle contract source.
+- [ ] Independent consumer fixture (#3271) requires no `:shared`, app packages, or app coroutine factories.
+- [ ] Existing documentation and architectural-constraint checks pass.
 
 ## Links
 
