@@ -1,0 +1,13 @@
+---
+# scripts/ansible/requirements.yml — the collections `agent-account.yml` needs.
+#
+# Install once per machine, from the repository root:
+#
+#   ansible-galaxy collection install -r scripts/ansible/requirements.yml
+#
+# Only one collection is needed, and it is not in ansible-core: `ansible.posix`
+# ships the `acl` module. Kept here rather than in mise.toml because mise has no
+# galaxy backend, so a pin there would silently resolve to nothing.
+collections:
+  - name: ansible.posix
+    version: "2.2.2"
