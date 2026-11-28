@@ -32,9 +32,9 @@ helper" and "MVI runtime" are not the same thing. Three owners, no overlap:
 | Owned | Why it is MVI's |
 |---|---|
 | The `scope: CoroutineScope` **parameter** of `MviViewModel` | The base class states a lifecycle contract: the ViewModel owns no work of its own, it runs on a scope the caller supplies. That is the MVI loop's shape. |
-| **A `Job` in that scope** | The supplied scope **must** contain a `kotlinx.coroutines.Job`. `MviViewModel` checks this at construction and fails loudly if the `Job` is missing; it never silently skips teardown cancellation. A child scope created with `CoroutineScope(parent + Job())` / `SupervisorJob()` satisfies the contract. |
+| **A `Job` in that scope** | The supplied scope **must** contain a `kotlinx.coroutines.Job`. `MviViewModel` checks this at construction and fails loudly if the `Job` is missing; it never silently skips teardown cancellation. Use a real child `Job` when the scope must be tied to a parent: `SupervisorJob(parent.coroutineContext[Job])` (or `Job(...)`) passed into the child's context. `CoroutineContext + Job()`/`SupervisorJob()` **replaces** the context's `Job`; without an explicit parent it is independent, not a child scope. |
 | **Cancelling that scope at teardown** — `addCloseable { scope.coroutineContext[Job]!!.cancel() }` | The base class's terminal step, after the `Job` presence is established at construction. `cancel()` on the owned `Job` cancels work launched in that scope; a separate child-`Job` scope keeps the parent's other work intact. |
-| **Scope ownership** | The passed scope is **ViewModel-owned**: it is created for this one ViewModel and the ViewModel is responsible for cancelling it at teardown. Do not pass a shared `applicationScope`, process/global scope, or any scope whose lifetime is broader than the ViewModel. For tests, create a dedicated child scope (e.g. `CoroutineScope(SupervisorJob() + dispatcher)` or `:shared`'s `testScope(...)` helper where that module is already in use). |
+| **Scope ownership** | The passed scope is **ViewModel-owned**: it is created for this one ViewModel and the ViewModel is responsible for cancelling it at teardown. Do not pass a shared `applicationScope`, process/global scope, or any scope whose lifetime is broader than the ViewModel. For tests, create a dedicated scope whose `Job` is a child of the test/root scope (e.g. `val job = SupervisorJob(testScope.coroutineContext[Job]); CoroutineScope(testScope.coroutineContext + job)`) or use `:shared`'s `testScope(...)` helper where that module is already in use. |
 | Collecting flows and launching work on that scope (`catchTo`, `emitError`, `vmScope`) | The loop itself. `vmScope` is typed `CoroutineScope`. |
 
 `:mvi`'s public API therefore names **no** closeable-scope type and **no** scope factory. It takes a
@@ -71,8 +71,13 @@ pool:
   fails loudly when absent. Silent no-op teardown is not acceptable: a scope without a `Job` would
   leak launched coroutines after `ViewModel` destruction.
 - **Tests use a dedicated child scope.** `runTest`/`TestScope` provide the scheduler; pass a scope
-  owned by the test/ViewModel under test, e.g. `CoroutineScope(SupervisorJob() + testDispatcher)` or
-  the existing `:shared` `testScope(...)` helper where that module is already present.
+  owned by the test/ViewModel under test whose `Job` is an explicit child of the test/root `Job`.
+  Example: `val parentJob = checkNotNull(testScope.coroutineContext[Job]); val vmJob = SupervisorJob(parentJob); val vmScope = CoroutineScope(testScope.coroutineContext + vmJob)`.
+  Use the existing `:shared` `testScope(...)` helper where that module is already present; it does
+  the same child-`Job` wiring. Do **not** use `CoroutineScope(SupervisorJob() + dispatcher)` as a
+  "child" of `runTest` — without a parent argument it is independent, so test completion/cancellation
+  may not cancel the ViewModel work. `backgroundScope` is fine only when its semantics match the
+  test.
 
 **The base loses its default scope.** Today `scope` defaults to a scope composed from
 `crashReporter`, which is precisely the application policy above. All 35 subclasses already declare
@@ -467,9 +472,10 @@ module missing from it is the failure mode to watch: it reports green while read
   app-specific coroutine factories (`reportingScope`, `createBackgroundScope`,
   `AutoCloseableCoroutineScope`, `testScope`) or app types (`AppError`, `CrashReportingPort`).
 - It defines its own state, intent and event types, its own `MviDiagnostics` (or accepts
-  `NoOpMviDiagnostics`), its own ViewModel-owned scope via `CoroutineScope(SupervisorJob() + ...)`
-  (containing a `Job`, not shared), and its own test using `runTest` + `TestScope` from
-  `kotlinx-coroutines-test`.
+  `NoOpMviDiagnostics`), its own ViewModel-owned scope with an explicit child `Job` of the test
+  scope, e.g. `val job = SupervisorJob(testScope.coroutineContext[Job]); CoroutineScope(testScope.coroutineContext + job)`
+  (contains a `Job`, not shared, not an independent `SupervisorJob()`), and its own test using
+  `runTest` + `TestScope` from `kotlinx-coroutines-test`.
 - It compiles and runs for both targets.
 
 If the fixture needs a coroutine helper, a closeable scope or a test wrapper to be written at all,

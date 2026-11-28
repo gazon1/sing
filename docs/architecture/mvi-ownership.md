@@ -36,8 +36,10 @@ for being small — the audit found no duplicate to remove.
 
 Same contract on Android and JVM Desktop: `AutoCloseableCoroutineScope` is `commonMain`,
 `close()` cancels the job, and `addCloseable` is the androidx lifecycle mechanism on both
-targets. A scope built without a `Job` closes as a no-op rather than throwing inside
-`onCleared()`.
+targets. A ViewModel-owned scope **must** contain a `Job`; `MviViewModel` checks this at
+construction and fails loudly when absent. Silent no-op teardown is not allowed, because launched
+coroutines would outlive `ViewModel` destruction. See
+`docs/architecture/mvi-library-boundary.md` for the current `:mvi` scope/ownership contract.
 
 **Where the scope is readable.** The recommended form takes `scope` as a plain constructor
 parameter: it is visible in `init` blocks and property initializers and nowhere else, and a
