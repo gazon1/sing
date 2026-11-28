@@ -137,6 +137,164 @@ class NoDivergentScopeAndReporterRuleTest {
         assertTrue(findings.isEmpty(), "got $findings")
     }
 
+    // ─── Super-call finding ────────────────────────────────────────────────────────
+
+    @Test
+    fun `a base call without the diagnostics argument is reported`() {
+        // The shape the extraction makes possible and nothing else would catch: the base no
+        // longer knows a crash reporter exists, so a missing argument loses the AppError
+        // grouping and the user-facing message without failing anything.
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                ) : MviViewModel<State, Intent, Event>(
+                    initialState = State(),
+                    scope = scope,
+                )
+                """.trimIndent(),
+            )
+        assertEquals(1, findings.size, "a reporter that never reaches the base class is a silent default")
+    }
+
+    @Test
+    fun `a base call passing diagnostics derived from the reporter is accepted`() {
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                ) : MviViewModel<State, Intent, Event>(
+                    initialState = State(),
+                    diagnostics = AppMviDiagnostics(crashReporter),
+                    scope = scope,
+                )
+                """.trimIndent(),
+            )
+        assertTrue(findings.isEmpty(), "the reporter reaches the base class — nothing to report, got $findings")
+    }
+
+    @Test
+    fun `a base call passing a diagnostics unrelated to the reporter is reported`() {
+        // Present but not derived: the reference check is what separates the two, and a
+        // constant would otherwise read as compliance.
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                ) : MviViewModel<State, Intent, Event>(
+                    initialState = State(),
+                    diagnostics = NoOpMviDiagnostics,
+                    scope = scope,
+                )
+                """.trimIndent(),
+            )
+        assertEquals(1, findings.size, "a constant diagnostics discards every failure silently")
+    }
+
+    @Test
+    fun `a subclass of an intermediate base that owns the adapter is not reported`() {
+        // `DraftMviViewModel` takes `crashReporter` and builds `AppMviDiagnostics` once, for
+        // every editor. A subclass passing the reporter to it is the correct shape, and
+        // demanding the argument there would demand it twice — the false positive this pair
+        // exists to pin.
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                ) : DraftMviViewModel<Draft, Intent, Event>(
+                    initialDraft = Draft(),
+                    crashReporter = crashReporter,
+                    scope = scope,
+                )
+                """.trimIndent(),
+            )
+        assertTrue(findings.isEmpty(), "the intermediate base owns the adapter, got $findings")
+    }
+
+    @Test
+    fun `an expression that mentions the reporter but reports nothing is reported`() {
+        // The exact shape a substring check accepts and a real one must refuse: the reporter is
+        // named, no adapter receives it, and every handled failure would be silently discarded.
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                ) : MviViewModel<State, Intent, Event>(
+                    initialState = State(),
+                    diagnostics = NoOpMviDiagnostics.also { println(crashReporter) },
+                    scope = scope,
+                )
+                """.trimIndent(),
+            )
+        assertEquals(1, findings.size, "naming the reporter is not the same as reporting through it")
+    }
+
+    @Test
+    fun `a constant diagnostics that happens to be an adapter call is reported`() {
+        // Present, adapter-shaped, and connected to nothing: `AppMviDiagnostics` built from some
+        // other reporter is not this ViewModel's reporter.
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                ) : MviViewModel<State, Intent, Event>(
+                    initialState = State(),
+                    diagnostics = AppMviDiagnostics(NoOpCrashReportingPort()),
+                    scope = scope,
+                )
+                """.trimIndent(),
+            )
+        assertEquals(1, findings.size, "the argument has to carry *this* reporter")
+    }
+
+    @Test
+    fun `a positionally passed reporter is accepted`() {
+        // The rule reads arguments, not names, so the one-argument form is legal — refusing it
+        // would fail a correct ViewModel and teach the next author to suppress the rule.
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                ) : MviViewModel<State, Intent, Event>(
+                    initialState = State(),
+                    diagnostics = AppMviDiagnostics(crashReporter),
+                    scope = scope,
+                )
+                """.trimIndent(),
+            )
+        assertTrue(findings.isEmpty(), "the positional form names the same reporter, got $findings")
+    }
+
+    @Test
+    fun `the super-call message names the fix`() {
+        val message = NoDivergentScopeAndReporterPolicy.superCallMessage("SomeViewModel")
+        assertTrue(
+            message.contains("AppMviDiagnostics(crashReporter)"),
+            "the message must name the fix, got: $message",
+        )
+    }
+
     @Test
     fun `a class with an unrelated property named scope is not a parameter`() {
         // Matches less than intended if it fires. The rule reads the *primary constructor's

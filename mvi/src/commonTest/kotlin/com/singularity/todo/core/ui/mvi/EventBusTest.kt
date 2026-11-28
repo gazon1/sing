@@ -4,7 +4,6 @@ package com.singularity.todo.core.ui.mvi
 
 import com.singularity.todo.core.ui.EventBus
 import com.singularity.todo.core.ui.MviEvent
-import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -63,25 +62,25 @@ class EventBusAfterCloseTest {
     @Test
     fun `emitting after close is discarded rather than thrown`() =
         runTest {
-            val reporter = RecordingCrashReportingPort()
-            val bus = EventBus<TestEvent>(crashReporter = reporter)
+            val diagnostics = RecordingMviDiagnostics()
+            val bus = EventBus<TestEvent>(diagnostics = diagnostics)
             bus.close()
 
             bus.emit(TestEvent.Signal) // must not throw
 
             assertEquals(1, bus.droppedAfterClose, "The discard is counted, not just swallowed")
             assertTrue(
-                reporter.reports.isEmpty(),
+                diagnostics.reports.isEmpty(),
                 "A drop after close must not surface as a crash report — the discard is a " +
-                    "lifecycle race, not a defect: " + reporter.reports,
+                    "lifecycle race, not a defect: " + diagnostics.reports,
             )
         }
 
     @Test
     fun `emitting after close does not disturb work that called it`() =
         runTest {
-            val reporter = RecordingCrashReportingPort()
-            val bus = EventBus<TestEvent>(crashReporter = reporter)
+            val diagnostics = RecordingMviDiagnostics()
+            val bus = EventBus<TestEvent>(diagnostics = diagnostics)
             val reached = mutableListOf<String>()
             bus.close()
 
@@ -93,7 +92,7 @@ class EventBusAfterCloseTest {
             job.join()
 
             assertEquals(listOf("after emit"), reached, "The emitting coroutine ran to completion")
-            assertTrue(reporter.reports.isEmpty(), "Drop after close must not report: ${reporter.reports}")
+            assertTrue(diagnostics.reports.isEmpty(), "Drop after close must not report: ${diagnostics.reports}")
         }
 
     @Test

@@ -8,6 +8,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.launch
 
@@ -51,7 +52,7 @@ class ChangePasswordViewModel(
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ChangePasswordUiState, ChangePasswordIntent, ChangePasswordEvent>(
         initialState = ChangePasswordUiState.Idle,
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     override fun onIntent(intent: ChangePasswordIntent) {

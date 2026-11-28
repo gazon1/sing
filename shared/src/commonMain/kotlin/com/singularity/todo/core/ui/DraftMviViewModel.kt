@@ -117,7 +117,7 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<DraftUiState<D>, I, E>(
         initialState = DraftUiState(draft = initialDraft),
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     private val draftState = DraftState(initialDraft)

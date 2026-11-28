@@ -50,11 +50,31 @@ class Nav3StateReselectTest {
     }
 
     @Test
-    fun `topLevelRouteState must initialise to startRoute`() {
-        assertFailsWith<IllegalArgumentException> {
+    fun `topLevelRouteState may restore a route other than startRoute`() {
+        // Rotation restores the tab the user was on, and the restored route is the one the
+        // shell has to show. (`Nav3StateFactory.android.kt` keeps that tab through
+        // `rememberSaveable`.) Pinning "must equal startRoute" would forbid the restore.
+        val s =
             Nav3State(
                 startRoute = start,
                 topLevelRouteState = mutableStateOf(other),
+                backStacks = mapOf(start to NavBackStack(start), other to NavBackStack(other)),
+            )
+
+        assertEquals(other, s.topLevelRoute, "the restored tab is the active one")
+        assertEquals(start, s.startRoute, "startRoute is still the root, restored or not")
+    }
+
+    @Test
+    fun `topLevelRouteState must have a back stack`() {
+        // The invariant that remains: a route without a stack leaves `NavDisplay` with no
+        // entries, and the screen silently disappears — restored or not.
+        val unknown = AppDestination.CalendarGraph()
+
+        assertFailsWith<IllegalArgumentException> {
+            Nav3State(
+                startRoute = start,
+                topLevelRouteState = mutableStateOf(unknown),
                 backStacks = mapOf(start to NavBackStack(start), other to NavBackStack(other)),
             )
         }

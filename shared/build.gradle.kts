@@ -166,6 +166,11 @@ kotlin {
         androidMain.get().dependsOn(jvmAndroidMain)
 
         commonMain.dependencies {
+            // The MVI runtime (#3270): `MviViewModel`, `EventBus`, the intent/event markers
+            // and the diagnostics seam. `api` because every ViewModel in this module extends
+            // a type from it, so a consumer of `:shared` compiles against the same base class.
+            api(project(":mvi"))
+
             // ADR rules live in `:adr-core` so that `:adr-cli` can use them without
             // depending on this module. `api` because the Koog adapters in
             // `feature/ai/tools/AdrTools.kt` hand `AdrStorage.AdrFile` back to callers.
@@ -871,6 +876,15 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
         "coreDatabase.root",
         rootProject.layout.projectDirectory
             .dir("core-database/src/commonMain/kotlin")
+            .asFile.absolutePath,
+    )
+    // The MVI runtime moved to :mvi (#3270). The architecture scans have to read it: a root
+    // missing from `CommonMainKonsistScope` or `SourceScan` does not fail, it reports green
+    // over less code — the exact failure mode those scopes' own KDoc warns about.
+    systemProperty(
+        "mvi.root",
+        rootProject.layout.projectDirectory
+            .dir("mvi/src/commonMain/kotlin")
             .asFile.absolutePath,
     )
     // Absolute paths to :shared's own test sources and resources, for the tests that

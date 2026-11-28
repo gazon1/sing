@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.linkpreview.LinkPreviewRepository
 import com.singularity.todo.core.linkpreview.LinkPreviewState
 import com.singularity.todo.core.linkpreview.PreviewUrls
@@ -17,6 +16,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * The link preview under the task's title.
@@ -45,7 +45,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskLinkPreviewSlot(
     private val previews: LinkPreviewRepository,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: CoroutineScope,
     private val draftFlow: StateFlow<TaskDetailDraft>,
 ) : FeatureSlot<LinkPreviewState, TaskLinkPreviewIntent> {
     private val _state = MutableStateFlow<LinkPreviewState>(LinkPreviewState.None)

@@ -9,6 +9,7 @@ layers:
   - shared
   - adr-core
   - core-base
+  - mvi
 
 no_cycles: true
 
@@ -28,6 +29,7 @@ components:
   detekt-rules: { in: detekt-rules }
   infra: { in: infra }
   mcp-server: { in: mcp-server }
+  mvi: { in: mvi }
   pro: { in: pro }
   shared: { in: shared }
 
@@ -37,5 +39,6 @@ rules:
   androidApp: { may_depend_on: [pro, shared], because: "Android app composes pro and shared" }
   desktopApp: { may_depend_on: [shared], because: "desktop app composes shared" }
   pro: { may_depend_on: [shared], because: "pro builds on shared" }
-  shared: { may_depend_on: [adr-core, core-base], because: "shared builds on adr-core and core-base" }
-  tests: { may_depend_on: [adr-cli, adr-core, androidApp, core-base, desktopApp, pro, shared], because: "tests may reach any component" }
+  mvi: { may_depend_on: [], because: "the MVI runtime stands on coroutines and lifecycle alone — no project of the application's" }
+  shared: { may_depend_on: [mvi, adr-core, core-base], because: "shared builds on the MVI runtime, adr-core and core-base" }
+  tests: { may_depend_on: [adr-cli, adr-core, androidApp, core-base, desktopApp, mvi, pro, shared], because: "tests may reach any component" }

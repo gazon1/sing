@@ -476,6 +476,9 @@ kover {
 include(":androidApp")
 include(":desktopApp")
 include(":shared")
+// The reusable MVI runtime (#3270). `:shared` depends on it; it depends on nothing of the
+// application's — no Compose, Koin, Room, Navigation or app error types.
+include(":mvi")
 // The ADR toolchain's dependency chain, innermost first. `:adr-cli` depends on
 // `:adr-core` and never on `:shared` — that edge is what made a markdown lister ship
 // Compose, Room, SQLite and Koog (#522 follow-up). See ADR

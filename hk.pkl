@@ -83,6 +83,18 @@ hooks {
         check = "./gw :core-domain:jvmTest --quiet -Pcoverage.enabled=false"
       }
 
+      ["mvi:jvmTest"] {
+        exclusive = true
+        profiles = List("full")
+        check = "./gw :mvi:jvmTest --quiet -Pcoverage.enabled=false"
+      }
+
+      ["mvi:dependencyBoundary"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :mvi:verifyDependencyBoundary --quiet"
+      }
+
       ["affected tests"] {
         exclusive = true
         profiles = List("!full")

@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.timetracking.presentation.slot
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -18,6 +17,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * FeatureSlot that owns the time-tracking UI slice for a task detail screen.
@@ -38,7 +38,7 @@ class TaskTimeSlot(
     private val taskId: TaskId,
     private val timeTrackingRepo: TimeTrackingRepository,
     private val currentUser: ProfileAwareCurrentUser,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: CoroutineScope,
     taskFlow: StateFlow<Task?>,
 ) : FeatureSlot<TaskTimeSlotState, TaskTimeSlotIntent> {
     private val _state = MutableStateFlow<TaskTimeSlotState>(TaskTimeSlotState.Loading)

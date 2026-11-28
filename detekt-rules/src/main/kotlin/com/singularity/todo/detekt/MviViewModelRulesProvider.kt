@@ -189,6 +189,13 @@ internal class VmCloseableRule(config: Config) : Rule(config, "", null) {
     }
 
     private fun checkClass(clazz: KtClass) {
+        // The base class itself is where registration happens: it takes the scope, requires a
+        // Job and registers the cancellation. A rule aimed at "a ViewModel that owns a scope
+        // must register it" has nothing to ask of the class that is the registration — and since
+        // #3270 it lives in `:mvi`, where the scope is a plain `CoroutineScope` it cancels
+        // through the Job rather than through `addCloseable(scope)`.
+        if (clazz.name in MVI_BASE_NAMES) return
+
         val primaryConstructor = clazz.primaryConstructor ?: return
         val paramRefs = primaryConstructor.valueParameters
         val hasScope = paramRefs.any { it.name == "scope" }

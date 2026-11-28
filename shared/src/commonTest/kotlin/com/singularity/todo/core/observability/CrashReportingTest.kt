@@ -2,13 +2,13 @@
 
 package com.singularity.todo.core.observability
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.backgroundFailureHandler
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -66,8 +66,8 @@ private interface E : MviEvent
 private class Vm(scope: CoroutineScope, reporter: CrashReportingPort, private val block: suspend () -> Result<*>) :
     MviViewModel<S, I, E>(
         initialState = S.Idle,
-        crashReporter = reporter,
-        scope = AutoCloseableCoroutineScope(scope.coroutineContext),
+        diagnostics = AppMviDiagnostics(reporter),
+        scope = scope,
     ) {
     override fun onIntent(intent: I) {
         drive(intent)

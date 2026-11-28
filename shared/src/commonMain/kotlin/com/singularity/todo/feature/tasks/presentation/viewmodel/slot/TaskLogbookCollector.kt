@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
@@ -12,6 +11,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Read-only collector that surfaces the task logbook feed (notes + time entries).
@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 class TaskLogbookCollector(
     private val notesRepo: NotesRepository,
     private val timeTrackingRepo: TimeTrackingRepository,
-    scope: AutoCloseableCoroutineScope,
+    scope: CoroutineScope,
     taskFlow: StateFlow<Task?>,
 ) {
     private val _state = MutableStateFlow<TaskLogbookState>(TaskLogbookState.Empty)

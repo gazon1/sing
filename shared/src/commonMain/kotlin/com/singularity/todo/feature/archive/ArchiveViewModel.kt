@@ -7,6 +7,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.archive.domain.port.ArchiveRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -58,7 +59,7 @@ class ArchiveViewModel(
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ArchiveUiState, ArchiveIntent, ArchiveUiEvent>(
         initialState = ArchiveUiState.Loading,
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     private val archiving = MutableStateFlow(false)

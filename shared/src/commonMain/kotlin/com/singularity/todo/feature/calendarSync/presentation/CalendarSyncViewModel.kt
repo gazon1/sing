@@ -11,6 +11,7 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizationRequest
@@ -411,7 +412,7 @@ class CalendarSyncViewModel(
                     calendarProvider.isSupported && syncRepo.isSupported && appQueries.isSupported &&
                         scheduler.isSupported,
             ),
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     // MviViewModel handles addCloseable(scope) — no manual call needed

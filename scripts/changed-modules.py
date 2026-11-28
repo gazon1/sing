@@ -401,6 +401,7 @@ TASKS: ModuleChecks = ModuleChecks({
     'adr-core': [':adr-core:jvmTest', ':adr-core:detekt'],
     'adr-cli': [':adr-cli:test', ':adr-cli:detekt'],
     'core-base': [':core-base:detekt'],
+    'mvi': [':mvi:jvmTest', ':mvi:detekt', ':mvi:verifyDependencyBoundary'],
     'detekt-rules': [
         ':detekt-rules:test',
         ':detekt-rules:koverVerify',
@@ -429,6 +430,7 @@ DOWNSTREAM: dict[str, list[str]] = {
     'adr-core': ['adr-core', 'adr-cli', 'shared', 'androidApp', 'desktopApp', 'mcp-server'],
     'core-domain': ['core-domain', 'core-database', 'shared', 'androidApp', 'desktopApp', 'mcp-server'],
     'core-database': ['core-database', 'shared', 'androidApp', 'desktopApp', 'mcp-server'],
+    'mvi': ['mvi', 'shared', 'androidApp', 'desktopApp', 'mcp-server'],
     'shared': ['shared', 'androidApp', 'desktopApp', 'mcp-server', 'import-cli'],
     'desktopApp': ['desktopApp'],
     'androidApp': ['androidApp'],
@@ -449,6 +451,7 @@ DETEKT_CONSUMERS: list[str] = [
     ':desktopApp:detekt',
     ':androidApp:detekt',
     ':core-base:detekt',
+    ':mvi:detekt',
     ':adr-core:detekt',
     ':adr-cli:detekt',
 ]
@@ -504,6 +507,7 @@ COMPILE_TASKS: dict[str, list[str]] = {
     'core-domain': [':core-domain:compileKotlinJvm', ':core-domain:compileTestKotlinJvm'],
     'core-database': [':core-database:compileKotlinJvm'],
     'core-base': [':core-base:compileKotlinJvm', ':core-base:compileTestKotlinJvm'],
+    'mvi': [':mvi:compileKotlinJvm', ':mvi:compileTestKotlinJvm'],
     'adr-core': [':adr-core:compileKotlinJvm', ':adr-core:compileTestKotlinJvm'],
     'adr-cli': [':adr-cli:compileKotlin', ':adr-cli:compileTestKotlin'],
     'detekt-rules': [':detekt-rules:compileKotlin', ':detekt-rules:compileTestKotlin'],

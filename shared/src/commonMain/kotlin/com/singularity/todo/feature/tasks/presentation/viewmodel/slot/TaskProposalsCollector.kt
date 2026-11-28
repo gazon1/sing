@@ -1,12 +1,12 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Watches pending AI proposals for the current task, newest first.
@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
  * @param proposals A hot or cold flow of all proposals for the task; the collector
  *   derives its own `pendingItems` view and exposes only that to the coordinator.
  */
-class TaskProposalsCollector(scope: AutoCloseableCoroutineScope, proposals: Flow<List<AiProposal>>) {
+class TaskProposalsCollector(scope: CoroutineScope, proposals: Flow<List<AiProposal>>) {
     private val _state = MutableStateFlow(emptyList<AiProposal>())
     val state: StateFlow<List<AiProposal>> = _state.asStateFlow()
 

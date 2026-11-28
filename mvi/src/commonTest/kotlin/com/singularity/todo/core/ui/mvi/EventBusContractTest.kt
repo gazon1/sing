@@ -2,12 +2,8 @@
 
 package com.singularity.todo.core.ui.mvi
 
-import co.touchlab.kermit.LogWriter
-import co.touchlab.kermit.Logger
-import co.touchlab.kermit.Severity
-import co.touchlab.kermit.loggerConfigInit
 import com.singularity.todo.core.ui.EventBus
-import com.singularity.todo.test.fakes.RecordingCrashReportingPort
+import com.singularity.todo.core.ui.MviLogLevel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -124,18 +120,18 @@ class EventBusContractTest {
             // Warn, so a debug line — what the closed-bus discard uses — would not exist
             // where a silently missing snackbar gets reported. Once per bus, because a
             // buffer that stays full must not turn every refusal into a flood.
-            val writer = CapturingLogWriter()
-            val bus = busWithLoggingInto(writer, capacity = 1)
+            val diagnostics = RecordingMviDiagnostics()
+            val bus = EventBus<TestEvent>(capacity = 1, diagnostics = diagnostics)
 
             bus.tryEmit(TestEvent.Signal) // fills the buffer
             repeat(3) { bus.tryEmit(TestEvent.Signal) }
 
-            val lines = writer.entries.filter { it.tag == TAG }
+            val lines = diagnostics.lines
             assertEquals(1, lines.size, "one line per bus, not one per refusal")
-            assertEquals(Severity.Warn, lines.single().severity, "warn is what release keeps")
+            assertEquals(MviLogLevel.Warn, lines.single().first, "warn is what release keeps")
             assertTrue(
-                "buffer full" in lines.single().message,
-                "the message must name what happened: ${lines.single().message}",
+                "buffer full" in lines.single().second,
+                "the message must name what happened: ${lines.single().second}",
             )
         }
 
@@ -145,20 +141,20 @@ class EventBusContractTest {
             // Channel.RENDEZVOUS is capacity 0: there is no buffer, so trySend fails
             // because no receiver is parked. Calling that "buffer full" would send a
             // reader looking for a slow collector that does not exist.
-            val writer = CapturingLogWriter()
-            val bus = busWithLoggingInto(writer, capacity = Channel.RENDEZVOUS)
+            val diagnostics = RecordingMviDiagnostics()
+            val bus = EventBus<TestEvent>(capacity = Channel.RENDEZVOUS, diagnostics = diagnostics)
 
             assertFalse(bus.tryEmit(TestEvent.Signal), "nobody is waiting to receive it")
 
-            val line = writer.entries.single { it.tag == TAG }
-            assertEquals(Severity.Warn, line.severity)
+            val (level, message) = diagnostics.lines.single()
+            assertEquals(MviLogLevel.Warn, level)
             assertTrue(
-                "receiver" in line.message,
-                "a rendezvous refusal must name the real cause: ${line.message}",
+                "receiver" in message,
+                "a rendezvous refusal must name the real cause: $message",
             )
             assertFalse(
-                "buffer full" in line.message,
-                "there is no buffer on this bus: ${line.message}",
+                "buffer full" in message,
+                "there is no buffer on this bus: $message",
             )
         }
 
@@ -167,17 +163,17 @@ class EventBusContractTest {
         runTest {
             // The other half of the distinction: on a real buffer the refusal *is*
             // about capacity, and the message must not blame a missing receiver.
-            val writer = CapturingLogWriter()
-            val bus = busWithLoggingInto(writer, capacity = 1)
+            val diagnostics = RecordingMviDiagnostics()
+            val bus = EventBus<TestEvent>(capacity = 1, diagnostics = diagnostics)
 
             bus.tryEmit(TestEvent.Signal) // fills the buffer
             bus.tryEmit(TestEvent.Signal)
 
-            val line = writer.entries.single { it.tag == TAG }
-            assertEquals(Severity.Warn, line.severity)
+            val (level, message) = diagnostics.lines.single()
+            assertEquals(MviLogLevel.Warn, level)
             assertTrue(
-                "buffer full" in line.message,
-                "a buffered refusal must name the buffer: ${line.message}",
+                "buffer full" in message,
+                "a buffered refusal must name the buffer: $message",
             )
         }
 
@@ -188,15 +184,15 @@ class EventBusContractTest {
             // lifecycle race, a full buffer is real loss. Turning normal teardown into
             // warn lines would make the signal indistinguishable from noise — exactly
             // what happened to the crash-reporting channel (#141).
-            val writer = CapturingLogWriter()
-            val bus = busWithLoggingInto(writer)
+            val diagnostics = RecordingMviDiagnostics()
+            val bus = EventBus<TestEvent>(diagnostics = diagnostics)
             bus.close()
 
             assertFalse(bus.tryEmit(TestEvent.Signal), "A closed bus accepts nothing")
             assertEquals(0, bus.droppedAfterClose, "Only a suspending emit counts as a discard")
             assertTrue(
-                writer.entries.none { it.tag == TAG },
-                "a closed bus must not warn: ${writer.entries}",
+                diagnostics.lines.none { it.first == MviLogLevel.Warn },
+                "a closed bus must not warn: ${diagnostics.lines}",
             )
         }
 
@@ -362,48 +358,17 @@ class EventBusContractTest {
     @Test
     fun `an emit after close is discarded and never reported as a crash`() =
         runTest {
-            val reporter = RecordingCrashReportingPort()
-            val bus = EventBus<TestEvent>(crashReporter = reporter)
+            val diagnostics = RecordingMviDiagnostics()
+            val bus = EventBus<TestEvent>(diagnostics = diagnostics)
             bus.close()
 
             bus.emit(TestEvent.Signal)
 
             assertEquals(1, bus.droppedAfterClose, "The discard is counted")
             assertTrue(
-                reporter.reports.isEmpty(),
+                diagnostics.reports.isEmpty(),
                 "A drop after close is a lifecycle race, not a defect, so it must not reach the " +
-                    "reporting layer: ${reporter.reports}",
+                    "reporting layer: ${diagnostics.reports}",
             )
         }
-
-    /**
-     * The log the bus writes to, and the test reads.
-     *
-     * The bus takes its logger as a constructor argument, so the severity of the
-     * full-buffer line can be asserted without touching any global writer.
-     */
-    private class CapturingLogWriter : LogWriter() {
-        data class Entry(val severity: Severity, val message: String, val tag: String)
-
-        val entries: MutableList<Entry> = mutableListOf()
-
-        override fun log(
-            severity: Severity,
-            message: String,
-            tag: String,
-            throwable: Throwable?,
-        ) {
-            entries += Entry(severity, message, tag)
-        }
-    }
-
-    private fun busWithLoggingInto(
-        writer: CapturingLogWriter,
-        capacity: Int = Channel.BUFFERED,
-    ): EventBus<TestEvent> = EventBus(capacity = capacity, log = Logger(loggerConfigInit(writer), TAG))
-
-    private companion object {
-        /** The tag the injected logger writes under, so entries can be filtered by bus. */
-        const val TAG = "event-bus-test"
-    }
 }

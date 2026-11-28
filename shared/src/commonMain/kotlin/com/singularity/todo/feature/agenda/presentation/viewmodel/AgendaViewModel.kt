@@ -12,6 +12,7 @@ import com.singularity.todo.core.platform.localHourFlow
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.components.CountdownStateMachine
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
@@ -83,7 +84,7 @@ class AgendaViewModel(
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AgendaUiState, AgendaIntent, AgendaUiEvent>(
         initialState = AgendaUiState.Loading,
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     /**

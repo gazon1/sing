@@ -608,6 +608,7 @@ tasks.register("koverReport") {
         ":androidApp:test",
         ":adr-core:jvmTest", // app code in the denominator (feature.ai.tools): its own tests measure it
         ":core-domain:jvmTest", // app code in the denominator: without it the report scored its classes unrun
+        ":mvi:jvmTest", // the MVI runtime (#3270): app code consumers run, so its tests measure it
         ":detekt-rules:test", // rule-coverage measurement: koverXmlReport needs test data
         ":koverXmlReport",
     )

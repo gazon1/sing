@@ -6,6 +6,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.projects.domain.logic.ProjectTreeBuilder
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -103,7 +104,7 @@ class ProjectsTreeViewModel(
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProjectsTreeUiState, ProjectsTreeIntent, ProjectsTreeUiEvent>(
         initialState = ProjectsTreeUiState.Loading(sectionExpanded = false),
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     init {

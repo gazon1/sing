@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -8,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Notes and tasks that link to this task through the `task://` URL scheme.
@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
  */
 class TaskBacklinksCollector(
     private val collaboration: TaskCollaborationDeps,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: CoroutineScope,
     taskFlow: StateFlow<Task?>,
 ) {
     private val _state = MutableStateFlow(TaskBacklinksState())
