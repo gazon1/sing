@@ -5,6 +5,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
@@ -32,7 +33,7 @@ class AccountSettingsViewModel(
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AccountSettingsUiState, AccountSettingsIntent, Nothing>(
         initialState = AccountSettingsUiState.Idle,
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     val activeProfile: Flow<Profile?> = profileRepository.activeProfile()

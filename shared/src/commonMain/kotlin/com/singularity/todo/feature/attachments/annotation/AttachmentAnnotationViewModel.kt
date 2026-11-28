@@ -15,6 +15,7 @@ import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -164,7 +165,7 @@ class AttachmentAnnotationViewModel(
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AttachmentAnnotationUiState, AttachmentAnnotationIntent, AttachmentAnnotationUiEvent>(
         initialState = AttachmentAnnotationUiState.Loading,
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     /**

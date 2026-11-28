@@ -1,9 +1,12 @@
 # The `:mvi` library boundary
 
-> Reference for #3269 (stage 1 of epic #3268). **Design only: no module exists, no file has
-> moved.** This note decides what `:mvi` will own, what stays app-side, and the exact API the
-> module publishes, so that #3270 is a mechanical extraction. The decision itself, with its
-> rejected alternatives, is ADR `docs/decisions/2026-11-27-mvi-library-module-boundary.md`.
+> Reference for #3269 (stage 1) and #3270 (stage 2) of epic #3268. **The module exists and the
+> files have moved**: `:mvi` holds the runtime, `:shared` consumes it, and the boundary is
+> enforced by `MviBoundaryTest` plus the `NoDivergentScopeAndReporter` detekt rule. This note
+> states what `:mvi` owns, what stays app-side, and the exact API it publishes. The decision
+> itself, with its rejected alternatives, is ADR
+> `docs/decisions/2026-11-27-mvi-library-module-boundary.md`; the extraction's own record is
+> ADR `docs/decisions/2026-11-28-mvi-runtime-lives-in-its-own-module.md`.
 >
 > Counts are of the tree at the time of writing. The ones that anchor a rule (`0`, `1`) are the
 > ones worth re-checking before the move.
@@ -94,8 +97,7 @@ recommended pattern for new test APIs: the functions are technically reachable f
 source sets, but their intended use is tests.
 
 `:mvi` does **not** export `testScope()` or equivalent wrappers from its production `commonMain`.
-This doc does not move or refactor the existing `:shared` helper; it records the boundary for the
-future library.
+The extraction did not move or refactor the existing `:shared` helper; it stays there.
 
 Three reasons not to promise them as `:mvi` public library API:
 
@@ -143,7 +145,7 @@ diagnostic surface `:mvi` publishes beyond its behaviour is `MviDiagnostics.log`
 *logging bridge*, not an observer: it reports two events the bus already records, and it cannot
 be used to observe intents, completions, state transitions or consumption.
 
-## The one dependency the extraction has to invent
+## The one dependency the extraction had to invent
 
 `MviViewModel` today derives three things from a failure, all of them using app types:
 
@@ -374,11 +376,10 @@ version already pinned (`2.11.0`).
 
 ```
 androidApp ──► pro
-     └───────► shared ──► adr-core ──► core-base
+     └───────► shared ──► mvi ──► (kotlinx-coroutines, androidx-lifecycle-viewmodel)
+                  └────► adr-core ──► core-base
 desktopApp ──► shared
 adr-cli ─────► adr-core ──► core-base
-
-shared ──► mvi ──► (kotlinx-coroutines, androidx-lifecycle-viewmodel)
 ```
 
 Acyclic, and `:mvi` has no edge back into anything of the application's. `pro` is unaffected: it
@@ -387,10 +388,10 @@ type today (verified: no reference in `pro`, `mcp-server`, `androidApp` or `desk
 production sources), so `:mvi` is a private dependency of `:shared` until #3271's fixture, and the
 app modules need no change at all.
 
-`easement.yml` must gain one component and one layer entry (`mvi` at the bottom of the order,
-alone, since it depends on no project), plus `shared: may_depend_on: [mvi, adr-core, core-base]`.
-That file is not edited here, and the easement skill forbids regenerating its baseline without a
-human — #3270 needs that approval before the module can be built.
+`easement.yml` carries one component (`mvi`), one layer entry (`mvi` at the bottom of the order,
+alone, since it depends on no project), and `shared: may_depend_on: [mvi, adr-core, core-base]`.
+It was added by #3270 with a human's approval, which the easement skill requires before that file
+changes.
 
 ## Move map
 
@@ -425,8 +426,9 @@ scope helper, not the runtime.
 
 ## Migration order for #3270
 
-Each step compiles and passes gates on its own, except where noted; no step introduces a
-compatibility facade, and none survives the change.
+Executed as written; each step compiled and passed its gates before the next. No step introduced
+a compatibility facade, and none survives the change — the record of how it landed is ADR
+`docs/decisions/2026-11-28-mvi-runtime-lives-in-its-own-module.md`.
 
 1. **Module skeleton.** Catalog alias, `settings.gradle.kts` include, `mvi/build.gradle.kts`,
    easement approval + entry, `scripts/changed-modules.py` mapping. Nothing moved yet.
@@ -482,6 +484,23 @@ If the fixture needs a coroutine helper, a closeable scope or a test wrapper to 
 that is evidence the boundary is wrong — and the fix belongs in the design, not in a convenience
 export from `:mvi`. A fixture that reaches into `:shared` proves files moved; it does not prove the
 library is independent.
+
+## What #3270 changed, beyond moving files
+
+Three things the plan could not fully predict, recorded because each is now load-bearing:
+
+- **`scope: CoroutineScope` narrowed the type the base hands its subclasses.** Every production
+  consumer already accepted a `CoroutineScope` (`NoteRewriteWatcher`, `AcpAgentConversation`,
+  `CurrentUser`, the turn runner), but the task-detail slots and `CountdownStateMachine` declared
+  `AutoCloseableCoroutineScope`. Those now take a plain `CoroutineScope`: none of them closes it,
+  and the base is the owner that cancels the `Job`.
+- **`NoDivergentScopeAndReporter` gained a third finding, and one exemption.** A direct
+  `MviViewModel` super-call must pass `diagnostics` derived from `crashReporter`; a subclass of
+  `DraftMviViewModel` must not be asked for it, because that base builds the adapter once for all
+  editors. `VmCloseable` also skips `MviViewModel` itself — the base is where registration
+  happens, and it cancels a `Job` rather than closing a scope object.
+- **`:mvi` is in the coverage denominator**, so `:mvi:jvmTest` is in the root `koverReport` list.
+  A module whose tests nobody runs is the "works but is never called" defect one layer down.
 
 ## Pre-merge checks
 

@@ -9,6 +9,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.version.AppVersion
 import com.singularity.todo.core.version.appVersion
@@ -55,7 +56,7 @@ class AppVersionGateViewModel(
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AppVersionGateState, AppVersionGateIntent, Nothing>(
         initialState = AppVersionGateState.Checking,
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     init {

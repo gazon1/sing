@@ -9,6 +9,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.components.CountdownStateMachine
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -99,7 +100,7 @@ class TagsViewModel(
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
         initialState = TagsUiState.Loading,
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     companion object {

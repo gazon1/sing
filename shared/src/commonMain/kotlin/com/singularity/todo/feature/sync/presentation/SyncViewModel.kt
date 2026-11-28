@@ -12,6 +12,7 @@ import com.singularity.todo.core.sync.SyncScope
 import com.singularity.todo.core.sync.SyncScopeProvider
 import com.singularity.todo.core.sync.SyncStateRepository
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -100,7 +101,7 @@ class SyncViewModel(
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<SyncState, SyncIntent, Nothing>(
         initialState = SyncState(status = repository.status.value),
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     private val syncMutex = Mutex()

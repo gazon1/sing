@@ -4,6 +4,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
@@ -60,7 +61,7 @@ class CalendarViewModel(
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<CalendarUiState, CalendarIntent, CalendarUiEvent>(
         initialState = CalendarUiState.Loading,
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     /** Today's date, stable for the lifetime of this VM (captured at construction). */

@@ -163,7 +163,7 @@ class Create<Feature>UseCase(private val repo: <Feature>Repository, private val 
 
 ### 6. <Feature>ViewModel.kt — MviViewModel base
 
-All VMs extend [MviViewModel](../../../shared/src/commonMain/kotlin/com/singularity/todo/core/ui/MviViewModel.kt). Unifies the read-only state flow, `EventBus`, `onIntent`.
+All VMs extend [MviViewModel](../../../mvi/src/commonMain/kotlin/com/singularity/todo/core/ui/MviViewModel.kt). Unifies the read-only state flow, `EventBus`, `onIntent`.
 
 ```kotlin
 sealed interface <Feature>UiState {

@@ -210,7 +210,12 @@ ROOT_MARKERS: tuple[tuple[str, str], ...] = (
 #: The paths each tree is made of. A change touches a tree when it touches one
 #: of its paths.
 TREE_PATHS: dict[str, tuple[str, ...]] = {
-    'commonMain': ('shared/src/commonMain/', 'core-database/src/commonMain/', 'core-domain/src/commonMain/'),
+    'commonMain': (
+        'shared/src/commonMain/',
+        'core-database/src/commonMain/',
+        'core-domain/src/commonMain/',
+        'mvi/src/commonMain/',
+    ),
     'testSources': ('shared/src/jvmTest/', 'shared/src/commonTest/'),
     'testResources': ('shared/src/jvmTest/resources/',),
     'maestro': ('Maestro/',),
@@ -233,6 +238,7 @@ TEST_SOURCE_DIRS: dict[str, str] = {
     'shared/src/commonTest': 'shared',
     'core-database/src/commonTest': 'core-database',
     'core-domain/src/commonTest': 'core-domain',
+    'mvi/src/commonTest': 'mvi',
     'shared/src/jvmTest': 'shared',
     'shared/src/androidHostTest': 'shared',
     'desktopApp/src/jvmTest': 'desktopApp',
@@ -244,6 +250,7 @@ PRODUCTION_SOURCE_DIRS: tuple[str, ...] = (
     'shared/src/commonMain',
     'core-database/src/commonMain',
     'core-domain/src/commonMain',
+    'mvi/src/commonMain',
     'shared/src/jvmMain',
     'shared/src/jvmAndroidMain',
     'shared/src/androidMain',
@@ -281,6 +288,7 @@ SOURCE_SET_TASKS: dict[str, str] = {
     'shared/src/commonTest': ':shared:jvmTest',
     'core-database/src/commonTest': ':core-database:jvmTest',
     'core-domain/src/commonTest': ':core-domain:jvmTest',
+    'mvi/src/commonTest': ':mvi:jvmTest',
     'shared/src/jvmTest': ':shared:jvmTest',
     'shared/src/androidHostTest': ':shared:testAndroidHostTest',
     'desktopApp/src/jvmTest': ':desktopApp:test',

@@ -4,25 +4,27 @@ package com.singularity.todo.core.ui.mvi
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelStore
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.testScope
-import com.singularity.todo.core.error.AppError
-import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.MviLogLevel
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -45,19 +47,13 @@ sealed interface TestIntent : MviIntent {
 
     data class UpdateProgress(val value: Int) : TestIntent
 
-    data object Fail : TestIntent
-
     data object Reset : TestIntent
 
     data object FailingToState : TestIntent
 
     data object FailingToEvent : TestIntent
 
-    data object FailingWithAppError : TestIntent
-
     data object ThrowingToState : TestIntent
-
-    data object ThrowingToEvent : TestIntent
 
     data object Succeeding : TestIntent
 }
@@ -66,41 +62,51 @@ sealed interface VmEvent : MviEvent {
     data class Notify(val msg: String) : VmEvent
 }
 
-class VmUnderTest(private val testScope: CoroutineScope) :
+/**
+ * A ViewModel-owned scope whose `Job` is an explicit child of the test's, which is what a
+ * consumer of this library is supposed to do.
+ *
+ * The parent is the test's `backgroundScope` rather than its root `Job`: `runTest` cancels
+ * `backgroundScope` when the body returns, so a ViewModel that was never cleared still ends
+ * instead of hanging the test for a minute. Parenting it to the root would make every test
+ * responsible for cancelling the scope itself, and one that forgot would fail on a timeout
+ * that says nothing about the ViewModel. An independent `SupervisorJob()` would be worse
+ * still: not a child at all, so cancelling it is invisible and the test's completion never
+ * reaches it.
+ */
+private fun TestScope.vmScope(): CoroutineScope {
+    val parent = checkNotNull(backgroundScope.coroutineContext[Job]) { "runTest always provides a Job" }
+    return CoroutineScope(coroutineContext + SupervisorJob(parent))
+}
+
+class VmUnderTest(testScope: CoroutineScope) :
     MviViewModel<TestState, TestIntent, VmEvent>(
         initialState = TestState.Idle,
-        scope = AutoCloseableCoroutineScope(testScope.coroutineContext),
+        scope = testScope,
     ) {
     override fun onIntent(intent: TestIntent) {
         when (intent) {
             TestIntent.Start -> {
-                testScope.launch {
+                vmScope.launch {
                     updateState { TestState.Working(0) }
                     emit(VmEvent.Notify("started"))
                 }
             }
 
             is TestIntent.UpdateProgress -> {
-                testScope.launch {
+                vmScope.launch {
                     updateState { current ->
                         if (current is TestState.Working) TestState.Working(intent.value) else current
                     }
                 }
             }
 
-            TestIntent.Fail -> {
-                testScope.launch {
-                    updateState { TestState.Error("boom") }
-                    emit(VmEvent.Notify("failed"))
-                }
-            }
-
             TestIntent.Reset -> {
-                testScope.launch { setState(TestState.Idle) }
+                vmScope.launch { setState(TestState.Idle) }
             }
 
             TestIntent.FailingToState -> {
-                testScope.launch {
+                vmScope.launch {
                     catchTo("state route failed", { msg -> updateState { TestState.Error(msg) } }) {
                         Result.failure<Unit>(IllegalStateException("inner"))
                     }
@@ -108,17 +114,9 @@ class VmUnderTest(private val testScope: CoroutineScope) :
             }
 
             TestIntent.FailingToEvent -> {
-                testScope.launch {
+                vmScope.launch {
                     emitError("event route failed", VmEvent::Notify) {
                         Result.failure<Unit>(IllegalStateException("inner"))
-                    }
-                }
-            }
-
-            TestIntent.FailingWithAppError -> {
-                testScope.launch {
-                    catchTo("unused label", { msg -> updateState { TestState.Error(msg) } }) {
-                        Result.failure<Unit>(AppError.Validation("domain says no"))
                     }
                 }
             }
@@ -126,23 +124,15 @@ class VmUnderTest(private val testScope: CoroutineScope) :
             // Throws instead of returning a failure — the shape a `require(...)` or
             // `getOrThrow()` inside the block produces.
             TestIntent.ThrowingToState -> {
-                testScope.launch {
+                vmScope.launch {
                     catchTo("state route failed", { msg -> updateState { TestState.Error(msg) } }) {
                         throw IllegalStateException("thrown inner")
                     }
                 }
             }
 
-            TestIntent.ThrowingToEvent -> {
-                testScope.launch {
-                    emitError("event route failed", VmEvent::Notify) {
-                        throw AppError.NotFound("thrown domain says missing")
-                    }
-                }
-            }
-
             TestIntent.Succeeding -> {
-                testScope.launch {
+                vmScope.launch {
                     catchTo("should not fire", { msg -> updateState { TestState.Error(msg) } }) {
                         Result.success(Unit)
                     }
@@ -153,18 +143,18 @@ class VmUnderTest(private val testScope: CoroutineScope) :
 }
 
 /**
- * A ViewModel that runs its background work through the real error path: intent
- * handlers launch on the injected [MviViewModel.vmScope] via [MviViewModel.catchTo],
- * exactly like the production MVI loop. This is the shape whose teardown the injected
- * scope lifecycle has to protect (#3228).
+ * A ViewModel that runs its background work through the real error path: intent handlers
+ * launch on the injected [MviViewModel.vmScope] via [MviViewModel.catchTo], exactly like the
+ * production MVI loop. This is the shape whose teardown the injected scope lifecycle has to
+ * protect (#3228).
  */
 private class LifecycleHarness(
     initialState: TestState,
-    scope: AutoCloseableCoroutineScope,
-    crashReporter: CrashReportingPort,
+    scope: CoroutineScope,
+    diagnostics: com.singularity.todo.core.ui.MviDiagnostics,
 ) : MviViewModel<TestState, TestIntent, VmEvent>(
         initialState = initialState,
-        crashReporter = crashReporter,
+        diagnostics = diagnostics,
         scope = scope,
     ) {
     fun startOperation(block: suspend () -> Result<*>): Job =
@@ -182,7 +172,7 @@ private class LifecycleHarness(
  *
  * `ViewModel.clear()` is `internal` in lifecycle 2.11, so the public teardown path an
  * owner actually drives is the store: `ViewModelStore.clear()` resolves the stored
- * ViewModels and runs their clear — cancelling the `addCloseable` scope — before dropping
+ * ViewModels and runs their clear — cancelling the `addCloseable` job — before dropping
  * them. Routing the clear through the store is what makes these tests exercise the real
  * contract rather than poking at a protected member directly.
  */
@@ -197,14 +187,14 @@ class MviViewModelTest {
     @Test
     fun `initial state is correct`() =
         runTest {
-            val vm = VmUnderTest(this)
+            val vm = VmUnderTest(vmScope())
             assertTrue(vm.stateFlow.value is TestState.Idle)
         }
 
     @Test
     fun `onIntent dispatches to correct branch`() =
         runTest {
-            val vm = VmUnderTest(this)
+            val vm = VmUnderTest(vmScope())
 
             vm.onIntent(TestIntent.Start)
             advanceUntilIdle()
@@ -215,7 +205,7 @@ class MviViewModelTest {
     @Test
     fun `updateState keeps state when the transform guard does not match`() =
         runTest {
-            val vm = VmUnderTest(this)
+            val vm = VmUnderTest(vmScope())
 
             // Try to update Working state when in Idle — should stay Idle
             vm.onIntent(TestIntent.UpdateProgress(50))
@@ -236,7 +226,7 @@ class MviViewModelTest {
     @Test
     fun `emit fires one-shot event`() =
         runTest {
-            val vm = VmUnderTest(this)
+            val vm = VmUnderTest(vmScope())
             val events = mutableListOf<VmEvent>()
 
             val job = launch { vm.events.collect { events.add(it) } }
@@ -251,7 +241,7 @@ class MviViewModelTest {
     @Test
     fun `setState replaces the whole state`() =
         runTest {
-            val vm = VmUnderTest(this)
+            val vm = VmUnderTest(vmScope())
 
             vm.onIntent(TestIntent.Start)
             advanceUntilIdle()
@@ -265,7 +255,7 @@ class MviViewModelTest {
     @Test
     fun `catchTo routes the throwable message into onError`() =
         runTest {
-            val vm = VmUnderTest(this)
+            val vm = VmUnderTest(vmScope())
 
             vm.onIntent(TestIntent.FailingToState)
             advanceUntilIdle()
@@ -277,22 +267,9 @@ class MviViewModelTest {
         }
 
     @Test
-    fun `catchTo prefers an AppError message over the throwable and the label`() =
-        runTest {
-            val vm = VmUnderTest(this)
-
-            vm.onIntent(TestIntent.FailingWithAppError)
-            advanceUntilIdle()
-
-            val state = vm.stateFlow.value
-            assertTrue(state is TestState.Error, "expected Error, got $state")
-            assertEquals("domain says no", state.message)
-        }
-
-    @Test
     fun `catchTo converts a thrown exception into an error state instead of crashing the coroutine`() =
         runTest {
-            val vm = VmUnderTest(this)
+            val vm = VmUnderTest(vmScope())
 
             vm.onIntent(TestIntent.ThrowingToState)
             advanceUntilIdle()
@@ -303,27 +280,9 @@ class MviViewModelTest {
         }
 
     @Test
-    fun `emitError converts a thrown AppError into an event instead of crashing the coroutine`() =
-        runTest {
-            val vm = VmUnderTest(this)
-            val events = mutableListOf<VmEvent>()
-            val job = launch { vm.events.collect { events.add(it) } }
-            advanceUntilIdle()
-
-            vm.onIntent(TestIntent.ThrowingToEvent)
-            advanceUntilIdle()
-            job.cancel()
-
-            assertTrue(
-                events.any { it is VmEvent.Notify && it.msg == "thrown domain says missing" },
-                "expected the thrown AppError message in the event, got $events",
-            )
-        }
-
-    @Test
     fun `catchTo leaves state untouched when the block succeeds`() =
         runTest {
-            val vm = VmUnderTest(this)
+            val vm = VmUnderTest(vmScope())
 
             vm.onIntent(TestIntent.Succeeding)
             advanceUntilIdle()
@@ -334,7 +293,7 @@ class MviViewModelTest {
     @Test
     fun `emitError emits an event when the block fails`() =
         runTest {
-            val vm = VmUnderTest(this)
+            val vm = VmUnderTest(vmScope())
             val events = mutableListOf<VmEvent>()
             val job = launch { vm.events.collect { events.add(it) } }
             advanceUntilIdle()
@@ -352,7 +311,7 @@ class MviViewModelTest {
     @Test
     fun `state is a read-only view of stateFlow`() =
         runTest {
-            val vm = VmUnderTest(this)
+            val vm = VmUnderTest(vmScope())
 
             // The public handle must not be a MutableStateFlow. A caller that could write
             // it would put the screen in a state the ViewModel never decided — which is
@@ -368,14 +327,41 @@ class MviViewModelTest {
             assertEquals(vm.stateFlow.value, vm.state.value, "state and stateFlow are the same flow")
         }
 
-    // ── Injected-scope lifecycle (#3228) ─────────────────────────────────────
+    // ── Diagnostics seam ─────────────────────────────────────────────────────
 
     @Test
-    fun `clearing the viewmodel cancels a child launched on its scope`() =
+    fun `a handled failure is classified once and reported with the classifier's key`() =
+        runTest {
+            val diagnostics = RecordingMviDiagnostics()
+            val vm = LifecycleHarness(TestState.Idle, scope = vmScope(), diagnostics = diagnostics)
+
+            vm.startOperation { Result.failure<Unit>(IllegalStateException("inner")) }
+            advanceUntilIdle()
+
+            assertEquals(1, diagnostics.reports.size, "one report per handled failure")
+            val (issueKey, reported) = diagnostics.reports.single()
+            assertEquals("op_failed", issueKey, "the default classifier groups by the call-site label")
+            assertEquals("inner", reported.message)
+        }
+
+    @Test
+    fun `a successful block reports nothing`() =
+        runTest {
+            val diagnostics = RecordingMviDiagnostics()
+            val vm = LifecycleHarness(TestState.Idle, scope = vmScope(), diagnostics = diagnostics)
+
+            vm.startOperation { Result.success(Unit) }
+            advanceUntilIdle()
+
+            assertTrue(diagnostics.reports.isEmpty(), "success must not reach the reporting layer")
+        }
+
+    @Test
+    fun `a cancelled operation is not a failure and is not reported`() =
         runTest {
             val gate = CompletableDeferred<Unit>()
-            val reporter = RecordingCrashReportingPort()
-            val vm = LifecycleHarness(TestState.Idle, scope = testScope(this), crashReporter = reporter)
+            val diagnostics = RecordingMviDiagnostics()
+            val vm = LifecycleHarness(TestState.Idle, scope = vmScope(), diagnostics = diagnostics)
             val job =
                 vm.startOperation {
                     gate.await()
@@ -389,18 +375,59 @@ class MviViewModelTest {
             runCurrent()
 
             assertTrue(job.isCancelled, "clearing the ViewModel must cancel the work its scope launched")
-            assertTrue(reporter.reports.isEmpty(), "a cancelled coroutine is not a failure and must not be reported")
+            assertTrue(diagnostics.reports.isEmpty(), "a cancelled coroutine is not a failure and must not be reported")
+        }
+
+    // ── Scope ownership ──────────────────────────────────────────────────────
+
+    @Test
+    fun `a scope without a Job is rejected at construction`() =
+        runTest {
+            // A Job-less context would make teardown a silent no-op and leak every coroutine
+            // the ViewModel launched. Fail loudly at construction instead.
+            //
+            // Built by hand rather than through `CoroutineScope(context)`: that factory *adds*
+            // a `Job` when the context has none, so it cannot express the case under test.
+            val jobless =
+                object : CoroutineScope {
+                    override val coroutineContext: CoroutineContext = Dispatchers.Default
+                }
+
+            val thrown =
+                assertFailsWith<IllegalArgumentException> {
+                    LifecycleHarness(TestState.Idle, scope = jobless, diagnostics = RecordingMviDiagnostics())
+                }
+            assertTrue(
+                "Job" in (thrown.message ?: ""),
+                "the message must say what is missing: ${thrown.message}",
+            )
         }
 
     @Test
-    fun `clearing the viewmodel does not cancel the test scope`() =
+    fun `clearing the viewmodel cancels a child launched on its scope`() =
         runTest {
-            val vm =
-                LifecycleHarness(
-                    TestState.Idle,
-                    scope = testScope(this),
-                    crashReporter = RecordingCrashReportingPort(),
-                )
+            val gate = CompletableDeferred<Unit>()
+            val vm = LifecycleHarness(TestState.Idle, scope = vmScope(), diagnostics = RecordingMviDiagnostics())
+            val job =
+                vm.startOperation {
+                    gate.await()
+                    Result.success(Unit)
+                }
+
+            runCurrent()
+            assertFalse(job.isCancelled, "the operation is in flight before the clear")
+
+            clearThroughLifecycle(vm)
+            runCurrent()
+
+            assertTrue(job.isCancelled, "clearing the ViewModel must cancel the work its scope launched")
+        }
+
+    @Test
+    fun `clearing the viewmodel does not cancel the parent scope`() =
+        runTest {
+            val parent = checkNotNull(coroutineContext[Job])
+            val vm = LifecycleHarness(TestState.Idle, scope = vmScope(), diagnostics = RecordingMviDiagnostics())
             clearThroughLifecycle(vm)
 
             var foregroundWorkRan = false
@@ -408,17 +435,13 @@ class MviViewModelTest {
             advanceUntilIdle()
 
             assertTrue(foregroundWorkRan, "clearing the ViewModel must not take down the surrounding test scope")
+            assertFalse(parent.isCancelled, "the parent Job the child scope hangs off is untouched")
         }
 
     @Test
     fun `clearing the viewmodel closes the event bus`() =
         runTest {
-            val vm =
-                LifecycleHarness(
-                    TestState.Idle,
-                    scope = testScope(this),
-                    crashReporter = RecordingCrashReportingPort(),
-                )
+            val vm = LifecycleHarness(TestState.Idle, scope = vmScope(), diagnostics = RecordingMviDiagnostics())
 
             assertTrue(vm.emitEventForTest(VmEvent.Notify("before close")))
 
@@ -427,5 +450,22 @@ class MviViewModelTest {
                 !vm.emitEventForTest(VmEvent.Notify("after close")),
                 "the event bus must be closed on clear, so emits from dying coroutines are discarded",
             )
+        }
+
+    @Test
+    fun `a refused event is logged once at warn through the diagnostics seam`() =
+        runTest {
+            val diagnostics = RecordingMviDiagnostics()
+            val vm = LifecycleHarness(TestState.Idle, scope = vmScope(), diagnostics = diagnostics)
+
+            // A rendezvous-free buffered bus: fill it, then refuse repeatedly.
+            while (vm.emitEventForTest(VmEvent.Notify("fill"))) {
+                // keep filling
+            }
+            vm.emitEventForTest(VmEvent.Notify("refused"))
+
+            val warns = diagnostics.lines.filter { it.first == MviLogLevel.Warn }
+            assertEquals(1, warns.size, "one line per bus, not one per refusal: ${diagnostics.lines}")
+            vm.stateFlow.value // the ViewModel is still usable after a refusal
         }
 }

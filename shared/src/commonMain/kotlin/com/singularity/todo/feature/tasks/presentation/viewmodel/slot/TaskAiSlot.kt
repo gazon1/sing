@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
@@ -25,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * AI-assisted actions on the task: refine the title, generate a description, generate a
@@ -48,7 +48,7 @@ class TaskAiSlot(
     private val ai: TaskAiDeps,
     private val collaboration: TaskCollaborationDeps,
     private val context: TaskContextDeps,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: CoroutineScope,
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
     private val onSaved: (String) -> Unit,

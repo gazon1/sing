@@ -10,6 +10,7 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteFilter
@@ -70,7 +71,7 @@ class NotesListViewModel(
                 sortOrder = NoteSortOrder.UpdatedDesc,
                 searchQuery = FieldOwnedText.empty(),
             ),
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     /**

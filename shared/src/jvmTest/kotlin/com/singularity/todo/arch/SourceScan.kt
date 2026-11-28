@@ -39,8 +39,9 @@ internal object SourceScan {
     /**
      * The production root of every module the source-reading gates judge.
      *
-     * The database and the pure domain models moved out of `:shared`, and a gate that
-     * keeps walking one root does not fail — it walks less code and reports green.
+     * The database, the pure domain models and the MVI runtime each moved out of `:shared`,
+     * and a gate that keeps walking one root does not fail — it walks less code and reports
+     * green.
      * The roots come from the build, so a module that stops being configured shows up
      * as a missing root rather than as a silently narrower scan.
      */
@@ -51,6 +52,7 @@ internal object SourceScan {
             commonMainRootOrNull(),
             modulePackageRoot("coreDomain.root"),
             modulePackageRoot("coreDatabase.root"),
+            modulePackageRoot("mvi.root"),
         ).filter { it.isDirectory }
             .distinct()
     }

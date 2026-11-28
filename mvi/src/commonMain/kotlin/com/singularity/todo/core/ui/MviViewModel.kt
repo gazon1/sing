@@ -1,15 +1,8 @@
 package com.singularity.todo.core.ui
 
 import androidx.lifecycle.ViewModel
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.coroutines.createBackgroundScope
-import com.singularity.todo.core.error.AppError
-import com.singularity.todo.core.error.original
-import com.singularity.todo.core.error.runCatchingCancellable
-import com.singularity.todo.core.error.toMessage
-import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.NoOpCrashReportingPort
-import com.singularity.todo.core.observability.crashReportingFailureHandler
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -41,15 +34,30 @@ import kotlinx.coroutines.launch
  * `suspend` so callers can [emit] straight from it — the non-suspend variants forced
  * every call site to wrap the emit in a nested `launch`.
  *
+ * ## Scope ownership is a contract, not a convenience
+ * [scope] is required and the ViewModel owns it: the caller creates it for this instance,
+ * and this class cancels its `Job` when the ViewModel is cleared. Three rules follow, and
+ * all three are checked rather than trusted:
+ *
+ * - **A `Job` must be present.** A context without one would make teardown a silent no-op
+ *   and leak every coroutine the ViewModel launched, so a missing `Job` is a construction
+ *   error.
+ * - **No shared scope.** Passing an application or process-wide scope is a contract
+ *   violation: clearing this ViewModel would cancel unrelated work.
+ * - **A child scope is parented explicitly.** For a scope that has to be tied to a parent,
+ *   pass `SupervisorJob(parent.coroutineContext[Job])` in the context. `CoroutineContext +
+ *   SupervisorJob()` with no parent argument *replaces* the context's `Job` with an
+ *   independent one, which is not a child scope.
+ *
  * ## Usage
  * ```
  * class TagsViewModel(
  *     private val tagRepo: TagsRepository,
- *     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
- *     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+ *     diagnostics: MviDiagnostics,
+ *     scope: CoroutineScope,
  * ) : MviViewModel<TagsUiState, TagsIntent, TagsUiEvent>(
  *     initialState = TagsUiState.Loading,
- *     crashReporter = crashReporter,
+ *     diagnostics = diagnostics,
  *     scope = scope,
  * ) {
  *     // no addCloseable(scope) needed here — the base initializer does it
@@ -68,39 +76,50 @@ import kotlinx.coroutines.launch
  * @param I The intent type (user action sealed hierarchy).
  * @param E The event type (one-shot UI events sealed hierarchy).
  * @param initialState The initial UI state.
- * @param extraEventCapacity Extra buffer capacity for the event [Channel]. Defaults to [Channel.BUFFERED].
- * @param scope Coroutine scope for collecting flows and launching background work. Defaults
- *   to a scope whose failure policy is composed from [crashReporter], so an unhandled
- *   failure in a ViewModel collector is reported to the same place as a `catchTo` failure
- *   rather than escalating to the platform's uncaught-exception handler — which on Android
- *   kills the process. Override it to pass a test scope or a shared one; the policy still
- *   has to be chosen, never inherited from a process-wide default. The base registers the
- *   scope with the ViewModel's `addCloseable` mechanism and closes it when the ViewModel is
- *   cleared, so cancelling the scope *is* the teardown — a Tier-1 ViewModel needs no
- *   `onCleared()` override for it. A test that passes its own scope owns closing it.
- * @param crashReporter Sink for the failures that pass through [catchTo]. Defaults to a
- *   no-op, so a ViewModel built in a test is silent and nothing reaches for a global —
- *   but a ViewModel that handles real errors should pass the injected port instead of
- *   inheriting the default. See [NoOpCrashReportingPort].
+ * @param diagnostics Where a handled failure is classified, reported and logged. Defaults to
+ *   [NoOpMviDiagnostics], so a ViewModel built in a test is silent and nothing reaches for a
+ *   global — but a ViewModel that handles real errors should pass the application's adapter.
+ * @param scope The ViewModel-owned coroutine scope: it must carry a [Job] in its context, and
+ *   this class cancels that [Job] on teardown. See "Scope ownership" above.
  */
 abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     initialState: S,
-    extraEventCapacity: Int = Channel.BUFFERED,
-    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    scope: AutoCloseableCoroutineScope =
-        AutoCloseableCoroutineScope(
-            createBackgroundScope(crashReportingFailureHandler(crashReporter)).coroutineContext,
-        ),
+    private val diagnostics: MviDiagnostics = NoOpMviDiagnostics,
+    scope: CoroutineScope,
 ) : ViewModel() {
+    /**
+     * The `Job` teardown cancels.
+     *
+     * Captured at construction, after the presence check, so teardown cannot look it up and
+     * find nothing: a scope whose context is mutated afterwards still has the `Job` this
+     * ViewModel is responsible for.
+     */
+    private val ownedJob: Job =
+        requireNotNull(scope.coroutineContext[Job]) {
+            "MviViewModel requires a CoroutineScope whose context carries a Job — a scope " +
+                "without one cannot be cancelled at teardown, and every coroutine launched on " +
+                "it would outlive the ViewModel. Build the scope with a Job, e.g. " +
+                "SupervisorJob(parent.coroutineContext[Job])."
+        }
+
     init {
-        addCloseable(scope)
+        // Cancelling the owned Job *is* the teardown: a Tier-1 ViewModel needs no
+        // `onCleared()` override for it, and a caller-supplied child Job keeps the parent's
+        // other work intact.
+        //
+        // The closeable is a lambda over the owned `Job` rather than the `scope` itself: the
+        // scope is a plain `CoroutineScope`, which is not `AutoCloseable`, and the `Job` is what
+        // teardown has to reach. This class is exempt from `VmCloseable` for the same reason it
+        // exists — it *is* the place registration happens, and a rule aimed at subclasses has
+        // nothing to ask of it.
+        addCloseable { ownedJob.cancel() }
     }
 
     /**
      * Scope for collectors and intent handlers. Deliberately not `open` — the eight
      * subclasses that overrode it only ever assigned the same `scope` back to it.
      */
-    protected val vmScope: AutoCloseableCoroutineScope = scope
+    protected val vmScope: CoroutineScope = scope
 
     /**
      * The one writable state holder. Private on purpose: a subclass that could reach it
@@ -144,7 +163,7 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
         _state.value = newState
     }
 
-    private val _events = EventBus<E>(extraEventCapacity)
+    private val _events = EventBus<E>(diagnostics = diagnostics)
 
     /** Flow of one-shot events. Collect in your screen's effect layer. */
     val events: Flow<E> get() = _events.flow
@@ -159,11 +178,11 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     protected fun tryEmit(event: E): Boolean = _events.tryEmit(event)
 
     /**
-     * Runs [block] on [vmScope]; on `Result.failure` hands `toMessage(errorLabel)` to [onError].
+     * Runs [block] on [vmScope]; on `Result.failure` hands the failure's message to [onError].
      *
      * A thrown exception is converted the same way — `require(...)`, `getOrThrow()`
      * and throwing repository calls land in [onError] instead of propagating out of
-     * the coroutine. Before this guard, a throw escaped `vmScope.launch`: on Android
+     * the coroutine. Before this guard, a throw escaped the scope's `launch`: on Android
      * that is an uncaught exception and kills the process; in tests it cancels a
      * scope shared with the test host and silently freezes every collector on it
      * (discovered when renaming a missing tag threw `AppError.NotFound`).
@@ -171,11 +190,11 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      * Use when the failure lands in state (`catchTo(label, { msg -> updateState { … } })`).
      * For the one-shot-event case prefer [emitError].
      *
-     * Every failure that passes through here is also reported to [crashReporter] before
-     * [onError] runs, so ordering is fixed: a breadcrumb the error path emits cannot be
-     * recorded ahead of the event it relates to. [CancellationException] never arrives —
-     * [runCatchingCancellable] re-throws it before the fold — so a cancelled coroutine is
-     * never mistaken for a defect.
+     * Every failure that passes through here is also classified and reported through
+     * [diagnostics] before [onError] runs, so ordering is fixed: a breadcrumb the error path
+     * emits cannot be recorded ahead of the event it relates to. [CancellationException] never
+     * arrives — it is re-thrown before the fold — so a cancelled coroutine is never mistaken
+     * for a defect.
      *
      * ## [onBeforeReport] — the one exception to that ordering
      *
@@ -204,55 +223,27 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
         block: suspend () -> Result<*>,
     ): Job =
         vmScope.launch {
-            runCatchingCancellable { block() }.fold(
-                onSuccess = { result ->
-                    result.onFailure {
-                        onBeforeReport(it)
-                        crashReporter.report(
-                            error = it.originalIfAppError(),
-                            issueKey = issueKeyFor(it, errorLabel),
-                        )
-                        onError(it.toMessage(errorLabel))
-                    }
-                },
-                onFailure = { e ->
-                    onBeforeReport(e)
-                    crashReporter.report(
-                        error = e.originalIfAppError(),
-                        issueKey = issueKeyFor(e, errorLabel),
-                    )
-                    onError(e.toMessage(errorLabel))
-                },
-            )
-        }
-
-    private fun Throwable.originalIfAppError(): Throwable = (this as? AppError)?.original() ?: this
-
-    /**
-     * The grouping key for a reported failure: the domain code of the error that names
-     * the failure, otherwise the call-site [errorLabel].
-     *
-     * [error] is the failure as it was raised, not the throwable that is reported. An
-     * [AppError] names what went wrong (`error.not_found`), so an error that carries a
-     * cause still groups by its own code — the cause is what gets reported, the code is
-     * what groups it.
-     *
-     * The unclassified code is the one exception: `error.unknown` names nothing, and
-     * grouping every unclassified failure under it would collapse them into a single
-     * issue. Those keep the call-site label, which is what keeps them apart — the same
-     * reason plain `IllegalArgumentException`s and driver exceptions fall back to it.
-     *
-     * Both inputs are machine-shaped by construction — codes are literals like
-     * `error.not_found`, labels are fixed strings at the call site — so the key never
-     * carries user content off-device.
-     */
-    private fun issueKeyFor(
-        error: Throwable,
-        errorLabel: String,
-    ): String =
-        when (error) {
-            is AppError -> if (error.code == UNCLASSIFIED_ERROR_CODE) errorLabel else error.code
-            else -> errorLabel
+            // Both shapes of failure land in the same arm: a `Result.failure` the block
+            // returned, and an exception it threw. Cancellation is re-thrown before either,
+            // because a cancelled coroutine is structured concurrency working, not a defect —
+            // and `Error` (OOM, StackOverflow, AssertionError) propagates to the scope's
+            // handler, which is where a fatal error belongs.
+            val failure =
+                try {
+                    block().exceptionOrNull()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
+                    // Any failure a caller's block can raise is a handled failure here; that is
+                    // what this primitive is for. `Error` is deliberately not caught.
+                    error
+                }
+            if (failure != null) {
+                onBeforeReport(failure)
+                val classified = diagnostics.classify(failure, errorLabel)
+                diagnostics.report(classified.reportable, classified.issueKey)
+                onError(classified.message)
+            }
         }
 
     /**
@@ -276,10 +267,5 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     override fun onCleared() {
         _events.close()
         super.onCleared()
-    }
-
-    private companion object {
-        /** The code of an error that does not name what went wrong. */
-        const val UNCLASSIFIED_ERROR_CODE = "error.unknown"
     }
 }

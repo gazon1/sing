@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
@@ -18,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Reminders for the task, including the platform alarm that fires them.
@@ -43,7 +43,7 @@ class TaskRemindersSlot(
     private val sourceViewId: SavedAgendaViewId? = null,
     private val core: TaskCoreDeps,
     private val scheduling: TaskSchedulingDeps,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: CoroutineScope,
     taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
 ) : FeatureSlot<TaskRemindersState, TaskRemindersIntent> {

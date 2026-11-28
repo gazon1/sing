@@ -6,6 +6,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import kotlinx.collections.immutable.ImmutableList
@@ -41,7 +42,7 @@ class ProfileSwitcherViewModel(
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProfileSwitcherUiState, ProfileSwitcherIntent, Nothing>(
         initialState = ProfileSwitcherUiState(),
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     private val log = Logger.withTag("ProfileSwitcherViewModel")

@@ -9,9 +9,10 @@
 
 | Abstraction | File | Owns | Production call sites |
 |---|---|---|---|
-| `MviViewModel<S, I, E>` | `core/ui/MviViewModel.kt` | the state flow, the event channel, the scope registration, the error path | 33 subclasses (36 including `DraftMviViewModel` and the base itself) |
-| `EventBus<E>` | `core/ui/EventBus.kt` | one-consumer delivery, backpressure, graceful close, drop counter, full-buffer refusal log | **1** — the private bus inside `MviViewModel`. Nothing else constructs one. |
-| `MviIntent` / `MviEvent` | `core/ui/Markers.kt` | typing only; no behaviour | every feature's intent/event hierarchy |
+| `MviViewModel<S, I, E>` | `:mvi` `core/ui/MviViewModel.kt` | the state flow, the event channel, the scope registration, the error path | 33 subclasses (36 including `DraftMviViewModel` and the base itself) |
+| `EventBus<E>` | `:mvi` `core/ui/EventBus.kt` | one-consumer delivery, backpressure, graceful close, drop counter, full-buffer refusal log | **1** — the private bus inside `MviViewModel`. Nothing else constructs one. |
+| `MviDiagnostics` | `:mvi` `core/ui/MviDiagnostics.kt` | the classify / report / log seam the runtime needs from its consumer | one implementation: `AppMviDiagnostics` in `:shared`, passed by every ViewModel |
+| `MviIntent` / `MviEvent` | `:mvi` `core/ui/Markers.kt` | typing only; no behaviour | every feature's intent/event hierarchy |
 | `AutoCloseableCoroutineScope` | `core/coroutines/AutoCloseableCoroutineScope.kt` | a scope whose `close()` cancels its job | every VM's `scope` parameter; also `CurrentUser`, `SyncEngine`, `SyncCoordinator` |
 | `DraftMviViewModel` / `DraftState` | `core/ui/DraftMviViewModel.kt`, `DraftState.kt` | the draft value, its checkpoint, debounced autosave, explicit save | `TaskCreateViewModel`, `NoteEditor`, plus the test fixture |
 | `FeatureSlot` | `core/ui/featureSlot/FeatureSlot.kt` | one concern's state + intents, no lifecycle of its own | 9 slots under `feature/tasks/…/slot/` and `feature/timetracking/…/slot/` |
@@ -26,8 +27,10 @@ for being small — the audit found no duplicate to remove.
 
 **One owner, always the instance that created the scope.**
 
-- A ViewModel's scope belongs to the ViewModel. `MviViewModel`'s initializer calls
-  `addCloseable(scope)`, so `clear()` closes it and its cancellation *is* the teardown.
+- A ViewModel's scope belongs to the ViewModel. `MviViewModel`'s initializer registers the
+  cancellation of the scope's `Job` with `addCloseable`, so `clear()` cancels it and that
+  cancellation *is* the teardown. It does not close the scope object: the base takes a plain
+  `CoroutineScope`, which is not `AutoCloseable`, and the `Job` is what teardown has to reach.
   A plain `androidx.lifecycle.ViewModel` registers the same way in its own `init`.
 - Long-lived infra (`CurrentUser`, `SyncEngine`, `SyncCoordinator`, the calendar-sync
   orchestrator) owns per-instance scopes built with `createBackgroundScope(...)` and closed

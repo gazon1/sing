@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
@@ -13,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Soft delete, archive, and undo-restore.
@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 class TaskLifecycleSlot(
     private val core: TaskCoreDeps,
     private val scheduling: TaskSchedulingDeps,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: CoroutineScope,
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
     private val onUndoDelete: (Task) -> Unit,

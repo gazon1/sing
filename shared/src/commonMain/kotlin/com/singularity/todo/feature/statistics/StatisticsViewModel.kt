@@ -8,6 +8,7 @@ import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tasks.domain.logic.AttentionNudge
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
@@ -129,7 +130,7 @@ class StatisticsViewModel(
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<StatisticsUiState, StatisticsIntent, Nothing>(
         initialState = StatisticsUiState(),
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     /**

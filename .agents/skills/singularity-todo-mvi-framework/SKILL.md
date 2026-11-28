@@ -3,21 +3,32 @@ name: singularity-todo-mvi-framework
 description: Local MVI framework for Singularity Todo KMP. Covers MviViewModel base class, EventBus, MviIntent/MviEvent markers, IntentActions inline wrapper, DraftMviViewModel and DraftState helper. Use when migrating a ViewModel to the framework or when writing a new VM.
 ---
 
-# MVI Framework — `core/ui/`
+# MVI Framework — `:mvi` plus the app-side half
 
 Minimal local MVI framework providing base classes and utilities for ViewModels.
 
+The runtime lives in its own module, `:mvi`, and knows nothing of the application. `:shared` is
+what binds it to this app's error vocabulary and coroutine policy. The boundary and its reasoning:
+`docs/architecture/mvi-library-boundary.md`.
+
 ## Files
 
-| File | Purpose |
-|---|---|
-| `core/ui/Markers.kt` | `MviIntent`, `MviEvent` marker interfaces |
-| `core/ui/MviViewModel.kt` | Full base: `EventBus` + `updateState` + `onIntent` |
-| `core/ui/EventBus.kt` | Channel-backed one-shot event bus |
-| `core/ui/IntentActions.kt` | `@JvmInline value class IntentActions<I : MviIntent>(dispatch: (I) → Unit)` |
-| `core/ui/DraftState.kt` | Generic draft helper for editor VMs |
-| `core/ui/DraftMviViewModel.kt` | Base for VMs that own a persisted draft |
-| `core/ui/TestTags.kt` | Stable test tags for UI verification |
+| File | Module | Purpose |
+|---|---|---|
+| `core/ui/Markers.kt` | `:mvi` | `MviIntent`, `MviEvent` marker interfaces |
+| `core/ui/MviViewModel.kt` | `:mvi` | Full base: `EventBus` + `updateState` + `onIntent` + required `CoroutineScope` |
+| `core/ui/EventBus.kt` | `:mvi` | Channel-backed one-shot event bus |
+| `core/ui/IntentActions.kt` | `:mvi` | `@JvmInline value class IntentActions<I : MviIntent>(dispatch: (I) → Unit)` |
+| `mvi/src/commonMain/kotlin/com/singularity/todo/core/ui/MviDiagnostics.kt` | `:mvi` | The classify / report / log seam, plus `NoOpMviDiagnostics` |
+| `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/AppMviDiagnostics.kt` | `:shared` | The app's implementation: `AppError` knowledge, `CrashReportingPort`, Kermit |
+| `core/ui/DraftState.kt` | `:shared` | Generic draft helper for editor VMs |
+| `core/ui/DraftMviViewModel.kt` | `:shared` | Base for VMs that own a persisted draft (builds `AppMviDiagnostics` for its subclasses) |
+| `core/coroutines/` | `:shared` | `AutoCloseableCoroutineScope`, `reportingScope`, `createBackgroundScope`, `testScope` |
+| `core/ui/TestTags.kt` | `:shared` | Stable test tags for UI verification |
+
+**A new ViewModel passes `diagnostics = AppMviDiagnostics(crashReporter)` and a ViewModel-owned
+`scope` that carries a `Job`.** `NoDivergentScopeAndReporter` fails the build if the diagnostics
+argument is missing, and `MviViewModel` throws at construction if the scope has no `Job`.
 
 ## Migration Guide
 

@@ -40,6 +40,9 @@
 ## Структура
 
 `androidApp/` — Android shell. `desktopApp/` — Desktop Compose entry.
+`mvi/src/commonMain/kotlin/com/singularity/todo/core/ui/` — reusable MVI runtime (`MviViewModel`,
+`EventBus`, `MviIntent`/`MviEvent`, `MviDiagnostics`). Только coroutines + lifecycle-viewmodel;
+`:shared` зависит от него, обратной стрелки нет. Границы — `docs/architecture/mvi-library-boundary.md`.
 `shared/src/commonMain/kotlin/com/singularity/todo/` — KMP library (commonMain + androidMain +
 jvmMain + tests): `core/` (auth, backup, coroutines, database, di, draft, error, files, format, ids,
 llm, log, notifications, observability, platform, reminders, security, serialization, settings, sync,

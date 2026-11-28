@@ -205,6 +205,9 @@ androidx-activity = { module = "androidx.activity:activity", version.ref = "andr
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 
 # Lifecycle
+# The bare viewmodel artifact: `:mvi` extends `androidx.lifecycle.ViewModel` directly and must
+# not inherit it transitively through `-compose` (which is what happened before the extraction).
+androidx-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "androidx-lifecycle" }
 androidx-lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
 androidx-lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
 

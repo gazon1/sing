@@ -6,6 +6,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
@@ -31,7 +32,7 @@ class NotePreview(
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<NotePreviewState, NotePreviewIntent, NotesUiEvent>(
         initialState = NotePreviewState.Loading,
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     private val logger = Logger.withTag("NotePreview")

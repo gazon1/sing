@@ -17,6 +17,7 @@ import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.tasks.TasksContributor
+import com.singularity.todo.core.ui.AppMviDiagnostics
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
@@ -55,7 +56,7 @@ class SettingsViewModel(
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<SettingsUiState.Content, SettingsIntent, Nothing>(
         initialState = SettingsUiState.Content(),
-        crashReporter = crashReporter,
+        diagnostics = AppMviDiagnostics(crashReporter),
         scope = scope,
     ) {
     // ─── Per-section state flows ──────────────────────────────────────────────

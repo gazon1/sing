@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
@@ -28,6 +27,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Task metadata: dates, priority, project, tags, kind, pin, recurrence, dependencies.
@@ -46,7 +46,7 @@ class TaskEntitySlot(
     private val taskId: TaskId,
     private val core: TaskCoreDeps,
     private val children: TaskChildrenDeps,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: CoroutineScope,
     private val taskFlow: StateFlow<Task?>,
     /**
      * A tag was taken off the task, and the user may want it back.

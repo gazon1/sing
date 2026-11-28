@@ -55,12 +55,27 @@ class CrashReportingWiringTest {
     @Test
     fun `the funnel itself is wired`() {
         // The base class is where every call site's failure actually lands. If this ever
-        // loses its reporter, NoUnreportedFailurePath becomes vacuous for every other file
-        // while still passing — which is why the check is here and not in the rule.
+        // loses its diagnostics seam, NoUnreportedFailurePath becomes vacuous for every other
+        // file while still passing — which is why the check is here and not in the rule.
+        //
+        // Since #3270 the base class lives in `:mvi` and does not know what a crash reporter
+        // is: the seam it owns is `MviDiagnostics`, and the application's adapter
+        // (`AppMviDiagnostics`) is what reaches the port. Both halves are asserted, because
+        // either one alone can be present while nothing arrives anywhere.
         val base = files.single { it.name == "MviViewModel" }.codeOnly()
         assertTrue(
-            base.contains("crashReporter"),
-            "MviViewModel must own the reporter — catchTo is the single funnel",
+            base.contains("diagnostics: MviDiagnostics"),
+            "MviViewModel must own the diagnostics seam — catchTo is the single funnel",
+        )
+        assertTrue(
+            base.contains("diagnostics.report("),
+            "the funnel must actually report through the seam, not merely hold it",
+        )
+
+        val adapter = files.single { it.name == "AppMviDiagnostics" }.codeOnly()
+        assertTrue(
+            adapter.contains("port.report("),
+            "AppMviDiagnostics must forward to the application's CrashReportingPort",
         )
     }
 

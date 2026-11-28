@@ -11,6 +11,7 @@ import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
 import org.jetbrains.kotlin.psi.KtValueArgumentList
 
 /**
@@ -51,6 +52,11 @@ import org.jetbrains.kotlin.psi.KtValueArgumentList
  *    have the correct default and a binding can still override it. `SettingsViewModel` did
  *    exactly that — its constructor derived the scope, and its binding replaced the derivation
  *    with a graph-supplied one, so a constructor-only check would have passed it forever.
+ * 3. **The super-call.** A ViewModel that declares `crashReporter` must hand its base class a
+ *    `diagnostics` derived from it. Since the MVI runtime moved to `:mvi` (#3270) the base no
+ *    longer knows a crash reporter exists, so the argument is what connects the two: omit it and
+ *    the base falls back to a silent default, losing both the `AppError` grouping and the
+ *    user-facing message, quietly. Same defect shape, one layer deeper.
  *
  * @see NoUnreportedFailurePathPolicy for the shared ViewModel name list.
  * @see NoUnwiredReporterInBindingRule for the rule this is the sibling of.
@@ -60,16 +66,33 @@ class NoDivergentScopeAndReporterRule(config: Config) : Rule(config, "", null) {
         super.visitClass(klass)
         if (!NoUnreportedFailurePathPolicy.isViewModelName(klass.name)) return
 
-        val scope = NoDivergentScopeAndReporterPolicy.scopeParameter(klass) ?: return
-        // No reporter beside the scope means there is nothing to diverge from — that component
-        // reports through the scope's own handler and has no second destination.
+        // No reporter at all means there are no two paths to diverge, and nothing for the base
+        // class to receive — that component reports through its scope's own handler.
         if (!NoDivergentScopeAndReporterPolicy.hasReporterParameter(klass)) return
-        if (NoDivergentScopeAndReporterPolicy.defaultReferencesReporter(scope)) return
+
+        val scope = NoDivergentScopeAndReporterPolicy.scopeParameter(klass)
+        if (scope != null && !NoDivergentScopeAndReporterPolicy.defaultReferencesReporter(scope)) {
+            report(
+                Finding(
+                    entity = Entity.from(scope),
+                    message = NoDivergentScopeAndReporterPolicy.constructorMessage(klass.name),
+                    references = emptyList(),
+                    suppressReasons = emptyList(),
+                ),
+            )
+        }
+
+        // Only a direct `MviViewModel` super-call is checked: an intermediate base that itself
+        // takes `crashReporter` (`DraftMviViewModel`) builds the adapter once, for all its
+        // subclasses. Demanding the argument there would demand it twice.
+        val superCall = NoDivergentScopeAndReporterPolicy.baseCall(klass) ?: return
+        if (!NoDivergentScopeAndReporterPolicy.isMviViewModelCall(superCall)) return
+        if (NoDivergentScopeAndReporterPolicy.diagnosticsDerivedFromReporter(superCall)) return
 
         report(
             Finding(
-                entity = Entity.from(scope),
-                message = NoDivergentScopeAndReporterPolicy.constructorMessage(klass.name),
+                entity = Entity.from(superCall),
+                message = NoDivergentScopeAndReporterPolicy.superCallMessage(klass.name),
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -123,6 +146,44 @@ internal object NoDivergentScopeAndReporterPolicy {
      */
     fun defaultReferencesReporter(parameter: KtParameter): Boolean =
         parameter.defaultValue?.text?.contains("crashReporter") == true
+
+    /**
+     * Whether the base-constructor call constructs `MviViewModel` itself.
+     *
+     * Read from the type reference, not the callee: a `KtSuperTypeCallEntry`'s callee is the
+     * type reference, and its text carries the generic arguments (`MviViewModel<S, I, E>`), so
+     * the raw name is the prefix before `<` — the same convention the sibling rules use.
+     */
+    fun isMviViewModelCall(superCall: KtSuperTypeCallEntry): Boolean =
+        superCall.typeReference?.text?.substringBefore('<') == "MviViewModel"
+
+    /** The class's base-constructor call, when it has one that passes arguments. */
+    fun baseCall(klass: KtClass): KtSuperTypeCallEntry? =
+        klass.superTypeListEntries
+            .filterIsInstance<KtSuperTypeCallEntry>()
+            .firstOrNull { it.valueArgumentList?.arguments?.isNotEmpty() == true }
+
+    /**
+     * True when the base-constructor call hands over a `diagnostics` derived from `crashReporter`.
+     *
+     * A reference check for the same reason [defaultReferencesReporter] is one: telling a real
+     * derivation from a coincidence would need type resolution. What it rules out is the shape
+     * that actually appears — the argument simply not there.
+     */
+    fun diagnosticsDerivedFromReporter(superCall: KtSuperTypeCallEntry): Boolean {
+        val argument =
+            superCall.valueArgumentList?.arguments
+                ?.firstOrNull { it.getArgumentName()?.asName?.identifier == "diagnostics" }
+                ?: return false
+        return argument.getArgumentExpression()?.text?.contains("crashReporter") == true
+    }
+
+    fun superCallMessage(className: String?): String =
+        "$className declares `crashReporter` but does not pass a `diagnostics` derived from it to " +
+            "its base class. The MVI runtime does not know what a crash reporter is, so the " +
+            "argument is the only thing that connects the two: without it the base falls back to " +
+            "a silent default and every handled failure loses its grouping key and its " +
+            "user-facing message, quietly. Pass `diagnostics = AppMviDiagnostics(crashReporter)`."
 
     fun hasScopeArgument(arguments: KtValueArgumentList): Boolean =
         arguments.arguments.any { it.getArgumentName()?.asName?.identifier == "scope" }

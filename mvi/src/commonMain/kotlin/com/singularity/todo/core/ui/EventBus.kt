@@ -1,9 +1,5 @@
 package com.singularity.todo.core.ui
 
-import androidx.compose.runtime.Stable
-import co.touchlab.kermit.Logger
-import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedSendChannelException
@@ -19,8 +15,8 @@ import kotlin.concurrent.atomics.incrementAndFetch
  *
  * Default buffer capacity is [Channel.BUFFERED] — the library default of 64 elements,
  * unless the runtime overrides `kotlinx.coroutines.buffer.default.capacity`.
- * This is the correct default for ViewModels where a single collector (typically
- * [NotificationHost]) handles all events.
+ * This is the correct default for ViewModels where a single collector (typically the
+ * screen's effect layer) handles all events.
  *
  * For multi-subscriber broadcast scenarios, collect a shared flow directly.
  *
@@ -36,9 +32,10 @@ import kotlin.concurrent.atomics.incrementAndFetch
  *    handed over right now or the bus is closed, and `true` otherwise. It never counts
  *    as a discard in [droppedAfterClose], which keeps its single meaning: a *suspending*
  *    [emit] on a closed bus. A refusal on a live bus is real loss, so the first one per
- *    bus is logged at `warn` — otherwise it is recorded nowhere, because every call site
- *    ignores the returned flag. On a rendezvous bus the refusal means "no receiver was
- *    waiting" and the message says so, rather than claiming a buffer is full.
+ *    bus is logged at [MviLogLevel.Warn] — otherwise it is recorded nowhere, because
+ *    every call site ignores the returned flag. On a rendezvous bus the refusal means
+ *    "no receiver was waiting" and the message says so, rather than claiming a buffer is
+ *    full.
  * 4. **Close is graceful, not a cut.** After [close] the events already in the buffer
  *    are still delivered and the collecting flow completes once they are drained. A
  *    send that was already suspended when the close happened is **not** failed and
@@ -61,37 +58,27 @@ import kotlin.concurrent.atomics.incrementAndFetch
  *    [droppedAfterClose].
  *
  * @param capacity Buffer capacity. Defaults to [Channel.BUFFERED].
- * @param crashReporter Deliberately **never** called for the drop-after-close case
- *   (#141: a discard is a lifecycle race, not a defect, and a report per teardown is
- *   noise on a channel that must mean "something is wrong"). The parameter exists so a
- *   test can inject a [com.singularity.todo.test.fakes.RecordingCrashReportingPort]
- *   and assert `reports.isEmpty()` — the absence of a report is the contract, and only
- *   an injectable reporter can prove it.
- * @param log Kermit logger, defaulted so `MviViewModel` and every test construct the bus
- *   without knowing a log tag exists. Both outcomes are logged rather than only counted:
- *   a counter is read by whoever is already looking, a log line is read by whoever is
- *   looking *now*. Injectable for the same reason [crashReporter] is — the severity of the
- *   full-buffer line is part of the contract (it has to survive the release filter), and
- *   only a test with a captured writer can prove which one was used.
+ * @param diagnostics Where diagnosis lines go. The default is silent, because the library
+ *   has no sink of its own. Deliberately **never** asked to *report* the drop-after-close
+ *   case (#141: a discard is a lifecycle race, not a defect, and a report per teardown is
+ *   noise on a channel that must mean "something is wrong"). The seam exists so a test can
+ *   inject a recording implementation and assert the absence of a report — only an
+ *   injectable sink can prove an absence.
  * @see MviEvent
  */
-@Stable
 // The stdlib's atomic types are still marked experimental, so the opt-in is here rather
-// than pushed onto every caller that constructs an event bus. `AtomicInt` and
-// `AtomicBoolean` are the multiplatform names for what are
-// `java.util.concurrent.atomic.AtomicInteger`/`AtomicBoolean` on JVM and Android, so the
-// state is the same object with a name that also means something on a target without
-// `java.util.concurrent`; `incrementAndFetch` and `compareAndSet` are the stdlib's
-// spellings of `incrementAndGet` and `compareAndSet`.
+// than pushed onto every caller that constructs an event bus. `AtomicInt` and `AtomicBoolean`
+// are the multiplatform names for what are `java.util.concurrent.atomic.AtomicInteger`/
+// `AtomicBoolean` on JVM and Android, so the state is the same object with a name that also
+// means something on a target without `java.util.concurrent`; `incrementAndFetch` and
+// `compareAndSet` are the stdlib's spellings of `incrementAndGet` and `compareAndSet`.
 @OptIn(ExperimentalAtomicApi::class)
 class EventBus<E : MviEvent>(
     capacity: Int = Channel.BUFFERED,
-    // Never read in production on purpose: #141 makes "no report on drop-after-close"
-    // the contract, and only an injectable reporter lets a test prove an absence.
-    // The suppression is for that seam, not to hide a missed call site.
-    @Suppress("UnusedPrivateProperty") // see the line above: the unread property IS the guard
-    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    private val log: Logger = Logger.withTag("EventBus"),
+    // Never asked to *report* a drop-after-close on purpose: #141 makes "no report" the
+    // contract, and only an injectable sink lets a test prove an absence. It is read for
+    // log lines, which is where the bus's own diagnosis goes.
+    private val diagnostics: MviDiagnostics = NoOpMviDiagnostics,
 ) {
     private val _channel = Channel<E>(capacity)
 
@@ -168,12 +155,13 @@ class EventBus<E : MviEvent>(
             // break structured concurrency. It must propagate before the closed-channel
             // arm is reached — hence the ordering.
             throw cancelled
-        } catch (closed: ClosedSendChannelException) {
-            // Closed-bus case: a lifecycle race, not a defect. Count and log — but do not
-            // report as a crash, because a drop that is expected on a closed channel is
-            // not a defect. The test enforces this: `reports.isEmpty()` after a drop.
+        } catch (@Suppress("SwallowedException") closed: ClosedSendChannelException) {
+            // Closed-bus case: a lifecycle race, not a defect. Swallowed on purpose: the
+            // exception is the *signal* that the bus is closed, not a failure to hand on, and
+            // handing it to a reporter is the behaviour #141 removed. Counted instead, and the
+            // test enforces that no report follows a drop.
             val dropped = droppedAfterCloseCount.incrementAndFetch()
-            log.d(closed) { "EventBus closed, dropped event #$dropped" }
+            diagnostics.log(MviLogLevel.Debug, "EventBus closed, dropped event #$dropped")
         }
     }
 
@@ -193,10 +181,10 @@ class EventBus<E : MviEvent>(
      * buffer to fill. The log message says which of the two happened, because a reader
      * who is handed the wrong cause looks in the wrong place.
      *
-     * The severity is not incidental. The release build filters below `Warn`
-     * (`applyGlobalSeverity`), so a `debug` line — which is what [emit]'s discard
-     * uses — does not exist in the build where a missing snackbar would be reported.
-     * One line per bus, not per event: see [hasLoggedRefusal] for that trade-off.
+     * The severity is not incidental. A release build may filter below
+     * [MviLogLevel.Warn], so a `Debug` line — which is what [emit]'s discard uses — does
+     * not exist in the build where a missing snackbar would be reported. One line per bus,
+     * not per event: see [hasLoggedRefusal] for that trade-off.
      *
      * The message reports only what is observed. Producers outrunning the collector
      * does not establish that the collector has stopped.
@@ -211,13 +199,14 @@ class EventBus<E : MviEvent>(
             // "Full" would be a lie on a rendezvous bus: there is no buffer, and the
             // refusal means no receiver was waiting. Two messages, because a reader who
             // trusts a wrong cause looks in the wrong place.
-            log.w {
+            diagnostics.log(
+                MviLogLevel.Warn,
                 if (isRendezvous) {
                     "EventBus refused an event; no receiver was waiting"
                 } else {
                     "EventBus buffer full; refused an event"
-                }
-            }
+                },
+            )
         }
         return false
     }

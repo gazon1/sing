@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.checklist.ChecklistItem
@@ -20,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * The collections owned by the task: checklist items, subtasks, and attachments.
@@ -36,7 +36,7 @@ class TaskChildrenSlot(
     private val core: TaskCoreDeps,
     private val children: TaskChildrenDeps,
     private val context: TaskContextDeps,
-    private val scope: AutoCloseableCoroutineScope,
+    private val scope: CoroutineScope,
     taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
     private val onSaved: (String) -> Unit,

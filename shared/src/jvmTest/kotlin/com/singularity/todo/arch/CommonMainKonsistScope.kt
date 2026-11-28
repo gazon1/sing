@@ -10,12 +10,12 @@ import com.lemonappdev.konsist.api.container.KoScope
  * each, re-parsing all 1,238 files ten times over. The tree cannot change while
  * the test run is going, so a single lazy scope is enough.
  *
- * The scope spans `:shared`, `:core-domain` and `:core-database`: the domain models
- * and the database moved out of `:shared`, and a gate that kept one root would stop
- * reading them without failing — a scan of less code reports green exactly like a
- * scan of all of it. The roots come from the build properties the `jvmTest` task
- * sets, so a module whose source set stops being configured is missing from the
- * scope rather than silently narrower.
+ * The scope spans `:shared`, `:core-domain`, `:core-database` and `:mvi`: each moved out
+ * of `:shared` in turn, and a gate that kept one root would stop reading the moved code
+ * without failing — a scan of less code reports green exactly like a scan of all of it.
+ * The roots come from the build properties the `jvmTest` task sets, so a module whose
+ * source set stops being configured is missing from the scope rather than silently
+ * narrower.
  */
 internal object CommonMainKonsistScope {
     val roots: List<String> =
@@ -23,6 +23,7 @@ internal object CommonMainKonsistScope {
             System.getProperty("commonMain.root"),
             System.getProperty("coreDomain.root"),
             System.getProperty("coreDatabase.root"),
+            System.getProperty("mvi.root"),
         ).distinct()
 
     init {
