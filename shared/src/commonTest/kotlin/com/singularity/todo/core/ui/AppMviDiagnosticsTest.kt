@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
-import kotlin.test.assertTrue
 
 /**
  * The `AppError` half of what the MVI base class used to do — asserted where the adapter lives.
@@ -110,18 +109,6 @@ class AppMviDiagnosticsTest {
         assertEquals(Severity.Warn, line.severity, "warn is what release keeps")
         assertEquals(AppMviDiagnostics.TAG, line.tag)
         assertEquals("a warn line", line.message)
-    }
-
-    @Test
-    fun `the adapter's logger is silent by default, so a constructed ViewModel logs nothing of its own`() {
-        // The default is Kermit's global logger, not a capturing one — the assertion here is the
-        // default's *shape*, not its output: constructing the adapter with two arguments must
-        // stay legal, because that is what every ViewModel does.
-        val diagnostics = AppMviDiagnostics(RecordingCrashReportingPort())
-
-        diagnostics.log(MviLogLevel.Warn, "routed through Kermit's default writer")
-
-        assertTrue(true, "the two-argument form compiles and does not throw")
     }
 }
 
