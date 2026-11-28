@@ -206,9 +206,12 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      *
      * Every failure that passes through here is also classified and reported through
      * [diagnostics] before [onError] runs, so ordering is fixed: a breadcrumb the error path
-     * emits cannot be recorded ahead of the event it relates to. [CancellationException] never
-     * arrives — it is re-thrown before the fold — so a cancelled coroutine is never mistaken
-     * for a defect.
+     * emits cannot be recorded ahead of the event it relates to.
+     *
+     * [CancellationException] never arrives, in either shape it can appear: thrown out of the
+     * block, or returned inside the [Result] (which is what `runCatching` does — it captures a
+     * cancellation instead of letting it propagate). Both are re-thrown, so a cancelled
+     * coroutine is never classified, never reported and never shown to the user.
      *
      * ## [onBeforeReport] — the one exception to that ordering
      *
@@ -252,6 +255,16 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
                     // what this primitive is for. `Error` is deliberately not caught.
                     error
                 }
+
+            // Cancellation reaches this loop in two shapes, and only one of them is a thrown
+            // exception. A `Result.failure(CancellationException(...))` arrives through
+            // `exceptionOrNull()` looking like any other failure — so without this check the
+            // cancelled coroutine would be classified, reported as a defect and turned into a
+            // user-facing message, which is exactly what the contract forbids. `runCatching`
+            // is the wrapper that makes this shape common: it captures cancellation instead of
+            // letting it propagate, and a block that calls it returns the failure normally.
+            if (failure is CancellationException) throw failure
+
             if (failure != null) {
                 // Order matters and is part of the contract: onBeforeReport, then classify,
                 // then report, then onError — a breadcrumb the error path emits cannot be

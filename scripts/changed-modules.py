@@ -401,7 +401,7 @@ TASKS: ModuleChecks = ModuleChecks({
     'adr-core': [':adr-core:jvmTest', ':adr-core:detekt'],
     'adr-cli': [':adr-cli:test', ':adr-cli:detekt'],
     'core-base': [':core-base:detekt'],
-    'mvi': [':mvi:jvmTest', ':mvi:detekt'],
+    'mvi': [':mvi:jvmTest', ':mvi:detekt', ':mvi:verifyDependencyBoundary'],
     'detekt-rules': [
         ':detekt-rules:test',
         ':detekt-rules:koverVerify',

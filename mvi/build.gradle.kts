@@ -120,21 +120,40 @@ dependencies {
 val verifyDependencyBoundary =
     tasks.register("verifyDependencyBoundary") {
         group = "verification"
-        description = "Fails when :mvi's production graph reaches anything but coroutines and lifecycle."
+        description = "Fails when :mvi's production graph, on any target, reaches anything but coroutines and lifecycle."
 
-        // The configuration is resolved on the task's own `Configuration`, held as a value the
-        // action can read. Reaching for `project.configurations` at execution time is the thing
-        // the configuration cache refuses, and the failure is deferred — the task prints its
-        // verdict and *then* the build fails to store, so the first run looks fine.
+        // Every production source set the module has, not just `commonMain`. A dependency added
+        // to `androidMain` or `jvmMain` is on that target's classpath and on its consumers'
+        // classpath, so a check of the common graph alone leaves the target-specific half of
+        // the boundary unguarded — the half a "this only runs on Android" argument is most
+        // likely to add something to.
+        //
+        // The configuration comes from the source sets themselves rather than a literal list:
+        // a target added to this module later appears here without anyone remembering to edit
+        // the check, which is the failure mode a hand-written list always has.
+        val productionSourceSets =
+            listOf("commonMain", "androidMain", "jvmMain").filter { name ->
+                configurations.findByName("${name}ResolvableDependenciesMetadata") != null
+            }
+        check(productionSourceSets.size >= 2) {
+            "MviDependencyBoundary: found ${productionSourceSets.size} production source set(s) " +
+                "($productionSourceSets). This module has Android and JVM targets, so a check " +
+                "over fewer graphs than that judges less than the module ships."
+        }
+
+        // Exact coordinates, and nothing by prefix. An earlier version allowed
+        // `org.jetbrains.kotlinx:kotlinx-coroutines-core-`, which accepts any future artifact
+        // starting with that string — a prefix is a hole in a list whose whole purpose is that
+        // every entry was written down. The platform and metadata variants of coroutines do NOT
+        // appear in these graphs (the `…ResolvableDependenciesMetadata` view resolves module
+        // names), so no prefix was needed in the first place.
         val allowedProductionCoordinates =
             listOf(
                 // The two declared dependencies.
                 "org.jetbrains.kotlinx:kotlinx-coroutines-core",
                 "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel",
-                // Their transitive closure: the stdlib, coroutines' own atomicfu, the metadata
-                // variant of coroutines (no code of its own), and the three AndroidX artifacts
-                // lifecycle-viewmodel depends on.
-                "org.jetbrains.kotlinx:kotlinx-coroutines-core-",
+                // Their transitive closure: the stdlib, coroutines' own atomicfu, and the three
+                // AndroidX artifacts lifecycle-viewmodel depends on.
                 "org.jetbrains.kotlinx:atomicfu",
                 "org.jetbrains.kotlin:kotlin-stdlib",
                 "androidx.lifecycle:lifecycle-viewmodel",
@@ -144,7 +163,11 @@ val verifyDependencyBoundary =
 
         val dependencyBoundaryReport = layout.buildDirectory.file("reports/mvi-dependency-boundary.txt")
 
-        val resolved = configurations.named("commonMainResolvableDependenciesMetadata")
+        // Looked up at configuration time and held as a value the action reads: reaching for
+        // `project.configurations` at execution time is what the configuration cache refuses,
+        // and that failure is deferred — the task prints its verdict and *then* the build fails.
+        val graphs = productionSourceSets.map { configurations.named("${it}ResolvableDependenciesMetadata") }
+        val sourceSetNames = productionSourceSets
         // Resolution state is only known at execution time, so this task cannot be cached.
         notCompatibleWithConfigurationCache("Reads dependency resolution state.")
 
@@ -152,36 +175,48 @@ val verifyDependencyBoundary =
         outputs.file(report)
 
         doLast {
-            // `lenient` so one unresolvable coordinate is named instead of aborting resolution:
-            // a boundary check that cannot resolve the graph must say so, never report a green
-            // over an empty set.
-            val artifacts = resolved.get().incoming.artifactView { lenient(true) }.artifacts
+            val problems = mutableListOf<String>()
+            val reportLines = mutableListOf<String>()
 
-            val seen = sortedSetOf<String>()
-            artifacts.artifacts.forEach { artifact ->
-                val id = artifact.id.componentIdentifier
-                seen +=
-                    if (id is ModuleComponentIdentifier) {
-                        "${id.group}:${id.module}"
-                    } else {
-                        id.displayName
-                    }
-            }
+            graphs.forEachIndexed { index, graph ->
+                val sourceSet = sourceSetNames[index]
+                // `lenient` so one unresolvable coordinate is named instead of aborting
+                // resolution: a boundary check that cannot resolve the graph it is judging must
+                // say so, never report a green over an empty set.
+                val artifacts = graph.get().incoming.artifactView { lenient(true) }.artifacts
 
-            check(seen.isNotEmpty()) {
-                "MviDependencyBoundary: 'commonMainResolvableDependenciesMetadata' resolved to no " +
-                    "artifact at all. A boundary check over an empty graph passes without judging " +
-                    "anything — the configuration name or the module is wrong."
-            }
-
-            val offenders =
-                seen.filterNot { coordinate ->
-                    allowedProductionCoordinates.any { coordinate.startsWith(it) }
+                val seen = sortedSetOf<String>()
+                artifacts.artifacts.forEach { artifact ->
+                    val id = artifact.id.componentIdentifier
+                    seen +=
+                        if (id is ModuleComponentIdentifier) {
+                            "${id.group}:${id.module}"
+                        } else {
+                            id.displayName
+                        }
                 }
-            check(offenders.isEmpty()) {
+
+                if (seen.isEmpty()) {
+                    problems +=
+                        "$sourceSet: resolved to no artifact at all. A boundary check over an " +
+                        "empty graph passes without judging anything."
+                    return@forEachIndexed
+                }
+
+                seen.filterNot { coordinate -> allowedProductionCoordinates.any { coordinate.startsWith(it) } }
+                    .forEach { problems += "$sourceSet: $it is not in the allowed set" }
+
+                artifacts.failures.forEach { failure ->
+                    problems += "$sourceSet: part of the graph did not resolve — ${failure.message}"
+                }
+
+                reportLines += seen.map { "$sourceSet\t$it" }
+            }
+
+            check(problems.isEmpty()) {
                 buildString {
-                    appendLine("MviDependencyBoundary: :mvi's production graph reaches forbidden dependencies:")
-                    offenders.forEach { appendLine("  + $it") }
+                    appendLine("MviDependencyBoundary: :mvi's production graph reaches forbidden dependencies.")
+                    problems.forEach { appendLine("  + $it") }
                     appendLine()
                     appendLine(
                         "Allowed (docs/architecture/mvi-library-boundary.md): " +
@@ -194,23 +229,25 @@ val verifyDependencyBoundary =
                 }
             }
 
-            artifacts.failures.forEach { failure ->
-                error(
-                    "MviDependencyBoundary: part of :mvi's graph did not resolve, so this check " +
-                        "judged less than the whole graph: ${failure.message}",
-                )
-            }
-
             report
                 .get()
                 .asFile
                 .apply {
                     parentFile.mkdirs()
-                    writeText(seen.joinToString("\n", postfix = "\n"))
+                    writeText(reportLines.joinToString("\n", postfix = "\n"))
                 }
         }
     }
 
-// A module's `check` is where its own verdicts live, and an unrun boundary task is the
-// "works but is never called" defect one layer down.
-tasks.named("check") { dependsOn(verifyDependencyBoundary) }
+// Deliberately NOT `check.dependsOn(...)`.
+//
+// The task resolves dependency graphs, which is only knowable at execution time, so it is
+// incompatible with the configuration cache — and an incompatible task in a build discards the
+// cache entry for the WHOLE invocation. Wiring it into `check` would make every `./gw check`
+// and every `:mvi:check` pay for that, to judge a graph that changes when the build file
+// changes and at no other time.
+//
+// So it runs where the loop already runs such checks: as its own step in `hk.pkl` (the
+// `mvi:dependencyBoundary` entry) and as part of `:mvi`'s checks in `scripts/changed-modules.py`.
+// `println`-style report tasks in this repository — `:shared:printResolvedArtifacts` — are wired
+// the same way for the same reason.

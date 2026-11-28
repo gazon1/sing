@@ -83,13 +83,23 @@ recorded as #3285's problem rather than hidden.
 ## Consequences
 
 - `:shared` depends on `:mvi` (`api`, because every ViewModel extends a type from it); `:mvi`
-  depends on nothing of the application's. `MviBoundaryTest` fails the build if that changes —
-  it scans imports in `:mvi`'s `commonMain` and rejects application packages, Compose, Koin, Room,
-  Navigation, Kermit, Koog and `kotlinx-coroutines-test`.
+  depends on nothing of the application's. Two checks hold that, and neither subsumes the other:
+  `MviBoundaryTest` scans imports in `:mvi`'s `commonMain` against an explicit list of the
+  runtime's own type names (a package prefix would trust `AppMviDiagnostics`, which shares the
+  package), and `:mvi:verifyDependencyBoundary` resolves the production graph of **every**
+  production source set — `commonMain`, `androidMain`, `jvmMain` — failing on any coordinate
+  outside an exact allow-list. The import scan sees an import that arrives through an `api`
+  dependency; the graph check sees a declared dependency nothing uses yet, including one added
+  only to `androidMain`.
 - A ViewModel that forgets `diagnostics` now fails detekt instead of losing its error grouping.
 - The contract tests that pin `EventBus` and `MviViewModel` behaviour live in `:mvi`'s `commonTest`
   and run in the coverage job; `MviViewModelTest` additionally pins "no `Job` is rejected at
   construction" and "clearing the ViewModel does not cancel its parent".
+- A `CancellationException` that arrives *inside* a `Result` — what `runCatching` produces when
+  it captures a cancellation instead of propagating it — is now re-thrown alongside the thrown
+  form. Without that, the second shape was classified, reported as a defect and shown to the
+  user, which is the one thing the cancellation contract forbids. Found in review of the
+  extraction, with two tests pinning it.
 - The scope type a ViewModel exposes to its own subclasses narrowed from
   `AutoCloseableCoroutineScope` to `CoroutineScope`. That is source-compatible for every consumer
   in the tree (all of them took a supertype already) but it is a real narrowing: a future subclass

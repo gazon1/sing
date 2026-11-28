@@ -361,6 +361,34 @@ The catalog has **no** `androidx-lifecycle-viewmodel` alias today — only the `
 with `scripts/build-version-catalog-gate.py`. The artifact resolves for both targets from the
 version already pinned (`2.11.0`).
 
+### How the dependency boundary is enforced
+
+A list of imports cannot see a dependency nobody has used yet, and a dependency in `androidMain`
+or `jvmMain` never appears in `commonMain`'s sources at all. So the graph itself is checked:
+`:mvi:verifyDependencyBoundary` resolves the production metadata view of **every production source
+set the module declares** — `commonMain`, `androidMain`, `jvmMain` — and fails when any resolved
+coordinate, transitively, is outside an explicit allow-list:
+
+```
+org.jetbrains.kotlinx:kotlinx-coroutines-core
+org.jetbrains.androidx.lifecycle:lifecycle-viewmodel
+org.jetbrains.kotlinx:atomicfu              ← coroutines' own
+org.jetbrains.kotlin:kotlin-stdlib
+androidx.lifecycle:lifecycle-viewmodel      ← the android artifact behind the JB one
+androidx.annotation:annotation
+androidx.collection:collection
+```
+
+`MviBoundaryTest` covers the other half — what the sources *import* — and neither check subsumes
+the other: the task sees a declared dependency nothing uses yet, the test sees an import that
+arrives without a declaration (a leak through an `api` dependency). Both are wired into the loop
+(`check`, `hk.pkl`).
+
+Exact coordinates only. An earlier version allowed the prefix
+`org.jetbrains.kotlinx:kotlinx-coroutines-core-`, which accepts any future artifact beginning with
+that string — and the platform/metadata variants it was meant for do not appear in these graphs,
+so the prefix was a hole with no justification.
+
 ```
 :mvi
   plugins     kotlinMultiplatform, androidMultiplatformLibrary, detekt

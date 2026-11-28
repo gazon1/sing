@@ -34,6 +34,12 @@ import kotlin.test.assertTrue
 /** Store key for the clear-through-lifecycle helper below. */
 private const val LIFECYCLE_HARNESS_KEY = "mvi_lifecycle_harness"
 
+/**
+ * The cancellation a `runCatching`-style wrapper captures: a `CancellationException` that was
+ * already produced, so re-throwing it is the propagation the wrapper suppressed.
+ */
+private val CO_OPERATION_CANCELLED = kotlinx.coroutines.CancellationException("cancelled")
+
 sealed class TestState {
     data object Idle : TestState()
 
@@ -420,6 +426,58 @@ class MviViewModelTest {
             val state = vm.stateFlow.value
             assertTrue(state is TestState.Error, "the failure still reaches state, got $state")
             assertEquals("inner", state.message)
+        }
+
+    @Test
+    fun `a cancellation returned inside a Result is re-thrown, not reported`() =
+        runTest {
+            // The second shape cancellation arrives in, and the one the direct `catch` cannot
+            // see: `runCatching` — and any wrapper built on it — captures a `CancellationException`
+            // into `Result.failure` instead of letting it propagate. Without the explicit check
+            // it would be classified, reported as a defect and shown to the user, which is
+            // precisely what the contract forbids.
+            val diagnostics = RecordingMviDiagnostics()
+            val vm = LifecycleHarness(TestState.Idle, scope = vmScope(), diagnostics = diagnostics)
+
+            val job = vm.startOperation { Result.failure<Unit>(CO_OPERATION_CANCELLED) }
+            advanceUntilIdle()
+
+            assertTrue(job.isCancelled, "the cancellation reaches the coroutine, it is not absorbed")
+            assertTrue(diagnostics.reports.isEmpty(), "a cancellation is not a defect: ${diagnostics.reports}")
+            assertTrue(diagnostics.lines.isEmpty(), "nothing is logged for a cancellation: ${diagnostics.lines}")
+            assertEquals(
+                TestState.Idle,
+                vm.stateFlow.value,
+                "no user-facing message: a cancelled operation is not an error the reader acts on",
+            )
+        }
+
+    @Test
+    fun `a cancellation returned inside a Result is not passed to onBeforeReport`() =
+        runTest {
+            // `onBeforeReport` sits on the reporting path, so it must not run either: a breadcrumb
+            // recorded for a cancelled coroutine would explain a failure that did not happen.
+            var onBeforeReportCalls = 0
+            val vm =
+                object : MviViewModel<TestState, TestIntent, VmEvent>(
+                    initialState = TestState.Idle,
+                    scope = vmScope(),
+                ) {
+                    fun drive() =
+                        catchTo(
+                            errorLabel = "op",
+                            onError = { _ -> updateState { TestState.Error("reached onError") } },
+                            onBeforeReport = { onBeforeReportCalls++ },
+                        ) { Result.failure<Unit>(CO_OPERATION_CANCELLED) }
+
+                    override fun onIntent(intent: TestIntent) = Unit
+                }
+
+            vm.drive()
+            advanceUntilIdle()
+
+            assertEquals(0, onBeforeReportCalls, "the reporting path is not entered at all")
+            assertTrue(vm.stateFlow.value is TestState.Idle, "and no message reaches the screen")
         }
 
     @Test
