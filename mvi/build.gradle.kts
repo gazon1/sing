@@ -141,12 +141,15 @@ val verifyDependencyBoundary =
                 "over fewer graphs than that judges less than the module ships."
         }
 
-        // Exact coordinates, and nothing by prefix. An earlier version allowed
-        // `org.jetbrains.kotlinx:kotlinx-coroutines-core-`, which accepts any future artifact
-        // starting with that string — a prefix is a hole in a list whose whole purpose is that
-        // every entry was written down. The platform and metadata variants of coroutines do NOT
-        // appear in these graphs (the `…ResolvableDependenciesMetadata` view resolves module
-        // names), so no prefix was needed in the first place.
+        // Exact coordinates, matched exactly. Two earlier versions were prefix-based — the list
+        // contained `org.jetbrains.kotlinx:kotlinx-coroutines-core-`, and the comparison used
+        // `startsWith` — and each accepts a name nobody wrote down
+        // (`kotlinx-coroutines-core-extra`, `lifecycle-viewmodel-compose-evil`). A prefix is a
+        // hole in a list whose whole purpose is that every accepted name was written down.
+        //
+        // No variant normalization is needed: the `…ResolvableDependenciesMetadata` view resolves
+        // plain module names, and the report this task writes shows seven coordinates with no
+        // suffix on any of them.
         val allowedProductionCoordinates =
             listOf(
                 // The two declared dependencies.
@@ -203,7 +206,13 @@ val verifyDependencyBoundary =
                     return@forEachIndexed
                 }
 
-                seen.filterNot { coordinate -> allowedProductionCoordinates.any { coordinate.startsWith(it) } }
+                // Exact membership, not `startsWith`. A prefix check accepts
+                // `kotlinx-coroutines-core-extra` and `lifecycle-viewmodel-compose-evil` — the
+                // whole point of an allow-list is that every accepted name was written down.
+                // No variant normalization is needed here: `…ResolvableDependenciesMetadata`
+                // resolves plain module names, and the report this task writes shows it (seven
+                // coordinates, no suffix on any of them).
+                seen.filterNot { coordinate -> coordinate in allowedProductionCoordinates }
                     .forEach { problems += "$sourceSet: $it is not in the allowed set" }
 
                 artifacts.failures.forEach { failure ->
