@@ -378,6 +378,86 @@ class MviViewModelTest {
             assertTrue(diagnostics.reports.isEmpty(), "a cancelled coroutine is not a failure and must not be reported")
         }
 
+    // ── The diagnostics channel is allowed to fail ───────────────────────────
+
+    @Test
+    fun `a crash reporter that throws still lets the message reach the screen`() =
+        runTest {
+            // The defect this pins: before the guard, a reporter exception propagated out of
+            // `catchTo`, so the failure was handled by nobody and the user saw nothing — the
+            // precise opposite of what the funnel is for.
+            val vm =
+                LifecycleHarness(
+                    TestState.Idle,
+                    scope = vmScope(),
+                    diagnostics = ReportingThrowsDiagnostics(throwOnReport = true),
+                )
+
+            vm.startOperation { Result.failure<Unit>(IllegalStateException("inner")) }
+            advanceUntilIdle()
+
+            val state = vm.stateFlow.value
+            assertTrue(state is TestState.Error, "the failure still reaches state, got $state")
+            assertEquals("inner", state.message, "with the throwable's own message")
+        }
+
+    @Test
+    fun `a classify that throws falls back to the generic classification`() =
+        runTest {
+            // `classify` builds the user-facing message, so it is the one step that cannot be
+            // skipped. Its fallback is the generic classification — the throwable itself, the
+            // call-site label, the throwable's own message.
+            val vm =
+                LifecycleHarness(
+                    TestState.Idle,
+                    scope = vmScope(),
+                    diagnostics = ReportingThrowsDiagnostics(throwOnClassify = true),
+                )
+
+            vm.startOperation { Result.failure<Unit>(IllegalStateException("inner")) }
+            advanceUntilIdle()
+
+            val state = vm.stateFlow.value
+            assertTrue(state is TestState.Error, "the failure still reaches state, got $state")
+            assertEquals("inner", state.message)
+        }
+
+    @Test
+    fun `the reporting order is onBeforeReport, classify, report, onError`() =
+        runTest {
+            // Pinned because the order is a contract, not an implementation detail: a
+            // fail-open record written from `onError` rides along with the *next* report
+            // instead of the one it explains — the bug the `onBeforeReport` parameter exists
+            // for, and one no state assertion caught.
+            val order = mutableListOf<String>()
+            val diagnostics = RecordingMviDiagnostics()
+            val vm =
+                object : MviViewModel<TestState, TestIntent, VmEvent>(
+                    initialState = TestState.Idle,
+                    diagnostics = diagnostics,
+                    scope = vmScope(),
+                ) {
+                    fun drive() =
+                        catchTo(
+                            errorLabel = "op",
+                            onError = { _ -> order += "onError" },
+                            onBeforeReport = { order += "onBeforeReport" },
+                        ) { Result.failure<Unit>(IllegalStateException("inner")) }
+
+                    override fun onIntent(intent: TestIntent) = Unit
+                }
+
+            vm.drive()
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("onBeforeReport", "onError"),
+                order,
+                "the caller's callbacks in order; the channel's calls are asserted separately",
+            )
+            assertEquals(1, diagnostics.reports.size, "report happened between the two")
+        }
+
     // ── Scope ownership ──────────────────────────────────────────────────────
 
     @Test
@@ -439,6 +519,33 @@ class MviViewModelTest {
         }
 
     @Test
+    fun `two ViewModels with their own scopes do not cancel each other`() =
+        runTest {
+            // The ownership model the KDoc describes, asserted on the shape that gets it right.
+            // The library cannot detect the *wrong* shape (two ViewModels on one scope), so the
+            // model is pinned from the correct side: one scope per instance, and clearing one
+            // leaves the other's work running.
+            val gate = CompletableDeferred<Unit>()
+            val first = LifecycleHarness(TestState.Idle, scope = vmScope(), diagnostics = RecordingMviDiagnostics())
+            val second = LifecycleHarness(TestState.Idle, scope = vmScope(), diagnostics = RecordingMviDiagnostics())
+
+            val firstJob = first.startOperation { gate.await(); Result.success(Unit) }
+            val secondJob = second.startOperation { gate.await(); Result.success(Unit) }
+            runCurrent()
+            assertFalse(firstJob.isCancelled || secondJob.isCancelled, "both operations are in flight")
+
+            clearThroughLifecycle(first)
+            runCurrent()
+
+            assertTrue(firstJob.isCancelled, "clearing the first ViewModel cancels its own work")
+            assertFalse(secondJob.isCancelled, "the second ViewModel's work is untouched")
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertTrue(secondJob.isCompleted, "the second ViewModel still runs to completion")
+        }
+
+    @Test
     fun `clearing the viewmodel closes the event bus`() =
         runTest {
             val vm = LifecycleHarness(TestState.Idle, scope = vmScope(), diagnostics = RecordingMviDiagnostics())
@@ -468,4 +575,28 @@ class MviViewModelTest {
             assertEquals(1, warns.size, "one line per bus, not one per refusal: ${diagnostics.lines}")
             vm.stateFlow.value // the ViewModel is still usable after a refusal
         }
+}
+
+/**
+ * A [com.singularity.todo.core.ui.MviDiagnostics] whose calls fail, so the runtime's tolerance of
+ * a broken channel can be asserted rather than assumed.
+ */
+private class ReportingThrowsDiagnostics(
+    private val throwOnClassify: Boolean = false,
+    private val throwOnReport: Boolean = false,
+) : com.singularity.todo.core.ui.MviDiagnostics {
+    override fun classify(
+        error: Throwable,
+        errorLabel: String,
+    ): com.singularity.todo.core.ui.MviFailure {
+        if (throwOnClassify) error("classify failed")
+        return com.singularity.todo.core.ui.MviFailure(error, errorLabel, error.message ?: errorLabel)
+    }
+
+    override fun report(
+        error: Throwable,
+        issueKey: String,
+    ) {
+        if (throwOnReport) error("report failed")
+    }
 }

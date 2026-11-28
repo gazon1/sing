@@ -20,7 +20,19 @@ import com.singularity.todo.core.observability.CrashReportingPort
  *
  * @param port the crash reporter the ViewModel was constructed with.
  */
-class AppMviDiagnostics(private val port: CrashReportingPort) : MviDiagnostics {
+class AppMviDiagnostics(
+    private val port: CrashReportingPort,
+    /**
+     * Kermit logger, defaulted so every ViewModel constructs the adapter without knowing a tag
+     * exists.
+     *
+     * Injectable for the same reason `EventBus`'s was: the *severity* of a line is part of the
+     * contract — the release build filters below `Warn` — and only a test with a captured writer
+     * can prove which one was used. Asserting "it did not throw" would pass for an adapter that
+     * logged every line at debug, which is the defect this seam exists to catch.
+     */
+    private val log: Logger = Logger.withTag(TAG),
+) : MviDiagnostics {
     /**
      * Classifies [error] the way the base class always did, with the `AppError` knowledge
      * moved here.
@@ -67,8 +79,8 @@ class AppMviDiagnostics(private val port: CrashReportingPort) : MviDiagnostics {
         message: String,
     ) {
         when (level) {
-            MviLogLevel.Debug -> Logger.withTag(TAG).d { message }
-            MviLogLevel.Warn -> Logger.withTag(TAG).w { message }
+            MviLogLevel.Debug -> log.d { message }
+            MviLogLevel.Warn -> log.w { message }
         }
     }
 
@@ -81,11 +93,11 @@ class AppMviDiagnostics(private val port: CrashReportingPort) : MviDiagnostics {
             else -> errorLabel
         }
 
-    private companion object {
+    companion object {
         /** The tag the runtime's log lines have always carried. */
         const val TAG = "EventBus"
 
         /** The code of an error that does not name what went wrong. */
-        const val UNCLASSIFIED_ERROR_CODE = "error.unknown"
+        private const val UNCLASSIFIED_ERROR_CODE = "error.unknown"
     }
 }

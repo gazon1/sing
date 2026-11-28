@@ -31,10 +31,27 @@ package com.singularity.todo.core.ui
  * once and all three members answer the same question: what does this application do when
  * something fails.
  *
- * ## Contract
+ * ## Contract, and what happens when an implementation breaks it
  *
- * Implementations must not throw and must not block: [classify] runs on the failure arm of a
- * coroutine, and [report] is the same call a crash reporter already has to survive.
+ * Implementations must not throw and must not block: these calls run on the failure arm of a
+ * coroutine, where an exception has nowhere useful to go.
+ *
+ * The runtime does not take that on trust, because the three members have three different
+ * costs if they fail:
+ *
+ * - **[classify] is guarded.** It builds the message the user is about to see, so it is the one
+ *   step that cannot be skipped. If it throws, the runtime falls back to the generic
+ *   classification — the throwable itself, grouped by the call-site label — which is what
+ *   [NoOpMviDiagnostics] does.
+ * - **[report] is best-effort.** A crash reporter that throws must not turn a handled failure
+ *   into a lost one. Its exception is dropped: the message still reaches the screen, which is
+ *   the opposite of what happened before this guard existed.
+ * - **[log] is best-effort and already defaulted.** The runtime calls it from the event bus,
+ *   where a lost line costs a log line and nothing else.
+ *
+ * So a broken implementation degrades the diagnosis, never the error handling. A consumer that
+ * wants to know its adapter is broken should assert it in a test — the runtime will not raise it,
+ * because raising it would defeat the guard.
  */
 interface MviDiagnostics {
     /**
@@ -62,7 +79,13 @@ interface MviDiagnostics {
         issueKey: String,
     )
 
-    /** Records a diagnosis line. The default implementation is silent: a library has no sink. */
+    /**
+     * Records a diagnosis line. The default implementation is silent: a library has no sink.
+     *
+     * Called from the event bus for a refused or discarded event, so it is on a path where
+     * throwing would cost an event. The runtime does not guard it; the default cannot throw,
+     * and an implementation that does is a defect its own tests should catch.
+     */
     fun log(
         level: MviLogLevel,
         message: String,
@@ -101,7 +124,10 @@ object NoOpMviDiagnostics : MviDiagnostics {
         MviFailure(
             reportable = error,
             issueKey = errorLabel,
-            message = error.message ?: errorLabel,
+            // `?:` alone is not enough: `RuntimeException("")` has a message, and it is empty.
+            // An empty banner tells the user nothing, and the label is the only machine-shaped
+            // text available here.
+            message = error.message?.takeIf { it.isNotBlank() } ?: errorLabel,
         )
 
     override fun report(

@@ -164,26 +164,55 @@ internal object NoDivergentScopeAndReporterPolicy {
             .firstOrNull { it.valueArgumentList?.arguments?.isNotEmpty() == true }
 
     /**
-     * True when the base-constructor call hands over a `diagnostics` derived from `crashReporter`.
+     * True when the base-constructor call hands over `AppMviDiagnostics(crashReporter)`.
      *
-     * A reference check for the same reason [defaultReferencesReporter] is one: telling a real
-     * derivation from a coincidence would need type resolution. What it rules out is the shape
-     * that actually appears — the argument simply not there.
+     * ## Why the shape is checked, not the presence of a name
+     *
+     * An earlier version accepted any expression whose *text* contained `crashReporter`, which
+     * accepts this:
+     *
+     * ```
+     * diagnostics = NoOpMviDiagnostics.also { println(crashReporter) }
+     * ```
+     *
+     * The reporter is named, nothing is reported, and the rule stays green. A substring match is
+     * not a check of a dependency — it is a check of a spelling.
+     *
+     * ## The contract this pins
+     *
+     * The supported syntax is exactly the call that does the right thing: a constructor or
+     * factory call whose name contains `MviDiagnostics`, with the reporter among its arguments,
+     * named (`crashReporter = crashReporter`) or positional. That is the one-line form every
+     * ViewModel in the tree uses, and it is deliberately narrow: a cleverer adapter is a legal
+     * implementation of the port but not something a textual rule can verify, so the rule refuses
+     * it and says what to write. Wrong-loud beats wrong-quiet, and the alternative — a rule that
+     * accepts anything mentioning the reporter — is the artefact this repository keeps finding.
      */
     fun diagnosticsDerivedFromReporter(superCall: KtSuperTypeCallEntry): Boolean {
         val argument =
             superCall.valueArgumentList?.arguments
                 ?.firstOrNull { it.getArgumentName()?.asName?.identifier == "diagnostics" }
                 ?: return false
-        return argument.getArgumentExpression()?.text?.contains("crashReporter") == true
+        val expression = argument.getArgumentExpression() as? KtCallExpression ?: return false
+
+        val callee = expression.calleeExpression?.text ?: return false
+        if (!callee.contains("MviDiagnostics")) return false
+
+        return expression.valueArguments.any { passed ->
+            val text = passed.getArgumentExpression()?.text
+            text == "crashReporter"
+        }
     }
 
     fun superCallMessage(className: String?): String =
-        "$className declares `crashReporter` but does not pass a `diagnostics` derived from it to " +
-            "its base class. The MVI runtime does not know what a crash reporter is, so the " +
-            "argument is the only thing that connects the two: without it the base falls back to " +
-            "a silent default and every handled failure loses its grouping key and its " +
-            "user-facing message, quietly. Pass `diagnostics = AppMviDiagnostics(crashReporter)`."
+        "$className declares `crashReporter` but does not pass it to its base class as " +
+            "`diagnostics`. The MVI runtime does not know what a crash reporter is, so that " +
+            "argument is the only thing connecting the two: without it the base falls back to a " +
+            "silent default and every handled failure loses its grouping key and its user-facing " +
+            "message, quietly. Pass `diagnostics = AppMviDiagnostics(crashReporter)`. The rule " +
+            "checks that shape: an adapter call naming `MviDiagnostics` with the reporter as an " +
+            "argument. A different adapter is legal at runtime but not verifiable here, so it " +
+            "must be spelled in a way this rule can read, or the rule should be taught it."
 
     fun hasScopeArgument(arguments: KtValueArgumentList): Boolean =
         arguments.arguments.any { it.getArgumentName()?.asName?.identifier == "scope" }

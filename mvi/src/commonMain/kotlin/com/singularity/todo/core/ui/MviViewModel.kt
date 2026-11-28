@@ -34,20 +34,34 @@ import kotlinx.coroutines.launch
  * `suspend` so callers can [emit] straight from it — the non-suspend variants forced
  * every call site to wrap the emit in a nested `launch`.
  *
- * ## Scope ownership is a contract, not a convenience
+ * ## Scope ownership is a contract, and only half of it is machine-checked
  * [scope] is required and the ViewModel owns it: the caller creates it for this instance,
- * and this class cancels its `Job` when the ViewModel is cleared. Three rules follow, and
- * all three are checked rather than trusted:
+ * and this class cancels its `Job` when the ViewModel is cleared.
  *
- * - **A `Job` must be present.** A context without one would make teardown a silent no-op
- *   and leak every coroutine the ViewModel launched, so a missing `Job` is a construction
- *   error.
- * - **No shared scope.** Passing an application or process-wide scope is a contract
- *   violation: clearing this ViewModel would cancel unrelated work.
- * - **A child scope is parented explicitly.** For a scope that has to be tied to a parent,
- *   pass `SupervisorJob(parent.coroutineContext[Job])` in the context. `CoroutineContext +
- *   SupervisorJob()` with no parent argument *replaces* the context's `Job` with an
- *   independent one, which is not a child scope.
+ * **What is checked.** [scope] must carry a `Job`. A context without one would make teardown
+ * a silent no-op and leak every coroutine the ViewModel launched, so a missing `Job` is a
+ * construction error — the one part of this contract a constructor can enforce.
+ *
+ * **What is not checked, and cannot be.** Whether the scope is *exclusive to this instance*.
+ * Two ViewModels handed the same `CoroutineScope` look identical from here, and clearing one
+ * cancels the other's work:
+ *
+ * ```
+ * val shared = CoroutineScope(SupervisorJob())
+ * val first = FirstViewModel(scope = shared)   // constructing these is legal
+ * val second = SecondViewModel(scope = shared) // clearing `first` cancels `second`
+ * ```
+ *
+ * No heuristic can tell that apart from a correct parent/child pair, and a library that guessed
+ * would fail the legitimate case to catch the wrong one. So the rule is a contract on the
+ * caller, not a validation: **create one scope per ViewModel instance.** A composition root
+ * that builds scopes is where this belongs, and `:mvi` does not own that decision — which is
+ * also why the module publishes no scope factory.
+ *
+ * **A child scope is parented explicitly.** For a scope that has to be tied to a parent, pass
+ * `SupervisorJob(parent.coroutineContext[Job])` in the context. `CoroutineContext +
+ * SupervisorJob()` with no parent argument *replaces* the context's `Job` with an independent
+ * one, which is not a child scope — and the ViewModel would cancel a `Job` nothing else owns.
  *
  * ## Usage
  * ```
@@ -239,12 +253,69 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
                     error
                 }
             if (failure != null) {
+                // Order matters and is part of the contract: onBeforeReport, then classify,
+                // then report, then onError — a breadcrumb the error path emits cannot be
+                // recorded ahead of the event it relates to, and a fail-open record travels
+                // *with* the report rather than after it.
+                //
+                // What the reporting channel is allowed to cost is not the same for each step:
+                //
+                // - `onBeforeReport` and `onError` are the caller's own code. If they throw, that
+                //   is a defect in the caller and it escapes to the scope's handler, where a
+                //   defect belongs.
+                // - `classify` builds the message the user is about to see, so it is the one step
+                //   that cannot be skipped. It is called inside the guard below: if it fails,
+                //   the failure's own message is the fallback.
+                // - `report` is best-effort telemetry. A crash reporter that throws must not
+                //   turn a handled failure into a lost one — before this guard, a reporter
+                //   exception propagated out of `catchTo` and the user saw nothing at all,
+                //   which is the precise opposite of what the funnel is for.
                 onBeforeReport(failure)
-                val classified = diagnostics.classify(failure, errorLabel)
-                diagnostics.report(classified.reportable, classified.issueKey)
+                val classified = classifyOrFallBack(failure, errorLabel)
+                reportOrIgnore(classified)
                 onError(classified.message)
             }
         }
+
+    /**
+     * [MviDiagnostics.classify], with a fallback for an implementation that throws.
+     *
+     * The message this returns is what the user sees, so the one step that must not be skipped
+     * cannot be. The fallback is the generic classification — the throwable itself, grouped by
+     * the call-site label, saying the throwable's own message — which is exactly what
+     * [NoOpMviDiagnostics] does.
+     */
+    private fun classifyOrFallBack(
+        error: Throwable,
+        errorLabel: String,
+    ): MviFailure =
+        try {
+            diagnostics.classify(error, errorLabel)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (@Suppress("TooGenericExceptionCaught") ignored: Exception) {
+            // A diagnostics implementation that throws is a defect in the consumer, but the
+            // failure it was asked about still has to reach the user.
+            NoOpMviDiagnostics.classify(error, errorLabel)
+        }
+
+    /**
+     * [MviDiagnostics.report], best-effort.
+     *
+     * Telemetry that fails is not the failure being reported. Swallowing the reporter's own
+     * exception is the point: it has no other destination (the port's contract already forbids
+     * throwing, and a second report about a failed report would need somewhere to go), and
+     * letting it escape would take the user-facing message with it.
+     */
+    private fun reportOrIgnore(failure: MviFailure) {
+        try {
+            diagnostics.report(failure.reportable, failure.issueKey)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (@Suppress("TooGenericExceptionCaught") ignored: Exception) {
+            // See the KDoc: best-effort, and the user-facing message is not this call's to lose.
+        }
+    }
 
     /**
      * [catchTo] for the common case: a failure becomes a one-shot [E] built from the message.

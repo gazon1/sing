@@ -2,6 +2,10 @@
 
 package com.singularity.todo.core.ui
 
+import co.touchlab.kermit.LogWriter
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.Severity
+import co.touchlab.kermit.loggerConfigInit
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import org.junit.jupiter.api.Tag
@@ -80,14 +84,62 @@ class AppMviDiagnosticsTest {
     }
 
     @Test
-    fun `the diagnostic log lines do not throw and carry the message`() {
-        // Kermit's default writer is the platform's; the assertion here is only that the adapter
-        // routes both levels without throwing on a path that sits inside a failure handler.
-        val diagnostics = AppMviDiagnostics(RecordingCrashReportingPort())
+    fun `a debug line is logged at debug, under the runtime's tag`() {
+        val writer = CapturingLogWriter()
+        val diagnostics = AppMviDiagnostics(RecordingCrashReportingPort(), logger(writer))
 
         diagnostics.log(MviLogLevel.Debug, "a debug line")
+
+        val line = writer.entries.single()
+        assertEquals(Severity.Debug, line.severity, "a discard log must stay below the release filter")
+        assertEquals(AppMviDiagnostics.TAG, line.tag)
+        assertEquals("a debug line", line.message)
+    }
+
+    @Test
+    fun `a warn line is logged at warn, under the runtime's tag`() {
+        // The severity is the contract, not the fact that a call happened: a release build
+        // filters below Warn, so a full-buffer refusal written at debug would not exist in the
+        // build where a missing snackbar gets reported.
+        val writer = CapturingLogWriter()
+        val diagnostics = AppMviDiagnostics(RecordingCrashReportingPort(), logger(writer))
+
         diagnostics.log(MviLogLevel.Warn, "a warn line")
 
-        assertTrue(true, "log() completed for both levels")
+        val line = writer.entries.single()
+        assertEquals(Severity.Warn, line.severity, "warn is what release keeps")
+        assertEquals(AppMviDiagnostics.TAG, line.tag)
+        assertEquals("a warn line", line.message)
+    }
+
+    @Test
+    fun `the adapter's logger is silent by default, so a constructed ViewModel logs nothing of its own`() {
+        // The default is Kermit's global logger, not a capturing one — the assertion here is the
+        // default's *shape*, not its output: constructing the adapter with two arguments must
+        // stay legal, because that is what every ViewModel does.
+        val diagnostics = AppMviDiagnostics(RecordingCrashReportingPort())
+
+        diagnostics.log(MviLogLevel.Warn, "routed through Kermit's default writer")
+
+        assertTrue(true, "the two-argument form compiles and does not throw")
     }
 }
+
+/** Captures what the adapter logs, so severity, tag and message can be asserted. */
+private class CapturingLogWriter : LogWriter() {
+    data class Entry(val severity: Severity, val message: String, val tag: String)
+
+    val entries: MutableList<Entry> = mutableListOf()
+
+    override fun log(
+        severity: Severity,
+        message: String,
+        tag: String,
+        throwable: Throwable?,
+    ) {
+        entries += Entry(severity, message, tag)
+    }
+}
+
+private fun logger(writer: CapturingLogWriter): Logger =
+    Logger(loggerConfigInit(writer), AppMviDiagnostics.TAG)

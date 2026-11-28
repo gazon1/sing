@@ -224,6 +224,69 @@ class NoDivergentScopeAndReporterRuleTest {
     }
 
     @Test
+    fun `an expression that mentions the reporter but reports nothing is reported`() {
+        // The exact shape a substring check accepts and a real one must refuse: the reporter is
+        // named, no adapter receives it, and every handled failure would be silently discarded.
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                ) : MviViewModel<State, Intent, Event>(
+                    initialState = State(),
+                    diagnostics = NoOpMviDiagnostics.also { println(crashReporter) },
+                    scope = scope,
+                )
+                """.trimIndent(),
+            )
+        assertEquals(1, findings.size, "naming the reporter is not the same as reporting through it")
+    }
+
+    @Test
+    fun `a constant diagnostics that happens to be an adapter call is reported`() {
+        // Present, adapter-shaped, and connected to nothing: `AppMviDiagnostics` built from some
+        // other reporter is not this ViewModel's reporter.
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                ) : MviViewModel<State, Intent, Event>(
+                    initialState = State(),
+                    diagnostics = AppMviDiagnostics(NoOpCrashReportingPort()),
+                    scope = scope,
+                )
+                """.trimIndent(),
+            )
+        assertEquals(1, findings.size, "the argument has to carry *this* reporter")
+    }
+
+    @Test
+    fun `a positionally passed reporter is accepted`() {
+        // The rule reads arguments, not names, so the one-argument form is legal — refusing it
+        // would fail a correct ViewModel and teach the next author to suppress the rule.
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                ) : MviViewModel<State, Intent, Event>(
+                    initialState = State(),
+                    diagnostics = AppMviDiagnostics(crashReporter),
+                    scope = scope,
+                )
+                """.trimIndent(),
+            )
+        assertTrue(findings.isEmpty(), "the positional form names the same reporter, got $findings")
+    }
+
+    @Test
     fun `the super-call message names the fix`() {
         val message = NoDivergentScopeAndReporterPolicy.superCallMessage("SomeViewModel")
         assertTrue(

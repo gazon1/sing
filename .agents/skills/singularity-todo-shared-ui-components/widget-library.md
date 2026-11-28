@@ -162,9 +162,12 @@ fun TasksScreen(...) {
 }
 ```
 
-`MviViewModel(extraEventCapacity = …)` sizes the bus when the default `Channel.BUFFERED`
-does not fit a screen; see `singularity-todo-mvi-framework` for the delivery, backpressure
-and close semantics.
+**The event bus capacity is not configurable from `MviViewModel`.** `extraEventCapacity` was
+deleted in #3270: it had zero callers, and the default `Channel.BUFFERED` is the right size for a
+single consumer. `EventBus(capacity = …)` still takes one, but the bus inside a ViewModel is
+private — a screen that genuinely needs a different capacity constructs its own `EventBus`, which
+no production code does today. Delivery, backpressure and close semantics:
+`singularity-todo-mvi-framework`.
 
 ### The `NotificationHost` mapper — sealed interface gotcha
 
