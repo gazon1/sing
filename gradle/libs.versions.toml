@@ -99,7 +99,7 @@ turbine = "1.2.1"
 kotlinxCollectionsImmutable = "0.5.2"
 
 # FileKit
-filekit = "0.17.0"
+filekit = "0.17.1"
 
 # Rich Text Editor
 rich-editor = "1.2.1"
